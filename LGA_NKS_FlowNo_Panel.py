@@ -33,8 +33,7 @@ class ColorChangeWidget(QWidget):
             {"name": "Rev_Javi", "color": QColor(143, 63, 114), "style": "#8f3f72", "action": "color"},
             {"name": "Rev_Dir", "color": QColor(199, 155, 183), "style": "#bf95b0", "action": "color"},
             {"name": "Approved", "color": QColor(36, 76, 25), "style": "#244c19", "action": "color"},
-            {"name": "Rev Sup_Den", "color": QColor(82, 61, 128), "style": "#523d80", "action": "color"},
-            {"name": "Rev_Dir_D", "color": QColor(77, 33, 168), "style": "#4d21a8", "action": "color"},
+            {"name": "Rev Dir Den", "color": QColor(77, 33, 168), "style": "#4d21a8", "action": "color"},
         ]
 
         

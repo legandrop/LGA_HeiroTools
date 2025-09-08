@@ -137,12 +137,6 @@ class ColorChangeWidget(QWidget):
                 "action": "color",
             },
             {
-                "name": "Rev Sup Den",
-                "color": QColor(82, 61, 128),
-                "style": "#523d80",
-                "action": "color",
-            },
-            {
                 "name": "Rev Dir Den",
                 "color": QColor(77, 33, 168),
                 "style": "#4d21a8",

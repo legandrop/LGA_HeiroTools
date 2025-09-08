@@ -67,14 +67,14 @@ class ViewerPanel(QWidget):
                 "Ctrl+Shift+.",
             ),
             (
-                "Prev Rev_Lega",
+                "Prev Rev Lega",
                 self.prev_rev_lega,
                 "#69135e",
                 "Ctrl+Alt+Shift+,",
                 "Ctrl+Alt+Shift+,",
             ),
             (
-                "Next Rev_Lega",
+                "Next Rev Lega",
                 self.next_rev_lega,
                 "#69135e",
                 "Ctrl+Alt+Shift+.",

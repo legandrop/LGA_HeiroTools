@@ -17,7 +17,7 @@ La ventana para introducir una nota se activa cuando el estado de la tarea se ca
 *   **"Corrections"** (que se traduce a `corr` en ShotGrid)
 *   **"Corrs_Lega"** (que se traduce a `revleg` en ShotGrid)
 *   **"Rev_Dir"** (que se traduce a `rev_di` en ShotGrid)
-*   **"Rev_Lega"** (que se traduce a `revleg` en ShotGrid)
+*   **"Rev Lega"** (que se traduce a `revleg` en ShotGrid)
 *   **"Rev_Hold"** (que se traduce a `revhld` en ShotGrid)
 
 Este mecanismo asegura que, para estados que a menudo requieren aclaraciones o retroalimentación, se pueda adjuntar fácilmente un mensaje relevante.

@@ -3,7 +3,7 @@ ________________________________________________________________________________
 
   LGA_NKS_PrevNext_Rev v1.2 - 2024 - Lega
 
-  Busca el clip anterior o siguiente con estado Rev_Lega o Rev_Sup
+  Busca el clip anterior o siguiente con estado Rev Lega o Rev Sup
   y ajusta la vista:
   1. Obtiene la posición actual del playhead.
   2. Encuentra el clip más cercano con el color especificado en la dirección indicada.

@@ -52,13 +52,12 @@ status_translation = {
     "Corrections": "corr",
     "Corrs_Lega": "revleg",
     "Rev Sebas": "rev_su",
-    "Rev_Javi": "revjav",
-    "Rev_Lega": "revleg",
-    "Rev_Dir": "rev_di",
+    "Rev Javi": "revjav",
+    "Rev Lega": "revleg",
+    "Rev Dir": "rev_di",
     "Approved": "apr",
     "Delivery Ok": "check",
-    "Rev Sup_Den": "rev_su",
-    "Rev_Dir_D": "rev_di",
+    "Rev Dir Den": "rev_di",
     "Rev_Hold": "revhld",
 }
 

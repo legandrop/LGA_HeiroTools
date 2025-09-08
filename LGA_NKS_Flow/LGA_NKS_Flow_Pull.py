@@ -86,8 +86,8 @@ class ShotGridManager:
             "progre": ("In Progress", "#7d4cff", None),
             "corr": ("Corrections", "#2e77d4", "Corrections"),
             "rev_su": ("Review Sup", "#a3557e", "Rev Sebas"),
-            "revjav": ("Review Javi", "#8f3f72", "Rev_Javi"),
-            "revleg": ("Review Lega", "#69135e", "Rev_Lega"),
+            "revjav": ("Review Javi", "#8f3f72", "Rev Javi"),
+            "revleg": ("Review Lega", "#69135e", "Rev Lega"),
             "revhld": ("Review Hold", "#933100", "Rev_Hold"),
             "rev_di": ("Review Dir", "#98c054", "ReviewDir"),
             "pubsh": ("Publish", "#244c19", "Approved"),
@@ -334,8 +334,7 @@ class HieroOperations:
         self.gui_table = gui_table  # Almacenar la referencia a GUI_Table
         self.hiero_status_dict = {
             "v_00": "#8a8a8a",
-            "Rev Sup_Den": "#523d80",
-            "Rev_Dir_D": "#4d21a8",
+            "Rev Dir Den": "#4d21a8",
         }
 
     def parse_exr_name(self, file_name):
