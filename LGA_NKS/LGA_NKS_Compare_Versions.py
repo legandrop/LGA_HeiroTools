@@ -1,7 +1,7 @@
 """
 ______________________________________________________________________
 
-  LGA_NKS_Compare_Versions v1.0 - 2024 - Lega
+  LGA_NKS_Compare_Versions v1.1 | Lega
   Crea un nuevo track con una version anterior del clip seleccionado
   y pone al track en modo difference
 ______________________________________________________________________
@@ -11,6 +11,7 @@ ______________________________________________________________________
 import hiero.core
 import hiero.ui
 from PySide2.QtGui import QColor
+
 
 def copy_clip():
     # Obtener la secuencia activa en el timeline
@@ -36,6 +37,7 @@ def copy_clip():
     copied_clip = clip.copy()
     print(f"Copied clip: {clip.name()}")
     return copied_clip, clip.timelineIn(), clip.timelineOut() - clip.timelineIn() + 1
+
 
 def reorder_tracks_and_add_compare(seq):
     # Verificar si ya existe un track llamado "COMPARE"
@@ -69,7 +71,9 @@ def reorder_tracks_and_add_compare(seq):
         compare_track = hiero.core.VideoTrack("COMPARE")
 
         # Reinsertar los tracks en el orden deseado, incluyendo el nuevo track antes de "EXR"
-        reordered_tracks = video_tracks[:exr_index] + [compare_track] + video_tracks[exr_index:]
+        reordered_tracks = (
+            video_tracks[:exr_index] + [compare_track] + video_tracks[exr_index:]
+        )
         for track in reordered_tracks:
             seq.addTrack(track)
 
@@ -77,8 +81,9 @@ def reorder_tracks_and_add_compare(seq):
         print(f"Reordered video tracks: {[track.name() for track in reordered_tracks]}")
     else:
         print("Track 'COMPARE' already exists.")
-        
+
     return compare_track
+
 
 def paste_clip_to_compare(compare_track, copied_clip, start_time, duration):
     if not compare_track or not copied_clip:
@@ -88,7 +93,10 @@ def paste_clip_to_compare(compare_track, copied_clip, start_time, duration):
     compare_track.addItem(copied_clip)
     copied_clip.setTimelineIn(start_time)
     copied_clip.setTimelineOut(start_time + duration - 1)
-    print(f"Pasted clip '{copied_clip.name()}' to track COMPARE at start time {start_time}")
+    print(
+        f"Pasted clip '{copied_clip.name()}' to track COMPARE at start time {start_time}"
+    )
+
 
 def toggle_blend_mode_for_exr(seq):
     # Volver a encontrar el track llamado "EXR" despues de agregar el track "COMPARE"
@@ -111,6 +119,7 @@ def toggle_blend_mode_for_exr(seq):
         exr_track.setBlendMode("difference")
         print(f"Blend mode 'Difference' activado para el track 'EXR'.")
 
+
 def self_replace_clip(copied_clip):
     try:
         if isinstance(copied_clip, hiero.core.EffectTrackItem):
@@ -127,10 +136,11 @@ def self_replace_clip(copied_clip):
     except Exception as e:
         print(f"Error replacing clip: {e}")
 
+
 def scan_and_downgrade_clip_version(clip):
     def get_all_versions(binItem):
         versions = binItem.items()
-        return sorted(versions, key=lambda v: int(v.name().split('_v')[-1]))
+        return sorted(versions, key=lambda v: int(v.name().split("_v")[-1]))
 
     vc = hiero.core.VersionScanner()
     bin_item = clip.source().binItem()
@@ -141,7 +151,7 @@ def scan_and_downgrade_clip_version(clip):
     if versions:
         current_version = bin_item.activeVersion()
         current_version_index = versions.index(current_version)
-        
+
         if current_version_index > 0:
             previous_version = versions[current_version_index - 1]
             bin_item.setActiveVersion(previous_version)
@@ -150,6 +160,7 @@ def scan_and_downgrade_clip_version(clip):
             print(f"{clip.name()} is already at the oldest version available.")
     else:
         print(f"No versions found for clip: {clip.name()}")
+
 
 def main(selected_clip=None):
     # Obtener la secuencia activa en el timeline
@@ -160,15 +171,27 @@ def main(selected_clip=None):
 
     # Iniciar una accion de undo para las primeras operaciones
     project = seq.project()
-    project.beginUndo("Copy Clip, Reorder Tracks, Paste Clip to COMPARE, and Set EXR to Difference")
+    project.beginUndo(
+        "Copy Clip, Reorder Tracks, Paste Clip to COMPARE, and Set EXR to Difference"
+    )
 
     try:
         # Copiar el clip seleccionado
         if selected_clip:
-            copied_clip, start_time, duration = selected_clip.copy(), selected_clip.timelineIn(), selected_clip.timelineOut() - selected_clip.timelineIn() + 1
+            copied_clip_data = (
+                selected_clip.copy(),
+                selected_clip.timelineIn(),
+                selected_clip.timelineOut() - selected_clip.timelineIn() + 1,
+            )
         else:
-            copied_clip, start_time, duration = copy_clip()
-        
+            copied_clip_data = copy_clip()
+
+        if copied_clip_data is None:
+            return
+
+        copied_clip, start_time, duration = copied_clip_data
+
+        # Manejo adicional si copied_clip es None despues del desempaquetado (aunque copied_clip_data is None deberia cubrirlo)
         if not copied_clip:
             return
 
@@ -180,9 +203,15 @@ def main(selected_clip=None):
         if not compare_track:
             return
 
+        # Limpiar el track COMPARE antes de pegar el nuevo clip para evitar duplicados
+        # Se convierte a lista para permitir la modificacion durante la iteracion
+        for item in list(compare_track.items()):
+            compare_track.removeItem(item)
+        print(f"Track 'COMPARE' limpiado de items anteriores.")
+
         # Pegar el clip copiado en el track COMPARE
         paste_clip_to_compare(compare_track, copied_clip, start_time, duration)
-        
+
         # Cambiar el modo del track EXR a "difference"
         toggle_blend_mode_for_exr(seq)
     except Exception as e:
