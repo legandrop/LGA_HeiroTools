@@ -29,10 +29,11 @@ class ColorChangeWidget(QWidget):
             {"name": "Clear Tag", "color": None, "style": "#1f1f1f", "action": None},  # Nuevo boton
             {"name": "Corrections", "color": QColor(46, 119, 212), "style": "#2e77d4", "action": "color"},
             {"name": "Corrs_Lega", "color": QColor(105, 19, 94), "style": "#69135e", "action": "color"},
-            {"name": "Rev_Sup", "color": QColor(163, 85, 126), "style": "#a3557e", "action": "color"},
+            {"name": "Rev Sebas", "color": QColor(163, 85, 126), "style": "#a3557e", "action": "color"},
+            {"name": "Rev_Javi", "color": QColor(143, 63, 114), "style": "#8f3f72", "action": "color"},
             {"name": "Rev_Dir", "color": QColor(199, 155, 183), "style": "#bf95b0", "action": "color"},
             {"name": "Approved", "color": QColor(36, 76, 25), "style": "#244c19", "action": "color"},
-            {"name": "Rev_Sup_D", "color": QColor(82, 61, 128), "style": "#523d80", "action": "color"},
+            {"name": "Rev Sup_Den", "color": QColor(82, 61, 128), "style": "#523d80", "action": "color"},
             {"name": "Rev_Dir_D", "color": QColor(77, 33, 168), "style": "#4d21a8", "action": "color"},
         ]
 

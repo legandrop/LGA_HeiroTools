@@ -51,12 +51,13 @@ from PySide2.QtGui import QKeySequence, QPixmap
 status_translation = {
     "Corrections": "corr",
     "Corrs_Lega": "revleg",
-    "Rev_Sup": "rev_su",
+    "Rev Sebas": "rev_su",
+    "Rev_Javi": "revjav",
     "Rev_Lega": "revleg",
     "Rev_Dir": "rev_di",
     "Approved": "apr",
     "Delivery Ok": "check",
-    "Rev_Sup_D": "rev_su",
+    "Rev Sup_Den": "rev_su",
     "Rev_Dir_D": "rev_di",
     "Rev_Hold": "revhld",
 }

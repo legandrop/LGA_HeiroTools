@@ -53,14 +53,14 @@ class ViewerPanel(QWidget):
                 "Ctrl+Shift+U",
             ),
             (
-                "Prev Rev_Sup",
+                "Prev Rev Sebas",
                 self.prev_rev_sup,
                 "#a3557e",
                 "Ctrl+Shift+,",
                 "Ctrl+Shift+,",
             ),
             (
-                "Next Rev_Sup",
+                "Next Rev Sebas",
                 self.next_rev_sup,
                 "#a3557e",
                 "Ctrl+Shift+.",
