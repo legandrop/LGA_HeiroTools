@@ -67,6 +67,16 @@ class ViewerPanel(QWidget):
                 "Ctrl+Shift+.",
             ),
             (
+                "Prev Rev Javi",
+                self.prev_rev_javi,
+                "#8f3f72",
+            ),
+            (
+                "Next Rev Javi",
+                self.next_rev_javi,
+                "#8f3f72",
+            ),
+            (
                 "Prev Rev Lega",
                 self.prev_rev_lega,
                 "#69135e",
@@ -249,6 +259,12 @@ class ViewerPanel(QWidget):
 
     def next_rev_lega(self):
         self.execute_prevnext_rev("next", "lega")
+
+    def prev_rev_javi(self):
+        self.execute_prevnext_rev("prev", "javi")
+
+    def next_rev_javi(self):
+        self.execute_prevnext_rev("next", "javi")
 
     def execute_prevnext_rev(self, direction, rev_type):
         try:
