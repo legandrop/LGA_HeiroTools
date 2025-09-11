@@ -1,7 +1,7 @@
 """
 _____________________________________________________________
 
-  LGA_NKS_Flow_Push v3.70 | Lega
+  LGA_NKS_Flow_Push v3.71 | Lega
 
   Envia a flow nuevos estados de las tasks comps.
   En algunos estados permite enviar un mensaje a la version
@@ -14,7 +14,6 @@ _____________________________________________________________
 
 import os
 import re
-import shotgun_api3
 import sqlite3
 import platform
 import glob
@@ -25,6 +24,55 @@ import datetime
 import subprocess  # Importar subprocess para abrir archivos
 import sys
 from pathlib import Path
+
+# Configuración del Python personalizado para Windows
+WINDOWS_PYTHON_PATH = r"C:\Portable\LGA\PipeSync\python_runtime\windows\python.exe"
+
+# Variable global para activar o desactivar los prints // En esta version el Debug se imprime al final del script
+DEBUG = False
+debug_messages = []
+
+def debug_print(message):
+    if DEBUG:
+        debug_messages.append(message)
+
+def should_use_custom_python():
+    """Determina si se debe usar el Python personalizado en Windows"""
+    return platform.system() == "Windows" and os.path.exists(WINDOWS_PYTHON_PATH)
+
+def restart_with_custom_python():
+    """Reinicia el script usando el Python personalizado"""
+    if not should_use_custom_python():
+        return False
+
+    try:
+        # Obtener la ruta completa del script actual
+        current_script = os.path.abspath(__file__)
+
+        # Preparar los argumentos de línea de comandos
+        args = [WINDOWS_PYTHON_PATH, current_script] + sys.argv[1:]
+
+        debug_print(f"Reiniciando con Python personalizado: {WINDOWS_PYTHON_PATH}")
+        debug_print(f"Comando: {' '.join(args)}")
+
+        # Ejecutar el script con el Python personalizado
+        result = subprocess.run(args, capture_output=False, text=True)
+
+        # Salir del proceso actual
+        sys.exit(result.returncode)
+
+    except Exception as e:
+        debug_print(f"Error al reiniciar con Python personalizado: {e}")
+        return False
+
+# Verificar si se debe usar Python personalizado y reiniciar si es necesario
+if should_use_custom_python() and not getattr(sys, '_custom_python_restarted', False):
+    # Marcar que ya se intentó reiniciar para evitar bucles
+    sys._custom_python_restarted = True
+    restart_with_custom_python()
+
+# Ahora sí importar shotgun_api3 después de verificar el Python
+import shotgun_api3
 
 # Importar el módulo de configuración segura
 sys.path.append(str(Path(__file__).parent))
@@ -60,15 +108,6 @@ status_translation = {
     "Rev Dir Den": "rev_di",
     "Rev_Hold": "revhld",
 }
-
-# Variable global para activar o desactivar los prints // En esta version el Debug se imprime al final del script
-DEBUG = False
-debug_messages = []
-
-
-def debug_print(message):
-    if DEBUG:
-        debug_messages.append(message)
 
 
 def find_review_images(base_name):
