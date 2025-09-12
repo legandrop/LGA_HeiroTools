@@ -1,7 +1,7 @@
 """
 _____________________________________________________________
 
-  LGA_NKS_Flow_Push v3.74 | Lega
+  LGA_NKS_Flow_Push v3.75 | Lega
 
   Envia a flow nuevos estados de las tasks comps.
   En algunos estados permite enviar un mensaje a la version
@@ -63,7 +63,7 @@ status_translation = {
 }
 
 # Variable global para activar o desactivar los prints // En esta version el Debug se imprime al final del script
-DEBUG = True
+DEBUG = False
 debug_messages = []
 
 

@@ -18,6 +18,20 @@ if os.path.exists(shotgun_path):
 
 import shotgun_api3
 
+# Diccionario de traduccion de estados (igual que en el script principal)
+status_translation = {
+    "Corrections": "corr",
+    "Corrs_Lega": "revleg",
+    "Rev Sebas": "rev_su",
+    "Rev Javi": "revjav",
+    "Rev Lega": "revleg",
+    "Rev Dir": "rev_di",
+    "Approved": "apr",
+    "Delivery Ok": "check",
+    "Rev Dir Den": "rev_di",
+    "Rev_Hold": "revhld",
+}
+
 # Variable global para activar o desactivar los prints
 DEBUG = False
 
