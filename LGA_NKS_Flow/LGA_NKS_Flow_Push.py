@@ -1,7 +1,7 @@
 """
 _____________________________________________________________
 
-  LGA_NKS_Flow_Push v3.73 | Lega
+  LGA_NKS_Flow_Push v3.74 | Lega
 
   Envia a flow nuevos estados de las tasks comps.
   En algunos estados permite enviar un mensaje a la version
@@ -1121,7 +1121,7 @@ def Push_Task_Status(button_name, base_name, update_callback=None):
     review_images = []
     should_delete_images = False
     sg_status = status_translation.get(button_name, None)
-    if sg_status in ["rev_di", "corr", "revleg", "revhld"]:
+    if sg_status in ["rev_di", "corr", "revleg", "revhld", "revjav"]:
         app = QApplication.instance()
         if app is None:
             app = QApplication([])
@@ -1142,7 +1142,7 @@ def Push_Task_Status(button_name, base_name, update_callback=None):
     # Esto evita congelar la UI mientras se consulta Flow
 
     # Una vez que el usuario ha confirmado (o no hay problema de versiones), proceder con las actualizaciones
-    if sg_status in ["rev_di", "corr", "revleg", "revhld"]:
+    if sg_status in ["rev_di", "corr", "revleg", "revhld", "revjav"]:
         worker = Worker(
             button_name,
             base_name,

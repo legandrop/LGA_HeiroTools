@@ -368,7 +368,7 @@ def execute_full_push_operation(sg_manager, button_name, base_name, message, rev
         # Buscar versión más alta y actualizar estados
         sg_highest_version, sg_version_number, user_id = sg_manager.find_highest_version_for_shot(shot["id"])
 
-        if sg_status in ["rev_di", "corr", "revleg"]:
+        if sg_status in ["rev_di", "corr", "revleg", "revjav"]:
             debug_print(f"Actualizando versión a vwd")
             sg_manager.update_version_status(project_name, shot_code, version_number_str, "vwd")
 

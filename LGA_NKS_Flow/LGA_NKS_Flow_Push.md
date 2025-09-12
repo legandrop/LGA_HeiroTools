@@ -1,26 +1,41 @@
 # LGA_NKS_Flow_Push
 
-Este script Python, `LGA_NKS_Flow_Push.py`, está diseñado para automatizar la gestión de estados de tareas y versiones dentro de ShotGrid (anteriormente conocido como Flow) para proyectos relacionados con Nuke y Hiero. Su propósito principal es mantener la información de los proyectos actualizada y sincronizada entre ShotGrid y una base de datos SQLite local.
+Este sistema consta de dos componentes principales que automatizan la gestión de estados de tareas y versiones en ShotGrid para proyectos de Nuke/Hiero:
+
+* **`LGA_NKS_Flow/LGA_NKS_Flow_Push.py`** - Interfaz principal y lógica de UI (corre en Hiero/Nuke)
+* **`LGA_NKS_Flow/flow_connector.py`** - Operaciones de red optimizadas (corre con Python personalizado)
+
+Su propósito principal es mantener sincronizada la información entre ShotGrid y una base de datos SQLite local (`pipesync.db`), optimizando el rendimiento mediante arquitectura distribuida.
 
 ## Funcionalidades Principales:
 
-*   **Actualización de Estados en ShotGrid:** Permite cambiar el estado de las tareas de Nuke/Hiero en ShotGrid, reflejando el progreso del trabajo.
-*   **Sincronización con Base de Datos Local:** Mantiene una base de datos SQLite local (`pipesync.db`) sincronizada con los cambios realizados en ShotGrid, asegurando que la información esté disponible y accesible localmente.
-*   **Gestión de Versiones:** Identifica y trabaja con las versiones de los `comps` (composiciones) de Nuke/Hiero, permitiendo actualizar sus estados.
-*   **Notas para Versiones:** En ciertos estados específicos, el script abre una pequeña ventana de diálogo (`Input Dialog`) para que el usuario pueda introducir una nota o comentario. Esta nota se envía a ShotGrid y se asocia a la versión correspondiente, proporcionando un registro claro de los cambios o las razones detrás de una actualización de estado.
-*   **Integración con ReviewPic:** El diálogo de notas ahora incluye automáticamente thumbnails de las imágenes de review capturadas previamente con el script `LGA_NKS_ReviewPic.py`, facilitando la referencia visual durante el proceso de revisión.
+*   **Arquitectura Optimizada:** Separa UI (Hiero/Nuke) de operaciones de red (Python personalizado) para evitar conflictos de dependencias y mejorar rendimiento.
+*   **Actualización de Estados en ShotGrid:** Permite cambiar el estado de las tareas de Nuke/Hiero en ShotGrid mediante operaciones optimizadas que minimizan llamadas de red.
+*   **Sincronización con Base de Datos Local:** Mantiene una base de datos SQLite local (`pipesync.db`) sincronizada con los cambios realizados en ShotGrid.
+*   **Gestión de Versiones Asíncrona:** Identifica versiones y realiza verificaciones sin congelar la interfaz de usuario.
+*   **Notas para Versiones:** En ciertos estados específicos, abre un diálogo para introducir comentarios que se envían a ShotGrid con adjuntos visuales.
+*   **Integración con ReviewPic:** El diálogo incluye thumbnails de imágenes capturadas, adjuntándolas automáticamente a las notas en ShotGrid.
 
 ## Estados que Solicitan una Nota:
 
 La ventana para introducir una nota se activa cuando el estado de la tarea se cambia a uno de los siguientes:
 
-*   **"Corrections"** (que se traduce a `corr` en ShotGrid)
-*   **"Corrs_Lega"** (que se traduce a `revleg` en ShotGrid)
-*   **"Rev_Dir"** (que se traduce a `rev_di` en ShotGrid)
-*   **"Rev Lega"** (que se traduce a `revleg` en ShotGrid)
-*   **"Rev_Hold"** (que se traduce a `revhld` en ShotGrid)
+*   **"Corrections"** (se traduce a `corr` en ShotGrid)
+*   **"Corrs_Lega"** (se traduce a `revleg` en ShotGrid)
+*   **"Rev_Dir"** (se traduce a `rev_di` en ShotGrid)
+*   **"Rev Lega"** (se traduce a `revleg` en ShotGrid)
+*   **"Rev Javi"** (se traduce a `revjav` en ShotGrid)
+*   **"Rev_Hold"** (se traduce a `revhld` en ShotGrid)
 
-Este mecanismo asegura que, para estados que a menudo requieren aclaraciones o retroalimentación, se pueda adjuntar fácilmente un mensaje relevante.
+## Arquitectura y Rendimiento:
+
+El sistema utiliza una arquitectura distribuida optimizada:
+
+* **Separación de responsabilidades:** UI corre en Hiero/Nuke, operaciones de red en Python personalizado
+* **Operaciones asíncronas:** Todas las llamadas a ShotGrid se ejecutan en hilos separados para evitar congelamiento de UI
+* **Operación completa optimizada:** Una sola llamada `execute_full_push` reemplaza múltiples operaciones individuales
+* **Verificación de versiones asíncrona:** Se realiza en background sin bloquear la interfaz
+* **Timeouts inteligentes:** 10 segundos para operaciones normales, 30 segundos para subida de imágenes
 
 ## Integración con ReviewPic:
 
@@ -43,9 +58,16 @@ Cuando se abre el diálogo para introducir notas, el script automáticamente:
 8. **Organización Automática:** Las imágenes se organizan automáticamente por carpetas que siguen el patrón `{proyecto}_{secuencia}_{shot}_{task}_v{version}`, manteniéndose sincronizadas con el flujo de trabajo de revisión.
 
 ### Funciones Clave:
-- **`find_review_images(base_name)`**: Localiza imágenes en `Python/Startup/LGA_NKS_Flow/ReviewPic_Cache/`
-- **`attach_images_to_note(note_id, version_id, image_paths)`**: Sube imágenes a ShotGrid con números de frame
-- **`extract_frame_number_from_path(image_path)`**: Extrae números de frame de nombres de archivo
-- **`delete_review_pic_cache()`**: Borra el caché solo si la operación fue exitosa
+
+**En `LGA_NKS_Flow/LGA_NKS_Flow_Push.py`:**
+- **`Push_Task_Status()`**: Función principal que inicia el proceso de actualización de estados
+- **`call_flow_connector()`**: Puente que comunica con el conector externo de forma asíncrona
+- **`handle_version_check_result()`**: Maneja confirmaciones de versión del usuario
+- **`find_review_images()`**: Localiza imágenes en `LGA_NKS_Flow/ReviewPic_Cache/`
+
+**En `LGA_NKS_Flow/flow_connector.py`:**
+- **`execute_full_push_operation()`**: Operación completa que actualiza estado, versión y comentarios en una sola llamada
+- **`execute_flow_operation()`**: Dispatcher principal para todas las operaciones de red
+- **`attach_images_to_note()`**: Sube imágenes a ShotGrid con números de frame
 
 Esta integración permite a los usuarios revisar visualmente las imágenes capturadas previamente mientras escriben sus notas de revisión, adjuntarlas automáticamente a ShotGrid con información de frame, y opcionalmente limpiar el caché local después del envío exitoso.
