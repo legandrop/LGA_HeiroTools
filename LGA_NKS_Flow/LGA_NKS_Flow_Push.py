@@ -1,7 +1,7 @@
 """
 _____________________________________________________________
 
-  LGA_NKS_Flow_Push v3.70 | Lega
+  LGA_NKS_Flow_Push v3.73 | Lega
 
   Envia a flow nuevos estados de las tasks comps.
   En algunos estados permite enviar un mensaje a la version
@@ -101,13 +101,19 @@ def call_flow_connector(operation, **kwargs):
 
         debug_print(f"Llamando conector: {' '.join(cmd)}")
 
+        # Timeout dinámico basado en la operación
+        if operation == "attach_images":
+            timeout_seconds = 30  # Más tiempo para subir imágenes
+        else:
+            timeout_seconds = 10  # Tiempo normal para otras operaciones
+
         # Ejecutar conector
         result = subprocess.run(
             cmd,
             input=json.dumps(kwargs),
             capture_output=True,
             text=True,
-            timeout=30  # Timeout más corto para operaciones individuales
+            timeout=timeout_seconds
         )
 
         if result.returncode == 0:
@@ -802,6 +808,7 @@ class WorkerSignals(QObject):
     result_ready = Signal(str, int, int)
     task_finished = Signal(bool)  # Ahora incluye el estado de exito
     debug_output = Signal()  # Nueva señal para imprimir logs
+    version_check_result = Signal(dict)  # Nueva señal para resultado de verificación de versiones
 
 
 class Worker(QRunnable):
@@ -809,7 +816,6 @@ class Worker(QRunnable):
         self,
         button_name,
         base_name,
-        sg_manager,
         message,
         review_images=None,
         should_delete_images=False,
@@ -817,7 +823,6 @@ class Worker(QRunnable):
         super(Worker, self).__init__()
         self.button_name = button_name
         self.base_name = base_name
-        self.sg_manager = sg_manager
         self.message = message
         self.review_images = review_images or []
         self.should_delete_images = should_delete_images
@@ -826,6 +831,91 @@ class Worker(QRunnable):
     @Slot()
     def run(self):
         db_manager = DBManager()  # Crear la conexión en el hilo correcto
+        success = False
+
+        try:
+            debug_print(f"Worker: Iniciando operación {self.button_name} para {self.base_name}")
+
+            # PRIMERO: Verificar versiones de forma asíncrona (a menos que se indique saltar)
+            skip_check = getattr(self, 'skip_version_check', False)
+
+            if not skip_check:
+                version_check = call_flow_connector("check_version", base_name=self.base_name)
+
+                if version_check["success"] and version_check["needs_confirmation"]:
+                    # Emitir señal para que el hilo principal muestre el diálogo
+                    debug_print("Worker: Se necesita confirmación del usuario para versiones")
+                    self.signals.version_check_result.emit(version_check)
+                    # El Worker terminará aquí, el hilo principal continuará cuando el usuario confirme
+                    return
+
+                # Si no necesita confirmación, continuar con la operación normal
+                debug_print("Worker: No se necesita confirmación, procediendo con la operación")
+            else:
+                debug_print("Worker: Saltando verificación de versiones (ya confirmada por usuario)")
+
+            # Usar la operación optimizada que hace todo en una sola llamada
+            result = call_flow_connector("execute_full_push",
+                                       button_name=self.button_name,
+                                       base_name=self.base_name,
+                                       message=self.message,
+                                       review_images=self.review_images)
+
+            if result["success"]:
+                debug_print("Worker: Operación de red completada exitosamente")
+                success = True
+
+                # Si fue exitoso, actualizar también la base de datos local
+                self.update_local_database(db_manager)
+            else:
+                debug_print(f"Worker: Error en operación de red: {result.get('error', 'Unknown error')}")
+                success = False
+
+        except Exception as e:
+            debug_print(f"Worker: Exception in Worker.run: {e}")
+            success = False
+        finally:
+            # Cerrar la conexión a la base de datos
+            if db_manager:
+                db_manager.close()
+
+            # Borrar imagenes SOLO si se completó exitosamente y el usuario lo solicitó
+            if success and self.should_delete_images:
+                debug_print("Worker: Operacion exitosa: Borrando carpeta ReviewPic_Cache como solicitó el usuario")
+                delete_review_pic_cache()
+            elif not success and self.should_delete_images:
+                debug_print("Worker: Operacion fallida: NO se borra la carpeta ReviewPic_Cache")
+
+            self.signals.task_finished.emit(success)
+            self.signals.debug_output.emit()  # Emitir señal al finalizar
+
+    def continue_after_version_check(self):
+        """Método para continuar la operación después de que el usuario confirme la versión"""
+        debug_print("Worker: Continuando después de verificación de versiones")
+
+        # Crear una nueva instancia del Worker con skip_version_check=True
+        new_worker = Worker(
+            self.button_name,
+            self.base_name,
+            self.message,
+            self.review_images,
+            self.should_delete_images
+        )
+
+        # Conectar las mismas señales
+        new_worker.signals.result_ready.connect(self.signals.result_ready)
+        new_worker.signals.task_finished.connect(self.signals.task_finished)
+        new_worker.signals.debug_output.connect(self.signals.debug_output)
+        new_worker.signals.version_check_result.connect(self.signals.version_check_result)
+
+        # Marcar que debe saltar la verificación de versiones
+        new_worker.skip_version_check = True
+
+        # Ejecutar el nuevo Worker
+        QThreadPool.globalInstance().start(new_worker)
+
+    def update_local_database(self, db_manager):
+        """Actualiza la base de datos local con los cambios"""
         try:
             project_name = self.base_name.split("_")[0]
             parts = self.base_name.split("_")
@@ -837,205 +927,61 @@ class Worker(QRunnable):
                     version_number_str = part
                     break
 
-            if version_number_str:
-                version_number = int(version_number_str.replace("v", ""))
-                debug_print(f"Shot code: {shot_code}, Version number: {version_number}")
-            else:
-                debug_print(
-                    "Error: No se encontro un numero de version valido en el nombre del archivo."
-                )
+            if not version_number_str:
                 return
 
             version_index = parts.index(version_number_str)
             task_name = parts[version_index - 1].lower()
+            sg_status = status_translation.get(self.button_name, None)
 
-            debug_print(
-                f"Buscando shot y tareas para el proyecto: {project_name}, Shot: {shot_code}"
-            )
-            project, shot, tasks = self.sg_manager.find_shot_and_tasks(
-                project_name, shot_code
-            )
+            if not sg_status:
+                return
 
-            if shot:
-                debug_print(f"Shot encontrado: {shot['code']} (ID: {shot['id']})")
+            # Buscar shot en base de datos local
+            db_shot = db_manager.find_shot(project_name, shot_code)
+            if not db_shot:
+                debug_print(f"Worker: No se encontró el shot {shot_code} en la base de datos local")
+                return
 
-                # Realizar las actualizaciones en ShotGrid
-                sg_status = status_translation.get(self.button_name, None)
-                if sg_status:
-                    task_id = None
-                    task_assignee_id = None
-                    for task in tasks:
-                        if task["content"].lower() == task_name:
-                            debug_print(
-                                f"Actualizando tarea: {task['content']} (ID: {task['id']})"
-                            )
-                            self.sg_manager.update_task_status(task["id"], sg_status)
-                            task_id = task["id"]
-                            task_assignee_id = self.sg_manager.get_task_assignee(
-                                task_id
-                            )
+            # Buscar tarea en base de datos local
+            db_task = db_manager.find_task(db_shot["id"], task_name)
+            if not db_task:
+                debug_print(f"Worker: No se encontró la tarea {task_name} en la base de datos local")
+                return
 
-                            # Actualizar en base de datos local si existe
-                            db_shot = db_manager.find_shot(project_name, shot_code)
-                            if db_shot:
-                                db_task = db_manager.find_task(db_shot["id"], task_name)
-                                if db_task:
-                                    debug_print(
-                                        f"Actualizando estado de tarea local (ID: {db_task['id']}) a: {sg_status}"
-                                    )
-                                    db_manager.update_task_status(
-                                        db_task["id"], sg_status
-                                    )
+            # Actualizar estado de tarea local
+            debug_print(f"Worker: Actualizando estado de tarea local (ID: {db_task['id']}) a: {sg_status}")
+            db_manager.update_task_status(db_task["id"], sg_status)
 
-                                    # Obtener la última versión para esta tarea
-                                    latest_version = db_manager.find_latest_version(
-                                        db_task["id"]
-                                    )
-                                    if latest_version:
-                                        # Decidir qué estado aplicar a la versión dependiendo del estado de la tarea
-                                        version_status = None
-                                        if sg_status == "rev_di" or sg_status == "corr":
-                                            version_status = "vwd"
-                                        elif sg_status == "rev_su":
-                                            version_status = "rev"
-                                        elif sg_status == "revleg":
-                                            version_status = "unvleg"
+            # Obtener la última versión para esta tarea
+            latest_version = db_manager.find_latest_version(db_task["id"])
+            if latest_version:
+                # Decidir qué estado aplicar a la versión dependiendo del estado de la tarea
+                version_status = None
+                if sg_status == "rev_di" or sg_status == "corr":
+                    version_status = "vwd"
+                elif sg_status == "rev_su":
+                    version_status = "rev"
+                elif sg_status == "revleg":
+                    version_status = "unvleg"
 
-                                        if version_status:
-                                            debug_print(
-                                                f"Actualizando estado de versión local (ID: {latest_version['id']}, version: {latest_version['version_number']}) a: {version_status}"
-                                            )
-                                            db_manager.update_version_status(
-                                                db_task["id"],
-                                                latest_version["version_number"],
-                                                version_status,
-                                            )
-
-                                        # Añadir nota si hay mensaje
-                                        if self.message:
-                                            debug_print(
-                                                f"Añadiendo nota a versión local (ID: {latest_version['id']})"
-                                            )
-                                            db_manager.add_version_note(
-                                                latest_version["id"], self.message
-                                            )
-                                else:
-                                    debug_print(
-                                        f"No se encontró la tarea: {task_name} en la base de datos local"
-                                    )
-                            else:
-                                debug_print(
-                                    f"No se encontró el shot: {shot_code} en la base de datos local"
-                                )
-                            break
-
-                    # Buscar la versión más alta para obtener su ID y usuario para los comentarios
-                    sg_highest_version, sg_version_number, user_id = (
-                        self.sg_manager.find_highest_version_for_shot(shot["id"])
-                    )
-
-                    if sg_status == "rev_di" or sg_status == "corr":
-                        debug_print(
-                            f"Actualizando version del Shot: {shot_code}, Version: {version_number_str} a: vwd"
-                        )
-                        self.sg_manager.update_version_status(
-                            project_name, shot_code, version_number_str, "vwd"
-                        )
-                        project_id = project["id"]
-                        try:
-                            if self.message and sg_highest_version:
-                                debug_print(
-                                    f"Agregando comentario a la version (ID: {sg_highest_version['id']}): {self.message}"
-                                )
-                                created_note = self.sg_manager.add_comment_to_version(
-                                    sg_highest_version["id"],
-                                    project_id,
-                                    self.message,
-                                    user_id,
-                                    task_assignee_id,
-                                    shot["id"],
-                                )
-
-                                # Adjuntar imagenes si existen y se creo la nota
-                                if created_note and self.review_images:
-                                    debug_print(
-                                        f"Adjuntando {len(self.review_images)} imagenes a la nota"
-                                    )
-                                    self.sg_manager.attach_images_to_note(
-                                        created_note["id"],
-                                        sg_highest_version["id"],
-                                        self.review_images,
-                                    )
-                        except Exception as e:
-                            debug_print(f"Error while adding comment to version: {e}")
-                    elif sg_status == "rev_su":
-                        debug_print(
-                            f"Actualizando version del Shot: {shot_code}, Version: {version_number_str} a: rev"
-                        )
-                        self.sg_manager.update_version_status(
-                            project_name, shot_code, version_number_str, "rev"
-                        )
-                    elif sg_status == "revleg":
-                        debug_print(
-                            f"Actualizando version del Shot: {shot_code}, Version: {version_number_str} a: unvleg"
-                        )
-                        self.sg_manager.update_version_status(
-                            project_name, shot_code, version_number_str, "unvleg"
-                        )
-                        project_id = project["id"]
-                        try:
-                            if self.message and sg_highest_version:
-                                debug_print(
-                                    f"Agregando comentario a la version (ID: {sg_highest_version['id']}): {self.message}"
-                                )
-                                created_note = self.sg_manager.add_comment_to_version(
-                                    sg_highest_version["id"],
-                                    project_id,
-                                    self.message,
-                                    user_id,
-                                    task_assignee_id,
-                                    shot["id"],
-                                )
-
-                                # Adjuntar imagenes si existen y se creo la nota
-                                if created_note and self.review_images:
-                                    debug_print(
-                                        f"Adjuntando {len(self.review_images)} imagenes a la nota"
-                                    )
-                                    self.sg_manager.attach_images_to_note(
-                                        created_note["id"],
-                                        sg_highest_version["id"],
-                                        self.review_images,
-                                    )
-                        except Exception as e:
-                            debug_print(f"Error while adding comment to version: {e}")
-                else:
+                if version_status:
                     debug_print(
-                        f"No se encontro un estado valido para: {self.button_name}"
+                        f"Worker: Actualizando estado de versión local (ID: {latest_version['id']}, version: {latest_version['version_number']}) a: {version_status}"
                     )
-            else:
-                debug_print(f"No se encontro el Shot con el codigo: {shot_code}")
-            # Marcar como exitoso si llegamos hasta aqui sin excepciones
-            success = True
+                    db_manager.update_version_status(
+                        db_task["id"],
+                        latest_version["version_number"],
+                        version_status,
+                    )
+
+                # Añadir nota si hay mensaje
+                if self.message:
+                    debug_print(f"Worker: Añadiendo nota a versión local (ID: {latest_version['id']})")
+                    db_manager.add_version_note(latest_version["id"], self.message)
+
         except Exception as e:
-            debug_print(f"Exception in Worker.run: {e}")
-            success = False
-        finally:
-            # Cerrar la conexión a la base de datos
-            if db_manager:
-                db_manager.close()
-
-            # Borrar imagenes SOLO si se completó exitosamente y el usuario lo solicitó
-            if success and self.should_delete_images:
-                debug_print(
-                    "Operacion exitosa: Borrando carpeta ReviewPic_Cache como solicitó el usuario"
-                )
-                delete_review_pic_cache()
-            elif not success and self.should_delete_images:
-                debug_print("Operacion fallida: NO se borra la carpeta ReviewPic_Cache")
-
-            self.signals.task_finished.emit(success)
-            self.signals.debug_output.emit()  # Emitir señal al finalizar
+            debug_print(f"Worker: Error actualizando base de datos local: {e}")
 
 
 class MessageBoxManager:
@@ -1132,10 +1078,36 @@ def handle_results(info, sg_version_number, version_number):
         msg_manager.show_warning_message(info)
 
 
+def handle_version_check_result(version_check_result, worker, update_callback):
+    """Maneja el resultado de la verificación de versiones desde el Worker"""
+    debug_print("Manejando resultado de verificación de versiones")
+
+    if version_check_result["needs_confirmation"]:
+        # Mostrar diálogo de confirmación en el hilo principal
+        local_version = version_check_result["local_version"]
+        flow_version = version_check_result["flow_version"]
+        base_name = version_check_result["base_name"]
+
+        debug_print(f"Mostrando diálogo de confirmación: v{local_version} vs v{flow_version}")
+
+        # Mostrar el diálogo y esperar respuesta del usuario
+        if show_version_dialog(base_name, local_version, flow_version):
+            # Usuario confirmó, continuar con la operación
+            debug_print("Usuario confirmó, continuando con la operación")
+            # Aquí podríamos crear un nuevo Worker o continuar el actual
+            # Por simplicidad, vamos a crear un nuevo Worker sin verificación
+            worker.continue_after_version_check()
+        else:
+            debug_print("Usuario canceló la operación")
+            # Emitir señal de finalización con fallo
+            worker.signals.task_finished.emit(False)
+            worker.signals.debug_output.emit()
+
+
 def Push_Task_Status(button_name, base_name, update_callback=None):
     global msg_manager
 
-    # Obtener las credenciales desde la configuración encriptada
+    # Verificar que tengamos las credenciales disponibles
     sg_url, sg_login, sg_password = get_flow_credentials()
 
     if not sg_url or not sg_login or not sg_password:
@@ -1143,8 +1115,6 @@ def Push_Task_Status(button_name, base_name, update_callback=None):
             "No se pudieron obtener las credenciales de Flow desde la configuración encriptada."
         )
         return False  # Retornar False si faltan credenciales
-
-    sg_manager = ShotGridManager(sg_url, sg_login, sg_password)
 
     # Primero solicitar el mensaje al usuario para ciertos estados
     message = None
@@ -1168,75 +1138,34 @@ def Push_Task_Status(button_name, base_name, update_callback=None):
         should_delete_images = bool(input_dialog.should_delete_images())
         print_debug_messages()  # Imprimir logs después de obtener la información del diálogo
 
-    # Ahora extraer información del nombre base y verificar versiones
-    try:
-        project_name = base_name.split("_")[0]
-        parts = base_name.split("_")
-        shot_code = "_".join(parts[:5])
-
-        # Extraer número de versión
-        version_number_str = None
-        for part in parts:
-            if part.startswith("v") and part[1:].isdigit():
-                version_number_str = part
-                break
-
-        if not version_number_str:
-            debug_print(
-                "Error: No se encontró un número de versión válido en el nombre del archivo."
-            )
-            return False
-
-        local_version = int(version_number_str.replace("v", ""))
-
-        # Verificar versión en Flow ANTES de hacer cualquier cambio
-        project, shot, _ = sg_manager.find_shot_and_tasks(project_name, shot_code)
-        if not shot:
-            debug_print(f"No se encontró el Shot con el código: {shot_code}")
-            return False
-
-        sg_highest_version, sg_version_number, _ = (
-            sg_manager.find_highest_version_for_shot(shot["id"])
-        )
-        if not sg_highest_version:
-            debug_print(
-                f"No se encontró la versión más alta para el Shot (ID: {shot['id']})"
-            )
-        elif sg_version_number and int(sg_version_number) > local_version:
-            # Si la versión en Flow es mayor, mostrar el diálogo y preguntar si desea continuar
-            debug_print(
-                f"Versión local ({local_version}) es menor que la versión en Flow ({sg_version_number})"
-            )
-            if not show_version_dialog(base_name, local_version, sg_version_number):
-                debug_print(
-                    "Usuario canceló la operación debido a diferencia de versiones"
-                )
-                return False  # El usuario decidió no continuar
-    except Exception as e:
-        debug_print(f"Error durante la verificación de versiones: {e}")
-        # Continuamos con el proceso aunque falle la verificación
+    # No hacer verificación de versiones aquí - se hace en el Worker
+    # Esto evita congelar la UI mientras se consulta Flow
 
     # Una vez que el usuario ha confirmado (o no hay problema de versiones), proceder con las actualizaciones
     if sg_status in ["rev_di", "corr", "revleg", "revhld"]:
         worker = Worker(
             button_name,
             base_name,
-            sg_manager,
             message,
             review_images,
             should_delete_images,
         )
+        # Conectar señales
         worker.signals.result_ready.connect(handle_results)
-        worker.signals.debug_output.connect(
-            lambda: print_debug_messages()
-        )  # Conectar nueva señal
+        worker.signals.debug_output.connect(lambda: print_debug_messages())
+        worker.signals.version_check_result.connect(
+            lambda result: handle_version_check_result(result, worker, update_callback)
+        )
         if update_callback:
             worker.signals.task_finished.connect(update_callback)
         QThreadPool.globalInstance().start(worker)
     else:
-        worker = Worker(button_name, base_name, sg_manager, None, [], False)
+        worker = Worker(button_name, base_name, None, [], False)
         worker.signals.result_ready.connect(handle_results)
         worker.signals.debug_output.connect(lambda: print_debug_messages())
+        worker.signals.version_check_result.connect(
+            lambda result: handle_version_check_result(result, worker, update_callback)
+        )
         if update_callback:
             worker.signals.task_finished.connect(update_callback)
         QThreadPool.globalInstance().start(worker)

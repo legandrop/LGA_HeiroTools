@@ -314,6 +314,96 @@ class ShotGridManager:
             return None
 
 
+def execute_full_push_operation(sg_manager, button_name, base_name, message, review_images):
+    """
+    Ejecuta todo el proceso de push en una sola operación para mayor eficiencia
+    """
+    try:
+        debug_print(f"Ejecutando push completo: {button_name} para {base_name}")
+
+        # Parsear el nombre base
+        project_name = base_name.split("_")[0]
+        parts = base_name.split("_")
+        shot_code = "_".join(parts[:5])
+
+        version_number_str = None
+        for part in parts:
+            if part.startswith("v") and part[1:].isdigit():
+                version_number_str = part
+                break
+
+        if not version_number_str:
+            return {"success": False, "error": "No se encontró número de versión válido"}
+
+        version_number = int(version_number_str.replace("v", ""))
+        version_index = parts.index(version_number_str)
+        task_name = parts[version_index - 1].lower()
+
+        debug_print(f"Proyecto: {project_name}, Shot: {shot_code}, Task: {task_name}, Version: {version_number}")
+
+        # Buscar proyecto, shot y tareas
+        project, shot, tasks = sg_manager.find_shot_and_tasks(project_name, shot_code)
+        if not shot:
+            return {"success": False, "error": f"No se encontró el shot {shot_code}"}
+
+        # Encontrar la tarea correspondiente
+        sg_status = status_translation.get(button_name)
+        if not sg_status:
+            return {"success": False, "error": f"No se encontró estado válido para {button_name}"}
+
+        task_id = None
+        task_assignee_id = None
+
+        for task in tasks:
+            if task["content"].lower() == task_name:
+                debug_print(f"Actualizando tarea: {task['content']} (ID: {task['id']})")
+                sg_manager.update_task_status(task["id"], sg_status)
+                task_id = task["id"]
+                task_assignee_id = sg_manager.get_task_assignee(task_id)
+                break
+
+        if not task_id:
+            return {"success": False, "error": f"No se encontró la tarea {task_name}"}
+
+        # Buscar versión más alta y actualizar estados
+        sg_highest_version, sg_version_number, user_id = sg_manager.find_highest_version_for_shot(shot["id"])
+
+        if sg_status in ["rev_di", "corr", "revleg"]:
+            debug_print(f"Actualizando versión a vwd")
+            sg_manager.update_version_status(project_name, shot_code, version_number_str, "vwd")
+
+            # Agregar comentario si hay mensaje
+            if message and sg_highest_version:
+                debug_print(f"Agregando comentario a versión {sg_highest_version['id']}")
+                created_note = sg_manager.add_comment_to_version(
+                    sg_highest_version["id"], project["id"], message,
+                    user_id, task_assignee_id, shot["id"]
+                )
+
+                # Adjuntar imágenes si existen y se creó la nota
+                if created_note and review_images:
+                    debug_print(f"Adjuntando {len(review_images)} imágenes")
+                    sg_manager.attach_images_to_note(
+                        created_note["id"], sg_highest_version["id"], review_images
+                    )
+
+        elif sg_status == "rev_su":
+            debug_print(f"Actualizando versión a rev")
+            sg_manager.update_version_status(project_name, shot_code, version_number_str, "rev")
+
+        elif sg_status == "revleg":
+            debug_print(f"Actualizando versión a unvleg")
+            sg_manager.update_version_status(project_name, shot_code, version_number_str, "unvleg")
+
+        debug_print("Push completado exitosamente")
+        return {"success": True, "message": "Push completado exitosamente"}
+
+    except Exception as e:
+        error_msg = f"Error en push completo: {str(e)}"
+        debug_print(error_msg)
+        return {"success": False, "error": error_msg}
+
+
 def execute_flow_operation(operation, **kwargs):
     """
     Función principal que ejecuta operaciones de Flow
@@ -413,6 +503,54 @@ def execute_flow_operation(operation, **kwargs):
             image_paths = kwargs.get('image_paths', [])
             success = sg_manager.attach_images_to_note(note_id, version_id, image_paths)
             return {"success": success}
+
+        elif operation == "execute_full_push":
+            # Operación optimizada que hace todo el push de una vez
+            button_name = kwargs.get('button_name')
+            base_name = kwargs.get('base_name')
+            message = kwargs.get('message')
+            review_images = kwargs.get('review_images', [])
+
+            return execute_full_push_operation(sg_manager, button_name, base_name, message, review_images)
+
+        elif operation == "check_version":
+            # Verificación de versiones para evitar congelar UI
+            base_name = kwargs.get('base_name')
+
+            # Parsear el nombre base
+            project_name = base_name.split("_")[0]
+            parts = base_name.split("_")
+            shot_code = "_".join(parts[:5])
+
+            version_number_str = None
+            for part in parts:
+                if part.startswith("v") and part[1:].isdigit():
+                    version_number_str = part
+                    break
+
+            if not version_number_str:
+                return {"success": True, "needs_confirmation": False}  # Continuar sin verificación
+
+            local_version = int(version_number_str.replace("v", ""))
+
+            # Buscar shot en Flow
+            project, shot, _ = sg_manager.find_shot_and_tasks(project_name, shot_code)
+            if not shot:
+                return {"success": True, "needs_confirmation": False}  # Continuar sin verificación
+
+            # Buscar versión más alta
+            sg_highest_version, sg_version_number, _ = sg_manager.find_highest_version_for_shot(shot["id"])
+
+            if sg_highest_version and sg_version_number and int(sg_version_number) > local_version:
+                return {
+                    "success": True,
+                    "needs_confirmation": True,
+                    "local_version": local_version,
+                    "flow_version": int(sg_version_number),
+                    "base_name": base_name
+                }
+
+            return {"success": True, "needs_confirmation": False}
 
         else:
             return {"success": False, "error": f"Operación no soportada: {operation}"}
