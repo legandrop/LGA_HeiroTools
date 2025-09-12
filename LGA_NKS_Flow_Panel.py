@@ -96,14 +96,14 @@ class ColorChangeWidget(QWidget):
             # {"name": "Corrs_Lega", "color": QColor(105, 19, 94), "style": "#69135e", "action": "color"},
             {
                 "name": "Rev Sebas",
-                "color": QColor(163, 85, 126),
-                "style": "#a3557e",
+                "color": QColor(189, 127, 159),
+                "style": "#bd7f9f",
                 "action": "color",
             },
             {
                 "name": "Rev Javi",
-                "color": QColor(143, 63, 114),
-                "style": "#8f3f72",
+                "color": QColor(156, 62, 94),
+                "style": "#9c3e5e",
                 "action": "color",
             },
             {

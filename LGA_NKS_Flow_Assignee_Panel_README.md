@@ -32,7 +32,7 @@ El panel LGA_NKS_Flow_Assignee_Panel carga dinámicamente la lista de usuarios d
         },
         {
             "name": "Sebas Romano", 
-            "color": "#a3557e",
+            "color": "#bd7f9f",
             "wasabi_user": "Sebastian_Romano"
         },
         {

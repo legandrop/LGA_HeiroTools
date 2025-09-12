@@ -122,7 +122,7 @@ class AssigneePanel(QWidget):
         default_config = {
             "users": [
                 {"name": "Lega Pugliese", "color": "#69135e"},
-                {"name": "Sebas Romano", "color": "#a3557e"},
+                {"name": "Sebas Romano", "color": "#bd7f9f"},
                 {"name": "Patricio Barreiro", "color": "#19335D"},
                 {"name": "Mariel Falco", "color": "#665621"},
             ]

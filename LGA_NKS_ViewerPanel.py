@@ -55,26 +55,26 @@ class ViewerPanel(QWidget):
             (
                 "Prev Rev Sebas",
                 self.prev_rev_sup,
-                "#a3557e",
+                "#bd7f9f",
                 "Ctrl+Shift+,",
                 "Ctrl+Shift+,",
             ),
             (
                 "Next Rev Sebas",
                 self.next_rev_sup,
-                "#a3557e",
+                "#bd7f9f",
                 "Ctrl+Shift+.",
                 "Ctrl+Shift+.",
             ),
             (
                 "Prev Rev Javi",
                 self.prev_rev_javi,
-                "#8f3f72",
+                "#9c3e5e",
             ),
             (
                 "Next Rev Javi",
                 self.next_rev_javi,
-                "#8f3f72",
+                "#9c3e5e",
             ),
             (
                 "Prev Rev Lega",
