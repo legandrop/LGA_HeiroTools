@@ -1,6 +1,6 @@
 """
 ____________________________________________________________________________
-  LGA_NKS_Flow_Pull v3.23 | Lega Pugliese
+  LGA_NKS_Flow_Pull v3.24 | Lega Pugliese
   Compara los estados de las task Comp de los shots del timeline de Hiero
   con los estados registrados en un archivo JSON basado en Flow PT
   Tambien aplica tags con los colores de los estados en xyplorer
@@ -359,12 +359,21 @@ class HieroOperations:
 
     def get_current_clip_color(self, item):
         """Obtiene el color actual del clip."""
-        bin_item = item.source().binItem()
-        if item.source().mediaSource().isMediaPresent():
-            active_version = bin_item.activeVersion()
-            if active_version:
-                current_color = bin_item.color()
-                return current_color.name()  # Retorna el color en formato hexadecimal
+        try:
+            # Verificar si el clip tiene media presente antes de intentar acceder a propiedades
+            if not item.source().mediaSource().isMediaPresent():
+                debug_print(f"Clip offline detectado: {item.name()}")
+                return None
+
+            bin_item = item.source().binItem()
+            if bin_item:
+                active_version = bin_item.activeVersion()
+                if active_version:
+                    current_color = bin_item.color()
+                    return current_color.name()  # Retorna el color en formato hexadecimal
+        except Exception as e:
+            debug_print(f"Error obteniendo color del clip {item.name()}: {e}")
+            return None
         return None
 
     def add_row_to_table(
@@ -457,27 +466,47 @@ class HieroOperations:
         return "#ffffff" if self.luminance(color) < 128 else "#000000"
 
     def change_clip_color(self, item, new_color_hex, task_status, task_name, shot_code):
-        current_color_hex = self.get_current_clip_color(item)
-        current_status = self.get_status_name_by_color(current_color_hex)
-        # No cambiar el color si las condiciones especificas se cumplen
-        if current_color_hex == new_color_hex:
+        try:
+            current_color_hex = self.get_current_clip_color(item)
+            current_status = self.get_status_name_by_color(current_color_hex)
+
+            # Si no se puede obtener el color actual (clip offline), asumir estado desconocido
+            if current_color_hex is None:
+                debug_print(f"No se puede obtener color actual del clip {item.name()}, asumiendo estado desconocido")
+                current_status = "Unknown"
+
+            # No cambiar el color si las condiciones especificas se cumplen
+            if current_color_hex == new_color_hex:
+                return ""
+            if current_status == "v_00" and (
+                task_status == "Not Ready To Start" or task_status == "Ready To Start"
+            ):
+                return ""
+            if task_status == "In Progress" and current_status != "v_00":
+                return ""
+
+            # Verificar si el clip tiene media presente antes de intentar cambiar el color
+            if not item.source().mediaSource().isMediaPresent():
+                debug_print(f"No se puede cambiar color del clip offline: {item.name()}")
+                return ""
+
+            # Cambia el color del clip si no se cumplen las condiciones anteriores
+            new_color = QColor(new_color_hex)
+            bin_item = item.source().binItem()
+            if not bin_item:
+                debug_print(f"No se puede obtener binItem para el clip: {item.name()}")
+                return ""
+
+            previous_color_hex = current_color_hex if current_color_hex else "None"
+            bin_item.setColor(new_color)
+            # Formatea los nombres y colores de los estados para el mensaje
+            text_color = self.color_for_background(new_color_hex)
+            status_format = f"<span style='background-color: {new_color_hex}; color: {text_color};'>{task_status}</span>"
+            previous_status_format = f"<span style='background-color: {previous_color_hex}; color: {self.color_for_background(previous_color_hex)};'>{current_status}</span>"
+            return f"{shot_code} | {task_name} | {previous_status_format} -> {status_format}<br>"
+        except Exception as e:
+            debug_print(f"Error cambiando color del clip {item.name()}: {e}")
             return ""
-        if current_status == "v_00" and (
-            task_status == "Not Ready To Start" or task_status == "Ready To Start"
-        ):
-            return ""
-        if task_status == "In Progress" and current_status != "v_00":
-            return ""
-        # Cambia el color del clip si no se cumplen las condiciones anteriores
-        new_color = QColor(new_color_hex)
-        bin_item = item.source().binItem()
-        previous_color_hex = current_color_hex if current_color_hex else "None"
-        bin_item.setColor(new_color)
-        # Formatea los nombres y colores de los estados para el mensaje
-        text_color = self.color_for_background(new_color_hex)
-        status_format = f"<span style='background-color: {new_color_hex}; color: {text_color};'>{task_status}</span>"
-        previous_status_format = f"<span style='background-color: {previous_color_hex}; color: {self.color_for_background(previous_color_hex)};'>{current_status}</span>"
-        return f"{shot_code} | {task_name} | {previous_status_format} -> {status_format}<br>"
 
     def get_status_name_by_color(self, color_hex):
         """Devuelve el nombre del estado basado en el color."""
@@ -600,9 +629,13 @@ class HieroOperations:
                         continue
 
                     # Obtener la ruta base del shot (subimos un nivel adicional)
-                    shot_base_path = os.path.dirname(
-                        os.path.dirname(os.path.dirname(os.path.dirname(file_path)))
-                    )
+                    # Solo calcular si file_path es una ruta completa
+                    if os.path.isabs(file_path) and len(file_path.split(os.sep)) >= 5:
+                        shot_base_path = os.path.dirname(
+                            os.path.dirname(os.path.dirname(os.path.dirname(file_path)))
+                        )
+                    else:
+                        shot_base_path = ""  # Ruta inválida
                     debug_print(f"Ruta base del shot: {shot_base_path}")
                     # Obtener el estado y el tag correspondiente
                     debug_print(
@@ -622,8 +655,8 @@ class HieroOperations:
                                     ("Estado desconocido", "#000000", None),
                                 )
                             )
-                            # Aplicar el tag correspondiente en XYplorer solo si XYPlorer_Tags es True
-                            if XYPlorer_Tags:
+                            # Aplicar el tag correspondiente en XYplorer solo si XYPlorer_Tags es True y tenemos una ruta válida
+                            if XYPlorer_Tags and shot_base_path and xyplorer_tag:
                                 tag_shot_folder(shot_base_path, xyplorer_tag)
                             current_color_hex = self.get_current_clip_color(clip)
                             current_status = self.get_status_name_by_color(
@@ -752,18 +785,35 @@ class HieroOperations:
     def change_to_highest_version(self, clip):
         """Cambia el clip a la version mas alta disponible."""
         debug_print(f"Cambiando a la version mas alta para el clip: {clip.name()}")
-        binItem = clip.source().binItem()
-        activeVersion = binItem.activeVersion()
-        debug_print(f"Version activa actual: {activeVersion.name()}")
-        vc = hiero.core.VersionScanner()
-        vc.doScan(activeVersion)
-        highest_version = self.get_highest_version(binItem)
-        if highest_version:
-            debug_print(f"Cambiando a la version: {highest_version.name()}")
-            binItem.setActiveVersion(highest_version)
-        else:
-            debug_print("No se pudo determinar la version mas alta")
-        return highest_version
+        try:
+            # Verificar si el clip tiene media presente
+            if not clip.source().mediaSource().isMediaPresent():
+                debug_print(f"No se puede cambiar version del clip offline: {clip.name()}")
+                return None
+
+            binItem = clip.source().binItem()
+            if not binItem:
+                debug_print(f"No se puede obtener binItem para el clip: {clip.name()}")
+                return None
+
+            activeVersion = binItem.activeVersion()
+            if not activeVersion:
+                debug_print(f"No hay version activa para el clip: {clip.name()}")
+                return None
+
+            debug_print(f"Version activa actual: {activeVersion.name()}")
+            vc = hiero.core.VersionScanner()
+            vc.doScan(activeVersion)
+            highest_version = self.get_highest_version(binItem)
+            if highest_version:
+                debug_print(f"Cambiando a la version: {highest_version.name()}")
+                binItem.setActiveVersion(highest_version)
+            else:
+                debug_print("No se pudo determinar la version mas alta")
+            return highest_version
+        except Exception as e:
+            debug_print(f"Error cambiando version del clip {clip.name()}: {e}")
+            return None
 
     def enable_or_disable_clips(self, selected_clips):
         try:
