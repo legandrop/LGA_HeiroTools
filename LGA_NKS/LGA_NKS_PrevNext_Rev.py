@@ -1,7 +1,7 @@
 """
 ______________________________________________________________________________________________
 
-  LGA_NKS_PrevNext_Rev v1.2 - 2024 - Lega
+  LGA_NKS_PrevNext_Rev v1.22 - 2024 - Lega
 
   Busca el clip anterior o siguiente con estado Rev Lega, Rev Sebas o Rev Javi
   y ajusta la vista:
@@ -20,7 +20,7 @@ import hiero.ui
 from PySide2.QtGui import QColor
 from PySide2.QtCore import QTimer
 
-DEBUG = False
+DEBUG = True
 
 def debug_print(*message):
     if DEBUG:
@@ -28,9 +28,9 @@ def debug_print(*message):
 
 # Definir los colores que buscamos
 COLORS = {
-    "lega": QColor(105, 19, 94),   # #69135e
-    "sup": QColor(163, 85, 126),   # #bd7f9f
-    "javi": QColor(143, 63, 114)   # #9c3e5e
+    "lega": QColor(105, 19, 94),  # #69135e
+    "sup": QColor(189, 127, 159),  # #bd7f9f
+    "javi": QColor(156, 62, 94),  # #9c3e5e
 }
 
 def get_current_playhead_position():
@@ -71,9 +71,14 @@ def find_clip_with_color(direction, rev_type):
             if isinstance(item, hiero.core.EffectTrackItem):
                 continue
 
+            # Verificar si el clip tiene media presente antes de intentar acceder a propiedades
+            if not item.source().mediaSource().isMediaPresent():
+                debug_print(f"Clip offline detectado: {item.name()}")
+                continue
+
             # Verificar si el clip tiene el color buscado
             bin_item = item.source().binItem()
-            if bin_item.color() == target_color:
+            if bin_item and bin_item.color() == target_color:
                 clip_start = item.timelineIn()
                 clip_end = item.timelineOut()
 
