@@ -1,7 +1,7 @@
 """
 _______________________________________
 
-  LGA_ReviewPanel v2.73 - Lega
+  LGA_ReviewPanel v2.74 | Lega
   Tools panel for Hiero / Nuke Studio
 _______________________________________
 
@@ -23,6 +23,30 @@ from PySide2.QtWidgets import (
 )
 from PySide2.QtGui import QIcon
 from PySide2.QtCore import QTimer, Qt
+
+
+# Clase de botón personalizada que maneja el Shift+Click
+class CustomButton(QPushButton):
+    def __init__(self, text):
+        super(CustomButton, self).__init__(text)
+        self._custom_click_handler = None
+        self._shift_click_handler = None
+
+    def setCustomClickHandler(self, handler):
+        self._custom_click_handler = handler
+
+    def setShiftClickHandler(self, handler):
+        self._shift_click_handler = handler
+
+    def mousePressEvent(self, event):
+        if self._custom_click_handler and self._shift_click_handler:
+            modifiers = event.modifiers()
+            if modifiers & Qt.ShiftModifier:
+                self._shift_click_handler()
+            else:
+                self._custom_click_handler()
+        else:
+            super(CustomButton, self).mousePressEvent(event)
 
 # Variable global para activar o desactivar los prints
 DEBUG = False
@@ -48,8 +72,8 @@ class ReviewPanel(QWidget):
 
         # Crear botones y agregarlos al layout
         self.buttons = [
-            ("Self ReplaceClip", self.execute_SelfReplaceClip, "#0e1f3a"),
             ("ON Clips | OFF v00", self.execute_EnableOrDisableClips, "#0e1f3a"),
+            ("Self ReplaceClip", self.execute_SelfReplaceClip, "#0e1f3a"),
             ("ON OFF EXR", self.execute_DisableEXR, "#0e1f3a", "Shift+D", "Shift+D"),
             (
                 "EXR Track Difference",
@@ -100,9 +124,17 @@ class ReviewPanel(QWidget):
             shortcut = button_info[3] if len(button_info) > 3 else None
             tooltip = button_info[4] if len(button_info) > 4 else None
 
-            button = QPushButton(name)
-            button.setStyleSheet(f"background-color: {style}")
-            button.clicked.connect(handler)
+            # Usar CustomButton para el botón "ON Clips | OFF v00" para soportar Shift+Click
+            if name == "ON Clips | OFF v00":
+                button = CustomButton(name)
+                button.setStyleSheet(f"background-color: {style}")
+                button.setCustomClickHandler(handler)
+                button.setShiftClickHandler(self.execute_EnableOrDisableClips_all_clips)
+            else:
+                button = QPushButton(name)
+                button.setStyleSheet(f"background-color: {style}")
+                button.clicked.connect(handler)
+                
             if shortcut:
                 button.setShortcut(shortcut)
             if tooltip:
@@ -167,6 +199,28 @@ class ReviewPanel(QWidget):
 
     def execute_EnableOrDisableClips(self):
         self.execute_external_script("LGA_NKS_ON_Clips_OFF_v00-Clips.py")
+    
+    def execute_EnableOrDisableClips_all_clips(self):
+        """Versión que procesa todos los clips del timeline, no solo los seleccionados"""
+        script_path = os.path.join(os.path.dirname(__file__), "LGA_NKS", "LGA_NKS_ON_Clips_OFF_v00-Clips.py")
+        if os.path.exists(script_path):
+            try:
+                spec = importlib.util.spec_from_file_location(
+                    "LGA_NKS_ON_Clips_OFF_v00-Clips", script_path
+                )
+                if spec is not None and spec.loader is not None:
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+                    # Llamar a main con force_all_clips=True
+                    module.main(force_all_clips=True)
+                else:
+                    debug_print(
+                        f"El módulo o loader no se encontraron para el script LGA_NKS_ON_Clips_OFF_v00-Clips.py"
+                    )
+            except Exception as e:
+                debug_print(f"Error ejecutando el script con todos los clips: {e}")
+        else:
+            debug_print(f"Script no encontrado en la ruta: {script_path}")
 
     def execute_ToggleBlendModeForEXRTrack(self):
         self.execute_external_script("LGA_NKS_EXRTrack_Difference.py")

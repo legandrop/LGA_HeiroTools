@@ -1,7 +1,7 @@
 """
 ______________________________________________________
 
-  LGA_NKS_ON_Clips_OFF_v00-Clips v1.0 - 2024 - Lega
+  LGA_NKS_ON_Clips_OFF_v00-Clips v1.1 | Lega
   Activa todos los clips y desactiva clips v00
 ______________________________________________________
 
@@ -18,12 +18,33 @@ def debug_print(*message):
     if DEBUG:
         print(*message)
 
-def main():
+def main(force_all_clips=False):
+    """
+    Activa todos los clips y desactiva clips v00
+    
+    Args:
+        force_all_clips (bool): Si es True, procesa todos los clips de todos los tracks
+                               del timeline, no solo los seleccionados.
+    """
+    debug_print(f"Iniciando main() con force_all_clips={force_all_clips}")
     try:
         seq = hiero.ui.activeSequence()
         if seq:
             te = hiero.ui.getTimelineEditor(seq)
-            selected_items = te.selection()
+            
+            # Determinar qué clips procesar
+            if force_all_clips:
+                # Obtener todos los clips de todos los tracks del timeline
+                all_tracks = seq.videoTracks()
+                selected_items = []
+                for track in all_tracks:
+                    selected_items.extend(track.items())
+                debug_print(f"Procesando todos los clips del timeline ({len(selected_items)} clips)")
+            else:
+                # Usar solo los clips seleccionados
+                selected_items = te.selection()
+                debug_print(f"Procesando clips seleccionados ({len(selected_items)} clips)")
+            
             if selected_items:
                 for item in selected_items:
                     if not isinstance(item, hiero.core.EffectTrackItem):
@@ -39,7 +60,7 @@ def main():
                             item.setEnabled(True)
                             debug_print(f"Clip '{item.name()}' activado.")
             else:
-                debug_print("No hay clips seleccionados en la linea de tiempo.")
+                debug_print("No hay clips para procesar en la linea de tiempo.")
         else:
             debug_print("No se encontro una secuencia activa en Hiero.")
     except Exception as e:
