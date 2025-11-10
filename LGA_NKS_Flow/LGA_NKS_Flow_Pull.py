@@ -1,6 +1,6 @@
 """
 ____________________________________________________________________________
-  LGA_NKS_Flow_Pull v3.25 | Lega Pugliese
+  LGA_NKS_Flow_Pull v3.26 | Lega Pugliese
   Compara los estados de las task Comp de los shots del timeline de Hiero
   con los estados registrados en un archivo JSON basado en Flow PT
   Tambien aplica tags con los colores de los estados en xyplorer
@@ -32,6 +32,7 @@ import ctypes
 import ctypes.wintypes
 import platform
 import sqlite3
+import threading
 
 
 # Incluir la funcion delete_tags_from_clip aqui
@@ -85,15 +86,15 @@ class ShotGridManager:
             "ready": ("Ready To Start", "#8a8a8a", None),
             "progre": ("In Progress", "#7d4cff", None),
             "corr": ("Corrections", "#2e77d4", "Corrections"),
-            "rev_su": ("Review Sup", "#bd7f9f", "Rev Sebas"),
-            "revjav": ("Review Javi", "#9c3e5e", "Rev Javi"),
-            "revleg": ("Review Lega", "#69135e", "Rev Lega"),
+            "rev_su": ("Review Sup", "#bd7f9f", "Rev_Sup"),
+            "revjav": ("Review Javi", "#9c3e5e", "Rev_Sup"),
+            "revleg": ("Review Lega", "#69135e", "Rev_Lega"),
             "revhld": ("Review Hold", "#933100", "Rev_Hold"),
             "rev_di": ("Review Dir", "#98c054", "ReviewDir"),
             "pubsh": ("Publish", "#244c19", "Approved"),
             "pbshed": ("Published", "#244c19", "Approved"),
             "apr": ("Approved", "#244c19", "Approved"),
-            "check": ("Delivery Checked", "#52c233", "Delivery Ok"),
+            "check": ("Delivery Checked", "#52c233", "Approved"),
             "omit": ("Omitted", "#244c19", "Approved"),
             "enviad": ("Enviado", "#000000", "Approved"),
             "rev": ("Pending Review", "#000000", None),
@@ -914,8 +915,9 @@ def Send_WM_COPYDATA(xyHwnd, message):
     return result
 
 
-def tag_shot_folder(shot_base_path, tag):
-    debug_print(f"tag_shot_folder called with shot_base_path='{shot_base_path}', tag='{tag}'")
+def _tag_shot_folder_thread(shot_base_path, tag):
+    """Función que ejecuta el tagging de XYplorer en un thread separado para no bloquear Hiero."""
+    debug_print(f"tag_shot_folder_thread started with shot_base_path='{shot_base_path}', tag='{tag}'")
     if tag is None:
         debug_print("Tag is None, returning without action")
         return  # No hacer nada si no hay tag definido para el estado
@@ -936,6 +938,22 @@ def tag_shot_folder(shot_base_path, tag):
             debug_print("XYplorer window not found.")
     except Exception as e:
         debug_print(f"Error applying tag in XYplorer: {e}")
+
+
+def tag_shot_folder(shot_base_path, tag):
+    """Inicia el tagging de XYplorer en un thread separado para no bloquear Hiero."""
+    debug_print(f"tag_shot_folder called with shot_base_path='{shot_base_path}', tag='{tag}' - starting thread")
+    try:
+        # Crear y iniciar un thread separado para el tagging de XYplorer
+        xyplorer_thread = threading.Thread(
+            target=_tag_shot_folder_thread,
+            args=(shot_base_path, tag),
+            daemon=True  # Thread daemon para que termine cuando termine el programa principal
+        )
+        xyplorer_thread.start()
+        debug_print("XYplorer tagging thread started successfully")
+    except Exception as e:
+        debug_print(f"Error starting XYplorer tagging thread: {e}")
 
 
 ##### Aca termina
