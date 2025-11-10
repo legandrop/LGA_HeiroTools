@@ -1,6 +1,6 @@
 """
 ____________________________________________________________________________
-  LGA_NKS_Flow_Pull v3.24 | Lega Pugliese
+  LGA_NKS_Flow_Pull v3.25 | Lega Pugliese
   Compara los estados de las task Comp de los shots del timeline de Hiero
   con los estados registrados en un archivo JSON basado en Flow PT
   Tambien aplica tags con los colores de los estados en xyplorer
@@ -47,7 +47,7 @@ def delete_tags_from_clip(clip):
 
 # Variable global para activar o desactivar los prints
 DEBUG = False
-XYPlorer_Tags = False
+XYPlorer_Tags = True
 
 
 def debug_print(*message):
@@ -630,13 +630,21 @@ class HieroOperations:
 
                     # Obtener la ruta base del shot (subimos un nivel adicional)
                     # Solo calcular si file_path es una ruta completa
-                    if os.path.isabs(file_path) and len(file_path.split(os.sep)) >= 5:
+                    # Usar os.path.normpath para normalizar separadores y luego dividir
+                    normalized_path = os.path.normpath(file_path)
+                    path_parts = normalized_path.split(os.sep)
+                    debug_print(f"Ruta normalizada: {normalized_path}")
+                    debug_print(f"Partes de la ruta: {len(path_parts)} - {path_parts}")
+
+                    if os.path.isabs(file_path) and len(path_parts) >= 5:
                         shot_base_path = os.path.dirname(
                             os.path.dirname(os.path.dirname(os.path.dirname(file_path)))
                         )
+                        debug_print(f"Ruta base del shot calculada: {shot_base_path}")
                     else:
                         shot_base_path = ""  # Ruta inválida
-                    debug_print(f"Ruta base del shot: {shot_base_path}")
+                        debug_print(f"Ruta base del shot: VACIA (no se puede calcular)")
+                    debug_print(f"Ruta base del shot final: {shot_base_path}")
                     # Obtener el estado y el tag correspondiente
                     debug_print(
                         f"Buscando shot en SG: project='{project_name}', shot='{shot_code}'"
@@ -649,15 +657,21 @@ class HieroOperations:
                         if task:
                             debug_print(f"Task encontrada: {task_name}")
                             task_status_code = task["task_status"]
+                            debug_print(f"task_status_code: '{task_status_code}'")
                             task_status_name, new_color_hex, xyplorer_tag = (
                                 sg_manager.task_status_dict.get(
                                     task_status_code,
                                     ("Estado desconocido", "#000000", None),
                                 )
                             )
+                            debug_print(f"task_status_name: '{task_status_name}', new_color_hex: '{new_color_hex}', xyplorer_tag: '{xyplorer_tag}'")
                             # Aplicar el tag correspondiente en XYplorer solo si XYPlorer_Tags es True y tenemos una ruta válida
+                            debug_print(f"XYPlorer_Tags: {XYPlorer_Tags}, shot_base_path: '{shot_base_path}', xyplorer_tag: '{xyplorer_tag}'")
                             if XYPlorer_Tags and shot_base_path and xyplorer_tag:
+                                debug_print(f"Llamando a tag_shot_folder con path='{shot_base_path}', tag='{xyplorer_tag}'")
                                 tag_shot_folder(shot_base_path, xyplorer_tag)
+                            else:
+                                debug_print(f"No se aplicará tag XYplorer - XYPlorer_Tags: {XYPlorer_Tags}, shot_base_path vacío: {shot_base_path == ''}, xyplorer_tag: {xyplorer_tag}")
                             current_color_hex = self.get_current_clip_color(clip)
                             current_status = self.get_status_name_by_color(
                                 current_color_hex
@@ -901,13 +915,19 @@ def Send_WM_COPYDATA(xyHwnd, message):
 
 
 def tag_shot_folder(shot_base_path, tag):
+    debug_print(f"tag_shot_folder called with shot_base_path='{shot_base_path}', tag='{tag}'")
     if tag is None:
+        debug_print("Tag is None, returning without action")
         return  # No hacer nada si no hay tag definido para el estado
     try:
+        debug_print("Getting XYplorer window handle...")
         hwnd = get_xy_hwnd()
+        debug_print(f"XYplorer hwnd: {hwnd}")
         if hwnd:
             tag_command = f"::tag '{tag}', '{shot_base_path}';"
+            debug_print(f"Sending command to XYplorer: {tag_command}")
             result = Send_WM_COPYDATA(hwnd, tag_command)
+            debug_print(f"Send_WM_COPYDATA result: {result}")
             if result:
                 debug_print(f"Tag '{tag}' applied to {shot_base_path}")
             else:
