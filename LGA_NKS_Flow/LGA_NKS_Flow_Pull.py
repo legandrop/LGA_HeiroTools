@@ -1,6 +1,6 @@
 """
 ____________________________________________________________________________
-  LGA_NKS_Flow_Pull v3.26 | Lega Pugliese
+  LGA_NKS_Flow_Pull v3.27 | Lega Pugliese
   Compara los estados de las task Comp de los shots del timeline de Hiero
   con los estados registrados en un archivo JSON basado en Flow PT
   Tambien aplica tags con los colores de los estados en xyplorer
@@ -832,16 +832,50 @@ class HieroOperations:
 
     def enable_or_disable_clips(self, selected_clips):
         try:
+            seq = hiero.ui.activeSequence()
+            if not seq:
+                debug_print("No active sequence found for enable/disable operation")
+                return
+            
+            # Estados de review que deben habilitarse
+            review_status_colors = {
+                "#bd7f9f",  # rev_su - Review Sup
+                "#9c3e5e",  # revjav - Review Javi
+                "#69135e",  # revleg - Review Lega
+            }
+            
             for item in selected_clips:
                 if not isinstance(item, hiero.core.EffectTrackItem):
+                    # Encontrar el track del clip
+                    clip_track = None
+                    for track in seq.videoTracks():
+                        if item in track.items():
+                            clip_track = track
+                            break
+                    
+                    # Solo procesar clips del track EXR
+                    if clip_track and clip_track.name() != "EXR":
+                        debug_print(f"Clip '{item.name()}' no está en track EXR, saltando")
+                        continue
+                    
                     file_path = (
                         item.source().mediaSource().fileinfos()[0].filename()
                         if item.source().mediaSource().fileinfos()
                         else None
                     )
+                    
                     if file_path and "_comp_" in os.path.basename(file_path).lower():
-                        if re.search(r"_comp_v00", os.path.basename(file_path).lower()):
+                        # Obtener el color actual del clip para verificar si está en review
+                        current_color_hex = self.get_current_clip_color(item)
+                        
+                        # Si el clip está en un estado de review, habilitarlo
+                        if current_color_hex and current_color_hex.lower() in [c.lower() for c in review_status_colors]:
+                            item.setEnabled(True)
+                            debug_print(f"Clip '{item.name()}' habilitado por estar en estado de review (color: {current_color_hex})")
+                        # Si es v00, deshabilitarlo
+                        elif re.search(r"_comp_v00", os.path.basename(file_path).lower()):
                             item.setEnabled(False)
+                            debug_print(f"Clip '{item.name()}' deshabilitado por ser v00")
                         else:
                             item.setEnabled(True)
                     else:
