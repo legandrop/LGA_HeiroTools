@@ -1,8 +1,11 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_CreateShot v1.0 | Lega Pugliese
+  LGA_NKS_Flow_CreateShot v1.1 | Lega Pugliese
   Script para crear shots en ShotGrid basado en el nombre del clip seleccionado en Hiero
+  Actualizado para ser compatible con ambos sistemas de nomenclatura:
+  - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+  - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 ____________________________________________________________________________________
 """
 
@@ -37,6 +40,13 @@ import shotgun_api3
 # Importar el modulo de configuracion segura
 sys.path.append(str(Path(__file__).parent))
 from SecureConfig_Reader import get_flow_credentials
+
+# Importar utilidades de naming
+from LGA_NKS_Flow_NamingUtils import (
+    extract_shot_code,
+    extract_project_name,
+    clean_base_name,
+)
 
 # IMPORTANTE!!!! NO ACTIVAR DEBUG PORQUE CRASHEA HIERO!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 DEBUG = False
@@ -148,15 +158,13 @@ def get_shot_name_from_selected_clip():
         file_path = clip.source().mediaSource().fileinfos()[0].filename()
         debug_print(f"File path: {file_path}")
 
-        # Extraer nombre base del archivo
+        # Extraer nombre base del archivo usando utilidades de naming
         exr_name = os.path.basename(file_path)
-        base_name = re.sub(r"_%04d\.exr$", "", exr_name)
-        base_name = re.sub(r"_v\d+$", "", base_name)  # Remover version si existe
+        base_name = clean_base_name(exr_name)
 
-        # Si el nombre base contiene guiones bajos, tomar las primeras partes como shot code
-        parts = base_name.split("_")
-        if len(parts) >= 5:
-            shot_code = "_".join(parts[:5])
+        # Extraer shot_code usando detección automática de formato
+        shot_code = extract_shot_code(base_name)
+        if shot_code:
             debug_print(f"Shot code extraído del path: {shot_code}")
             return shot_code
         else:
@@ -905,8 +913,8 @@ class HieroOperations:
 
     def parse_exr_name(self, file_name):
         """Extrae el nombre base del archivo EXR y el numero de version."""
-        base_name = re.sub(r"_%04d\.exr$", "", file_name)
-        version_match = re.search(r"_v(\d+)", base_name)
+        base_name = clean_base_name(file_name)
+        version_match = re.search(r"_v(\d+)", file_name)
         version_number = version_match.group(1) if version_match else "Unknown"
         return base_name, version_number
 
@@ -923,9 +931,9 @@ class HieroOperations:
                     exr_name = os.path.basename(file_path)
                     base_name, version_number = self.parse_exr_name(exr_name)
 
-                    project_name = base_name.split("_")[0]
-                    parts = base_name.split("_")
-                    shot_code = "_".join(parts[:5])
+                    # Usar funciones de naming utils para extraer información
+                    project_name = extract_project_name(base_name)
+                    shot_code = extract_shot_code(base_name)
 
                     clips_info.append(
                         {
