@@ -1,8 +1,11 @@
 """
 __________________________________________________________________
 
-  LGA_NKS_Flow_Shot_info v1.82 - Lega Pugliese
+  LGA_NKS_Flow_Shot_info v1.83 - Lega Pugliese
   Imprime informacion del shot y las versiones de la task comp
+  Actualizado para ser compatible con ambos sistemas de nomenclatura:
+  - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+  - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 __________________________________________________________________
 
 """
@@ -16,7 +19,16 @@ import sys
 import sqlite3
 import subprocess
 import platform
+from pathlib import Path
 from PySide2.QtCore import QCoreApplication, Qt, QSize, Signal
+
+# Importar utilidades de naming
+sys.path.append(str(Path(__file__).parent))
+from LGA_NKS_Flow_NamingUtils import (
+    extract_shot_code,
+    extract_project_name,
+    clean_base_name,
+)
 from PySide2.QtGui import QFontMetrics, QKeySequence, QPixmap, QCursor
 from PySide2.QtWidgets import (
     QWidget,
@@ -331,8 +343,10 @@ class HieroOperations:
 
     def parse_exr_name(self, file_name):
         """Extrae el nombre base del archivo EXR y el numero de version."""
-        base_name = re.sub(r"_%04d\.exr$", "", file_name)
-        version_match = re.search(r"_v(\d+)", base_name)
+        # Usar función compartida para limpiar el nombre base
+        base_name = clean_base_name(file_name)
+        # Buscar versión en el nombre original (antes de limpiar)
+        version_match = re.search(r"_v(\d+)", file_name)
         version_number = version_match.group(1) if version_match else "Unknown"
         return base_name, version_number
 
@@ -375,9 +389,9 @@ class HieroOperations:
             exr_name = os.path.basename(file_path)
             base_name, version_number = self.parse_exr_name(exr_name)
 
-            project_name = base_name.split("_")[0]
-            parts = base_name.split("_")
-            shot_code = "_".join(parts[:5])
+            # Usar funciones compartidas para extraer información
+            project_name = extract_project_name(base_name)
+            shot_code = extract_shot_code(base_name)
 
             # Operaciones intensivas: ceder tiempo de UI
             QCoreApplication.processEvents()
