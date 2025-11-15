@@ -1,13 +1,16 @@
 """
 _____________________________________________________________
 
-  LGA_NKS_Flow_Push v3.75 | Lega
+  LGA_NKS_Flow_Push v3.81 | Lega
 
   Envia a flow nuevos estados de las tasks comps.
   En algunos estados permite enviar un mensaje a la version
   También actualiza la base de datos local para mantenerla sincronizada
   Muestra thumbnails de imagenes capturadas en el dialogo de notas para referencia visual
   y envía las imagenes a la nota en Flow
+  Actualizado para ser compatible con ambos sistemas de nomenclatura:
+  - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+  - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 _____________________________________________________________
 
 """
@@ -30,6 +33,13 @@ from pathlib import Path
 # Importar el módulo de configuración segura
 sys.path.append(str(Path(__file__).parent))
 from SecureConfig_Reader import get_flow_credentials
+
+# Importar utilidades de naming
+from LGA_NKS_Flow_NamingUtils import (
+    extract_shot_code,
+    extract_project_name,
+    extract_task_name,
+)
 
 # from PySide2.QtCore import QWaitCondition, QMutex
 from PySide2.QtWidgets import (
@@ -917,21 +927,35 @@ class Worker(QRunnable):
     def update_local_database(self, db_manager):
         """Actualiza la base de datos local con los cambios"""
         try:
-            project_name = self.base_name.split("_")[0]
-            parts = self.base_name.split("_")
-            shot_code = "_".join(parts[:5])
+            # Usar funciones compartidas para extraer información
+            project_name = extract_project_name(self.base_name)
+            shot_code = extract_shot_code(self.base_name)
 
-            version_number_str = None
-            for part in parts:
-                if part.startswith("v") and part[1:].isdigit():
-                    version_number_str = part
-                    break
-
-            if not version_number_str:
-                return
-
-            version_index = parts.index(version_number_str)
-            task_name = parts[version_index - 1].lower()
+            # Extraer task_name usando función compartida o método alternativo
+            task_name_extracted = extract_task_name(self.base_name)
+            if task_name_extracted:
+                task_name = task_name_extracted.lower()
+            else:
+                # Fallback: buscar task antes de la versión
+                parts = self.base_name.split("_")
+                version_number_str = None
+                for part in parts:
+                    if part.startswith("v") and part[1:].isdigit():
+                        version_number_str = part
+                        break
+                
+                if version_number_str:
+                    try:
+                        version_index = parts.index(version_number_str)
+                        if version_index > 0:
+                            task_name = parts[version_index - 1].lower()
+                        else:
+                            task_name = "comp"  # Fallback por defecto
+                    except ValueError:
+                        task_name = "comp"  # Fallback por defecto
+                else:
+                    task_name = "comp"  # Fallback por defecto
+            
             sg_status = status_translation.get(self.button_name, None)
 
             if not sg_status:

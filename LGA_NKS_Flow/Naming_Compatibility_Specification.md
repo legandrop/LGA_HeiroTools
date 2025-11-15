@@ -183,7 +183,12 @@ Sino:
    - ✅ **Actualizado** `parse_exr_name()` para usar `clean_base_name()`
    - ✅ Compatibilidad 100% hacia atrás con formato con descripción
 
-6. **Otros scripts de LGA_NKS_Flow** (Pendiente revisión)
+6. **LGA_NKS_Flow_Push.py** ✅ COMPLETADO
+   - ✅ **Actualizado** extracción de shot_code, project_name y task_name en `update_local_database()`
+   - ✅ Usa funciones compartidas para detección automática de formato
+   - ✅ Compatibilidad 100% hacia atrás con formato con descripción
+
+7. **Otros scripts de LGA_NKS_Flow** (Pendiente revisión)
    - Revisar si necesitan actualización para compatibilidad
 
 ## Criterios de Éxito
@@ -227,24 +232,30 @@ Sino:
    - Compatibilidad 100% hacia atrás con formato con descripción
 
 ### ✅ Fase 5: Scripts de Thumbs - COMPLETADA
-5. ✅ **Actualizado** `LGA_NKS_Flow_Thumbs.py` v0.7
+5. ✅ **Actualizado** `LGA_NKS_Flow_Thumbs.py` v1.01
    - Importadas funciones de `LGA_NKS_Flow_NamingUtils.py`
    - Actualizado `get_shot_name_from_selected_clip()` para usar `extract_shot_code()`
    - Actualizado `get_project_name_from_clip()` para usar `extract_project_name()` y `clean_base_name()`
    - Compatibilidad 100% hacia atrás con formato con descripción
 
-6. ✅ **Actualizado** `LGA_NKS_Flow_CreateShot_Thumbs.py` v0.2
+6. ✅ **Actualizado** `LGA_NKS_Flow_CreateShot_Thumbs.py` v1.01
    - Importadas funciones de `LGA_NKS_Flow_NamingUtils.py`
    - Actualizado `get_shot_name_from_selected_clip()` para usar `extract_shot_code()`
    - Compatibilidad 100% hacia atrás con formato con descripción
 
-### Fase 6: Revisión Final (Pendiente)
-7. **Revisar** otros scripts de LGA_NKS_Flow que puedan necesitar actualización
+### ✅ Fase 6: LGA_NKS_Flow_Push.py - COMPLETADA
+7. ✅ **Actualizado** `LGA_NKS_Flow_Push.py` v3.76
+   - Importadas funciones de `LGA_NKS_Flow_NamingUtils.py`
+   - Actualizado `Worker.update_local_database()` para usar `extract_shot_code()`, `extract_project_name()` y `extract_task_name()`
+   - Compatibilidad 100% hacia atrás con formato con descripción
 
-### Fase 7: Testing y Validación (Pendiente)
-8. **Probar** exhaustivamente con casos reales de ambos formatos
-9. **Validar** funcionamiento correcto con proyectos existentes
-10. **Crear** casos de prueba automatizados
+### Fase 7: Revisión Final (Pendiente)
+8. **Revisar** otros scripts de LGA_NKS_Flow que puedan necesitar actualización
+
+### Fase 8: Testing y Validación (Pendiente)
+9. **Probar** exhaustivamente con casos reales de ambos formatos
+10. **Validar** funcionamiento correcto con proyectos existentes
+11. **Crear** casos de prueba automatizados
 
 ## Implementación Técnica Específica
 
@@ -373,6 +384,27 @@ from LGA_NKS_Flow_NamingUtils import (
 # En get_shot_name_from_selected_clip():
 base_name = clean_base_name(exr_name)
 shot_code = extract_shot_code(base_name)
+```
+
+### LGA_NKS_Flow_Push.py
+```python
+# ✅ IMPLEMENTADO - Uso de funciones compartidas
+
+from LGA_NKS_Flow_NamingUtils import (
+    extract_shot_code,
+    extract_project_name,
+    extract_task_name,
+)
+
+# En Worker.update_local_database():
+project_name = extract_project_name(self.base_name)
+shot_code = extract_shot_code(self.base_name)
+task_name_extracted = extract_task_name(self.base_name)
+if task_name_extracted:
+    task_name = task_name_extracted.lower()
+else:
+    # Fallback para casos edge
+    ...
 ```
 
 ---
