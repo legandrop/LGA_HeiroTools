@@ -1,9 +1,12 @@
 """
 ____________________________________________________________________________
-  LGA_NKS_Flow_Pull v3.27 | Lega Pugliese
+  LGA_NKS_Flow_Pull v3.28 | Lega Pugliese
   Compara los estados de las task Comp de los shots del timeline de Hiero
   con los estados registrados en un archivo JSON basado en Flow PT
   Tambien aplica tags con los colores de los estados en xyplorer
+  Actualizado para ser compatible con ambos sistemas de nomenclatura:
+  - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+  - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 ____________________________________________________________________________
 """
 
@@ -12,8 +15,19 @@ import hiero.core
 import hiero.ui
 import os
 import re
+import sys
 import nuke
 import shotgun_api3
+from pathlib import Path
+
+# Importar utilidades de naming
+sys.path.append(str(Path(__file__).parent))
+from LGA_NKS_Flow_NamingUtils import (
+    extract_shot_code,
+    extract_project_name,
+    extract_task_name,
+    clean_base_name,
+)
 from PySide2.QtWidgets import (
     QApplication,
     QWidget,
@@ -342,17 +356,12 @@ class HieroOperations:
         """Extrae el nombre base del archivo y el numero de version con prefijo."""
         debug_print(f"Parseando nombre de archivo: {file_name}")
 
-        # Remover extension y secuencia numerica para archivos EXR
-        base_name = re.sub(r"_%04d\.exr$", "", file_name)
-        debug_print(f"Despues de remover secuencia EXR: {base_name}")
+        # Usar función compartida para limpiar el nombre base
+        base_name = clean_base_name(file_name)
+        debug_print(f"Base name limpio: {base_name}")
 
-        # Si no cambio, puede ser un archivo de video (mxf, mov, etc)
-        if base_name == file_name:
-            # Remover extension para archivos de video
-            base_name = re.sub(r"\.[^.]+$", "", file_name)
-            debug_print(f"Despues de remover extension de video: {base_name}")
-
-        version_match = re.search(r"(_v\d+)", base_name)
+        # Buscar versión en el nombre original (antes de limpiar)
+        version_match = re.search(r"(_v\d+)", file_name)
         version_str = version_match.group(1) if version_match else "_vUnknown"
         debug_print(f"Version string extraida: {version_str}")
 
@@ -608,19 +617,42 @@ class HieroOperations:
                     debug_print(f"Version extraida: {version_number} de {version_str}")
 
                     try:
-                        project_name = base_name.split("_")[0]
+                        # Usar funciones compartidas para extraer información
+                        project_name = extract_project_name(base_name)
                         debug_print(f"Project name: {project_name}")
 
-                        parts = base_name.split("_")
-                        debug_print(f"Parts del nombre: {parts}")
-
-                        shot_code = "_".join(parts[:5])
+                        shot_code = extract_shot_code(base_name)
                         debug_print(f"Shot code: {shot_code}")
 
-                        version_index = parts.index(version_str[1:])
-                        debug_print(f"Version index: {version_index}")
-
-                        task_name = parts[version_index - 1].lower()
+                        # Extraer task_name usando función compartida
+                        task_name_extracted = extract_task_name(base_name)
+                        if task_name_extracted:
+                            task_name = task_name_extracted.lower()
+                        else:
+                            # Fallback: buscar task antes de la versión en el nombre original
+                            parts_original = exr_name.split("_")
+                            version_index = None
+                            # Buscar índice de versión en el nombre original
+                            version_match = re.search(r"_v(\d+)", exr_name)
+                            if version_match:
+                                version_str_clean = version_match.group(1)
+                                try:
+                                    version_index = parts_original.index(f"v{version_str_clean}")
+                                except ValueError:
+                                    try:
+                                        version_index = parts_original.index(version_str_clean)
+                                    except ValueError:
+                                        pass
+                            
+                            if version_index and version_index > 0:
+                                task_name = parts_original[version_index - 1].lower()
+                            else:
+                                # Último recurso: buscar 'comp' en el nombre
+                                if "comp" in base_name.lower():
+                                    task_name = "comp"
+                                else:
+                                    task_name = "unknown"
+                        
                         debug_print(f"Task name: {task_name}")
                     except Exception as e:
                         debug_print(f"Error procesando nombre del archivo: {e}")
