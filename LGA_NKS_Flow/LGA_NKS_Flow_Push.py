@@ -1,7 +1,7 @@
 """
 _____________________________________________________________
 
-  LGA_NKS_Flow_Push v3.81 | Lega
+  LGA_NKS_Flow_Push v3.85 | Lega
 
   Envia a flow nuevos estados de las tasks comps.
   En algunos estados permite enviar un mensaje a la version
@@ -56,7 +56,7 @@ from PySide2.QtWidgets import (
     QWidget,
     QCheckBox,
 )
-from PySide2.QtGui import QKeySequence, QPixmap
+from PySide2.QtGui import QKeySequence, QPixmap, QIcon
 
 # Diccionario de traduccion de estados
 status_translation = {
@@ -530,16 +530,55 @@ class InputDialog(QDialog):
                             image_label, alignment=Qt.AlignCenter
                         )
 
-                        # Agregar numero de frame debajo de la imagen
+                        # Crear layout horizontal para botón de borrar y label de frame
+                        frame_container_layout = QHBoxLayout()
+                        frame_container_layout.setContentsMargins(4, 0, 0, 0)
+                        frame_container_layout.setSpacing(4)
+                        
+                        # Botón de tachito para borrar imagen
+                        delete_button = QPushButton()
+                        delete_button.setFixedSize(16, 16)
+                        delete_button.setStyleSheet(
+                            """
+                            QPushButton {
+                                background-color: transparent;
+                                border: none;
+                                color: #ff4444;
+                                font-size: 12px;
+                                font-weight: bold;
+                            }
+                            QPushButton:hover {
+                                background-color: #ffcccc;
+                                border-radius: 2px;
+                            }
+                            """
+                        )
+                        delete_button.setText("×")  # Usar símbolo × como tachito
+                        delete_button.setToolTip("Borrar esta imagen")
+                        
+                        # Conectar el botón para borrar la imagen
+                        delete_button.clicked.connect(
+                            lambda checked=False, path=image_path, container=thumbnail_container: self.delete_single_image(path, container)
+                        )
+                        
+                        frame_container_layout.addWidget(delete_button)
+                        
+                        # Agregar numero de frame
                         frame_number = self.extract_frame_number_from_filename(
                             image_path
                         )
                         frame_label = QLabel(f"Frame: {frame_number}")
                         frame_label.setStyleSheet(
-                            "color: #9c9c9c; font-size: 11px; margin-left: 4px;"
+                            "color: #9c9c9c; font-size: 11px;"
                         )
                         frame_label.setAlignment(Qt.AlignLeft)
-                        container_layout.addWidget(frame_label)
+                        frame_container_layout.addWidget(frame_label)
+                        frame_container_layout.addStretch()  # Empujar contenido a la izquierda
+                        
+                        # Widget contenedor para el layout horizontal
+                        frame_container_widget = QWidget()
+                        frame_container_widget.setLayout(frame_container_layout)
+                        container_layout.addWidget(frame_container_widget)
 
                         thumbnails_layout.addWidget(thumbnail_container)
                         debug_print(
@@ -633,6 +672,56 @@ class InputDialog(QDialog):
 
         except Exception as e:
             debug_print(f"Error ajustando tamaño de ventana: {e}")
+
+    def delete_single_image(self, image_path, container_widget):
+        """
+        Borra una imagen individual del disco y la remueve de la UI.
+        
+        Args:
+            image_path: Ruta completa del archivo de imagen a borrar
+            container_widget: Widget contenedor del thumbnail a remover
+        """
+        try:
+            # Confirmar borrado
+            reply = QMessageBox.question(
+                self,
+                "Confirmar borrado",
+                f"¿Estás seguro de que quieres borrar esta imagen?\n{os.path.basename(image_path)}",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            
+            if reply == QMessageBox.Yes:
+                # Borrar archivo del disco
+                if os.path.exists(image_path):
+                    os.remove(image_path)
+                    debug_print(f"Imagen borrada del disco: {image_path}")
+                
+                # Remover de la lista de review_images
+                if image_path in self.review_images:
+                    self.review_images.remove(image_path)
+                    debug_print(f"Imagen removida de la lista. Quedan {len(self.review_images)} imágenes")
+                
+                # Remover el widget del thumbnail de la UI
+                container_widget.setParent(None)
+                container_widget.deleteLater()
+                
+                # Actualizar tamaño de ventana si es necesario
+                self.adjust_window_size()
+                
+                debug_print(f"Thumbnail removido de la UI")
+            else:
+                debug_print("Borrado cancelado por el usuario")
+                
+        except Exception as e:
+            debug_print(f"Error borrando imagen individual: {e}")
+            import traceback
+            debug_print(traceback.format_exc())
+            QMessageBox.warning(
+                self,
+                "Error",
+                f"No se pudo borrar la imagen:\n{str(e)}"
+            )
 
     def get_text(self):
         if self.exec_() == QDialog.Accepted:
