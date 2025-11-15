@@ -3,7 +3,7 @@
 Este sistema consta de dos componentes principales que automatizan la gestión de estados de tareas y versiones en ShotGrid para proyectos de Nuke/Hiero:
 
 * **`LGA_NKS_Flow/LGA_NKS_Flow_Push.py`** - Interfaz principal y lógica de UI (corre en Hiero/Nuke)
-* **`LGA_NKS_Flow/flow_connector.py`** - Operaciones de red optimizadas (corre con Python personalizado)
+* **`LGA_NKS_Flow/LGA_NKS_Flow_Push_connector.py`** - Operaciones de red optimizadas (corre con Python personalizado)
 
 Su propósito principal es mantener sincronizada la información entre ShotGrid y una base de datos SQLite local (`pipesync.db`), optimizando el rendimiento mediante arquitectura distribuida.
 
@@ -45,17 +45,19 @@ Cuando se abre el diálogo para introducir notas, el script automáticamente:
 
 2. **Muestra Thumbnails:** Si encuentra imágenes, las muestra como thumbnails de 150px de ancho debajo del área de texto de notas, en un área scrolleable implementada en la clase `InputDialog`.
 
-3. **Información de Frame:** Cada thumbnail muestra el número de frame correspondiente alineado a la izquierda debajo de la imagen, extraído mediante `extract_frame_number_from_filename()`.
+3. **Información de Frame:** Cada thumbnail muestra el número de frame correspondiente alineado a la izquierda debajo de la imagen, extraído mediante `extract_frame_number_from_filename()`. Antes del texto "Frame:" aparece un botón de tachito (×) que permite borrar esa imagen individualmente.
 
-4. **Ajuste Automático de Ventana:** El ancho de la ventana se ajusta automáticamente para acomodar los thumbnails, con un mínimo del tamaño actual y un máximo de 1500px usando `adjust_window_size()`.
+4. **Borrado Individual de Imágenes:** Cada thumbnail incluye un botón de tachito (×) que permite borrar imágenes individuales antes de enviar la nota. Al hacer clic, se muestra un diálogo de confirmación y, si se confirma, la imagen se borra del disco, se remueve de la lista de imágenes a subir, y desaparece inmediatamente del diálogo. Las imágenes borradas individualmente no se adjuntarán a la nota en ShotGrid.
 
-5. **Referencia Visual:** Los thumbnails incluyen tooltips que muestran el nombre del archivo al pasar el mouse, proporcionando una referencia visual rápida de las imágenes capturadas durante el proceso de review.
+5. **Ajuste Automático de Ventana:** El ancho de la ventana se ajusta automáticamente para acomodar los thumbnails, con un mínimo del tamaño actual y un máximo de 1500px usando `adjust_window_size()`. El tamaño se actualiza dinámicamente cuando se borran imágenes individuales.
 
-6. **Adjuntar a ShotGrid:** Las imágenes se adjuntan automáticamente a la nota en ShotGrid mediante `attach_images_to_note()` usando upload directo a Note con la convención de nombres `annot_version_<version_id>.<frame_number>.jpg` para que aparezcan con números de frame en la interfaz de ShotGrid.
+6. **Referencia Visual:** Los thumbnails incluyen tooltips que muestran el nombre del archivo al pasar el mouse, proporcionando una referencia visual rápida de las imágenes capturadas durante el proceso de review.
 
-7. **Opción de Limpieza:** Un checkbox "Delete all saved review images from disk" (marcado por defecto) permite al usuario elegir si borrar automáticamente toda la carpeta `ReviewPic_Cache` después de un envío exitoso únicamente.
+7. **Adjuntar a ShotGrid:** Las imágenes restantes (que no fueron borradas individualmente) se adjuntan automáticamente a la nota en ShotGrid mediante `attach_images_to_note()` usando upload directo a Note con la convención de nombres `annot_version_<version_id>.<frame_number>.jpg` para que aparezcan con números de frame en la interfaz de ShotGrid.
 
-8. **Organización Automática:** Las imágenes se organizan automáticamente por carpetas que siguen el patrón `{proyecto}_{secuencia}_{shot}_{task}_v{version}`, manteniéndose sincronizadas con el flujo de trabajo de revisión.
+8. **Opción de Limpieza:** Un checkbox "Delete all saved review images from disk" (marcado por defecto) permite al usuario elegir si borrar automáticamente toda la carpeta `ReviewPic_Cache` después de un envío exitoso únicamente.
+
+9. **Organización Automática:** Las imágenes se organizan automáticamente por carpetas que siguen el patrón `{proyecto}_{secuencia}_{shot}_{task}_v{version}`, manteniéndose sincronizadas con el flujo de trabajo de revisión.
 
 ### Funciones Clave:
 
@@ -64,10 +66,11 @@ Cuando se abre el diálogo para introducir notas, el script automáticamente:
 - **`call_flow_connector()`**: Puente que comunica con el conector externo de forma asíncrona
 - **`handle_version_check_result()`**: Maneja confirmaciones de versión del usuario
 - **`find_review_images()`**: Localiza imágenes en `LGA_NKS_Flow/ReviewPic_Cache/`
+- **`delete_single_image()`**: Borra una imagen individual del disco y la remueve de la UI y de la lista de imágenes a subir
 
-**En `LGA_NKS_Flow/flow_connector.py`:**
+**En `LGA_NKS_Flow/LGA_NKS_Flow_Push_connector.py`:**
 - **`execute_full_push_operation()`**: Operación completa que actualiza estado, versión y comentarios en una sola llamada
 - **`execute_flow_operation()`**: Dispatcher principal para todas las operaciones de red
 - **`attach_images_to_note()`**: Sube imágenes a ShotGrid con números de frame
 
-Esta integración permite a los usuarios revisar visualmente las imágenes capturadas previamente mientras escriben sus notas de revisión, adjuntarlas automáticamente a ShotGrid con información de frame, y opcionalmente limpiar el caché local después del envío exitoso.
+Esta integración permite a los usuarios revisar visualmente las imágenes capturadas previamente mientras escriben sus notas de revisión, seleccionar qué imágenes adjuntar mediante borrado individual antes del envío, adjuntarlas automáticamente a ShotGrid con información de frame, y opcionalmente limpiar el caché local después del envío exitoso.

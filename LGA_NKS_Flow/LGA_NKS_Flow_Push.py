@@ -1,7 +1,7 @@
 """
 _____________________________________________________________
 
-  LGA_NKS_Flow_Push v3.85 | Lega
+  LGA_NKS_Flow_Push v3.86 | Lega
 
   Envia a flow nuevos estados de las tasks comps.
   En algunos estados permite enviar un mensaje a la version
@@ -97,7 +97,7 @@ def call_flow_connector(operation, **kwargs):
         kwargs['password'] = sg_password
 
         # Ruta al script conector
-        connector_script = os.path.join(os.path.dirname(__file__), "flow_connector.py")
+        connector_script = os.path.join(os.path.dirname(__file__), "LGA_NKS_Flow_Push_connector.py")
 
         if not os.path.exists(connector_script):
             debug_print(f"Conector no encontrado: {connector_script}")
@@ -499,6 +499,8 @@ class InputDialog(QDialog):
                     container_layout = QVBoxLayout(thumbnail_container)
                     container_layout.setSpacing(2)
                     container_layout.setContentsMargins(0, 0, 0, 0)
+                    # Asegurar que el contenedor tenga un ancho fijo basado en el ancho de la imagen
+                    thumbnail_container.setFixedWidth(150)
 
                     # Crear label para mostrar la imagen
                     image_label = QLabel()
@@ -578,6 +580,8 @@ class InputDialog(QDialog):
                         # Widget contenedor para el layout horizontal
                         frame_container_widget = QWidget()
                         frame_container_widget.setLayout(frame_container_layout)
+                        # Asegurar que el widget no se expanda más allá del ancho de la imagen
+                        frame_container_widget.setMaximumWidth(150)
                         container_layout.addWidget(frame_container_widget)
 
                         thumbnails_layout.addWidget(thumbnail_container)

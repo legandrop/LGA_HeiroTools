@@ -188,7 +188,7 @@ Sino:
    - ✅ Usa funciones compartidas para detección automática de formato
    - ✅ Compatibilidad 100% hacia atrás con formato con descripción
 
-7. **flow_connector.py** ✅ COMPLETADO
+7. **LGA_NKS_Flow_Push_connector.py** ✅ COMPLETADO
    - ✅ **Actualizado** `execute_full_push_operation()` para usar funciones compartidas
    - ✅ **Actualizado** `check_version()` para usar funciones compartidas
    - ✅ Compatibilidad 100% hacia atrás con formato con descripción
@@ -259,7 +259,7 @@ Sino:
    - Actualizado `Worker.update_local_database()` para usar `extract_shot_code()`, `extract_project_name()` y `extract_task_name()`
    - Compatibilidad 100% hacia atrás con formato con descripción
 
-8. ✅ **Actualizado** `flow_connector.py`
+8. ✅ **Actualizado** `LGA_NKS_Flow_Push_connector.py`
    - Importadas funciones de `LGA_NKS_Flow_NamingUtils.py` con fallback
    - Actualizado `execute_full_push_operation()` para usar funciones compartidas
    - Actualizado `check_version()` para usar funciones compartidas
@@ -429,7 +429,7 @@ else:
     ...
 ```
 
-### flow_connector.py
+### LGA_NKS_Flow_Push_connector.py
 ```python
 # ✅ IMPLEMENTADO - Uso de funciones compartidas
 
