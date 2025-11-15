@@ -147,68 +147,66 @@ def call_flow_connector(operation, **kwargs):
         return {"success": False, "error": str(e)}
 
 
-def find_review_images(base_name):
+def find_review_images(base_name, original_file_name=None):
     """
     Busca imagenes de ReviewPic para el shot y version especificados.
     Retorna una lista de rutas de imagenes encontradas.
+    
+    Args:
+        base_name: Nombre base sin versión (ej: "BRDA_080_010_comp")
+        original_file_name: Nombre original del archivo con versión (opcional, ej: "BRDA_080_010_comp_v007_%04d.exr")
     """
     try:
-        # Extraer informacion del nombre base
-        parts = base_name.split("_")
-
-        # Buscar numero de version
-        version_number_str = None
-        for part in parts:
-            if part.startswith("v") and part[1:].isdigit():
-                version_number_str = part
-                break
-
-        if not version_number_str:
-            debug_print("No se encontro numero de version en el nombre base")
-            return []
-
-        # Construir el nombre de la carpeta del clip siguiendo el mismo patron que ReviewPic
-        # El patron es: {base_name_sin_version}_v{version}
-        # Ejemplo: si base_name es "PROJ_SEQ_SHOT_comp_v001_001.exr"
-        # necesitamos "PROJ_SEQ_SHOT_comp_v001"
-
-        # Encontrar la posicion de la version en el nombre
-        version_index = -1
-        for i, part in enumerate(parts):
-            if part == version_number_str:
-                version_index = i
-                break
-
-        if version_index == -1:
-            debug_print(
-                f"No se pudo encontrar la version {version_number_str} en las partes del nombre"
-            )
-            return []
-
-        # Tomar todas las partes hasta la version (inclusive)
-        base_parts = parts[: version_index + 1]
-        clip_folder_name = "_".join(base_parts)
-
         # Obtener la ruta del script actual
         script_dir = os.path.dirname(__file__)
         cache_dir = os.path.join(script_dir, "ReviewPic_Cache")
-        clip_dir = os.path.join(cache_dir, clip_folder_name)
-
-        debug_print(f"Buscando imagenes en: {clip_dir}")
-        debug_print(f"Nombre de carpeta construido: {clip_folder_name}")
-
-        # Buscar archivos JPG en la carpeta
-        if os.path.exists(clip_dir):
-            image_pattern = os.path.join(clip_dir, "*.jpg")
-            images = glob.glob(image_pattern)
-            debug_print(f"Imagenes encontradas: {len(images)}")
-            return sorted(images)  # Ordenar para mostrar en orden consistente
+        
+        # Si tenemos el nombre original, extraer la versión de ahí
+        version_number_str = None
+        if original_file_name:
+            import re
+            version_match = re.search(r"_v(\d+)", original_file_name)
+            if version_match:
+                version_number_str = f"v{version_match.group(1)}"
+                # Construir el nombre de carpeta exacto: {base_name}_v{version}
+                clip_folder_name = f"{base_name}_{version_number_str}"
+                clip_dir = os.path.join(cache_dir, clip_folder_name)
+                
+                debug_print(f"Buscando imagenes en carpeta específica: {clip_dir}")
+                debug_print(f"Nombre de carpeta construido: {clip_folder_name}")
+                
+                if os.path.exists(clip_dir):
+                    image_pattern = os.path.join(clip_dir, "*.jpg")
+                    images = glob.glob(image_pattern)
+                    debug_print(f"Imagenes encontradas en {clip_folder_name}: {len(images)}")
+                    return sorted(images)
+                else:
+                    debug_print(f"Carpeta específica no existe: {clip_dir}")
+        
+        # Fallback: buscar en todas las carpetas que coincidan con el patrón {base_name}_v*
+        debug_print(f"Buscando en todas las carpetas que coincidan con: {base_name}_v*")
+        pattern = os.path.join(cache_dir, f"{base_name}_v*")
+        matching_folders = glob.glob(pattern)
+        
+        all_images = []
+        for folder in matching_folders:
+            if os.path.isdir(folder):
+                image_pattern = os.path.join(folder, "*.jpg")
+                images = glob.glob(image_pattern)
+                all_images.extend(images)
+                debug_print(f"Encontradas {len(images)} imágenes en {os.path.basename(folder)}")
+        
+        if all_images:
+            debug_print(f"Total de imagenes encontradas: {len(all_images)}")
+            return sorted(all_images)
         else:
-            debug_print(f"Carpeta no existe: {clip_dir}")
+            debug_print(f"No se encontraron imagenes en ninguna carpeta que coincida con {base_name}_v*")
             return []
 
     except Exception as e:
         debug_print(f"Error buscando imagenes de review: {e}")
+        import traceback
+        debug_print(traceback.format_exc())
         return []
 
 
@@ -427,10 +425,11 @@ class DBManager:
 
 
 class InputDialog(QDialog):
-    def __init__(self, base_name):
+    def __init__(self, base_name, original_file_name=None):
         super(InputDialog, self).__init__()
         self.setWindowTitle("Input Dialog")
         self.base_name = base_name
+        self.original_file_name = original_file_name
         self.review_images = []
         self.delete_images_checkbox = None
 
@@ -446,7 +445,7 @@ class InputDialog(QDialog):
         self.layout.addWidget(self.text_edit)
 
         # Buscar imagenes de ReviewPic y mostrar thumbnails si existen
-        self.review_images = find_review_images(base_name)
+        self.review_images = find_review_images(base_name, original_file_name)
         if self.review_images:
             self.add_thumbnails_section(self.review_images)
             self.adjust_window_size()  # Esto establece el ancho y la altura actual
@@ -1128,7 +1127,7 @@ def handle_version_check_result(version_check_result, worker, update_callback):
             worker.signals.debug_output.emit()
 
 
-def Push_Task_Status(button_name, base_name, update_callback=None):
+def Push_Task_Status(button_name, base_name, update_callback=None, original_file_name=None):
     global msg_manager
 
     # Verificar que tengamos las credenciales disponibles
@@ -1150,7 +1149,7 @@ def Push_Task_Status(button_name, base_name, update_callback=None):
         if app is None:
             app = QApplication([])
 
-        input_dialog = InputDialog(base_name)
+        input_dialog = InputDialog(base_name, original_file_name)
         message = input_dialog.get_text()
         if message is None:
             # Operación cancelada por el usuario al cerrar el diálogo de comentarios

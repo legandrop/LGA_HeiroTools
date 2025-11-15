@@ -1,6 +1,9 @@
 """
 LGA_NKS_Flow_Connector | Conector simple para operaciones de red con Flow
 Este script se ejecuta con Python personalizado para evitar problemas de dependencias
+Actualizado para ser compatible con ambos sistemas de nomenclatura:
+- PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+- PROYECTO_SEQ_SHOT (3 bloques simplificado)
 """
 
 import os
@@ -18,6 +21,31 @@ if os.path.exists(shotgun_path):
 
 import shotgun_api3
 
+# Importar utilidades de naming
+sys.path.insert(0, script_dir)
+try:
+    from LGA_NKS_Flow_NamingUtils import (
+        extract_shot_code,
+        extract_project_name,
+        extract_task_name,
+    )
+except ImportError:
+    # Fallback si no se puede importar (por si acaso)
+    def extract_shot_code(base_name):
+        parts = base_name.split("_")
+        return "_".join(parts[:5]) if len(parts) >= 5 else "_".join(parts)
+    
+    def extract_project_name(base_name):
+        return base_name.split("_")[0] if base_name else ""
+    
+    def extract_task_name(base_name):
+        parts = base_name.split("_")
+        if len(parts) >= 6:
+            return parts[5]
+        elif len(parts) >= 4:
+            return parts[3]
+        return None
+
 # Diccionario de traduccion de estados (igual que en el script principal)
 status_translation = {
     "Corrections": "corr",
@@ -33,7 +61,7 @@ status_translation = {
 }
 
 # Variable global para activar o desactivar los prints
-DEBUG = False
+DEBUG = True
 
 def debug_print(message):
     if DEBUG:
@@ -335,11 +363,37 @@ def execute_full_push_operation(sg_manager, button_name, base_name, message, rev
     try:
         debug_print(f"Ejecutando push completo: {button_name} para {base_name}")
 
-        # Parsear el nombre base
-        project_name = base_name.split("_")[0]
-        parts = base_name.split("_")
-        shot_code = "_".join(parts[:5])
+        # Usar funciones compartidas para extraer información
+        project_name = extract_project_name(base_name)
+        shot_code = extract_shot_code(base_name)
 
+        # Extraer task_name usando función compartida o método alternativo
+        task_name_extracted = extract_task_name(base_name)
+        if task_name_extracted:
+            task_name = task_name_extracted.lower()
+        else:
+            # Fallback: buscar task antes de la versión
+            parts = base_name.split("_")
+            version_number_str = None
+            for part in parts:
+                if part.startswith("v") and part[1:].isdigit():
+                    version_number_str = part
+                    break
+            
+            if version_number_str:
+                try:
+                    version_index = parts.index(version_number_str)
+                    if version_index > 0:
+                        task_name = parts[version_index - 1].lower()
+                    else:
+                        task_name = "comp"  # Fallback por defecto
+                except ValueError:
+                    task_name = "comp"  # Fallback por defecto
+            else:
+                task_name = "comp"  # Fallback por defecto
+
+        # Extraer número de versión para logging
+        parts = base_name.split("_")
         version_number_str = None
         for part in parts:
             if part.startswith("v") and part[1:].isdigit():
@@ -350,8 +404,6 @@ def execute_full_push_operation(sg_manager, button_name, base_name, message, rev
             return {"success": False, "error": "No se encontró número de versión válido"}
 
         version_number = int(version_number_str.replace("v", ""))
-        version_index = parts.index(version_number_str)
-        task_name = parts[version_index - 1].lower()
 
         debug_print(f"Proyecto: {project_name}, Shot: {shot_code}, Task: {task_name}, Version: {version_number}")
 
@@ -531,11 +583,12 @@ def execute_flow_operation(operation, **kwargs):
             # Verificación de versiones para evitar congelar UI
             base_name = kwargs.get('base_name')
 
-            # Parsear el nombre base
-            project_name = base_name.split("_")[0]
-            parts = base_name.split("_")
-            shot_code = "_".join(parts[:5])
+            # Usar funciones compartidas para extraer información
+            project_name = extract_project_name(base_name)
+            shot_code = extract_shot_code(base_name)
 
+            # Extraer número de versión
+            parts = base_name.split("_")
             version_number_str = None
             for part in parts:
                 if part.startswith("v") and part[1:].isdigit():

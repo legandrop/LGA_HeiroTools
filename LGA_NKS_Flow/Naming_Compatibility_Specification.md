@@ -188,7 +188,17 @@ Sino:
    - ✅ Usa funciones compartidas para detección automática de formato
    - ✅ Compatibilidad 100% hacia atrás con formato con descripción
 
-7. **Otros scripts de LGA_NKS_Flow** (Pendiente revisión)
+7. **flow_connector.py** ✅ COMPLETADO
+   - ✅ **Actualizado** `execute_full_push_operation()` para usar funciones compartidas
+   - ✅ **Actualizado** `check_version()` para usar funciones compartidas
+   - ✅ Compatibilidad 100% hacia atrás con formato con descripción
+
+8. **LGA_NKS_Flow_Panel.py** ✅ COMPLETADO
+   - ✅ **Actualizado** `parse_exr_name()` para usar `clean_base_name()` y validación flexible
+   - ✅ Compatible con ambos formatos de nomenclatura
+   - ✅ Compatibilidad 100% hacia atrás con formato con descripción
+
+9. **Otros scripts de LGA_NKS_Flow** (Pendiente revisión)
    - Revisar si necesitan actualización para compatibilidad
 
 ## Criterios de Éxito
@@ -243,19 +253,31 @@ Sino:
    - Actualizado `get_shot_name_from_selected_clip()` para usar `extract_shot_code()`
    - Compatibilidad 100% hacia atrás con formato con descripción
 
-### ✅ Fase 6: LGA_NKS_Flow_Push.py - COMPLETADA
-7. ✅ **Actualizado** `LGA_NKS_Flow_Push.py` v3.76
+### ✅ Fase 6: LGA_NKS_Flow_Push.py y Archivos Relacionados - COMPLETADA
+7. ✅ **Actualizado** `LGA_NKS_Flow_Push.py` v3.81
    - Importadas funciones de `LGA_NKS_Flow_NamingUtils.py`
    - Actualizado `Worker.update_local_database()` para usar `extract_shot_code()`, `extract_project_name()` y `extract_task_name()`
    - Compatibilidad 100% hacia atrás con formato con descripción
 
+8. ✅ **Actualizado** `flow_connector.py`
+   - Importadas funciones de `LGA_NKS_Flow_NamingUtils.py` con fallback
+   - Actualizado `execute_full_push_operation()` para usar funciones compartidas
+   - Actualizado `check_version()` para usar funciones compartidas
+   - Compatibilidad 100% hacia atrás con formato con descripción
+
+9. ✅ **Actualizado** `LGA_NKS_Flow_Panel.py` v2.46
+   - Importada función `clean_base_name()` de `LGA_NKS_Flow_NamingUtils.py`
+   - Actualizado `parse_exr_name()` para usar `clean_base_name()` y validación flexible
+   - Compatible con ambos formatos de nomenclatura
+   - Compatibilidad 100% hacia atrás con formato con descripción
+
 ### Fase 7: Revisión Final (Pendiente)
-8. **Revisar** otros scripts de LGA_NKS_Flow que puedan necesitar actualización
+10. **Revisar** otros scripts de LGA_NKS_Flow que puedan necesitar actualización
 
 ### Fase 8: Testing y Validación (Pendiente)
-9. **Probar** exhaustivamente con casos reales de ambos formatos
-10. **Validar** funcionamiento correcto con proyectos existentes
-11. **Crear** casos de prueba automatizados
+11. **Probar** exhaustivamente con casos reales de ambos formatos
+12. **Validar** funcionamiento correcto con proyectos existentes
+13. **Crear** casos de prueba automatizados
 
 ## Implementación Técnica Específica
 
@@ -405,6 +427,37 @@ if task_name_extracted:
 else:
     # Fallback para casos edge
     ...
+```
+
+### flow_connector.py
+```python
+# ✅ IMPLEMENTADO - Uso de funciones compartidas
+
+from LGA_NKS_Flow_NamingUtils import (
+    extract_shot_code,
+    extract_project_name,
+    extract_task_name,
+)
+
+# En execute_full_push_operation():
+project_name = extract_project_name(base_name)
+shot_code = extract_shot_code(base_name)
+task_name_extracted = extract_task_name(base_name)
+
+# En check_version():
+project_name = extract_project_name(base_name)
+shot_code = extract_shot_code(base_name)
+```
+
+### LGA_NKS_Flow_Panel.py
+```python
+# ✅ IMPLEMENTADO - Uso de funciones compartidas
+
+from LGA_NKS_Flow_NamingUtils import clean_base_name
+
+# En parse_exr_name():
+base_name = clean_base_name(exr_name)
+# Validación flexible compatible con ambos formatos
 ```
 
 ---

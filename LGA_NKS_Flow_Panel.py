@@ -1,9 +1,12 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_Panel v2.45 | Lega Pugliese
+  LGA_NKS_Flow_Panel v2.46 | Lega Pugliese
   Panel con herramientas que interactuan con las tasks de Flow Production Tracking
   que fueron descargadas previamente con la app LGA_NKS_Flow_Downloader
+  Actualizado para ser compatible con ambos sistemas de nomenclatura:
+  - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+  - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 ____________________________________________________________________________________
 """
 
@@ -11,6 +14,8 @@ import hiero.ui
 import hiero.core
 import sys
 import os
+import re
+from pathlib import Path
 from PySide2.QtWidgets import (
     QWidget,
     QPushButton,
@@ -22,9 +27,13 @@ from PySide2.QtWidgets import (
 from PySide2.QtGui import QColor, QKeySequence
 from PySide2.QtCore import Qt
 
+# Importar utilidades de naming
+sys.path.append(str(Path(__file__).parent / "LGA_NKS_Flow"))
+from LGA_NKS_Flow_NamingUtils import clean_base_name
+
 
 # Variable global para activar o desactivar los prints
-DEBUG = False
+DEBUG = True
 
 
 def debug_print(*message):
@@ -352,21 +361,46 @@ class ColorChangeWidget(QWidget):
         return button_click_handler
 
     def parse_exr_name(self, exr_name):
-        # Ajustar el manejo del formato del nombre del archivo EXR
-        if "%04d" in exr_name:
-            exr_name = exr_name.replace(".%", "_%")  # Reemplazar patron para analisis
-
-        parts = exr_name.split("_")
-        if len(parts) < 7 or not parts[-2].startswith("v"):
+        """
+        Extrae el nombre base del archivo EXR.
+        Compatible con ambos sistemas de nomenclatura.
+        """
+        try:
+            # Guardar el nombre original para validación
+            original_name = exr_name
+            
+            # Ajustar el manejo del formato del nombre del archivo EXR
+            if "%04d" in exr_name:
+                exr_name = exr_name.replace(".%", "_%")  # Reemplazar patron para analisis
+            
+            # Verificar que tenga una versión en el nombre original ANTES de limpiar
+            version_match = re.search(r"_v(\d+)", original_name)
+            if not version_match:
+                raise ValueError(
+                    f"Nombre del archivo EXR no tiene versión válida: {original_name}"
+                )
+            
+            # Usar función compartida para limpiar el nombre base
+            base_name = clean_base_name(original_name)
+            
+            # Validar que tenga al menos los campos básicos (proyecto_seq_shot_task)
+            parts = base_name.split("_")
+            if len(parts) < 3:
+                raise ValueError(
+                    f"Nombre del archivo EXR no tiene el formato esperado (muy corto): {original_name}"
+                )
+            
+            return base_name
+        except ValueError:
+            # Re-lanzar ValueError tal cual
+            raise
+        except Exception as e:
+            debug_print(f"Error en parse_exr_name: {e}")
             raise ValueError(
                 f"Nombre del archivo EXR no tiene el formato esperado: {exr_name}"
             )
-        base_name = "_".join(
-            parts[:-1]
-        )  # Todas las partes excepto la ultima forman el base_name
-        return base_name
 
-    def push_task_status(self, button_name, base_name, update_callback=None):
+    def push_task_status(self, button_name, base_name, update_callback=None, original_file_name=None):
         try:
             # Importar y ejecutar el script de push
             script_path = os.path.join(
@@ -383,7 +417,7 @@ class ColorChangeWidget(QWidget):
                         module = importlib.util.module_from_spec(spec)
                         spec.loader.exec_module(module)
                         result = module.Push_Task_Status(
-                            button_name, base_name, update_callback
+                            button_name, base_name, update_callback, original_file_name
                         )
                         return result  # Retornar el resultado de la operacion (True o False)
                     else:
@@ -440,7 +474,7 @@ class ColorChangeWidget(QWidget):
                                         bin_item.setColor(color)
 
                                 push_result = self.push_task_status(
-                                    button_name, base_name, update_clip_color
+                                    button_name, base_name, update_clip_color, exr_name
                                 )
                                 if not push_result:
                                     # Operacion cancelada, continuar sin hacer nada
