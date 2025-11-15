@@ -169,13 +169,14 @@ Sino:
    - ✅ **Actualizado** extracción de `project_name` y `task_name` usando funciones compartidas
    - ✅ Compatibilidad 100% hacia atrás con formato con descripción
 
-3. **LGA_NKS_Flow_Thumbs.py** (Pendiente)
-   - **Actualizar** función `get_shot_name_from_selected_clip()`
-   - Usar funciones de `LGA_NKS_Flow_NamingUtils.py`
+3. **LGA_NKS_Flow_Thumbs.py** ✅ COMPLETADO
+   - ✅ **Actualizado** función `get_shot_name_from_selected_clip()` para usar `extract_shot_code()`
+   - ✅ **Actualizado** función `get_project_name_from_clip()` para usar `extract_project_name()`
+   - ✅ Compatibilidad 100% hacia atrás con formato con descripción
 
-4. **LGA_NKS_Flow_CreateShot_Thumbs.py** (Pendiente)
-   - **Actualizar** función `get_shot_name_from_selected_clip()`
-   - Usar funciones de `LGA_NKS_Flow_NamingUtils.py`
+4. **LGA_NKS_Flow_CreateShot_Thumbs.py** ✅ COMPLETADO
+   - ✅ **Actualizado** función `get_shot_name_from_selected_clip()` para usar `extract_shot_code()`
+   - ✅ Compatibilidad 100% hacia atrás con formato con descripción
 
 5. **LGA_NKS_Flow_Shot_info.py** ✅ COMPLETADO
    - ✅ **Actualizado** extracción de shot_code y project_name en `process_selected_clips()`
@@ -225,18 +226,22 @@ Sino:
    - Actualizado extracción de `shot_code` y `project_name` en `process_selected_clips()`
    - Compatibilidad 100% hacia atrás con formato con descripción
 
-### Fase 5: Scripts Restantes de Hiero (En Progreso)
-5. **Actualizar** `LGA_NKS_Flow_Thumbs.py`
-   - Función `get_shot_name_from_selected_clip()`
-   - Usar funciones de `LGA_NKS_Flow_NamingUtils.py`
+### ✅ Fase 5: Scripts de Thumbs - COMPLETADA
+5. ✅ **Actualizado** `LGA_NKS_Flow_Thumbs.py` v0.7
+   - Importadas funciones de `LGA_NKS_Flow_NamingUtils.py`
+   - Actualizado `get_shot_name_from_selected_clip()` para usar `extract_shot_code()`
+   - Actualizado `get_project_name_from_clip()` para usar `extract_project_name()` y `clean_base_name()`
+   - Compatibilidad 100% hacia atrás con formato con descripción
 
-6. **Actualizar** `LGA_NKS_Flow_CreateShot_Thumbs.py`
-   - Función `get_shot_name_from_selected_clip()`
-   - Usar funciones de `LGA_NKS_Flow_NamingUtils.py`
+6. ✅ **Actualizado** `LGA_NKS_Flow_CreateShot_Thumbs.py` v0.2
+   - Importadas funciones de `LGA_NKS_Flow_NamingUtils.py`
+   - Actualizado `get_shot_name_from_selected_clip()` para usar `extract_shot_code()`
+   - Compatibilidad 100% hacia atrás con formato con descripción
 
+### Fase 6: Revisión Final (Pendiente)
 7. **Revisar** otros scripts de LGA_NKS_Flow que puedan necesitar actualización
 
-### Fase 6: Testing y Validación (Pendiente)
+### Fase 7: Testing y Validación (Pendiente)
 8. **Probar** exhaustivamente con casos reales de ambos formatos
 9. **Validar** funcionamiento correcto con proyectos existentes
 10. **Crear** casos de prueba automatizados
@@ -334,6 +339,39 @@ base_name = clean_base_name(file_name)
 
 # En process_selected_clips():
 project_name = extract_project_name(base_name)
+shot_code = extract_shot_code(base_name)
+```
+
+### LGA_NKS_Flow_Thumbs.py
+```python
+# ✅ IMPLEMENTADO - Uso de funciones compartidas
+
+from LGA_NKS_Flow_NamingUtils import (
+    extract_shot_code,
+    extract_project_name,
+    clean_base_name,
+)
+
+# En get_project_name_from_clip():
+base_name = clean_base_name(filename)
+project_name = extract_project_name(base_name)
+
+# En get_shot_name_from_selected_clip():
+base_name = clean_base_name(exr_name)
+shot_code = extract_shot_code(base_name)
+```
+
+### LGA_NKS_Flow_CreateShot_Thumbs.py
+```python
+# ✅ IMPLEMENTADO - Uso de funciones compartidas
+
+from LGA_NKS_Flow_NamingUtils import (
+    extract_shot_code,
+    clean_base_name,
+)
+
+# En get_shot_name_from_selected_clip():
+base_name = clean_base_name(exr_name)
 shot_code = extract_shot_code(base_name)
 ```
 

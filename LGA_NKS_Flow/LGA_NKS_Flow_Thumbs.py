@@ -1,10 +1,13 @@
 """
 ______________________________________________________
 
-  LGA_NKS_Flow_Thumbs v0.6 - Lega
+  LGA_NKS_Flow_Thumbs v1.01 - Lega
   Crea un snapshot del viewer actual con zoom to fill y lo guarda en N:/(proyecto)/Thumbs
   organizando por nombre de proyecto extraido del archivo
   Maneja el track BurnIn temporalmente para la captura y lo restaura al final
+  Actualizado para ser compatible con ambos sistemas de nomenclatura:
+  - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+  - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 ______________________________________________________
 
 """
@@ -13,9 +16,19 @@ import hiero.core
 import hiero.ui
 import os
 import re
+import sys
 import time
+from pathlib import Path
 from PySide2.QtWidgets import QApplication
 from PySide2.QtCore import QRect, QTimer
+
+# Importar utilidades de naming
+sys.path.append(str(Path(__file__).parent))
+from LGA_NKS_Flow_NamingUtils import (
+    extract_shot_code,
+    extract_project_name,
+    clean_base_name,
+)
 
 DEBUG = False
 
@@ -28,7 +41,7 @@ def debug_print(*message):
 def get_project_name_from_clip():
     """
     Obtiene el nombre del proyecto desde el clip seleccionado.
-    Busca el primer segmento antes del primer guion bajo en el nombre del archivo.
+    Usa funciones compartidas para extraer el nombre del proyecto.
     """
     sequence = hiero.ui.activeSequence()
     if not sequence:
@@ -50,17 +63,17 @@ def get_project_name_from_clip():
         file_path = clip.source().mediaSource().fileinfos()[0].filename()
         debug_print(f"File path: {file_path}")
 
-        # Extraer nombre base del archivo
+        # Extraer nombre base del archivo usando función compartida
         filename = os.path.basename(file_path)
-        debug_print(f"Filename: {filename}")
-
-        # Buscar el primer guion bajo y extraer la primera parte
-        if "_" in filename:
-            project_name = filename.split("_")[0]
+        base_name = clean_base_name(filename)
+        
+        # Usar función compartida para extraer el nombre del proyecto
+        project_name = extract_project_name(base_name)
+        if project_name:
             debug_print(f"Nombre del proyecto extraído: {project_name}")
             return project_name
         else:
-            debug_print("No se encontró guión bajo en el nombre del archivo")
+            debug_print("No se pudo extraer el nombre del proyecto")
             return None
 
     except Exception as e:
@@ -105,15 +118,13 @@ def get_shot_name_from_selected_clip():
         file_path = clip.source().mediaSource().fileinfos()[0].filename()
         debug_print(f"File path: {file_path}")
 
-        # Extraer nombre base del archivo
+        # Extraer nombre base del archivo usando utilidades de naming
         exr_name = os.path.basename(file_path)
-        base_name = re.sub(r"_%04d\.exr$", "", exr_name)
-        base_name = re.sub(r"_v\d+$", "", base_name)  # Remover version si existe
+        base_name = clean_base_name(exr_name)
 
-        # Si el nombre base contiene guiones bajos, tomar las primeras partes como shot code
-        parts = base_name.split("_")
-        if len(parts) >= 5:
-            shot_code = "_".join(parts[:5])
+        # Extraer shot_code usando detección automática de formato
+        shot_code = extract_shot_code(base_name)
+        if shot_code:
             debug_print(f"Shot code extraído del path: {shot_code}")
             return shot_code
         else:

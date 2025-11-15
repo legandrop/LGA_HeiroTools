@@ -1,9 +1,12 @@
 """
 ______________________________________________________
 
-  LGA_NKS_Flow_CreateShot_Thumbs v0.1 - Lega
+  LGA_NKS_Flow_CreateShot_Thumbs v1.01 - Lega
   Crea un snapshot del viewer actual con zoom to fill y lo guarda en ShotThumbs_Cache
   organizando por nombre de shot
+  Actualizado para ser compatible con ambos sistemas de nomenclatura:
+  - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+  - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 ______________________________________________________
 
 """
@@ -12,8 +15,17 @@ import hiero.core
 import hiero.ui
 import os
 import re
+import sys
+from pathlib import Path
 from PySide2.QtWidgets import QApplication
 from PySide2.QtCore import QRect
+
+# Importar utilidades de naming
+sys.path.append(str(Path(__file__).parent))
+from LGA_NKS_Flow_NamingUtils import (
+    extract_shot_code,
+    clean_base_name,
+)
 
 DEBUG = False
 
@@ -81,15 +93,13 @@ def get_shot_name_from_selected_clip():
         file_path = clip.source().mediaSource().fileinfos()[0].filename()
         debug_print(f"File path: {file_path}")
 
-        # Extraer nombre base del archivo
+        # Extraer nombre base del archivo usando utilidades de naming
         exr_name = os.path.basename(file_path)
-        base_name = re.sub(r"_%04d\.exr$", "", exr_name)
-        base_name = re.sub(r"_v\d+$", "", base_name)  # Remover version si existe
+        base_name = clean_base_name(exr_name)
 
-        # Si el nombre base contiene guiones bajos, tomar las primeras partes como shot code
-        parts = base_name.split("_")
-        if len(parts) >= 5:
-            shot_code = "_".join(parts[:5])
+        # Extraer shot_code usando detección automática de formato
+        shot_code = extract_shot_code(base_name)
+        if shot_code:
             debug_print(f"Shot code extraído del path: {shot_code}")
             return shot_code
         else:
