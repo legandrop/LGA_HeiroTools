@@ -1,11 +1,16 @@
 """
 ________________________________________________________________
 
-  LGA_NKS_Flow_Assign_Assignee v1.21 | Lega
+  LGA_NKS_Flow_Assign_Assignee v1.22 | Lega
   Asigna un usuario a una tarea en ShotGrid (Flow) a partir del base_name y nombre de usuario
-  Actualizado para ser compatible con ambos sistemas de nomenclatura:
-  - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
-  - PROYECTO_SEQ_SHOT (3 bloques simplificado)
+
+  v1.22: Verifica y asigna automáticamente el proyecto al usuario si no lo tiene asignado
+        antes de asignar la task comp
+        
+  v1.21: Actualizado para ser compatible con ambos sistemas de nomenclatura:
+        - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+        - PROYECTO_SEQ_SHOT (3 bloques simplificado)
+
 ________________________________________________________________
 """
 
@@ -36,7 +41,7 @@ from LGA_NKS_Flow_NamingUtils import (
     extract_task_name,
 )
 
-DEBUG = False
+DEBUG = True
 debug_messages = []
 
 
@@ -296,6 +301,102 @@ class ShotGridManager:
             debug_print(f"Error buscando usuario: {e}")
             return None
 
+    def check_user_has_project(self, user, project_name):
+        """
+        Verifica si un usuario tiene asignado un proyecto específico.
+        
+        Args:
+            user (dict): Diccionario del usuario con campo 'projects'
+            project_name (str): Nombre del proyecto a verificar
+            
+        Returns:
+            tuple: (bool, int) - (True si tiene el proyecto, project_id)
+        """
+        if not self.sg:
+            debug_print("Conexion a ShotGrid no esta inicializada")
+            return False, None
+        
+        try:
+            # Buscar el proyecto
+            projects = self.sg.find(
+                "Project",
+                [["name", "is", project_name]],
+                ["id", "name"]
+            )
+            
+            if not projects:
+                debug_print(f"No se encontro el proyecto '{project_name}' en Flow.")
+                return False, None
+            
+            project_id = projects[0]["id"]
+            user_projects = user.get("projects", [])
+            
+            # Verificar si el proyecto está en la lista del usuario
+            for proj_ref in user_projects:
+                if proj_ref.get("id") == project_id:
+                    debug_print(f"Usuario ya tiene asignado el proyecto '{project_name}'")
+                    return True, project_id
+            
+            debug_print(f"Usuario NO tiene asignado el proyecto '{project_name}'")
+            return False, project_id
+            
+        except Exception as e:
+            debug_print(f"Error al verificar proyecto del usuario: {e}")
+            return False, None
+
+    def assign_project_to_user(self, user_id, project_id):
+        """
+        Asigna un proyecto a un usuario en Flow.
+        
+        Args:
+            user_id (int): ID del usuario
+            project_id (int): ID del proyecto a asignar
+            
+        Returns:
+            bool: True si se asignó exitosamente
+        """
+        if not self.sg:
+            debug_print("Conexion a ShotGrid no esta inicializada")
+            return False
+        
+        try:
+            # Obtener el usuario con sus proyectos actuales
+            user = self.sg.find_one(
+                "HumanUser",
+                [["id", "is", user_id]],
+                ["id", "name", "projects"]
+            )
+            
+            if not user:
+                debug_print(f"No se encontro el usuario con ID {user_id}")
+                return False
+            
+            current_projects = user.get("projects", [])
+            
+            # Verificar si el proyecto ya está asignado
+            for proj_ref in current_projects:
+                if proj_ref.get("id") == project_id:
+                    debug_print(f"El proyecto ya estaba asignado al usuario")
+                    return True  # Ya está asignado, consideramos éxito
+            
+            # Agregar el proyecto a la lista
+            new_project_ref = {"type": "Project", "id": project_id}
+            new_projects = current_projects + [new_project_ref]
+            
+            # Actualizar el usuario
+            result = self.sg.update("HumanUser", user_id, {"projects": new_projects})
+            
+            if result:
+                debug_print(f"Proyecto asignado exitosamente al usuario {user_id}")
+                return True
+            else:
+                debug_print(f"Fallo al asignar proyecto al usuario {user_id}")
+                return False
+                
+        except Exception as e:
+            debug_print(f"Error al asignar proyecto al usuario: {e}")
+            return False
+
     def add_assignee_to_task(self, task_id, current_assignees, user):
         if not self.sg:
             debug_print("Conexion a ShotGrid no esta inicializada")
@@ -382,22 +483,56 @@ class AssignAssigneeWorker(QRunnable):
                     f"No se encontro la tarea '{task_name}' para el shot {shot_name}."
                 )
                 return
+            
+            # Buscar el usuario (necesitamos obtener también el campo 'projects')
             user = sg_manager.find_user_by_name(self.user_name)
             if not user:
                 self.signals.error.emit(
                     f"No se encontro el usuario '{self.user_name}' en ShotGrid."
                 )
                 return
+            
+            # Obtener el usuario completo con proyectos para verificar asignación
+            user_with_projects = sg_manager.sg.find_one(
+                "HumanUser",
+                [["id", "is", user["id"]]],
+                ["id", "name", "projects"]
+            )
+            
+            if not user_with_projects:
+                self.signals.error.emit(
+                    f"No se pudo obtener información completa del usuario '{self.user_name}'."
+                )
+                return
+            
+            # Verificar si el usuario tiene asignado el proyecto
+            project_assigned = False
+            has_project, project_id = sg_manager.check_user_has_project(
+                user_with_projects, project_name
+            )
+            
+            if not has_project and project_id:
+                # El usuario no tiene el proyecto asignado, asignarlo
+                debug_print(f"Asignando proyecto '{project_name}' al usuario '{self.user_name}'")
+                project_assigned = sg_manager.assign_project_to_user(
+                    user_with_projects["id"], project_id
+                )
+                if not project_assigned:
+                    debug_print(f"Advertencia: No se pudo asignar el proyecto, pero continuando con la asignación de la task")
+            
+            # Asignar el usuario a la task
             current_assignees = task.get("task_assignees", [])
             success, message = sg_manager.add_assignee_to_task(
                 task["id"], current_assignees, user
             )
 
             if success:
-                self.signals.finished.emit(
-                    True,
-                    f"Usuario '{self.user_name}' asignado exitosamente a {shot_name}/{task_name}",
-                )
+                # Construir mensaje de éxito
+                success_message = f"Usuario '{self.user_name}' asignado exitosamente a {shot_name}/{task_name}"
+                if project_assigned:
+                    success_message += f" y proyecto '{project_name}' asignado al usuario"
+                
+                self.signals.finished.emit(True, success_message)
             else:
                 self.signals.error.emit(message)
 
