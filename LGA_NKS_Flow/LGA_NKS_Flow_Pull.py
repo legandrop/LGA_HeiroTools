@@ -1,6 +1,6 @@
 """
 ____________________________________________________________________________
-  LGA_NKS_Flow_Pull v3.29 | Lega Pugliese
+  LGA_NKS_Flow_Pull v3.30 | Lega Pugliese
   Compara los estados de las task Comp de los shots del timeline de Hiero
   con los estados registrados en un archivo JSON basado en Flow PT
   Tambien aplica tags con los colores de los estados en xyplorer
@@ -8,6 +8,7 @@ ____________________________________________________________________________
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 
+  v3.30: Centralización del nombre del track usando TRACK_comp_EXR del módulo LGA_NKS_GetClip
   v3.29: Soporta versiones de 2 y 3 dígitos
 ____________________________________________________________________________
 """
@@ -30,6 +31,15 @@ from LGA_NKS_Flow_NamingUtils import (
     extract_task_name,
     clean_base_name,
 )
+
+# Importar utilidades para obtener clips
+utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
+if utils_path.exists():
+    sys.path.insert(0, str(utils_path))
+    from LGA_NKS_GetClip import TRACK_comp_EXR
+else:
+    # Fallback si no se encuentra el módulo
+    TRACK_comp_EXR = "_comp_"
 from PySide2.QtWidgets import (
     QApplication,
     QWidget,
@@ -556,7 +566,7 @@ class HieroOperations:
             te = hiero.ui.getTimelineEditor(seq)
             selected_clips = te.selection()
 
-            # Si force_all_clips es True, obtener solo los clips del track "EXR"
+            # Si force_all_clips es True, obtener solo los clips del track TRACK_comp_EXR
             if (
                 hasattr(self.gui_table, "force_all_clips")
                 and self.gui_table.force_all_clips
@@ -565,8 +575,8 @@ class HieroOperations:
                 all_tracks = seq.videoTracks()
                 selected_clips = []
                 for track in all_tracks:
-                    # Solo procesar clips si el track se llama "EXR"
-                    if track.name() == "EXR":
+                    # Solo procesar clips si el track coincide con TRACK_comp_EXR
+                    if track.name() == TRACK_comp_EXR:
                         selected_clips.extend(track.items())
                         debug_print(f"Procesando clips del track: {track.name()}")
             elif not selected_clips:
@@ -887,9 +897,9 @@ class HieroOperations:
                             clip_track = track
                             break
                     
-                    # Solo procesar clips del track EXR
-                    if clip_track and clip_track.name() != "EXR":
-                        debug_print(f"Clip '{item.name()}' no está en track EXR, saltando")
+                    # Solo procesar clips del track TRACK_comp_EXR
+                    if clip_track and clip_track.name() != TRACK_comp_EXR:
+                        debug_print(f"Clip '{item.name()}' no está en track {TRACK_comp_EXR}, saltando")
                         continue
                     
                     file_path = (
