@@ -1,10 +1,11 @@
 """
 _____________________________________________________________________________________________________
 
-  LGA_NKS_Flow_ShowInFlow v1.24 | Lega Pugliese
+  LGA_NKS_Flow_ShowInFlow v1.25 | Lega Pugliese
   Abre la URL de la task Comp del shot, tomando la informacion del nombre del clip en el track EXR bajo el playhead
   Si no hay clip en playhead, usa el clip seleccionado como fallback
   Verifica si existe más de un shot con el mismo nombre y te pide que selecciones uno
+  Usa el módulo utilitario LGA_NKS_GetClip para obtener clips
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
@@ -94,6 +95,17 @@ from LGA_NKS_Flow_NamingUtils import (
     extract_project_name,
     clean_base_name,
 )
+
+# Importar utilidades para obtener clips
+utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
+if utils_path.exists():
+    sys.path.insert(0, str(utils_path))
+    from LGA_NKS_GetClip import get_clip_to_process
+    # Sincronizar el debug con el módulo utilitario
+    import LGA_NKS_GetClip as clip_utils
+    clip_utils.DEBUG = DEBUG
+else:
+    debug_print("ERROR: No se encontró el módulo LGA_NKS_GetClip")
 
 
 class ShotSelectionDialog(QDialog):
@@ -215,30 +227,6 @@ class HieroOperations:
     def __init__(self, shotgrid_manager):
         self.sg_manager = shotgrid_manager
 
-    def find_clip_at_playhead_in_track(self, seq, track_name="EXR"):
-        """Busca el clip en un track dado que coincide con la posicion del playhead.
-        Evita efectos y devuelve el primer clip que cumpla la condicion o None.
-        """
-        try:
-            viewer = hiero.ui.currentViewer()
-            if not viewer:
-                return None
-            current_time = viewer.time()
-            for track in seq.videoTracks():
-                if track.name().upper() == track_name.upper():
-                    for clip in track:
-                        if isinstance(clip, hiero.core.EffectTrackItem):
-                            continue
-                        if clip.timelineIn() <= current_time < clip.timelineOut():
-                            debug_print(
-                                f">>> Clip encontrado en track {track_name} en posicion {current_time}"
-                            )
-                            return clip
-            return None
-        except Exception as e:
-            debug_print(f"Error buscando clip por playhead en track {track_name}: {e}")
-            return None
-
     def parse_exr_name(self, file_name):
         """Extrae el nombre base del archivo EXR usando funciones compartidas de NamingUtils."""
         # Usar función compartida para limpiar el nombre base (compatible con ambos formatos)
@@ -247,38 +235,6 @@ class HieroOperations:
         version_match = re.search(r"_v(\d+)", file_name)
         version_number = version_match.group(1) if version_match else "Unknown"
         return base_name, version_number
-
-    def get_clip_to_process(self):
-        """Obtiene el clip a procesar: primero playhead en EXR, luego seleccion.
-        Debe ejecutarse en el hilo principal.
-        Retorna el clip o None.
-        """
-        seq = hiero.ui.activeSequence()
-        if not seq:
-            debug_print("No se encontro una secuencia activa en Hiero.")
-            return None
-
-        # Intentar obtener clip por playhead en track EXR
-        playhead_clip = self.find_clip_at_playhead_in_track(seq, track_name="EXR")
-
-        # Fallback a seleccion
-        if not playhead_clip:
-            te = hiero.ui.getTimelineEditor(seq)
-            selected_clips = te.selection() if te else []
-            if selected_clips:
-                # Tomar el primer clip seleccionado que no sea un efecto
-                for clip in selected_clips:
-                    if not isinstance(clip, hiero.core.EffectTrackItem):
-                        debug_print(
-                            ">>> No hay clip en playhead sobre EXR; usando clip seleccionado como fallback"
-                        )
-                        return clip
-        else:
-            debug_print(
-                ">>> Usando clip del playhead en track EXR"
-            )
-
-        return playhead_clip
 
     def process_clip(self, clip):
         """Procesa un clip específico y abre la URL correspondiente."""
@@ -468,8 +424,8 @@ def show_in_flow_from_selected_clip():
     Procesa el clip en playhead del track EXR (o seleccionado) y abre la task comp en Flow.
     """
     # Obtener el clip en el hilo principal ANTES de entrar al hilo secundario
-    hiero_ops_temp = HieroOperations(None)
-    clip = hiero_ops_temp.get_clip_to_process()
+    # Usa el módulo utilitario LGA_NKS_GetClip
+    clip = get_clip_to_process()
     
     if not clip:
         msg = QMessageBox()
