@@ -13,6 +13,7 @@ ________________________________________________________________________________
   - (otros scripts que necesiten obtener clips)
 
   v1.1 - Agrega get_clips_to_process para obtener múltiples clips seleccionados en el track EXR
+  v1.2 - Agrega DEFAULT_REV_TRACK_NAME para centralizar el nombre del track REV
 ____________________________________________________________________________________
 """
 
@@ -23,7 +24,10 @@ import hiero.ui
 DEBUG = False  # Poner en True para activar los mensajes de debug
 
 # Variable configurable para el nombre del track por defecto
-DEFAULT_TRACK_NAME = "_comp_"  # Puede cambiarse según el workflow
+DEFAULT_TRACK_NAME = "_comp_"  # Es el track que contiene a los EXR con el render de COMP
+
+# Variable configurable para el nombre del track REV por defecto
+DEFAULT_REV_TRACK_NAME = "_rev_"  # Es el track que contiene a los MOV o MXF con el render de COMP
 
 
 def debug_print(*message):

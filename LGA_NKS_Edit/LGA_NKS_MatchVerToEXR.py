@@ -1,10 +1,11 @@
 """
 _______________________________________________________________________________________
 
-  LGA_NKS_MatchVerToEXR v0.5 | Lega
-  Busca la version actual de todos los clips del track llamado EXR e
-  intenta subir la versión de todos los clips del track llamado REV a la misma versión.
+  LGA_NKS_MatchVerToEXR v0.6 | Lega
+  Busca la version actual de los clips del track _comp_ (DEFAULT_TRACK_NAME) e
+  intenta subir la versión de los clips correspondientes del track _rev_ (DEFAULT_REV_TRACK_NAME) a la misma versión.
   
+  v0.6 - Usa módulo centralizado LGA_NKS_GetClip para obtener clips (método híbrido: selecciones múltiples > playhead > selección)
   v0.5 - Actualizado para ser compatible con ambos sistemas de nomenclatura:
          - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
          - PROYECTO_SEQ_SHOT (3 bloques simplificado)
@@ -56,6 +57,30 @@ else:
     extract_shot_code = None
     clean_base_name = None
 
+# Importar utilidades para obtener clips y variables centralizadas para nombres de tracks
+utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
+if utils_path.exists():
+    sys.path.insert(0, str(utils_path))
+    try:
+        from LGA_NKS_GetClip import get_clips_to_process
+        import LGA_NKS_GetClip as clip_utils
+        DEFAULT_TRACK_NAME = clip_utils.DEFAULT_TRACK_NAME
+        DEFAULT_REV_TRACK_NAME = clip_utils.DEFAULT_REV_TRACK_NAME
+        # Sincronizar el debug con el módulo utilitario
+        clip_utils.DEBUG = DEBUG
+    except ImportError:
+        if DEBUG:
+            print("ERROR: No se encontró el módulo LGA_NKS_GetClip")
+        DEFAULT_TRACK_NAME = "_comp_"  # Fallback
+        DEFAULT_REV_TRACK_NAME = "_rev_"  # Fallback
+        get_clips_to_process = None
+else:
+    if DEBUG:
+        print("ERROR: No se encontró el directorio LGA_NKS_Utils")
+    DEFAULT_TRACK_NAME = "_comp_"  # Fallback
+    DEFAULT_REV_TRACK_NAME = "_rev_"  # Fallback
+    get_clips_to_process = None
+
 # Variables globales para mantener la ventana en memoria - COPIADO DEL PULL
 app = None
 window = None
@@ -98,18 +123,18 @@ class VersionMatcherGUI(QWidget):
                 self.adjust_window_size()  # COPIADO DEL PULL
                 self.show()
             else:
-                QMessageBox.information(
-                    self,
-                    "No Changes",
-                    "No se encontraron clips EXR con correspondientes clips REV.",
-                )
+                    QMessageBox.information(
+                        self,
+                        "No Changes",
+                        f"No se encontraron clips del track {DEFAULT_TRACK_NAME} con correspondientes clips del track {DEFAULT_REV_TRACK_NAME}.",
+                    )
 
     def add_color_to_background_list(self, row_colors):
         """COPIADO DEL PULL - Agrega una lista de colores de fondo para una nueva fila."""
         self.row_background_colors.append(row_colors)
 
     def initUI(self):
-        self.setWindowTitle("EXR to REV Version Matcher - Results")
+        self.setWindowTitle(f"{DEFAULT_TRACK_NAME} to {DEFAULT_REV_TRACK_NAME} Version Matcher - Results")
         layout = QVBoxLayout(self)
 
         self.table = QTableWidget(0, 4, self)
@@ -334,47 +359,73 @@ class HieroOperations:
                     debug_print(f"→ Eliminado tag 'Version Mismatch' del clip")
 
     def process_tracks(self, table, gui_table):
-        """MODIFICADO - Procesar clips de tracks EXR y REV devolviendo si hay cambios"""
+        """MODIFICADO - Procesar clips de tracks _comp_ y _rev_ usando método híbrido, devolviendo si hay cambios"""
         seq = hiero.ui.activeSequence()
         if not seq:
             QMessageBox.warning(None, "Error", "No hay secuencia activa en Hiero.")
             return False
 
-        te = hiero.ui.getTimelineEditor(seq)
-        selected_clips = te.selection()
-
-        # Encontrar tracks EXR y REV
+        # Encontrar tracks usando variables centralizadas
         exr_track = None
         rev_track = None
 
         for track in seq.videoTracks():
-            if track.name().upper() == "EXR":
+            if track.name().upper() == DEFAULT_TRACK_NAME.upper():
                 exr_track = track
-            elif track.name().upper() == "REV":
+            elif track.name().upper() == DEFAULT_REV_TRACK_NAME.upper():
                 rev_track = track
 
         if not exr_track:
-            QMessageBox.warning(None, "Error", "No se encontró el track EXR.")
+            QMessageBox.warning(None, "Error", f"No se encontró el track {DEFAULT_TRACK_NAME}.")
             return False
 
         if not rev_track:
-            QMessageBox.warning(None, "Error", "No se encontró el track REV.")
+            QMessageBox.warning(None, "Error", f"No se encontró el track {DEFAULT_REV_TRACK_NAME}.")
             return False
 
-        # Obtener clips a procesar - MODIFICADO para force_all_clips
-        if self.force_all_clips or not selected_clips:
-            # Procesar todos los clips del track EXR
-            exr_clips = exr_track.items()
+        # Obtener clips a procesar usando módulo centralizado
+        # Prioridad: selecciones múltiples > force_all_clips > playhead
+        if self.force_all_clips:
+            # Si force_all_clips=True, procesar todos los clips del track
+            exr_clips = [clip for clip in exr_track.items() if not isinstance(clip, hiero.core.EffectTrackItem)]
             debug_print(
-                f">>> Procesando todos los {len(exr_clips)} clips del track EXR"
-                + (" (forzado por shift+click)" if self.force_all_clips else "")
+                f">>> Procesando todos los {len(exr_clips)} clips del track {DEFAULT_TRACK_NAME} (forzado por shift+click)"
             )
         else:
-            # Solo procesar clips seleccionados que estén en el track EXR
-            exr_clips = [
-                clip for clip in selected_clips if clip.parentTrack() == exr_track
-            ]
-            debug_print(f">>> Procesando {len(exr_clips)} clips EXR seleccionados")
+            # Usar módulo centralizado que prioriza selecciones múltiples sobre playhead
+            if get_clips_to_process:
+                exr_clips = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
+            else:
+                # Fallback manual si no está disponible el módulo
+                te = hiero.ui.getTimelineEditor(seq)
+                selected_clips = te.selection() if te else []
+                exr_clips = [
+                    clip for clip in selected_clips 
+                    if clip.parentTrack() == exr_track and not isinstance(clip, hiero.core.EffectTrackItem)
+                ]
+                if not exr_clips:
+                    # Fallback a playhead
+                    viewer = hiero.ui.currentViewer()
+                    if viewer:
+                        current_time = viewer.time()
+                        for clip in exr_track:
+                            if isinstance(clip, hiero.core.EffectTrackItem):
+                                continue
+                            if clip.timelineIn() <= current_time < clip.timelineOut():
+                                exr_clips = [clip]
+                                break
+            
+            if not exr_clips:
+                QMessageBox.warning(
+                    None,
+                    "Error",
+                    f"No se encontró ningún clip en el track {DEFAULT_TRACK_NAME} en la posición del playhead o seleccionado.",
+                )
+                return False
+            
+            debug_print(
+                f">>> Procesando {len(exr_clips)} clip(s) del track {DEFAULT_TRACK_NAME}"
+            )
 
         # Crear diccionario de clips REV por base name
         rev_clips_dict = {}
@@ -424,7 +475,7 @@ class HieroOperations:
 
             debug_print(f"\n=== PROCESANDO SHOT: {base_without_version} ===")
             debug_print(
-                f"- Version actual del {base_without_version} del track EXR: v{exr_version:02d}"
+                f"- Version actual del {base_without_version} del track {DEFAULT_TRACK_NAME}: v{exr_version:02d}"
             )
 
             # Buscar clip correspondiente en REV
@@ -441,7 +492,7 @@ class HieroOperations:
                 rev_current_version = extract_version_number(rev_version_str)
 
                 debug_print(
-                    f"- Version actual del {base_without_version} del track REV: v{rev_current_version:02d}"
+                    f"- Version actual del {base_without_version} del track {DEFAULT_REV_TRACK_NAME}: v{rev_current_version:02d}"
                 )
 
                 # Mostrar versiones disponibles
@@ -454,7 +505,7 @@ class HieroOperations:
                     [f"v{v:02d}" for v in sorted(available_versions)]
                 )
                 debug_print(
-                    f"- Versiones existentes para el REV: {available_versions_str}"
+                    f"- Versiones existentes para el {DEFAULT_REV_TRACK_NAME}: {available_versions_str}"
                 )
 
                 # LOGICA PRINCIPAL - IGUAL QUE EL PULL
@@ -507,11 +558,11 @@ class HieroOperations:
                             self.add_custom_tag_to_clip(
                                 rev_clip,
                                 "Version Mismatch",
-                                f"EXR requires v{exr_version:02d}",
+                                f"{DEFAULT_TRACK_NAME} requires v{exr_version:02d}",
                                 "icons:TagRed.png",
                             )
                             debug_print(
-                                f"→ Agregado tag rojo 'Version Mismatch' al clip REV"
+                                f"→ Agregado tag rojo 'Version Mismatch' al clip {DEFAULT_REV_TRACK_NAME}"
                             )
                             gui_table.add_result(
                                 base_without_version,
@@ -525,7 +576,7 @@ class HieroOperations:
                         debug_print(f"✗ No se pudo cambiar la version")
             else:
                 debug_print(
-                    f"- No se encontro clip REV correspondiente para: {base_without_version}"
+                    f"- No se encontro clip {DEFAULT_REV_TRACK_NAME} correspondiente para: {base_without_version}"
                 )
 
         return results_found
