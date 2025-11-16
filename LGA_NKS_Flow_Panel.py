@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_Panel v2.46 | Lega Pugliese
+  LGA_NKS_Flow_Panel v2.47 | Lega Pugliese
   Panel con herramientas que interactuan con las tasks de Flow Production Tracking
   que fueron descargadas previamente con la app LGA_NKS_Flow_Downloader
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
@@ -173,8 +173,8 @@ class ColorChangeWidget(QWidget):
             if action == "color":
                 button.clicked.connect(self.handle_color_button_click(color, name))
             elif action == "fpt_pull":
-                button.setCustomClickHandler(self.run_FPT_pull)
-                button.setShiftClickHandler(self.run_FPT_pull_with_deselect)
+                button.setCustomClickHandler(self.run_FPT_pull_with_deselect)
+                button.setShiftClickHandler(self.run_FPT_pull)
             elif action == "review_pic":
                 button.clicked.connect(self.run_review_pic_script)
             elif action == "shot_info":

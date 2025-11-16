@@ -1,7 +1,7 @@
 """
 _______________________________________
 
-  LGA_ReviewPanel v2.74 | Lega
+  LGA_ReviewPanel v2.75 | Lega
   Tools panel for Hiero / Nuke Studio
 _______________________________________
 
@@ -128,8 +128,8 @@ class ReviewPanel(QWidget):
             if name == "ON Clips | OFF v00":
                 button = CustomButton(name)
                 button.setStyleSheet(f"background-color: {style}")
-                button.setCustomClickHandler(handler)
-                button.setShiftClickHandler(self.execute_EnableOrDisableClips_all_clips)
+                button.setCustomClickHandler(self.execute_EnableOrDisableClips_all_clips)
+                button.setShiftClickHandler(handler)
             else:
                 button = QPushButton(name)
                 button.setStyleSheet(f"background-color: {style}")
