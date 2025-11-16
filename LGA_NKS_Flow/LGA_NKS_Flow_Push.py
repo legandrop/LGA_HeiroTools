@@ -1,7 +1,7 @@
 """
 _____________________________________________________________
 
-  LGA_NKS_Flow_Push v3.91 | Lega
+  LGA_NKS_Flow_Push v3.92 | Lega
 
   Envia a flow nuevos estados de las tasks comps.
   En algunos estados permite enviar un mensaje a la version
@@ -392,6 +392,26 @@ class DBManager:
             debug_print(f"Error al obtener user_name de app_settings: {e}")
             return "Desconocido"
 
+    def get_task_assignee(self, task_id):
+        """Obtiene el assignee de una tarea específica."""
+        if not self.conn:
+            debug_print("No hay conexión a la base de datos")
+            return None
+        try:
+            cur = self.conn.cursor()
+            cur.execute(
+                "SELECT assigned_to FROM task_assignments WHERE task_id = ?",
+                (task_id,),
+            )
+            assign = cur.fetchone()
+            if assign and assign[0]:
+                return assign[0]
+            else:
+                return None
+        except Exception as e:
+            debug_print(f"Error al obtener assignee de task_id {task_id}: {e}")
+            return None
+
     def add_version_note(self, version_id, content, created_by=None):
         """Añade una nota a una versión en la base de datos."""
         if not self.conn:
@@ -467,8 +487,20 @@ class InputDialog(QDialog):
 
         self.layout = QVBoxLayout(self)
 
-        # Label para el mensaje
-        self.label = QLabel(f"Message for {base_name}:")
+        # Obtener información del shot y assignee desde la DB
+        assignee = self.get_shot_assignee(base_name)
+        
+        # Label para el mensaje con formato HTML usando los mismos colores que Shot_info
+        if assignee:
+            label_text = (
+                f"Message for <b style='color:#CCCC00;'>{base_name}</b> | "
+                f"<span style='color:#007ACC; font-weight:bold;'>{assignee}</span>:"
+            )
+        else:
+            label_text = f"Message for <b style='color:#CCCC00;'>{base_name}</b>:"
+        
+        self.label = QLabel(label_text)
+        self.label.setTextFormat(Qt.RichText)  # Permitir formato HTML
         self.layout.addWidget(self.label)
 
         # Area de texto para el mensaje
@@ -503,6 +535,57 @@ class InputDialog(QDialog):
 
         # Ajustar el tamaño del diálogo para que se ajuste a su contenido (ahora solo ajusta la altura)
         self.adjustSize()
+
+    def get_shot_assignee(self, base_name):
+        """
+        Obtiene el assignee de la task comp para el shot especificado.
+        Retorna el nombre del assignee o None si no se encuentra.
+        """
+        try:
+            # Extraer información del base_name
+            project_name = extract_project_name(base_name)
+            shot_code = extract_shot_code(base_name)
+            
+            if not project_name or not shot_code:
+                debug_print(f"No se pudo extraer project_name o shot_code de: {base_name}")
+                return None
+            
+            # Conectar a la base de datos
+            db_manager = DBManager()
+            if not db_manager.conn:
+                debug_print("No hay conexión a la base de datos para obtener assignee")
+                return None
+            
+            # Buscar el shot
+            db_shot = db_manager.find_shot(project_name, shot_code)
+            if not db_shot:
+                debug_print(f"No se encontró el shot {shot_code} en proyecto {project_name}")
+                db_manager.close()
+                return None
+            
+            # Buscar la task comp
+            db_task = db_manager.find_task(db_shot["id"], "comp")
+            if not db_task:
+                debug_print(f"No se encontró la task comp para shot_id {db_shot['id']}")
+                db_manager.close()
+                return None
+            
+            # Obtener el assignee
+            assignee = db_manager.get_task_assignee(db_task["id"])
+            db_manager.close()
+            
+            if assignee:
+                debug_print(f"Assignee encontrado para {base_name}: {assignee}")
+            else:
+                debug_print(f"No se encontró assignee para {base_name}")
+            
+            return assignee
+            
+        except Exception as e:
+            debug_print(f"Error obteniendo assignee para {base_name}: {e}")
+            import traceback
+            debug_print(traceback.format_exc())
+            return None
 
     def add_thumbnails_section(self, image_paths):
         """
