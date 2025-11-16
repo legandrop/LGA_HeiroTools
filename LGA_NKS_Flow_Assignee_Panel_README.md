@@ -5,17 +5,12 @@ El panel LGA_NKS_Flow_Assignee_Panel carga dinámicamente la lista de usuarios d
 
 ## Funcionalidades Principales
 
-### 1. Shortcut para "Reveal in Flow"
-- **Shortcut**: `Shift+F`
-- **Función**: Abre la task comp del clip seleccionado en Chrome
-- **Tooltip**: Se muestra el shortcut al hacer hover sobre el botón
-
-### 2. Configuración Dinámica de Usuarios
+### 1. Configuración Dinámica de Usuarios
 - Los usuarios se cargan desde `Python/Startup/LGA_NKS_Flow_Users.json`
 - Cada usuario tiene nombre, color y usuario de Wasabi configurables
 - El sistema crea automáticamente el archivo de configuración si no existe
 
-### 3. Funcionalidad Triple de Botones de Usuario
+### 2. Funcionalidad Triple de Botones de Usuario
 - **Click normal**: Asigna el usuario a la task comp en Flow Production Tracking
 - **Shift+Click**: Crea/actualiza políticas IAM de Wasabi para el usuario seleccionado
 - **Ctrl+Shift+Click**: Abre ventana de gestión de shots asignados en policy de Wasabi
@@ -118,9 +113,8 @@ Al hacer Ctrl+Shift+Click en un botón de usuario, el panel llama al script de g
 ## Estructura del Panel
 
 ### Botones Fijos
-1. **Reveal in Flow** - `Shift+F`
-2. **Get Assignees**
-3. **Clear Assignees**
+1. **Get Assignees** - Obtiene los usuarios asignados a la task comp del clip seleccionado
+2. **Clear Assignees** - Elimina todos los asignados de la task comp del clip seleccionado
 
 ### Botones Dinámicos (Usuarios)
 - Se generan automáticamente basándose en el archivo de configuración

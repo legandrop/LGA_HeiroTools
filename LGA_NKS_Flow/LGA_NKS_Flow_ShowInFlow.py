@@ -1,9 +1,12 @@
 """
 _____________________________________________________________________________________________________
 
-  LGA_NKS_Flow_ShowInFlow v1.22 | Lega Pugliese
+  LGA_NKS_Flow_ShowInFlow v1.23 | Lega Pugliese
   Abre la URL de la task Comp del shot, tomando la informacion del nombre del clip seleccionado
   Verifica si existe más de un shot con el mismo nombre y te pide que selecciones uno
+  Actualizado para ser compatible con ambos sistemas de nomenclatura:
+  - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+  - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 _____________________________________________________________________________________________________
 """
 
@@ -83,6 +86,13 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent))
 from SecureConfig_Reader import get_flow_credentials
 # --- FIN: Importar el módulo de configuración segura ---
+
+# Importar funciones de nomenclatura compartidas
+from LGA_NKS_Flow_NamingUtils import (
+    extract_shot_code,
+    extract_project_name,
+    clean_base_name,
+)
 
 
 class ShotSelectionDialog(QDialog):
@@ -205,12 +215,11 @@ class HieroOperations:
         self.sg_manager = shotgrid_manager
 
     def parse_exr_name(self, file_name):
-        # Ajustar el manejo del formato del nombre del archivo EXR
-        if "%04d" in file_name:
-            file_name = file_name.replace(".%", "_%")  # Reemplazar patron para analisis
-
-        base_name = re.sub(r"_%04d\.exr$", "", file_name)
-        version_match = re.search(r"_v(\d+)", base_name)
+        """Extrae el nombre base del archivo EXR usando funciones compartidas de NamingUtils."""
+        # Usar función compartida para limpiar el nombre base (compatible con ambos formatos)
+        base_name = clean_base_name(file_name)
+        # Buscar versión en el nombre original (antes de limpiar)
+        version_match = re.search(r"_v(\d+)", file_name)
         version_number = version_match.group(1) if version_match else "Unknown"
         return base_name, version_number
 
@@ -244,9 +253,9 @@ class HieroOperations:
                         f"Parsed base name: {base_name}, version number: {hiero_version_number}"
                     )
 
-                    project_name = base_name.split("_")[0]
-                    parts = base_name.split("_")
-                    shot_code = "_".join(parts[:5])
+                    # Usar funciones compartidas para extraer información (compatible con ambos formatos)
+                    project_name = extract_project_name(base_name)
+                    shot_code = extract_shot_code(base_name)
                     debug_print(f"Project name: {project_name}, shot code: {shot_code}")
 
                     shot, tasks = self.sg_manager.find_shot_and_tasks(
