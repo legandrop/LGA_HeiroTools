@@ -271,13 +271,33 @@ Sino:
    - Compatible con ambos formatos de nomenclatura
    - Compatibilidad 100% hacia atrás con formato con descripción
 
-### Fase 7: Revisión Final (Pendiente)
-10. **Revisar** otros scripts de LGA_NKS_Flow que puedan necesitar actualización
+### ✅ Fase 7: Scripts de LGA_NKS_Edit - COMPLETADA
+10. ✅ **Actualizado** `LGA_NKS_CompareEXR_to_aPlate.py` v1.14
+    - Importadas funciones `extract_shot_code()` y `clean_base_name()` de `LGA_NKS_Flow_NamingUtils.py`
+    - Actualizado `parse_clip_name()` para usar funciones centralizadas con detección automática de formato
+    - Compatible con ambos sistemas de nomenclatura (5 bloques con descripción / 3 bloques simplificado)
+    - Compatibilidad 100% hacia atrás con formato con descripción
 
-### Fase 8: Testing y Validación (Pendiente)
-11. **Probar** exhaustivamente con casos reales de ambos formatos
-12. **Validar** funcionamiento correcto con proyectos existentes
-13. **Crear** casos de prueba automatizados
+11. ✅ **Actualizado** `LGA_NKS_CompareVerToEditref.py` v1.14
+    - Importadas funciones `extract_shot_code()` y `clean_base_name()` de `LGA_NKS_Flow_NamingUtils.py`
+    - Actualizado `parse_clip_name()` para usar funciones centralizadas con detección automática de formato
+    - Compatible con ambos sistemas de nomenclatura (5 bloques con descripción / 3 bloques simplificado)
+    - Compatibilidad 100% hacia atrás con formato con descripción
+
+12. ✅ **Actualizado** `LGA_NKS_MatchVerToEXR.py` v0.5
+    - Importadas funciones `extract_shot_code()` y `clean_base_name()` de `LGA_NKS_Flow_NamingUtils.py`
+    - Actualizado `parse_exr_name()` para usar `clean_base_name()`
+    - Actualizado extracción de `base_without_version` para usar `extract_shot_code()` en lugar de remover versión manualmente
+    - Compatible con ambos sistemas de nomenclatura (5 bloques con descripción / 3 bloques simplificado)
+    - Compatibilidad 100% hacia atrás con formato con descripción
+
+### Fase 8: Revisión Final (Pendiente)
+13. **Revisar** otros scripts que puedan necesitar actualización
+
+### Fase 9: Testing y Validación (Pendiente)
+14. **Probar** exhaustivamente con casos reales de ambos formatos
+15. **Validar** funcionamiento correcto con proyectos existentes
+16. **Crear** casos de prueba automatizados
 
 ## Implementación Técnica Específica
 

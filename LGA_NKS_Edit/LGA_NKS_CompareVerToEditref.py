@@ -1,15 +1,20 @@
 """
 _______________________________________________________________________________________
 
-  LGA_NKS_CompareVerToEditref v1.13 | Lega
+  LGA_NKS_CompareVerToEditref v1.14 | Lega
   Compara los rangos de frames de todos los clips del track REV con
   los clips correspondientes del track EditRef para verificar coincidencias.
+  
+  v1.14 - Actualizado para ser compatible con ambos sistemas de nomenclatura:
+          - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+          - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 _______________________________________________________________________________________
 
 """
 
 import os
 import re
+from pathlib import Path
 import hiero.core
 import hiero.ui
 from PySide2.QtWidgets import (
@@ -30,6 +35,26 @@ import sys
 
 # Variable global para activar o desactivar los prints
 DEBUG = True
+
+# Importar utilidades para naming (compatibilidad con ambos formatos)
+naming_utils_path = Path(__file__).parent.parent / "LGA_NKS_Flow"
+if naming_utils_path.exists():
+    sys.path.insert(0, str(naming_utils_path))
+    try:
+        from LGA_NKS_Flow_NamingUtils import (
+            extract_shot_code,
+            clean_base_name,
+        )
+    except ImportError:
+        if DEBUG:
+            print("ERROR: No se encontró el módulo LGA_NKS_Flow_NamingUtils")
+        extract_shot_code = None
+        clean_base_name = None
+else:
+    if DEBUG:
+        print("ERROR: No se encontró el directorio LGA_NKS_Flow")
+    extract_shot_code = None
+    clean_base_name = None
 
 # Flag para controlar si se analiza y muestra TC IN en la comparacion
 AnalizeTC = False
@@ -340,22 +365,30 @@ class HieroOperations:
         )
 
     def parse_clip_name(self, file_name):
-        """Extrae el nombre base usando los primeros 4 bloques separados por guiones bajos"""
-        # Remover extension y secuencia numerica para archivos EXR
-        base_name = re.sub(r"_%04d\.exr$", "", file_name)
-        # Si no cambio, puede ser un archivo de video (mxf, mov, etc)
-        if base_name == file_name:
-            # Remover extension para archivos de video
-            base_name = re.sub(r"\.[^.]+$", "", file_name)
-
-        # Extraer los primeros 4 bloques separados por guiones bajos
-        parts = base_name.split("_")
-        if len(parts) >= 4:
-            base_identifier = "_".join(parts[:4])
+        """Extrae el nombre base usando funciones centralizadas (compatible con ambos formatos)"""
+        # Usar función centralizada para limpiar el nombre
+        if clean_base_name:
+            base_name = clean_base_name(file_name)
         else:
-            base_identifier = base_name
+            # Fallback si no está disponible el módulo
+            base_name = re.sub(r"_%04d\.exr$", "", file_name)
+            if base_name == file_name:
+                base_name = re.sub(r"\.[^.]+$", "", file_name)
+            base_name = re.sub(r"_v\d+$", "", base_name)
+            base_name = os.path.splitext(base_name)[0]
 
-        version_match = re.search(r"(_v\d+)", base_name)
+        # Usar función centralizada para extraer shot_code (detecta automáticamente formato)
+        if extract_shot_code:
+            base_identifier = extract_shot_code(base_name)
+        else:
+            # Fallback: usar primeros 4 bloques (comportamiento antiguo)
+            parts = base_name.split("_")
+            if len(parts) >= 4:
+                base_identifier = "_".join(parts[:4])
+            else:
+                base_identifier = base_name
+
+        version_match = re.search(r"(_v\d+)", file_name)
         version_str = version_match.group(1) if version_match else "_vUnknown"
 
         return base_identifier, version_str
@@ -535,10 +568,12 @@ class HieroOperations:
                 if not file_path:
                     continue
 
-                # Verificar si el archivo contiene _v00 y saltearlo
-                if "_v00" in os.path.basename(file_path):
+                # Verificar si el archivo contiene exactamente _v00 (no _v007, _v001, etc.) y saltearlo
+                # Busca _v seguido de uno o más ceros seguido de delimitador (_ o .) o final del string
+                file_basename = os.path.basename(file_path)
+                if re.search(r"_v0+(_|\.|$)", file_basename):
                     debug_print(
-                        f">>> SALTEANDO clip v00: {os.path.basename(file_path)}"
+                        f">>> SALTEANDO clip v00: {file_basename}"
                     )
                     continue
 

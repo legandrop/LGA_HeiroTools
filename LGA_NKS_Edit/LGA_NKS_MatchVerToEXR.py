@@ -1,15 +1,20 @@
 """
 _______________________________________________________________________________________
 
-  LGA_NKS_MatchVerToEXR v0.4 | Lega
+  LGA_NKS_MatchVerToEXR v0.5 | Lega
   Busca la version actual de todos los clips del track llamado EXR e
   intenta subir la versión de todos los clips del track llamado REV a la misma versión.
+  
+  v0.5 - Actualizado para ser compatible con ambos sistemas de nomenclatura:
+         - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+         - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 _______________________________________________________________________________________
 
 """
 
 import os
 import re
+from pathlib import Path
 import hiero.core
 import hiero.ui
 from PySide2.QtWidgets import (
@@ -30,6 +35,26 @@ import sys
 
 # Variable global para activar o desactivar los prints
 DEBUG = True
+
+# Importar utilidades para naming (compatibilidad con ambos formatos)
+naming_utils_path = Path(__file__).parent.parent / "LGA_NKS_Flow"
+if naming_utils_path.exists():
+    sys.path.insert(0, str(naming_utils_path))
+    try:
+        from LGA_NKS_Flow_NamingUtils import (
+            extract_shot_code,
+            clean_base_name,
+        )
+    except ImportError:
+        if DEBUG:
+            print("ERROR: No se encontró el módulo LGA_NKS_Flow_NamingUtils")
+        extract_shot_code = None
+        clean_base_name = None
+else:
+    if DEBUG:
+        print("ERROR: No se encontró el directorio LGA_NKS_Flow")
+    extract_shot_code = None
+    clean_base_name = None
 
 # Variables globales para mantener la ventana en memoria - COPIADO DEL PULL
 app = None
@@ -249,15 +274,19 @@ class HieroOperations:
         )
 
     def parse_exr_name(self, file_name):
-        """Extrae el nombre base del archivo y el numero de version con prefijo - COPIADO del Pull"""
-        # Remover extension y secuencia numerica para archivos EXR
-        base_name = re.sub(r"_%04d\.exr$", "", file_name)
-        # Si no cambio, puede ser un archivo de video (mxf, mov, etc)
-        if base_name == file_name:
-            # Remover extension para archivos de video
-            base_name = re.sub(r"\.[^.]+$", "", file_name)
+        """Extrae el nombre base del archivo y el numero de version usando funciones centralizadas"""
+        # Usar función centralizada para limpiar el nombre
+        if clean_base_name:
+            base_name = clean_base_name(file_name)
+        else:
+            # Fallback si no está disponible el módulo
+            base_name = re.sub(r"_%04d\.exr$", "", file_name)
+            if base_name == file_name:
+                base_name = re.sub(r"\.[^.]+$", "", file_name)
+            base_name = re.sub(r"_v\d+$", "", base_name)
+            base_name = os.path.splitext(base_name)[0]
 
-        version_match = re.search(r"(_v\d+)", base_name)
+        version_match = re.search(r"(_v\d+)", file_name)
         version_str = version_match.group(1) if version_match else "_vUnknown"
 
         return base_name, version_str
@@ -358,7 +387,12 @@ class HieroOperations:
                 continue
 
             base_name, version_str = self.parse_exr_name(os.path.basename(file_path))
-            base_without_version = base_name.replace(version_str, "")
+            # Usar función centralizada para extraer shot_code (base sin versión)
+            if extract_shot_code:
+                base_without_version = extract_shot_code(base_name)
+            else:
+                # Fallback: remover versión manualmente
+                base_without_version = base_name.replace(version_str, "")
 
             if base_without_version not in rev_clips_dict:
                 rev_clips_dict[base_without_version] = clip
@@ -381,7 +415,12 @@ class HieroOperations:
 
             base_name, version_str = self.parse_exr_name(os.path.basename(file_path))
             exr_version = extract_version_number(version_str)
-            base_without_version = base_name.replace(version_str, "")
+            # Usar función centralizada para extraer shot_code (base sin versión)
+            if extract_shot_code:
+                base_without_version = extract_shot_code(base_name)
+            else:
+                # Fallback: remover versión manualmente
+                base_without_version = base_name.replace(version_str, "")
 
             debug_print(f"\n=== PROCESANDO SHOT: {base_without_version} ===")
             debug_print(
