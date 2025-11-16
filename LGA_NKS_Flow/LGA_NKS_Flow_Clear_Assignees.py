@@ -3,6 +3,9 @@ ________________________________________________________________
 
   LGA_NKS_Flow_Clear_Assignees v1.2 | Lega Pugliese
   Elimina los asignados de una tarea en ShotGrid (Flow) a partir del base_name
+  Actualizado para ser compatible con ambos sistemas de nomenclatura:
+  - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+  - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 ________________________________________________________________
 """
 
@@ -27,6 +30,11 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_dir)
 
 from SecureConfig_Reader import get_flow_credentials
+from LGA_NKS_Flow_NamingUtils import (
+    extract_shot_code,
+    extract_project_name,
+    extract_task_name,
+)
 
 # Variable global para debug
 DEBUG = False
@@ -325,24 +333,18 @@ class ClearAssigneeWorker(QRunnable):
                 )
                 return
 
-            # Extraer datos del base_name
-            project_name = self.base_name.split("_")[0]
-            parts = self.base_name.split("_")
-            shot_code = "_".join(parts[:5])
-            # Extraer nombre de la tarea
-            version_number_str = None
-            for part in parts:
-                if part.startswith("v") and part[1:].isdigit():
-                    version_number_str = part
-                    break
-            if not version_number_str:
+            # Extraer datos usando funciones compartidas de NamingUtils
+            project_name = extract_project_name(self.base_name)
+            shot_code = extract_shot_code(self.base_name)
+            task_name_extracted = extract_task_name(self.base_name)
+            
+            if not task_name_extracted:
                 self.signals.error.emit(
-                    "Error: No se encontro un numero de version valido en el nombre base."
+                    "Error: No se encontro un nombre de tarea valido en el nombre base."
                 )
                 return
-
-            version_index = parts.index(version_number_str)
-            task_name = parts[version_index - 1].lower()  # Asegurarse que sea lowercase
+            
+            task_name = task_name_extracted.lower()
 
             # Emitir información del shot y task
             self.signals.shot_info_ready.emit(shot_code, task_name)

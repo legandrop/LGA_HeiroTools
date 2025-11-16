@@ -1,9 +1,12 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_Assignee_Panel v1.50 | Lega Pugliese
+  LGA_NKS_Flow_Assignee_Panel v1.51 | Lega Pugliese
   Panel para obtener los asignados de la tarea del clip seleccionado en Flow,
   limpiarlos o sumar asignados a la tarea comp.
+  Actualizado para ser compatible con ambos sistemas de nomenclatura:
+  - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+  - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 ____________________________________________________________________________________
 """
 
@@ -22,6 +25,10 @@ from PySide2.QtWidgets import (
 )
 from PySide2.QtCore import Qt
 from PySide2.QtGui import QColor, QKeySequence
+
+# Importar función de limpieza de nombres desde NamingUtils
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Flow"))
+from LGA_NKS_Flow_NamingUtils import clean_base_name
 
 
 # Clase de botón personalizada que maneja el Shift+Click y Ctrl+Shift+Click
@@ -266,15 +273,9 @@ class AssigneePanel(QWidget):
             self.create_buttons()
 
     def parse_exr_name(self, exr_name):
-        # Ajustar el manejo del formato del nombre del archivo EXR
-        if "%04d" in exr_name:
-            exr_name = exr_name.replace(".%", "_%")  # Reemplazar patron para analisis
-        parts = exr_name.split("_")
-        if len(parts) < 7 or not parts[-2].startswith("v"):
-            raise ValueError(
-                f"Nombre del archivo EXR no tiene el formato esperado: {exr_name}"
-            )
-        base_name = "_".join(parts[:-1])
+        """Extrae el nombre base del archivo EXR usando funciones compartidas de NamingUtils."""
+        # Usar función compartida para limpiar el nombre base (compatible con ambos formatos)
+        base_name = clean_base_name(exr_name)
         return base_name
 
     def get_assignees_for_selected_clip(self):

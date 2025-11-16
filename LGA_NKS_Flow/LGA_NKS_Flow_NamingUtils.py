@@ -6,6 +6,19 @@ ________________________________________________________________________________
   Compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
+  
+  Scripts que utilizan este módulo:
+  - LGA_NKS_Flow_Push.py
+  - LGA_NKS_Flow_Push_connector.py
+  - LGA_NKS_Flow_Pull.py
+  - LGA_NKS_Flow_Thumbs.py
+  - LGA_NKS_Flow_CreateShot_Thumbs.py
+  - LGA_NKS_Flow_Shot_info.py
+  - LGA_NKS_Flow_CreateShot.py
+  - LGA_NKS_Flow_Panel.py
+  - LGA_NKS_Flow_Assign_Assignee.py
+  - LGA_NKS_Flow_Assignee.py
+  - LGA_NKS_Flow_Clear_Assignees.py
 ____________________________________________________________________________________
 """
 
