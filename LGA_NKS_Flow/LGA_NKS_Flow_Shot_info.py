@@ -342,7 +342,7 @@ class HieroOperations:
         return base_name, version_number
 
     def process_selected_clips(self):
-        """Procesa primero el clip en playhead del track EXR y, si no existe, la seleccion.
+        """Procesa primero el clip en playhead del track TRACK_comp_EXR y, si no existe, la seleccion.
         Usa el módulo utilitario centralizado LGA_NKS_GetClip.
         """
         debug_print("Processing selected clips...")

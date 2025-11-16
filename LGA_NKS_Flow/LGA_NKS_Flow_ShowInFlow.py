@@ -2,7 +2,7 @@
 _____________________________________________________________________________________________________
 
   LGA_NKS_Flow_ShowInFlow v1.27 | Lega Pugliese
-  Abre la URL de la task Comp del shot, tomando la informacion del nombre del clip en el track EXR bajo el playhead
+  Abre la URL de la task Comp del shot, tomando la informacion del nombre del clip en el track TRACK_comp_EXR bajo el playhead
   Si no hay clip en playhead, usa el clip seleccionado como fallback
   Verifica si existe más de un shot con el mismo nombre y te pide que selecciones uno
   Usa el módulo utilitario LGA_NKS_GetClip para obtener clips
@@ -413,7 +413,7 @@ class ShowInFlowWorker(QRunnable):
                 return
             
             # No se encontró el shot
-            error_msg = "No se pudo procesar el clip. Verifique que haya un clip en el track EXR bajo el playhead o que haya seleccionado un clip válido."
+            error_msg = "No se pudo procesar el clip. Verifique que haya un clip en el track bajo el playhead o que haya seleccionado un clip válido."
             debug_print("No se encontro el shot correspondiente en ShotGrid.")
             self.signals.error.emit(error_msg, self.clip_info)
 
