@@ -71,6 +71,10 @@ class ColorChangeWidget(QWidget):
 
         self.setObjectName("com.lega.FPTPanel")
         self.setWindowTitle("Flow")
+        # Estilo para los tooltips
+        self.setStyleSheet(
+            "QToolTip { color: #ffffff; background-color: #2a2a2a; border: 1px solid white; }"
+        )
 
         self.layout = QGridLayout()  # Usamos QGridLayout
         self.setLayout(self.layout)
@@ -175,12 +179,20 @@ class ColorChangeWidget(QWidget):
             elif action == "fpt_pull":
                 button.setCustomClickHandler(self.run_FPT_pull_with_deselect)
                 button.setShiftClickHandler(self.run_FPT_pull)
+                # Tooltip que explica las dos funcionalidades del botón Flow Pull
+                tooltip_text = (
+                    "Click: Pull de todos los shots del timeline\n"
+                    "Shift+Click: Pull solo del shot seleccionado"
+                )
+                button.setToolTip(tooltip_text)
             elif action == "review_pic":
                 button.clicked.connect(self.run_review_pic_script)
+                button.setToolTip("Crea snapshot del viewer y lo guarda con su número de frame para ser enviado junto con los comentarios")
             elif action == "shot_info":
                 button.clicked.connect(self.run_shot_info_script)
                 if "shortcut" in button_info:
                     button.setShortcut(QKeySequence(button_info["shortcut"]))
+                button.setToolTip("Muestra información del shot y comentarios de las versiones de la task comp")
 
             row = index // self.num_columns
             column = index % self.num_columns

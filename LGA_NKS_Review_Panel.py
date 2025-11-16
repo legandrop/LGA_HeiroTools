@@ -72,37 +72,41 @@ class ReviewPanel(QWidget):
 
         # Crear botones y agregarlos al layout
         self.buttons = [
-            ("ON Clips | OFF v00", self.execute_EnableOrDisableClips, "#0e1f3a"),
-            ("Self ReplaceClip", self.execute_SelfReplaceClip, "#0e1f3a"),
-            ("ON OFF EXR", self.execute_DisableEXR, "#0e1f3a", "Shift+D", "Shift+D"),
+            ("ON Clips | OFF v00", self.execute_EnableOrDisableClips, "#0e1f3a", None, "Click: Activa todos los clips del timeline y desactiva los clips v00\nShift+Click: Solo en los clips seleccionados"),
+            ("Self ReplaceClip", self.execute_SelfReplaceClip, "#0e1f3a", None, "Crea una nueva versión duplicada del clip seleccionado para que sea única (a veces arregla problemas"),
+            ("ON OFF _comp_", self.execute_DisableEXR, "#0e1f3a", "Shift+D", "Shift+D\nHabilita/deshabilita el clip del track_comp_"),
             (
-                "EXR Track Difference",
+                "Difference Mode",
                 self.execute_ToggleBlendModeForEXRTrack,
                 "#283526",
+                None,
+                "Toggle del modo Difference del track _comp_",
             ),
-            ("Compare Versions", self.execute_CompareVersions, "#273c24"),
-            ("Compare OFF", self.execute_CompareVersionsOff, "#273c24"),
+            ("Compare Versions", self.execute_CompareVersions, "#273c24", None, "Crea un nuevo track 'COMPARE' con una versión anterior del clip seleccionado y pone al track en modo difference"),
+            ("Compare OFF", self.execute_CompareVersionsOff, "#273c24", None, "Remueve el track 'COMPARE' y desactiva el modo Difference"),
             (
                 "Reveal in &Explorer",
                 self.execute_RevealInExplorer,
                 "#321a1a",
                 "Shift+E",
-                "Shift+E",
+                "Shift+E\nRevela los archivos de los clips seleccionados en el explorer",
             ),
-            ("Reveal NKS Project", self.execute_RevealNKSProject, "#321a1a"),
+            ("Reveal NKS Project", self.execute_RevealNKSProject, "#321a1a", None, "Revela el proyecto NKS activo en el explorer"),
             (
                 "Reveal NK Sc&ript",
                 self.execute_RevealNKScript,
                 "#321a1a",
                 "Shift+R",
-                "Shift+R",
+                "Shift+R\nAbre la carpeta que contiene al script de Nuke asociado al clip seleccionado",
             ),
-            ("OpenInNuke&X", self.execute_OpenInNukeX, "#493800", "Shift+X", "Shift+X"),
+            ("OpenInNuke&X", self.execute_OpenInNukeX, "#493800", "Shift+X", "Shift+X\nAbre en Nuke el script asociado al clip seleccionado"),
             (
                 "Check Project Versions",
                 self.execute_CheckProjectVersions,
                 "#3a202e",
-            ),  # Nuevo botón
+                None,
+                "Chequea en el disco si hay versiones mayores de los proyectos abiertos en Nuke Studio",
+            ),
         ]
 
         self.num_columns = 1  # Inicialmente una columna
@@ -130,6 +134,9 @@ class ReviewPanel(QWidget):
                 button.setStyleSheet(f"background-color: {style}")
                 button.setCustomClickHandler(self.execute_EnableOrDisableClips_all_clips)
                 button.setShiftClickHandler(handler)
+                # Tooltip ya está definido en la tupla
+                if tooltip:
+                    button.setToolTip(tooltip)
             else:
                 button = QPushButton(name)
                 button.setStyleSheet(f"background-color: {style}")

@@ -76,6 +76,10 @@ class AssigneePanel(QWidget):
         super(AssigneePanel, self).__init__()
         self.setObjectName("com.lega.FPTAssigneePanel")
         self.setWindowTitle("Assignees")
+        # Estilo para los tooltips
+        self.setStyleSheet(
+            "QToolTip { color: #ffffff; background-color: #2a2a2a; border: 1px solid white; }"
+        )
         self.layout = QGridLayout()
         self.setLayout(self.layout)
 
@@ -89,11 +93,15 @@ class AssigneePanel(QWidget):
                 "Get Assignees",
                 self.get_assignees_for_selected_clip,
                 "#202233",
+                None,
+                "Obtiene los usuarios asignados a la task comp del clip seleccionado",
             ),
             (
                 "Clear Assignees",
                 self.clear_assignees_for_selected_clip,
                 "#202233",
+                None,
+                "Elimina todos los asignados de la task comp del clip seleccionado",
             ),
         ]
 
@@ -228,6 +236,13 @@ class AssigneePanel(QWidget):
                 button.setCustomClickHandler(handler)
                 button.setShiftClickHandler(shift_handler)
                 button.setCtrlShiftClickHandler(ctrl_shift_handler)
+                # Tooltip que explica las tres funcionalidades del botón de usuario
+                tooltip_text = (
+                    "Click: Asigna el usuario a la task comp en Flow Production Tracking\n"
+                    "Shift+Click: Crea/actualiza políticas IAM de Wasabi para el usuario\n"
+                    "Ctrl+Shift+Click: Abre ventana de gestión de shots asignados en policy de Wasabi"
+                )
+                button.setToolTip(tooltip_text)
             else:
                 # Boton fijo: (name, handler, style, [shortcut], [tooltip])
                 shortcut = button_info[3] if len(button_info) > 3 else None

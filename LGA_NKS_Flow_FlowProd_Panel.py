@@ -46,6 +46,10 @@ class FlowProdPanel(QWidget):
         super(FlowProdPanel, self).__init__()
         self.setObjectName("com.lega.FlowProdPanel")
         self.setWindowTitle("Flow Production")
+        # Estilo para los tooltips
+        self.setStyleSheet(
+            "QToolTip { color: #ffffff; background-color: #2a2a2a; border: 1px solid white; }"
+        )
         self.layout = QGridLayout()
         self.setLayout(self.layout)
 
@@ -56,17 +60,21 @@ class FlowProdPanel(QWidget):
                 self.show_in_flow_for_selected_clip,
                 "#1f1f1f",
                 "Shift+F",
-                "Shift+F",
+                "Shift+F - Abrir task comp en Flow",
             ),
             (
                 "Thumbnail",
                 self.create_thumbnail_for_selected_clip,
                 "#3a2a4d",
+                None,
+                "Crear thumbnail en Flow basado en el clip seleccionado",
             ),
             (
                 "Create Shot",
                 self.create_shot_for_selected_clip,
                 "#2a4d3a",
+                None,
+                "Crear shot en Flow basado en el clip seleccionado",
             ),
         ]
 
