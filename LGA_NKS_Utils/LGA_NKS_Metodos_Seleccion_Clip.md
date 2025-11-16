@@ -53,9 +53,9 @@ Este método utiliza los clips que están actualmente seleccionados en el timeli
 ## Método 2: Clip del Track que coincide con el Playhead (Método Híbrido)
 
 ### Descripción
-Este método obtiene la posición actual del playhead (`viewer.time()`) y busca el clip en el track especificado (por defecto `_comp_`, definido en `DEFAULT_TRACK_NAME`) que coincide con esa posición temporal. El clip se encuentra cuando `clip.timelineIn() <= current_time < clip.timelineOut()`.
+Este método obtiene la posición actual del playhead (`viewer.time()`) y busca el clip en el track especificado (por defecto `_comp_`, definido en `TRACK_comp_EXR`) que coincide con esa posición temporal. El clip se encuentra cuando `clip.timelineIn() <= current_time < clip.timelineOut()`.
 
-**⚠️ IMPORTANTE:** El track por defecto ahora se llama `_comp_` (definido en `DEFAULT_TRACK_NAME`), anteriormente se llamaba `EXR`.
+**⚠️ IMPORTANTE:** El track por defecto ahora se llama `_comp_` (definido en `TRACK_comp_EXR`), anteriormente se llamaba `EXR`.
 
 **Método Híbrido Recomendado:**
 1. **Primero intenta**: Obtener el clip del track especificado (por defecto `_comp_`) en la posición del playhead
@@ -65,13 +65,13 @@ Este método obtiene la posición actual del playhead (`viewer.time()`) y busca 
 - Más intuitivo: trabaja con el clip que está visible en el viewer
 - No requiere selección manual (aunque tiene fallback)
 - Permite trabajar rápidamente mientras se navega por el timeline
-- Ideal para workflows donde siempre se trabaja con el mismo track (configurable mediante `DEFAULT_TRACK_NAME`)
+- Ideal para workflows donde siempre se trabaja con el mismo track (configurable mediante `TRACK_comp_EXR`)
 - **Soporta selecciones múltiples**: Si el script está configurado con `prioritize_multiple_selection=True` o usa `get_clips_to_process()`, puede procesar múltiples clips cuando hay múltiples clips seleccionados en el track
 
 ### Desventajas
 - **En modo playhead por defecto**: Funciona con un clip a la vez (el clip visible en el viewer)
   - **EXCEPCIÓN**: Si el script permite selecciones múltiples (`prioritize_multiple_selection=True` o `get_clips_to_process()`) y hay múltiples clips seleccionados en el track, procesará todos esos clips en lugar de solo el del playhead
-- Requiere que exista un track con el nombre especificado (por defecto `_comp_`, configurable en `DEFAULT_TRACK_NAME`)
+- Requiere que exista un track con el nombre especificado (por defecto `_comp_`, configurable en `TRACK_comp_EXR`)
 
 ### Scripts que usan este método:
 
@@ -101,17 +101,24 @@ Este módulo centraliza la funcionalidad de obtención de clips para evitar dupl
 
 ### ⚠️⚠️⚠️ IMPORTANTE: Cambio de Nombre del Track ⚠️⚠️⚠️
 
-**El track que antes se llamaba "EXR" ahora se llama "_comp_" y está definido en la variable `DEFAULT_TRACK_NAME`.**
+**El track que antes se llamaba "EXR" ahora se llama "_comp_" y está definido en la variable `TRACK_comp_EXR`.**
 
 **Información crítica:**
 - **Nombre actual del track:** `_comp_`
-- **Variable en el módulo:** `DEFAULT_TRACK_NAME = "_comp_"` (en `LGA_NKS_Utils/LGA_NKS_GetClip.py`)
+- **Variable en el módulo:** `TRACK_comp_EXR = "_comp_"` (en `LGA_NKS_Utils/LGA_NKS_GetClip.py`)
 - **Nombre anterior:** `"EXR"` (ya no se usa)
+- **Contenido del track:** Contiene los archivos EXR con el render de COMP
+
+**Track REV:**
+- **Nombre actual del track:** `_rev_`
+- **Variable en el módulo:** `TRACK_comp_REV = "_rev_"` (en `LGA_NKS_Utils/LGA_NKS_GetClip.py`)
+- **Nombre anterior:** `"REV"` (ya no se usa)
+- **Contenido del track:** Contiene los archivos MOV o MXF con el render de COMP
 
 **Es MUY IMPORTANTE verificar en los scripts que modificamos que:**
-1. ✅ Usen la variable `DEFAULT_TRACK_NAME` del módulo
+1. ✅ Usen la variable `TRACK_comp_EXR` del módulo
 2. ✅ NO tengan hardcodeado `"EXR"` o cualquier otro nombre de track
-3. ✅ Usen `track_name=None` en las llamadas a funciones para respetar `DEFAULT_TRACK_NAME`
+3. ✅ Usen `track_name=None` en las llamadas a funciones para respetar `TRACK_comp_EXR`
 
 **Si encuentras código hardcodeado con "EXR" o cualquier otro nombre de track, debe cambiarse para usar `track_name=None` y así respetar el valor actual `_comp_`.**
 
@@ -121,25 +128,25 @@ Este módulo centraliza la funcionalidad de obtención de clips para evitar dupl
 
 **Problema común:**
 - Muchos scripts tienen hardcodeado `track_name="EXR"` (o el nombre antiguo) en las llamadas a funciones
-- Esto sobrescribe el `DEFAULT_TRACK_NAME` del módulo centralizado (actualmente `"_comp_"`)
-- El script seguirá buscando en el nombre hardcodeado aunque cambies `DEFAULT_TRACK_NAME` a otro valor
+- Esto sobrescribe el `TRACK_comp_EXR` del módulo centralizado (actualmente `"_comp_"`)
+- El script seguirá buscando en el nombre hardcodeado aunque cambies `TRACK_comp_EXR` a otro valor
 - **Actualmente el track se llama `_comp_`, NO `EXR`**
 
 **Solución:**
-- **Usar `track_name=None`** o **no pasar el parámetro** para que use `DEFAULT_TRACK_NAME` del módulo
+- **Usar `track_name=None`** o **no pasar el parámetro** para que use `TRACK_comp_EXR` del módulo
 - **NO hardcodear** nombres de tracks como `track_name="EXR"` en las llamadas
 
 **Ejemplo incorrecto:**
 ```python
-# ❌ INCORRECTO: Hardcodea "EXR" (nombre antiguo), ignora DEFAULT_TRACK_NAME (actualmente "_comp_")
+# ❌ INCORRECTO: Hardcodea "EXR" (nombre antiguo), ignora TRACK_comp_EXR (actualmente "_comp_")
 clip = get_clip_to_process(track_name="EXR")
-# ❌ INCORRECTO: Hardcodea cualquier nombre, ignora DEFAULT_TRACK_NAME
+# ❌ INCORRECTO: Hardcodea cualquier nombre, ignora TRACK_comp_EXR
 clip = get_clip_to_process(track_name="_comp_")  # Aunque sea el nombre correcto, no debe hardcodearse
 ```
 
 **Ejemplo correcto:**
 ```python
-# ✅ CORRECTO: Usa DEFAULT_TRACK_NAME del módulo
+# ✅ CORRECTO: Usa TRACK_comp_EXR del módulo
 clip = get_clip_to_process(track_name=None)
 # O simplemente:
 clip = get_clip_to_process()  # None es el valor por defecto
@@ -148,7 +155,7 @@ clip = get_clip_to_process()  # None es el valor por defecto
 **Al migrar scripts existentes:**
 1. Buscar todas las llamadas con `track_name="EXR"` o cualquier nombre hardcodeado
 2. Cambiarlas a `track_name=None` o eliminar el parámetro
-3. Verificar que el script ahora respete `DEFAULT_TRACK_NAME` del módulo
+3. Verificar que el script ahora respete `TRACK_comp_EXR` del módulo
 
 ### Funciones Disponibles
 
@@ -159,7 +166,7 @@ clip = get_clip_to_process()  # None es el valor por defecto
 3. Si no encuentra, usa el primer clip seleccionado como fallback
 
 **Parámetros:**
-- `track_name` (str, optional): Nombre del track a buscar. Si es `None`, usa `DEFAULT_TRACK_NAME` (actualmente `"_comp_"`)
+- `track_name` (str, optional): Nombre del track a buscar. Si es `None`, usa `TRACK_comp_EXR` (actualmente `"_comp_"`)
 - `prioritize_multiple_selection` (bool): Si `True` y hay múltiples clips seleccionados en el track especificado, 
   devuelve lista de esos clips. Si `False` (por defecto), procesa solo un clip a la vez usando playhead primero.
 
@@ -178,8 +185,8 @@ clip = get_clip_to_process()  # None es el valor por defecto
 ```python
 from LGA_NKS_GetClip import get_clip_to_process
 
-# Usar track por defecto (DEFAULT_TRACK_NAME) - NO permite selecciones múltiples
-# ⚠️ IMPORTANTE: Usar track_name=None para respetar DEFAULT_TRACK_NAME del módulo
+# Usar track por defecto (TRACK_comp_EXR) - NO permite selecciones múltiples
+# ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
 clip = get_clip_to_process(track_name=None)
 # O simplemente: clip = get_clip_to_process()
 
@@ -187,7 +194,7 @@ clip = get_clip_to_process(track_name=None)
 clip = get_clip_to_process(track_name="REV")
 
 # Para scripts que permiten selecciones múltiples (procesa múltiples clips)
-# ⚠️ IMPORTANTE: Usar track_name=None para respetar DEFAULT_TRACK_NAME del módulo
+# ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
 clips = get_clip_to_process(track_name=None, prioritize_multiple_selection=True)
 if isinstance(clips, list):
     # Procesar múltiples clips
@@ -203,7 +210,7 @@ Busca el clip en un track específico que coincide con la posición del playhead
 
 **Parámetros:**
 - `seq`: Secuencia activa de Hiero
-- `track_name` (str, optional): Nombre del track. Si es `None`, usa `DEFAULT_TRACK_NAME`
+- `track_name` (str, optional): Nombre del track. Si es `None`, usa `TRACK_comp_EXR`
 
 **Retorna:**
 - Clip encontrado o `None`
@@ -214,7 +221,7 @@ Obtiene los clips a procesar usando el método híbrido. **Siempre devuelve una 
 **Recomendado para scripts que procesan múltiples clips.** Usa esta función cuando necesites iterar sobre los clips.
 
 **Parámetros:**
-- `track_name` (str, optional): Nombre del track a buscar. Si es `None`, usa `DEFAULT_TRACK_NAME`
+- `track_name` (str, optional): Nombre del track a buscar. Si es `None`, usa `TRACK_comp_EXR`
 - `prioritize_multiple_selection` (bool): Si `True` y hay múltiples clips seleccionados en el track, devuelve lista de esos clips (permite selecciones múltiples)
 
 **Retorna:**
@@ -225,7 +232,7 @@ Obtiene los clips a procesar usando el método híbrido. **Siempre devuelve una 
 from LGA_NKS_GetClip import get_clips_to_process
 
 # Obtener clips (siempre devuelve lista)
-# ⚠️ IMPORTANTE: Usar track_name=None para respetar DEFAULT_TRACK_NAME del módulo
+# ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
 clips = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
 
 for clip in clips:
@@ -245,28 +252,48 @@ Obtiene todos los clips seleccionados que pertenecen al track especificado.
 
 **Parámetros:**
 - `seq`: Secuencia activa de Hiero
-- `track_name` (str, optional): Nombre del track. Si es `None`, usa `DEFAULT_TRACK_NAME`
+- `track_name` (str, optional): Nombre del track. Si es `None`, usa `TRACK_comp_EXR`
 
 **Retorna:**
 - Lista de clips seleccionados en el track especificado (excluyendo efectos) o lista vacía
 
 ### Configuración
 
-#### Variable `DEFAULT_TRACK_NAME`
+#### Variable `TRACK_comp_EXR`
 **⚠️ IMPORTANTE:** Esta variable define el nombre del track por defecto. Actualmente está configurada como `"_comp_"`.
 
+**Contenido del track:** Este track contiene los archivos EXR con el render de COMP.
+
 **Historial de cambios:**
-- **Anteriormente:** `DEFAULT_TRACK_NAME = "EXR"`
-- **Actualmente:** `DEFAULT_TRACK_NAME = "_comp_"`
+- **Anteriormente:** `DEFAULT_TRACK_NAME = "EXR"` → `DEFAULT_TRACK_NAME = "_comp_"`
+- **Actualmente:** `TRACK_comp_EXR = "_comp_"`
 
 Puede modificarse en el módulo para cambiar el track por defecto:
 
 ```python
 # En LGA_NKS_Utils/LGA_NKS_GetClip.py
-DEFAULT_TRACK_NAME = "_comp_"  # Valor actual - Cambiar según el workflow
+TRACK_comp_EXR = "_comp_"  # Es el track que contiene a los EXR con el render de COMP
 ```
 
 **⚠️ CRÍTICO:** Al cambiar esta variable, TODOS los scripts que usen `track_name=None` automáticamente usarán el nuevo nombre. Los scripts con nombres hardcodeados seguirán usando el nombre antiguo.
+
+#### Variable `TRACK_comp_REV`
+**⚠️ IMPORTANTE:** Esta variable define el nombre del track REV por defecto. Actualmente está configurada como `"_rev_"`.
+
+**Contenido del track:** Este track contiene los archivos MOV o MXF con el render de COMP.
+
+**Historial de cambios:**
+- **Anteriormente:** Se usaba `"REV"` hardcodeado → `DEFAULT_REV_TRACK_NAME = "_rev_"`
+- **Actualmente:** `TRACK_comp_REV = "_rev_"`
+
+Puede modificarse en el módulo para cambiar el track por defecto:
+
+```python
+# En LGA_NKS_Utils/LGA_NKS_GetClip.py
+TRACK_comp_REV = "_rev_"  # Es el track que contiene a los MOV o MXF con el render de COMP
+```
+
+**⚠️ CRÍTICO:** Al cambiar esta variable, TODOS los scripts que la importen automáticamente usarán el nuevo nombre. Los scripts con nombres hardcodeados seguirán usando el nombre antiguo.
 
 #### Variable `DEBUG`
 Controla los mensajes de debug:
@@ -299,7 +326,7 @@ if utils_path.exists():
 ```python
 def mi_funcion():
     # Obtener clip (debe ejecutarse en hilo principal)
-    # ⚠️ IMPORTANTE: Usar track_name=None para respetar DEFAULT_TRACK_NAME del módulo
+    # ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
     clip = get_clip_to_process(track_name=None)  # prioritize_multiple_selection=False por defecto
     # O simplemente: clip = get_clip_to_process()
     
@@ -318,7 +345,7 @@ def mi_funcion():
 ```python
 def mi_funcion():
     # Obtener clips (debe ejecutarse en hilo principal)
-    # ⚠️ IMPORTANTE: Usar track_name=None para respetar DEFAULT_TRACK_NAME del módulo
+    # ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
     # Usar get_clips_to_process() que siempre devuelve lista
     clips = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
     
@@ -353,7 +380,7 @@ if utils_path.exists():
 
 def procesar_clip():
     # Obtener clip en hilo principal (NO permite selecciones múltiples)
-    # ⚠️ IMPORTANTE: Usar track_name=None para respetar DEFAULT_TRACK_NAME del módulo
+    # ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
     clip = get_clip_to_process(track_name=None)
     
     if not clip:
@@ -391,7 +418,7 @@ if utils_path.exists():
 
 def procesar_clips():
     # Obtener clips en hilo principal (permite selecciones múltiples)
-    # ⚠️ IMPORTANTE: Usar track_name=None para respetar DEFAULT_TRACK_NAME del módulo
+    # ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
     clips = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
     
     if not clips:
@@ -420,7 +447,7 @@ def procesar_clips():
 
 ## Recomendación
 
-**Se recomienda usar el módulo utilitario `LGA_NKS_GetClip`** que implementa el Método 2 (playhead en track especificado por `DEFAULT_TRACK_NAME`, actualmente `_comp_`) con fallback a selección porque:
+**Se recomienda usar el módulo utilitario `LGA_NKS_GetClip`** que implementa el Método 2 (playhead en track especificado por `TRACK_comp_EXR`, actualmente `_comp_`) con fallback a selección porque:
 - ✅ **Código centralizado**: Evita duplicación y facilita el mantenimiento
 - ✅ **Configuración flexible**: Permite cambiar el track por defecto fácilmente
 - ✅ **Más intuitivo**: Trabaja con el clip visible en el viewer

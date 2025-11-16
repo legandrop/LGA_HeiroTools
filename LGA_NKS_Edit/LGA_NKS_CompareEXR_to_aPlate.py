@@ -487,7 +487,7 @@ class HieroOperations:
 
         # Obtener el track principal usando el módulo centralizado para obtener su nombre
         import LGA_NKS_GetClip as clip_utils
-        track_name = clip_utils.DEFAULT_TRACK_NAME
+        track_name = clip_utils.TRACK_comp_EXR
         self.track_name = track_name  # Guardar para uso en la GUI
         
         # Encontrar el track principal
@@ -501,7 +501,7 @@ class HieroOperations:
             QMessageBox.warning(
                 None, 
                 "Error", 
-                f"No se encontró el track '{track_name}' (configurado en DEFAULT_TRACK_NAME)."
+                f"No se encontró el track '{track_name}' (configurado en TRACK_comp_EXR)."
             )
             return False
 

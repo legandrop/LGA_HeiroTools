@@ -2,8 +2,11 @@
 _______________________________________________________________________________________
 
   LGA_NKS_CompareVerToEditref v1.14 | Lega
-  Compara los rangos de frames de todos los clips del track REV con
+  Compara los rangos de frames de los clips del track _rev_ (TRACK_comp_REV) con
   los clips correspondientes del track EditRef para verificar coincidencias.
+  
+  Track utilizado:
+  - TRACK_comp_REV = "_rev_": Track que contiene los archivos MOV o MXF con el render de COMP
   
   v1.14 - Actualizado para ser compatible con ambos sistemas de nomenclatura:
           - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
@@ -62,15 +65,15 @@ if utils_path.exists():
     sys.path.insert(0, str(utils_path))
     try:
         import LGA_NKS_GetClip as clip_utils
-        DEFAULT_REV_TRACK_NAME = clip_utils.DEFAULT_REV_TRACK_NAME
+        TRACK_comp_REV = clip_utils.TRACK_comp_REV
     except ImportError:
         if DEBUG:
             print("ERROR: No se encontró el módulo LGA_NKS_GetClip")
-        DEFAULT_REV_TRACK_NAME = "_rev_"  # Fallback
+        TRACK_comp_REV = "_rev_"  # Fallback
 else:
     if DEBUG:
         print("ERROR: No se encontró el directorio LGA_NKS_Utils")
-    DEFAULT_REV_TRACK_NAME = "_rev_"  # Fallback
+    TRACK_comp_REV = "_rev_"  # Fallback
 
 # Flag para controlar si se analiza y muestra TC IN en la comparacion
 AnalizeTC = False
@@ -489,7 +492,7 @@ class HieroOperations:
         editrefclean_track = None
 
         for track in seq.videoTracks():
-            if track.name().upper() == DEFAULT_REV_TRACK_NAME.upper():
+            if track.name().upper() == TRACK_comp_REV.upper():
                 rev_track = track
             elif track.name().upper() == "EDITREF":
                 editref_track = track
@@ -497,7 +500,7 @@ class HieroOperations:
                 editrefclean_track = track
 
         if not rev_track:
-            QMessageBox.warning(None, "Error", f"No se encontró el track {DEFAULT_REV_TRACK_NAME}.")
+            QMessageBox.warning(None, "Error", f"No se encontró el track {TRACK_comp_REV}.")
             return False
 
         if not editref_track:
@@ -509,7 +512,7 @@ class HieroOperations:
             # Procesar todos los clips del track
             rev_clips = rev_track.items()
             debug_print(
-                f">>> Procesando todos los {len(rev_clips)} clips del track {DEFAULT_REV_TRACK_NAME} (forzado por shift+click)"
+                f">>> Procesando todos los {len(rev_clips)} clips del track {TRACK_comp_REV} (forzado por shift+click)"
             )
         else:
             # Buscar clip en track en la posicion del playhead
@@ -523,14 +526,14 @@ class HieroOperations:
                 QMessageBox.warning(
                     None,
                     "Error",
-                    f"No se encontró un clip en el track {DEFAULT_REV_TRACK_NAME} en la posición actual del playhead.",
+                    f"No se encontró un clip en el track {TRACK_comp_REV} en la posición actual del playhead.",
                 )
                 return False
 
             # Procesar solo el clip encontrado en el playhead
             rev_clips = [rev_clip_at_playhead]
             debug_print(
-                f">>> Procesando clip {DEFAULT_REV_TRACK_NAME} en posicion del playhead: {current_time}"
+                f">>> Procesando clip {TRACK_comp_REV} en posicion del playhead: {current_time}"
             )
 
         # Crear diccionario de clips EditRef por base name
@@ -602,7 +605,7 @@ class HieroOperations:
                 # Obtener rangos del clip
                 rev_fileinfos = rev_clip.source().mediaSource().fileinfos()
                 if not rev_fileinfos:
-                    debug_print(f"⚠️ No se encontraron fileinfos para el clip {DEFAULT_REV_TRACK_NAME}.")
+                    debug_print(f"⚠️ No se encontraron fileinfos para el clip {TRACK_comp_REV}.")
                     continue
 
                 rev_start_frame = rev_fileinfos[0].startFrame()
@@ -627,10 +630,10 @@ class HieroOperations:
                         rev_fps = "N/A"
                         rev_tc_in = "N/A"
 
-                debug_print(f"- Rango de frames del {DEFAULT_REV_TRACK_NAME}: {rev_range}")
+                debug_print(f"- Rango de frames del {TRACK_comp_REV}: {rev_range}")
                 if AnalizeTC:
-                    debug_print(f"- TC IN del {DEFAULT_REV_TRACK_NAME}: {rev_tc_in}")
-                debug_print(f"- FPS del {DEFAULT_REV_TRACK_NAME}: {rev_fps}")
+                    debug_print(f"- TC IN del {TRACK_comp_REV}: {rev_tc_in}")
+                debug_print(f"- FPS del {TRACK_comp_REV}: {rev_fps}")
 
                 # Buscar clip correspondiente primero en EditRef, luego en EditRefClean como fallback
                 editref_clip = None
@@ -758,7 +761,7 @@ class HieroOperations:
                             tag_description,
                             tag_icon,
                         )
-                        debug_print(f"→ Agregado tag '{status}' al clip {DEFAULT_REV_TRACK_NAME}")
+                        debug_print(f"→ Agregado tag '{status}' al clip {TRACK_comp_REV}")
 
                     self.gui_table.add_result(
                         base_identifier,
@@ -783,7 +786,7 @@ class HieroOperations:
                         "icons:TagYellow.png",
                     )
                     debug_print(
-                        f"→ Agregado tag amarillo 'Range Mismatch' al clip {DEFAULT_REV_TRACK_NAME} (EditRef no encontrado)"
+                        f"→ Agregado tag amarillo 'Range Mismatch' al clip {TRACK_comp_REV} (EditRef no encontrado)"
                     )
                     self.gui_table.add_result(
                         base_identifier,

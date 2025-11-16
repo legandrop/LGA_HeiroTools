@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_GetClip v1.1 | Lega Pugliese
+  LGA_NKS_GetClip v1.2 | Lega Pugliese
   Utilidades para obtener clips del timeline de Hiero/Nuke Studio
   
   Método híbrido recomendado:
@@ -10,10 +10,13 @@ ________________________________________________________________________________
   
   Scripts que utilizan este módulo:
   - LGA_NKS_Flow_ShowInFlow.py
+  - LGA_NKS_Edit/LGA_NKS_MatchVerToEXR.py
+  - LGA_NKS_Edit/LGA_NKS_CompareEXR_to_aPlate.py
   - (otros scripts que necesiten obtener clips)
 
-  v1.1 - Agrega get_clips_to_process para obtener múltiples clips seleccionados en el track EXR
+  v1.3 - Renombra variables: DEFAULT_TRACK_NAME → TRACK_comp_EXR, DEFAULT_REV_TRACK_NAME → TRACK_comp_REV
   v1.2 - Agrega DEFAULT_REV_TRACK_NAME para centralizar el nombre del track REV
+  v1.1 - Agrega get_clips_to_process para obtener múltiples clips seleccionados en el track
 ____________________________________________________________________________________
 """
 
@@ -24,10 +27,10 @@ import hiero.ui
 DEBUG = False  # Poner en True para activar los mensajes de debug
 
 # Variable configurable para el nombre del track por defecto
-DEFAULT_TRACK_NAME = "_comp_"  # Es el track que contiene a los EXR con el render de COMP
+TRACK_comp_EXR = "_comp_"  # Es el track que contiene a los EXR con el render de COMP
 
 # Variable configurable para el nombre del track REV por defecto
-DEFAULT_REV_TRACK_NAME = "_rev_"  # Es el track que contiene a los MOV o MXF con el render de COMP
+TRACK_comp_REV = "_rev_"  # Es el track que contiene a los MOV o MXF con el render de COMP
 
 
 def debug_print(*message):
@@ -43,13 +46,13 @@ def find_clip_at_playhead_in_track(seq, track_name=None):
     
     Args:
         seq: Secuencia activa de Hiero
-        track_name (str, optional): Nombre del track a buscar. Si es None, usa DEFAULT_TRACK_NAME.
+        track_name (str, optional): Nombre del track a buscar. Si es None, usa TRACK_comp_EXR.
     
     Returns:
         Clip encontrado o None si no se encuentra.
     """
     if track_name is None:
-        track_name = DEFAULT_TRACK_NAME
+        track_name = TRACK_comp_EXR
     
     try:
         viewer = hiero.ui.currentViewer()
@@ -87,13 +90,13 @@ def get_selected_clips_in_track(seq, track_name=None):
     
     Args:
         seq: Secuencia activa de Hiero
-        track_name (str, optional): Nombre del track. Si es None, usa DEFAULT_TRACK_NAME.
+        track_name (str, optional): Nombre del track. Si es None, usa TRACK_comp_EXR.
     
     Returns:
         Lista de clips seleccionados en el track especificado (excluyendo efectos) o lista vacía.
     """
     if track_name is None:
-        track_name = DEFAULT_TRACK_NAME
+        track_name = TRACK_comp_EXR
     
     te = hiero.ui.getTimelineEditor(seq)
     selected_clips = te.selection() if te else []
@@ -131,7 +134,7 @@ def get_clip_to_process(track_name=None, prioritize_multiple_selection=False):
     Debe ejecutarse en el hilo principal de Hiero.
     
     Args:
-        track_name (str, optional): Nombre del track a buscar. Si es None, usa DEFAULT_TRACK_NAME.
+        track_name (str, optional): Nombre del track a buscar. Si es None, usa TRACK_comp_EXR.
         prioritize_multiple_selection (bool): Si True y hay múltiples clips seleccionados en el track,
             devuelve lista de esos clips en lugar de usar playhead. Si False, usa playhead primero.
     
@@ -140,7 +143,7 @@ def get_clip_to_process(track_name=None, prioritize_multiple_selection=False):
         Si prioritize_multiple_selection=True y hay múltiples clips, siempre devuelve lista.
     """
     if track_name is None:
-        track_name = DEFAULT_TRACK_NAME
+        track_name = TRACK_comp_EXR
     
     seq = hiero.ui.activeSequence()
     if not seq:
@@ -191,7 +194,7 @@ def get_clips_to_process(track_name=None, prioritize_multiple_selection=False):
     Siempre devuelve una lista (puede contener 0, 1 o más clips).
     
     Args:
-        track_name (str, optional): Nombre del track a buscar. Si es None, usa DEFAULT_TRACK_NAME.
+        track_name (str, optional): Nombre del track a buscar. Si es None, usa TRACK_comp_EXR.
         prioritize_multiple_selection (bool): Si True y hay múltiples clips seleccionados en el track,
             prioriza esos clips sobre el playhead.
     

@@ -3,7 +3,7 @@ ________________________________________________________________________________
 
   LGA_NKS_Clip_DisableEXR v1.2 - 2024 - Lega
 
-  Habilita o deshabilita el clip en el track especificado (por defecto usa DEFAULT_TRACK_NAME del módulo LGA_NKS_GetClip).
+  Habilita o deshabilita el clip en el track especificado (por defecto usa TRACK_comp_EXR del módulo LGA_NKS_GetClip).
   
   Funcionamiento:
   1. Obtiene el clip del track especificado en la posición del playhead usando el módulo centralizado
@@ -11,7 +11,7 @@ ________________________________________________________________________________
   3. Invierte el estado de habilitación del clip (enabled/disabled)
   
   v1.1 - Usa el módulo utilitario LGA_NKS_GetClip para obtener el clip (no permite selecciones múltiples)
-  v1.2 - Usa DEFAULT_TRACK_NAME del módulo en lugar de hardcodear "EXR", permitiendo cambiar el track por defecto
+  v1.2 - Usa TRACK_comp_EXR del módulo en lugar de hardcodear "EXR", permitiendo cambiar el track por defecto
 ______________________________________________________________________________________________
 """
 
@@ -61,7 +61,7 @@ def main():
     Función principal que ejecuta la secuencia de operaciones.
     """
     # 1. Obtener clip usando el módulo centralizado (NO permite selecciones múltiples)
-    # Usa DEFAULT_TRACK_NAME del módulo LGA_NKS_GetClip (None = usa el valor por defecto)
+    # Usa TRACK_comp_EXR del módulo LGA_NKS_GetClip (None = usa el valor por defecto)
     clip = get_clip_to_process(track_name=None, prioritize_multiple_selection=False)
     if not clip:
         debug_print("No se encontró un clip en el track especificado en la posición actual o seleccionado.")
