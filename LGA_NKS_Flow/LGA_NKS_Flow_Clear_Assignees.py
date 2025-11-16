@@ -1,7 +1,7 @@
 """
 ________________________________________________________________
 
-  LGA_NKS_Flow_Clear_Assignees v1.2 | Lega Pugliese
+  LGA_NKS_Flow_Clear_Assignees v1.2 | Lega
   Elimina los asignados de una tarea en ShotGrid (Flow) a partir del base_name
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)

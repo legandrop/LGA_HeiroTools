@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_Downloader v1.5 | 2024 | Lega  
+  LGA_NKS_Flow_Downloader v1.5 | Lega
 
   - Se conecta a Flow con las credenciales del script, 
   - Descarga la informacion de los proyectos agregados en los settings

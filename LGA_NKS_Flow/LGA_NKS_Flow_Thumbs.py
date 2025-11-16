@@ -1,7 +1,7 @@
 """
 ______________________________________________________
 
-  LGA_NKS_Flow_Thumbs v1.01 - Lega
+  LGA_NKS_Flow_Thumbs v1.01 | Lega
   Crea un snapshot del viewer actual con zoom to fill y lo guarda en N:/(proyecto)/Thumbs
   organizando por nombre de proyecto extraido del archivo
   Maneja el track BurnIn temporalmente para la captura y lo restaura al final

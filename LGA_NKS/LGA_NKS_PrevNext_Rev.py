@@ -1,7 +1,7 @@
 """
 ______________________________________________________________________________________________
 
-  LGA_NKS_PrevNext_Rev v1.23 - 2024 - Lega
+  LGA_NKS_PrevNext_Rev v1.23 | Lega
 
   Busca el clip anterior o siguiente con estado Rev Lega, Rev Sebas o Rev Javi
   y ajusta la vista:

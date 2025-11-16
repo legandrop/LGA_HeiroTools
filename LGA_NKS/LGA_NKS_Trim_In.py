@@ -4,7 +4,7 @@
 """
 _____________________________________________________________________________________________________
 
-  LGA_NKS_Trim_In v1.0 - 2025 - Lega
+  LGA_NKS_Trim_In v1.0 | Lega
   Script para recortar el material antes del playhead en clips seleccionados.
   El clip se recorta tanto en el source como en el timeline, eliminando los frames antes del playhead
   y manteniendo la relación 1:1 para evitar retimes.

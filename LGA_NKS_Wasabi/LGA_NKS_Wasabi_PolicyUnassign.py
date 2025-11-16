@@ -1,7 +1,7 @@
 """
 ______________________________________________________________________
 
-  LGA_NKS_Wasabi_PolicyUnassign v0.60 | Lega Pugliese
+  LGA_NKS_Wasabi_PolicyUnassign v0.60 | Lega
   Muestra y gestiona shots asignados en políticas IAM de Wasabi
 ______________________________________________________________________
 

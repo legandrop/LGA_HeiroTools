@@ -1,7 +1,7 @@
 """
 __________________________________________________________
 
-  LGA_NKS_Timeline_Refresh v1.2 - 2024 - Lega
+  LGA_NKS_Timeline_Refresh v1.2 | Lega
 
   Refresca el timeline cerrándolo y volviéndolo a abrir,
   manteniendo los ajustes del viewer:

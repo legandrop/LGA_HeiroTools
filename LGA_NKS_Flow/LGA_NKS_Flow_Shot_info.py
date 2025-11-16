@@ -1,7 +1,7 @@
 """
 __________________________________________________________________
 
-  LGA_NKS_Flow_Shot_info v1.84 - Lega Pugliese
+  LGA_NKS_Flow_Shot_info v1.84 | Lega
   Imprime informacion del shot y las versiones de la task comp
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)

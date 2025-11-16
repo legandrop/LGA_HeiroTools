@@ -1,7 +1,7 @@
 """
 ______________________________________________________________
 
-  LGA_NKS_RevealNKS_Project v1.0 - 2024 - Lega
+  LGA_NKS_RevealNKS_Project v1.0 | Lega
   Revela el proyecto NKS activo en el explorador de archivos
 ______________________________________________________________
 

@@ -1,7 +1,7 @@
 """
 ______________________________________________________________________
 
-  LGA_NKS_RevealInExplorer v1.0 - 2024 - Lega
+  LGA_NKS_RevealInExplorer v1.0 | Lega
   Revela los clips seleccionados en el explorador de archivos
 ______________________________________________________________________
 

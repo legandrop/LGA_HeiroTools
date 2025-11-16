@@ -1,7 +1,7 @@
 """
 ______________________________________________________________________
 
-  LGA_NKS_Reconnect v1.1 - 2025 - Lega
+  LGA_NKS_Reconnect v1.1 | Lega
   Reconecta clips seleccionados a diferentes rutas, manteniendo el color original.
 ______________________________________________________________________
 

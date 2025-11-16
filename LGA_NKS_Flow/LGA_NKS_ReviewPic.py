@@ -1,7 +1,7 @@
 """
 _________________________________________________________________________________________________________________________________
 
-  LGA_NKS_ReviewPic v1.01 - Lega
+  LGA_NKS_ReviewPic v1.01 | Lega
   Crea un snapshot de la imagen actual del viewer y lo guarda en ReviewPic_Cache
   organizando por clips del track TRACK_comp_EXR con numeracion de frames
   Actualizado para ser compatible con ambos sistemas de nomenclatura:

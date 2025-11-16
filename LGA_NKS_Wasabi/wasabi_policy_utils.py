@@ -1,7 +1,7 @@
 """
 ______________________________________________________________________
 
-  Wasabi Policy Utils v0.95 | Lega Pugliese
+  Wasabi Policy Utils v0.95 | Lega
   Funciones auxiliares para gestión de políticas IAM de Wasabi
 ______________________________________________________________________
 

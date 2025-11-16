@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_CreateShot v1.1 | Lega Pugliese
+  LGA_NKS_Flow_CreateShot v1.1 | Lega
   Script para crear shots en ShotGrid basado en el nombre del clip seleccionado en Hiero
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)

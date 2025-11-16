@@ -1,7 +1,7 @@
 """
 __________________________________________________________
 
-  LGA_NKS_Viewer_235 v1.2 - 2024 - Lega
+  LGA_NKS_Viewer_235 v1.2 | Lega
   Ajusta el overlay del viewer a 2.35:1 y 
   alterna los estilos de mascara entre None, Half y Full
   a la vez que sube en Y al texto Frame del track BurnIn

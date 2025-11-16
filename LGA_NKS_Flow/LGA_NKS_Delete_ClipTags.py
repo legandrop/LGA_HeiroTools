@@ -1,7 +1,7 @@
 """
 _______________________________________________________
 
-  LGA_NKS_Delete_ClipTags v1.1 - 2024 - Lega Pugliese
+  LGA_NKS_Delete_ClipTags v1.1 | Lega
   Borra los tags del clip seleccionado
 _______________________________________________________
 

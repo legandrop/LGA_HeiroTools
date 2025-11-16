@@ -1,7 +1,7 @@
 """
 ______________________________________________________
 
-  LGA_NKS_CreateNewTrack v1.2 - 2025 - Lega
+  LGA_NKS_CreateNewTrack v1.2 | Lega
   Crea un nuevo track de video encima del track actualmente seleccionado
   y mantiene la posicion del scroll vertical
 ______________________________________________________

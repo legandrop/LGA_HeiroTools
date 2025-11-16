@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_GetClip v1.2 | Lega Pugliese
+  LGA_NKS_GetClip v1.2 | Lega
   Utilidades para obtener clips del timeline de Hiero/Nuke Studio
   
   Método híbrido recomendado:

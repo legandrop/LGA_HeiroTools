@@ -1,7 +1,7 @@
 """
 _______________________
 
-  LGA_FlowNo_Panel v1.2
+  LGA_FlowNo_Panel v1.2 | Lega
 _______________________
 """
 

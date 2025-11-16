@@ -1,7 +1,7 @@
 """
 ________________________________________________________________________________
 
-  LGA_NKS_mediaMissingFrames v1.5 | 2024 | Lega  
+  LGA_NKS_mediaMissingFrames v1.5 | Lega
   Escanea los clips seleccionados en Hiero para secuencias EXR con frames faltantes o corruptos
 ________________________________________________________________________________
 

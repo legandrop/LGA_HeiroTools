@@ -1,7 +1,7 @@
 """
 ________________________________________________________________
 
-  LGA_ViewerPanel v1.5 - Lega Pugliese
+  LGA_ViewerPanel v1.5 | Lega
   Panel con herramientas para el viewer y el timeline de Hiero
 ________________________________________________________________
 

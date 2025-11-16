@@ -1,7 +1,7 @@
 """
 _____________________________________________________________
 
-  LGA_NKS_Flow_Assignee v1.2 | Lega Pugliese
+  LGA_NKS_Flow_Assignee v1.2 | Lega
   Imprime los asignados de una tarea en ShotGrid (Flow) a partir del base_name
   Se usa desde el panel de assignee de LGA_NKS_Flow_Assignee_Panel.py
   Actualizado para ser compatible con ambos sistemas de nomenclatura:

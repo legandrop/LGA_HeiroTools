@@ -1,7 +1,7 @@
 """
 ______________________________________________________________________
 
-  LGA_NKS_SelfReplaceClip v1.2 - 2025 - Lega
+  LGA_NKS_SelfReplaceClip v1.2 | Lega
   Reconnect automático con el mismo clip, corrige desplazamiento de frames,
   mueve versión original al bin 'Conform' y restaura color original.
 ______________________________________________________________________

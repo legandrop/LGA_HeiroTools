@@ -1,7 +1,7 @@
 """
 ________________________________________________________________
 
-  LGA_NKS_Flow_Assign_Assignee v1.21 | Lega Pugliese
+  LGA_NKS_Flow_Assign_Assignee v1.21 | Lega
   Asigna un usuario a una tarea en ShotGrid (Flow) a partir del base_name y nombre de usuario
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)

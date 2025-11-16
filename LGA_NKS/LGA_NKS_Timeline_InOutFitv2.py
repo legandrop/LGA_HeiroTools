@@ -1,7 +1,7 @@
 """
 __________________________________________________________
 
-  LGA_NKS_Timeline_InOutFitv2 v2.2 - 2024 - Lega
+  LGA_NKS_Timeline_InOutFitv2 v2.2 | Lega
 
   Determina el clip del track "EditRef" que más abarca los
   puntos In y Out actuales de la secuencia activa en Hiero.

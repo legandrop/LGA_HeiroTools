@@ -1,7 +1,7 @@
 """
 ______________________________________________________
 
-  LGA_NKS_Flow_CreateShot_Thumbs v1.01 - Lega
+  LGA_NKS_Flow_CreateShot_Thumbs v1.01 | Lega
   Crea un snapshot del viewer actual con zoom to fill y lo guarda en ShotThumbs_Cache
   organizando por nombre de shot
   Actualizado para ser compatible con ambos sistemas de nomenclatura:

@@ -1,7 +1,7 @@
 """
 ______________________________________________________________________
 
-  LGA_NKS_Reduce_SeqWin v1.1 - 2024 - Lega
+  LGA_NKS_Reduce_SeqWin v1.1 | Lega
   Ajusta el tamaño del panel izquierdo del timeline editor de Hiero
 ______________________________________________________________________
 

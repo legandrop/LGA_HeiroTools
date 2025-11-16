@@ -1,7 +1,7 @@
 """
 _______________________________________________________________
 
-  LGA_NKS_CheckProjectVersions v1.81 - 2025 - Lega
+  LGA_NKS_CheckProjectVersions v1.81 | Lega
   Chequea versiones de todos los proyectos abiertos en Hiero
 _______________________________________________________________
 

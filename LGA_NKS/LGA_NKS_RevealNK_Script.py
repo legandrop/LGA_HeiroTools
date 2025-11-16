@@ -1,7 +1,7 @@
 """
 ___________________________________________________________________________________
 
-  LGA_NKS_RevealNK_Script v1.0 - 2024 - Lega
+  LGA_NKS_RevealNK_Script v1.0 | Lega
   Revela el script NKS asociado al clip seleccionado en el explorador de archivos
 ___________________________________________________________________________________
 

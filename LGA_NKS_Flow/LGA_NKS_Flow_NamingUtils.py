@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_NamingUtils v1.0 | Lega Pugliese
+  LGA_NKS_Flow_NamingUtils v1.0 | Lega
   Utilidades para detectar y extraer información de nombres de archivos/shots
   Compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)

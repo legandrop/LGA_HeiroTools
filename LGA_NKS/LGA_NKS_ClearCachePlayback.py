@@ -1,7 +1,7 @@
 """
 __________________________________________________________
 
-  LGA_NKS_ClearCachePlayback v1.0 - 2024 - Lega
+  LGA_NKS_ClearCachePlayback v1.0 | Lega
   Limpia el cache de reproduccion del viewer activo en Hiero
 __________________________________________________________
 

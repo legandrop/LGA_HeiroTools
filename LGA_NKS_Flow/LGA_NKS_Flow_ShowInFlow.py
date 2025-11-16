@@ -1,7 +1,7 @@
 """
 _____________________________________________________________________________________________________
 
-  LGA_NKS_Flow_ShowInFlow v1.27 | Lega Pugliese
+  LGA_NKS_Flow_ShowInFlow v1.27 | Lega
   Abre la URL de la task Comp del shot, tomando la informacion del nombre del clip en el track TRACK_comp_EXR bajo el playhead
   Si no hay clip en playhead, usa el clip seleccionado como fallback
   Verifica si existe más de un shot con el mismo nombre y te pide que selecciones uno

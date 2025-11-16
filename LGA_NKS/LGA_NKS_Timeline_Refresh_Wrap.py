@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________________________________________________________
 
-  LGA_NKS_Timeline_Refresh_Wrap v1.3 - 2024 - Lega
+  LGA_NKS_Timeline_Refresh_Wrap v1.3 | Lega
   
   Wrapper que ejecuta una secuencia de scripts para refrescar el timeline manteniendo el nivel de zoom original:
   

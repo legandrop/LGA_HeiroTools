@@ -1,7 +1,7 @@
 """
 __________________________________________________________
 
-  LGA_NKS_InOut_Editref v1.42 | Lega Pugliese
+  LGA_NKS_InOut_Editref v1.42 | Lega
 
   Establece los puntos In y Out de la secuencia activa
   basándose en el clip más cercano del track "EditRef".
