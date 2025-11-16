@@ -1,8 +1,10 @@
 """
 _________________________________________
 
-  LGA_EditToolsPanel v2.90 | Lega
+  LGA_EditToolsPanel v2.91 | Lega
   Tools panel for Hiero / Nuke Studio
+  
+  v2.91: Se agregaron tooltips mejorados y descriptivos para todos los botones del panel
 _________________________________________
 
 """
@@ -13,6 +15,7 @@ import os
 import re
 import subprocess
 import socket
+import sys
 import PySide2, hiero
 import PySide2.QtWidgets as QtWidgets
 from PySide2.QtWidgets import (
@@ -28,10 +31,38 @@ from PySide2.QtCore import *
 from PySide2.QtCore import Qt
 import importlib.util
 import importlib.machinery
+from pathlib import Path
 
 # Variable global para activar o desactivar los prints
 DEBUG = False
 DEBUG_BASIC = True
+
+
+def debug_print(*message):
+    if DEBUG:
+        print(*message)
+
+
+def debug_print_b(*message):
+    if DEBUG_BASIC:
+        print(*message)
+
+
+# Importar utilidades de naming centralizadas
+naming_utils_path = Path(__file__).parent / "LGA_NKS_Flow"
+if naming_utils_path.exists():
+    sys.path.insert(0, str(naming_utils_path))
+    try:
+        from LGA_NKS_Flow_NamingUtils import (
+            extract_shot_code,
+            clean_base_name,
+        )
+        HAS_NAMING_UTILS = True
+    except ImportError:
+        HAS_NAMING_UTILS = False
+        debug_print("Warning: No se pudo importar LGA_NKS_Flow_NamingUtils")
+else:
+    HAS_NAMING_UTILS = False
 
 
 # Clase de botón personalizada que maneja el Shift+Click
@@ -58,16 +89,6 @@ class CustomButton(QPushButton):
             super(CustomButton, self).mousePressEvent(event)
 
 
-def debug_print(*message):
-    if DEBUG:
-        print(*message)
-
-
-def debug_print_b(*message):
-    if DEBUG_BASIC:
-        print(*message)
-
-
 class ReconnectMediaWidget(QWidget):
     def __init__(self):
         super(ReconnectMediaWidget, self).__init__()
@@ -86,46 +107,54 @@ class ReconnectMediaWidget(QWidget):
 
         # Crear botones y agregarlos al layout
         self.buttons = [
-            ("Organize Project", self.organizer.organize_project, "#283548"),
-            ("Clean Project", self.clean_project, "#283548"),
-            ("Rec709 | Clip", self.rec709_clip, "#434c41"),
-            ("Default | Clip", self.default_clip, "#434c41"),
-            ("Fix Colorspaces", self.fix_colorspaces, "#434c41"),
-            ("New Video Track", self.create_new_track, "#263b23"),
-            ("Set Shot Name", self.set_shot_name, "#453434"),
-            ("Extend &Edit", self.extend_edit_to_playhead, "#453434", "Alt+E", "Alt+E"),
-            ("Trim &In", self.trim_in, "#453434", "Alt+[", "Alt+["),
-            ("Trim &Out", self.trim_out, "#453434", "Alt+]", "Alt+]"),
-            ("Reconnect T > N", self.reconnect_t_to_n, "#4a4329"),
-            ("Reconnect N > T", self.reconnect_n_to_t, "#4a4329"),
-            ("Reconnect T Win > Mac", self.execute_reconnect_win_to_mac, "#4a4329"),
+            ("Organize Project", self.organizer.organize_project, "#283548", None, "Organiza los clips en bins basándose en su ruta de archivo"),
+            ("Clean Project", self.clean_project, "#283548", None, "Elimina clips no usados del proyecto"),
+            ("Rec709 | Clip", self.rec709_clip, "#434c41", None, "Cambia el color transform a Rec.709 en los clips seleccionados"),
+            ("Default | Clip", self.default_clip, "#434c41", None, "Cambia el color transform a default en los clips seleccionados"),
+            ("Fix Colorspaces", self.fix_colorspaces, "#434c41", None, "Detecta y corrige clips con colorspace rec709 o gamma2.2"),
+            ("New Video Track", self.create_new_track, "#263b23", None, "Crea un nuevo track de video encima del track seleccionado"),
+            ("Set Shot Name", self.set_shot_name, "#453434", None, "Establece el nombre del shot basándose en la ruta del archivo"),
+            ("Extend &Edit", self.extend_edit_to_playhead, "#453434", "Alt+E", "Alt+E\nExtiende el punto de salida del clip hasta el playhead (cambiando su velocidad)"),
+            ("Trim &In", self.trim_in, "#453434", "Alt+[", "Alt+[\nTrimea el IN del clip a la posicion del playhead"),
+            ("Trim &Out", self.trim_out, "#453434", "Alt+]", "Alt+]\nTrimea el OUT del clip a la posicion del playhead"),
+            ("Reconnect T > N", self.reconnect_t_to_n, "#4a4329", None, "Reconecta clips cambiando rutas de t: a n:"),
+            ("Reconnect N > T", self.reconnect_n_to_t, "#4a4329", None, "Reconecta clips cambiando rutas de n: a t:"),
+            ("Reconnect T Win > Mac", self.execute_reconnect_win_to_mac, "#4a4329", None, "Reconecta clips de Windows a Mac y ejecuta SelfReplace"),
             (
                 "Reconnect Media",
                 self.reconnectMediaFromTimeline,
                 "#4a4329",
                 "Alt+M",
-                "Alt+M",
+                "Alt+M\nAbre un diálogo para reconectar media manualmente",
             ),
             (
                 "Clear Tag",
                 self.run_clear_tag_script,
                 "#1f1f1f",
-            ),  # Nuevo boton movido desde Flow Panel
+                None,
+                "Elimina todos los tags de los clips seleccionados",
+            ),
             (
                 "Match Rev Ver",
                 self.match_rev_version,
                 "#3d2a47",
-            ),  # Nuevo boton para EXR to REV Version Matcher
+                None,
+                "Click: Iguala la versión de los clips del track _rev_ (mov o mxf) con la versión de los EXR correspondientes\nShift+Click: Procesa todos los clips del timeline",
+            ),
             (
                 "Compare Rev EdRef",
                 self.compare_rev_editref,
                 "#3d2a47",
-            ),  # Nuevo boton para comparar REV con EditRef
+                None,
+                "Click: Compara los rangos de frames entre clips del track _rev_ (mov o mxf) y el track EditRef\nShift+Click: Compara todos los clips del timeline",
+            ),
             (
                 "Compare EXR aPlate",
                 self.compare_exr_aplate,
                 "#3d2a47",
-            ),  # Nuevo boton para comparar EXR con aPlate
+                None,
+                "Click: Compara los rangos de frames entre clips del track _comp_ (exr) y el track aPlate\nShift+Click: Compara todos los clips del timeline",
+            ),
             # ("Check Frames", self.check_frames, "#4a4329"),  # Nuevo boton
         ]
 
@@ -286,6 +315,14 @@ class ReconnectMediaWidget(QWidget):
 
     ###### Shot name
     def set_shot_name(self):
+        """
+        Establece el nombre del shot basándose en la ruta del archivo.
+        Usa el módulo centralizado LGA_NKS_Flow_NamingUtils para detectar
+        automáticamente el formato de nomenclatura (con o sin descripción).
+        Compatible con ambos sistemas:
+        - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+        - PROYECTO_SEQ_SHOT (3 bloques simplificado)
+        """
         try:
             project = get_active_project()
             if not project:  # Comprobacion de proyecto activo
@@ -305,28 +342,61 @@ class ReconnectMediaWidget(QWidget):
                     debug_print("*** No clips selected on the track ***")
                 else:
                     for shot in selected_clips:
-                        # Obtener el file path del clip seleccionado
-                        file_path = (
-                            shot.source().mediaSource().fileinfos()[0].filename()
-                        )
-                        debug_print("Original file path:", file_path)
+                        try:
+                            # Obtener el file path del clip seleccionado
+                            file_path = (
+                                shot.source().mediaSource().fileinfos()[0].filename()
+                            )
+                            debug_print("Original file path:", file_path)
 
-                        # Obtener el nombre del plano del path del clip
-                        shot_name = self.get_shot_name(file_path)
-                        debug_print("Shot name:", shot_name)
+                            # Extraer el nombre del archivo del path completo
+                            file_name = os.path.basename(file_path)
+                            debug_print("File name:", file_name)
 
-                        # Cambiar el nombre del plano al clip seleccionado
-                        shot.setName(shot_name)
-                        debug_print("Shot name changed successfully.")
+                            # Usar el módulo centralizado si está disponible
+                            if HAS_NAMING_UTILS:
+                                # Limpiar el nombre del archivo (remover extensión y versión)
+                                base_name = clean_base_name(file_name)
+                                debug_print("Base name (cleaned):", base_name)
+
+                                # Extraer el shot code usando detección automática de formato
+                                shot_name = extract_shot_code(base_name)
+                                debug_print("Shot name (extracted):", shot_name)
+                            else:
+                                # Fallback al método anterior si no hay módulo centralizado
+                                debug_print("Warning: Usando método fallback para extraer shot name")
+                                shot_name = self.get_shot_name_fallback(file_path)
+
+                            # Cambiar el nombre del plano al clip seleccionado
+                            if shot_name:
+                                shot.setName(shot_name)
+                                debug_print("Shot name changed successfully.")
+                            else:
+                                debug_print("Warning: No se pudo extraer el shot name")
+                        except Exception as e:
+                            debug_print(f"Error procesando clip {shot.name()}: {e}")
         except Exception as e:
             debug_print(f"Error: {e}")
 
-    def get_shot_name(self, file_path):
-        # Dividir el path en partes usando '/' como separador
-        path_parts = file_path.split("/")
-        # El shot name seria la tercera parte del path
-        shot_name = path_parts[3]
-        return shot_name
+    def get_shot_name_fallback(self, file_path):
+        """
+        Método fallback para extraer el shot name cuando no está disponible
+        el módulo centralizado. Usa el método anterior basado en la posición
+        del path (tercera parte).
+        """
+        try:
+            # Dividir el path en partes usando '/' como separador
+            path_parts = file_path.split("/")
+            # El shot name seria la tercera parte del path (índice 3)
+            if len(path_parts) > 3:
+                shot_name = path_parts[3]
+                return shot_name
+            else:
+                debug_print(f"Warning: Path no tiene suficientes partes: {file_path}")
+                return None
+        except Exception as e:
+            debug_print(f"Error en get_shot_name_fallback: {e}")
+            return None
 
     ###### Extend edit
     def extend_edit_to_playhead(self):

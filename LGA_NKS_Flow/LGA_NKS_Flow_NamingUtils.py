@@ -22,6 +22,7 @@ ________________________________________________________________________________
   - LGA_NKS_CompareEXR_to_aPlate.py
   - LGA_NKS_CompareVerToEditref.py
   - LGA_NKS_MatchVerToEXR.py
+  - LGA_NKS_EditTools_Panel.py
 ____________________________________________________________________________________
 """
 
