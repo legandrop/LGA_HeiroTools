@@ -64,8 +64,12 @@ status_translation = {
 DEBUG = True
 
 def debug_print(message):
+    """
+    Imprime mensajes de debug a stderr para no interferir con el JSON de respuesta
+    que se envía por stdout
+    """
     if DEBUG:
-        print(message)
+        print(message, file=sys.stderr)
 
 class ShotGridManager:
     def __init__(self, url, login, password):
@@ -248,19 +252,30 @@ class ShotGridManager:
             return False
 
         try:
+            debug_print(f"=== attach_images_to_note: Iniciando proceso de adjuntar imágenes ===")
+            debug_print(f"attach_images_to_note: Nota ID: {note_id}, Versión ID: {version_id}")
+            debug_print(f"attach_images_to_note: Total de imágenes recibidas: {len(image_paths)}")
+            
             # Crear una carpeta temporal para los archivos renombrados
             temp_dir = tempfile.mkdtemp()
-            debug_print(f"Carpeta temporal creada: {temp_dir}")
+            debug_print(f"attach_images_to_note: Carpeta temporal creada: {temp_dir}")
 
             attached_count = 0
+            failed_count = 0
+            failed_images = []
 
-            for image_path in image_paths:
+            for idx, image_path in enumerate(image_paths, 1):
+                debug_print(f"--- Procesando imagen [{idx}/{len(image_paths)}]: {os.path.basename(image_path)} ---")
+                
                 if not os.path.exists(image_path):
-                    debug_print(f"Imagen no encontrada: {image_path}")
+                    debug_print(f"❌ ERROR: Imagen [{idx}] NO EXISTE en disco: {image_path}")
+                    failed_count += 1
+                    failed_images.append(f"[{idx}] {image_path} (no existe)")
                     continue
 
                 # Extraer numero de frame del nombre del archivo
                 frame_number = self.extract_frame_number_from_path(image_path)
+                debug_print(f"  Frame extraído: {frame_number}")
 
                 # Crear nombre de archivo con convencion de ShotGrid para mostrar frame number
                 # Formato: annot_version_<version_id>.<frame_number>.jpg
@@ -269,13 +284,21 @@ class ShotGridManager:
                     f"annot_version_{version_id}.{frame_number}{file_extension}"
                 )
                 temp_file_path = os.path.join(temp_dir, new_filename)
+                debug_print(f"  Nombre temporal: {new_filename}")
 
                 # Copiar archivo con el nuevo nombre
-                shutil.copy2(image_path, temp_file_path)
-                debug_print(f"Archivo copiado: {image_path} -> {temp_file_path}")
+                try:
+                    shutil.copy2(image_path, temp_file_path)
+                    debug_print(f"  ✓ Archivo copiado a carpeta temporal")
+                except Exception as copy_error:
+                    debug_print(f"  ❌ ERROR copiando archivo: {copy_error}")
+                    failed_count += 1
+                    failed_images.append(f"[{idx}] {image_path} (error al copiar: {copy_error})")
+                    continue
 
                 # Subir archivo directamente a la nota usando el metodo que funciono en exploracion
                 try:
+                    debug_print(f"  Subiendo a Flow (Note ID: {note_id})...")
                     uploaded_attachment_id = self.sg.upload(
                         "Note", note_id, temp_file_path, field_name="attachments"
                     )
@@ -283,34 +306,56 @@ class ShotGridManager:
                     if uploaded_attachment_id:
                         attached_count += 1
                         debug_print(
-                            f"Imagen adjuntada exitosamente: {new_filename} (ID: {uploaded_attachment_id})"
+                            f"  ✅ ÉXITO: Imagen [{idx}] adjuntada correctamente (Attachment ID: {uploaded_attachment_id})"
                         )
                     else:
                         debug_print(
-                            f"Error: No se obtuvo ID de attachment para {new_filename}"
+                            f"  ❌ ERROR: No se obtuvo ID de attachment para {new_filename}"
                         )
+                        failed_count += 1
+                        failed_images.append(f"[{idx}] {image_path} (no se obtuvo attachment ID)")
 
                 except Exception as upload_error:
                     debug_print(
-                        f"Error subiendo archivo {new_filename}: {upload_error}"
+                        f"  ❌ ERROR subiendo archivo {new_filename}: {upload_error}"
                     )
+                    failed_count += 1
+                    failed_images.append(f"[{idx}] {image_path} (error al subir: {upload_error})")
                     continue
 
             # Limpiar carpeta temporal
             try:
                 shutil.rmtree(temp_dir)
-                debug_print(f"Carpeta temporal eliminada: {temp_dir}")
+                debug_print(f"attach_images_to_note: Carpeta temporal eliminada: {temp_dir}")
             except Exception as cleanup_error:
-                debug_print(f"Error limpiando carpeta temporal: {cleanup_error}")
+                debug_print(f"attach_images_to_note: Error limpiando carpeta temporal: {cleanup_error}")
 
-            debug_print(
-                f"Adjuntadas {attached_count} imagenes de {len(image_paths)} totales"
-            )
-            return attached_count > 0
+            # Resumen final
+            debug_print(f"=== attach_images_to_note: RESUMEN FINAL ===")
+            debug_print(f"attach_images_to_note: Total recibidas: {len(image_paths)}")
+            debug_print(f"attach_images_to_note: ✅ Adjuntadas exitosamente: {attached_count}")
+            debug_print(f"attach_images_to_note: ❌ Fallidas: {failed_count}")
+            
+            if failed_images:
+                debug_print(f"attach_images_to_note: Lista de imágenes que fallaron:")
+                for failed_img in failed_images:
+                    debug_print(f"  - {failed_img}")
+            
+            if attached_count == len(image_paths):
+                debug_print(f"attach_images_to_note: ✅ TODAS las imágenes se adjuntaron correctamente")
+            elif attached_count > 0:
+                debug_print(f"attach_images_to_note: ⚠️  ADVERTENCIA: Solo {attached_count} de {len(image_paths)} imágenes se adjuntaron")
+            else:
+                debug_print(f"attach_images_to_note: ❌ ERROR: Ninguna imagen se pudo adjuntar")
+            
+            # Retornar el número de imágenes adjuntadas (no solo booleano)
+            return attached_count
 
         except Exception as e:
-            debug_print(f"Error adjuntando imagenes a la nota: {e}")
-            return False
+            debug_print(f"❌ ERROR CRÍTICO adjuntando imagenes a la nota: {e}")
+            import traceback
+            debug_print(traceback.format_exc())
+            return 0  # Retornar 0 imágenes adjuntadas en caso de error
 
     def extract_frame_number_from_path(self, image_path):
         """
@@ -356,16 +401,29 @@ class ShotGridManager:
             return None
 
 
-def execute_full_push_operation(sg_manager, button_name, base_name, message, review_images):
+def execute_full_push_operation(sg_manager, button_name, base_name, message, review_images, original_file_name=None):
     """
     Ejecuta todo el proceso de push en una sola operación para mayor eficiencia
     """
     try:
         debug_print(f"Ejecutando push completo: {button_name} para {base_name}")
+        
+        # Si original_file_name tiene la versión, usarlo para detección correcta del formato
+        base_name_for_detection = base_name
+        if original_file_name:
+            version_match = re.search(r"_v(\d+)", original_file_name)
+            if version_match:
+                # Si base_name no tiene versión pero original_file_name sí, usar original_file_name para detección
+                if not any(part.startswith('v') and part[1:].isdigit() for part in base_name.split("_")):
+                    # Construir base_name_for_detection con la versión
+                    base_name_for_detection = f"{base_name}_{version_match.group(0)}"
+                    debug_print(f"execute_full_push: Usando base_name con versión para detección: {base_name_for_detection}")
 
         # Usar funciones compartidas para extraer información
-        project_name = extract_project_name(base_name)
-        shot_code = extract_shot_code(base_name)
+        project_name = extract_project_name(base_name_for_detection)
+        shot_code = extract_shot_code(base_name_for_detection)
+        
+        debug_print(f"execute_full_push: project_name={project_name}, shot_code={shot_code}")
 
         # Extraer task_name usando función compartida o método alternativo
         task_name_extracted = extract_task_name(base_name)
@@ -400,8 +458,23 @@ def execute_full_push_operation(sg_manager, button_name, base_name, message, rev
                 version_number_str = part
                 break
 
+        # Si no encontramos versión en base_name, intentar extraerla de original_file_name
+        if not version_number_str and original_file_name:
+            debug_print(f"execute_full_push: No se encontró versión en base_name, intentando extraer de original_file_name: {original_file_name}")
+            version_match = re.search(r"_v(\d+)", original_file_name)
+            if version_match:
+                version_number_str = f"v{version_match.group(1)}"
+                debug_print(f"execute_full_push: Versión extraída de original_file_name: {version_number_str}")
+                # Actualizar base_name para incluir la versión
+                base_name = f"{base_name}_{version_number_str}"
+                debug_print(f"execute_full_push: base_name actualizado: {base_name}")
+
         if not version_number_str:
-            return {"success": False, "error": "No se encontró número de versión válido"}
+            error_msg = f"No se encontró número de versión válido en base_name '{base_name}'"
+            if original_file_name:
+                error_msg += f" ni en original_file_name '{original_file_name}'"
+            debug_print(f"execute_full_push: ERROR: {error_msg}")
+            return {"success": False, "error": error_msg}
 
         version_number = int(version_number_str.replace("v", ""))
 
@@ -448,10 +521,40 @@ def execute_full_push_operation(sg_manager, button_name, base_name, message, rev
 
                 # Adjuntar imágenes si existen y se creó la nota
                 if created_note and review_images:
-                    debug_print(f"Adjuntando {len(review_images)} imágenes")
-                    sg_manager.attach_images_to_note(
+                    debug_print(f"=== execute_full_push: Iniciando envío de imágenes ===")
+                    debug_print(f"execute_full_push: Nota creada con ID: {created_note['id']}")
+                    debug_print(f"execute_full_push: Versión ID: {sg_highest_version['id']}")
+                    debug_print(f"execute_full_push: Total de imágenes a adjuntar: {len(review_images)}")
+                    debug_print(f"execute_full_push: Lista de imágenes a enviar:")
+                    for idx, img_path in enumerate(review_images, 1):
+                        debug_print(f"  [{idx}] {img_path}")
+                        if not os.path.exists(img_path):
+                            debug_print(f"  ⚠️  ADVERTENCIA: La imagen [{idx}] NO EXISTE: {img_path}")
+                    
+                    attach_result = sg_manager.attach_images_to_note(
                         created_note["id"], sg_highest_version["id"], review_images
                     )
+                    debug_print(f"execute_full_push: Resultado de attach_images_to_note: {attach_result} imágenes adjuntadas")
+                    # Retornar información sobre imágenes adjuntadas en el resultado
+                    return {
+                        "success": True,
+                        "message": "Push completado exitosamente",
+                        "images_attached": attach_result  # attach_result ahora es el número de imágenes adjuntadas
+                    }
+                elif created_note and not review_images:
+                    debug_print(f"execute_full_push: Nota creada pero no hay imágenes para adjuntar")
+                    return {
+                        "success": True,
+                        "message": "Push completado exitosamente",
+                        "images_attached": 0
+                    }
+                elif not created_note and review_images:
+                    debug_print(f"⚠️  ADVERTENCIA: Hay {len(review_images)} imágenes pero no se creó la nota, no se pueden adjuntar")
+                    return {
+                        "success": True,
+                        "message": "Push completado exitosamente (nota no creada, imágenes no adjuntadas)",
+                        "images_attached": 0
+                    }
 
         elif sg_status == "rev_su":
             debug_print(f"Actualizando versión a rev")
@@ -461,8 +564,12 @@ def execute_full_push_operation(sg_manager, button_name, base_name, message, rev
             debug_print(f"Actualizando versión a unvleg")
             sg_manager.update_version_status(project_name, shot_code, version_number_str, "unvleg")
 
-        debug_print("Push completado exitosamente")
-        return {"success": True, "message": "Push completado exitosamente"}
+        debug_print("execute_full_push: Push completado exitosamente")
+        return {
+            "success": True,
+            "message": "Push completado exitosamente",
+            "images_attached": 0  # No hay imágenes para este tipo de estado
+        }
 
     except Exception as e:
         error_msg = f"Error en push completo: {str(e)}"
@@ -576,8 +683,9 @@ def execute_flow_operation(operation, **kwargs):
             base_name = kwargs.get('base_name')
             message = kwargs.get('message')
             review_images = kwargs.get('review_images', [])
+            original_file_name = kwargs.get('original_file_name')
 
-            return execute_full_push_operation(sg_manager, button_name, base_name, message, review_images)
+            return execute_full_push_operation(sg_manager, button_name, base_name, message, review_images, original_file_name)
 
         elif operation == "check_version":
             # Verificación de versiones para evitar congelar UI

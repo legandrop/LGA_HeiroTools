@@ -1,7 +1,7 @@
 """
 _____________________________________________________________
 
-  LGA_NKS_Flow_Push v3.86 | Lega
+  LGA_NKS_Flow_Push v3.88 | Lega
 
   Envia a flow nuevos estados de las tasks comps.
   En algunos estados permite enviar un mensaje a la version
@@ -11,6 +11,9 @@ _____________________________________________________________
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
+  
+  v3.88: Fix timeout + detección correcta de shot_code con base_name sin versión
+  v3.87: Logs detallados de envío de imágenes + Fix extracción de versión
 _____________________________________________________________
 
 """
@@ -114,6 +117,15 @@ def call_flow_connector(operation, **kwargs):
         # Timeout dinámico basado en la operación
         if operation == "attach_images":
             timeout_seconds = 30  # Más tiempo para subir imágenes
+        elif operation == "execute_full_push":
+            # Calcular timeout basado en número de imágenes a enviar
+            num_images = len(kwargs.get('review_images', []))
+            if num_images > 0:
+                # 10 segundos base + 10 segundos por imagen (para copiar, subir, etc.)
+                timeout_seconds = 10 + (num_images * 10)
+                debug_print(f"Timeout ajustado para execute_full_push: {timeout_seconds}s ({num_images} imágenes)")
+            else:
+                timeout_seconds = 10  # Sin imágenes, timeout normal
         else:
             timeout_seconds = 10  # Tiempo normal para otras operaciones
 
@@ -127,12 +139,19 @@ def call_flow_connector(operation, **kwargs):
         )
 
         if result.returncode == 0:
+            # Capturar logs de debug del stderr
+            if result.stderr:
+                for line in result.stderr.strip().split('\n'):
+                    if line:
+                        debug_print(f"[Conector] {line}")
+            
             try:
                 response = json.loads(result.stdout.strip())
                 debug_print(f"Conector completado: {response}")
                 return response
             except json.JSONDecodeError:
-                debug_print(f"Error parseando respuesta: {result.stdout}")
+                debug_print(f"Error parseando respuesta JSON")
+                debug_print(f"STDOUT recibido: {result.stdout}")
                 return {"success": False, "error": f"Respuesta inválida: {result.stdout}"}
         else:
             error_msg = f"Conector falló: {result.stderr}"
@@ -446,12 +465,19 @@ class InputDialog(QDialog):
 
         # Buscar imagenes de ReviewPic y mostrar thumbnails si existen
         self.review_images = find_review_images(base_name, original_file_name)
+        debug_print(f"=== InputDialog: Búsqueda de imágenes completada ===")
+        debug_print(f"InputDialog: Total de imágenes encontradas: {len(self.review_images)}")
         if self.review_images:
+            debug_print(f"InputDialog: Lista de imágenes que se mostrarán en la ventana:")
+            for idx, img_path in enumerate(self.review_images, 1):
+                debug_print(f"  [{idx}] {os.path.basename(img_path)}")
             self.add_thumbnails_section(self.review_images)
             self.adjust_window_size()  # Esto establece el ancho y la altura actual
             self.setFixedWidth(
                 self.width()
             )  # Fijar el ancho para que adjustSize solo afecte la altura
+        else:
+            debug_print(f"InputDialog: No se encontraron imágenes para mostrar")
 
         # Boton OK
         self.ok_button = QPushButton("OK", self)
@@ -921,6 +947,7 @@ class Worker(QRunnable):
         message,
         review_images=None,
         should_delete_images=False,
+        original_file_name=None,
     ):
         super(Worker, self).__init__()
         self.button_name = button_name
@@ -928,6 +955,7 @@ class Worker(QRunnable):
         self.message = message
         self.review_images = review_images or []
         self.should_delete_images = should_delete_images
+        self.original_file_name = original_file_name
         self.signals = WorkerSignals()
 
     @Slot()
@@ -957,14 +985,29 @@ class Worker(QRunnable):
                 debug_print("Worker: Saltando verificación de versiones (ya confirmada por usuario)")
 
             # Usar la operación optimizada que hace todo en una sola llamada
+            debug_print(f"=== Worker: Preparando envío de imágenes ===")
+            debug_print(f"Worker: Total de imágenes a enviar: {len(self.review_images)}")
+            if self.review_images:
+                debug_print(f"Worker: Lista de imágenes que se enviarán a Flow:")
+                for idx, img_path in enumerate(self.review_images, 1):
+                    debug_print(f"  [{idx}] {img_path}")
+                    if not os.path.exists(img_path):
+                        debug_print(f"  ⚠️  ADVERTENCIA: La imagen [{idx}] NO EXISTE en disco: {img_path}")
+            else:
+                debug_print(f"Worker: No hay imágenes para enviar")
+            
             result = call_flow_connector("execute_full_push",
                                        button_name=self.button_name,
                                        base_name=self.base_name,
                                        message=self.message,
-                                       review_images=self.review_images)
+                                       review_images=self.review_images,
+                                       original_file_name=getattr(self, 'original_file_name', None))
 
             if result["success"]:
                 debug_print("Worker: Operación de red completada exitosamente")
+                # Verificar si hay información sobre imágenes adjuntadas en el resultado
+                if "images_attached" in result:
+                    debug_print(f"Worker: Imágenes adjuntadas según Flow: {result['images_attached']} de {len(self.review_images)} enviadas")
                 success = True
 
                 # Si fue exitoso, actualizar también la base de datos local
@@ -1001,7 +1044,8 @@ class Worker(QRunnable):
             self.base_name,
             self.message,
             self.review_images,
-            self.should_delete_images
+            self.should_delete_images,
+            self.original_file_name
         )
 
         # Conectar las mismas señales
@@ -1265,6 +1309,7 @@ def Push_Task_Status(button_name, base_name, update_callback=None, original_file
             message,
             review_images,
             should_delete_images,
+            original_file_name,
         )
         # Conectar señales
         worker.signals.result_ready.connect(handle_results)
@@ -1276,7 +1321,7 @@ def Push_Task_Status(button_name, base_name, update_callback=None, original_file
             worker.signals.task_finished.connect(update_callback)
         QThreadPool.globalInstance().start(worker)
     else:
-        worker = Worker(button_name, base_name, None, [], False)
+        worker = Worker(button_name, base_name, None, [], False, original_file_name)
         worker.signals.result_ready.connect(handle_results)
         worker.signals.debug_output.connect(lambda: print_debug_messages())
         worker.signals.version_check_result.connect(
