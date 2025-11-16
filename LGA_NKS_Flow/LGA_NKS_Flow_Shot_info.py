@@ -1,7 +1,7 @@
 """
 __________________________________________________________________
 
-  LGA_NKS_Flow_Shot_info v1.83 - Lega Pugliese
+  LGA_NKS_Flow_Shot_info v1.84 - Lega Pugliese
   Imprime informacion del shot y las versiones de la task comp
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
@@ -29,6 +29,18 @@ from LGA_NKS_Flow_NamingUtils import (
     extract_project_name,
     clean_base_name,
 )
+
+# Importar módulo utilitario para obtener clips
+utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
+HAS_CLIP_UTILS = False
+if utils_path.exists():
+    try:
+        sys.path.insert(0, str(utils_path))
+        from LGA_NKS_GetClip import get_clip_to_process, get_selected_clips
+        import LGA_NKS_GetClip as clip_utils
+        HAS_CLIP_UTILS = True
+    except ImportError as e:
+        debug_print(f"Error importando módulo LGA_NKS_GetClip: {e}")
 from PySide2.QtGui import QFontMetrics, QKeySequence, QPixmap, QCursor
 from PySide2.QtWidgets import (
     QWidget,
@@ -316,30 +328,9 @@ class HieroOperations:
 
     def __init__(self, shotgrid_manager):
         self.sg_manager = shotgrid_manager
-
-    def find_clip_at_playhead_in_track(self, seq, track_name="EXR"):
-        """Busca el clip en un track dado que coincide con la posicion del playhead.
-        Evita efectos y devuelve el primer clip que cumpla la condicion o None.
-        """
-        try:
-            viewer = hiero.ui.currentViewer()
-            if not viewer:
-                return None
-            current_time = viewer.time()
-            for track in seq.videoTracks():
-                if track.name().upper() == track_name.upper():
-                    for clip in track:
-                        if isinstance(clip, hiero.core.EffectTrackItem):
-                            continue
-                        if clip.timelineIn() <= current_time < clip.timelineOut():
-                            debug_print(
-                                f">>> Clip encontrado en track {track_name} en posicion {current_time}"
-                            )
-                            return clip
-            return None
-        except Exception as e:
-            debug_print(f"Error buscando clip por playhead en track {track_name}: {e}")
-            return None
+        # Sincronizar debug con el módulo utilitario
+        if HAS_CLIP_UTILS:
+            clip_utils.DEBUG = DEBUG
 
     def parse_exr_name(self, file_name):
         """Extrae el nombre base del archivo EXR y el numero de version."""
@@ -351,27 +342,26 @@ class HieroOperations:
         return base_name, version_number
 
     def process_selected_clips(self):
-        """Procesa primero el clip en playhead del track EXR y, si no existe, la seleccion."""
+        """Procesa primero el clip en playhead del track EXR y, si no existe, la seleccion.
+        Usa el módulo utilitario centralizado LGA_NKS_GetClip.
+        """
         debug_print("Processing selected clips...")
-        seq = hiero.ui.activeSequence()
-        if not seq:
-            debug_print("No se encontro una secuencia activa en Hiero.")
+        
+        if not HAS_CLIP_UTILS:
+            debug_print("ERROR: Módulo LGA_NKS_GetClip no disponible. No se pueden procesar clips.")
             return []
-
-        # Intentar obtener clip por playhead en track EXR
-        playhead_clip = self.find_clip_at_playhead_in_track(seq, track_name="EXR")
-
-        # Fallback a seleccion
-        te = hiero.ui.getTimelineEditor(seq)
-        selected_clips = te.selection() if te else []
-
+        
+        # Usar módulo utilitario para obtener clip (método híbrido)
+        playhead_clip = get_clip_to_process(track_name="EXR")
+        
         if playhead_clip:
             clips_to_process = [playhead_clip]
             debug_print(
                 ">>> Usando clip del playhead en track EXR; fallback a seleccion si no hay"
             )
         else:
-            clips_to_process = selected_clips
+            # Fallback a selección usando módulo utilitario
+            clips_to_process = get_selected_clips()
             debug_print(
                 ">>> No hay clip en playhead sobre EXR; usando clips seleccionados como fallback"
             )

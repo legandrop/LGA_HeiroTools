@@ -48,65 +48,38 @@ Este método utiliza los clips que están actualmente seleccionados en el timeli
 
 ---
 
-## Método 2: Clip del Track EXR que coincide con el Playhead
+## Método 2: Clip del Track EXR que coincide con el Playhead (Método Híbrido)
 
 ### Descripción
 Este método obtiene la posición actual del playhead (`viewer.time()`) y busca el clip en el track EXR que coincide con esa posición temporal. El clip se encuentra cuando `clip.timelineIn() <= current_time < clip.timelineOut()`.
 
+**Método Híbrido Recomendado:**
+1. **Primero intenta**: Obtener el clip del track EXR en la posición del playhead
+2. **Fallback**: Si no encuentra clip en playhead, usa los clips seleccionados
+
 ### Ventajas
 - Más intuitivo: trabaja con el clip que está visible en el viewer
-- No requiere selección manual
+- No requiere selección manual (aunque tiene fallback)
 - Permite trabajar rápidamente mientras se navega por el timeline
 - Ideal para workflows donde siempre se trabaja con el track EXR
 
 ### Desventajas
-- Solo funciona con un clip a la vez
-- Requiere que exista un track llamado "EXR"
+- Solo funciona con un clip a la vez (en modo playhead)
+- Requiere que exista un track llamado "EXR" (o el track especificado)
 - Depende de la posición del playhead
 
 ### Scripts que usan este método:
 
-#### Scripts que usan playhead en EXR (con fallback a selección):
-- **`LGA_NKS_Flow/LGA_NKS_Flow_Shot_info.py`** (líneas 320-362)
-  - Método `find_clip_at_playhead_in_track()` que busca en el track EXR
-  - `process_selected_clips()` usa primero playhead, luego fallback a selección (método híbrido)
-- **`LGA_NKS_Flow/LGA_NKS_Flow_ShowInFlow.py`** ✅ **ACTUALIZADO v1.25**
-  - **Usa el módulo utilitario `LGA_NKS_GetClip`** (ver sección "Módulo Utilitario Centralizado")
-  - Implementa método híbrido a través del módulo centralizado
-- **`LGA_NKS_Flow/LGA_NKS_ReviewPic.py`** (línea 39)
-  - Función `get_clip_info_at_playhead()` busca en track EXR
-- **`LGA_NKS/LGA_NKS_Clip_DisableEXR.py`** (líneas 25-95)
-  - Busca clip en track EXR según posición del playhead
-  - Función `find_exr_clip_at_position()`
+- [x] **`LGA_NKS_Flow/LGA_NKS_Flow_Shot_info.py`** - Usa módulo centralizado `LGA_NKS_GetClip`
+- [x] **`LGA_NKS_Flow/LGA_NKS_Flow_ShowInFlow.py`** - Usa módulo centralizado `LGA_NKS_GetClip`
+- [ ] **`LGA_NKS_Flow/LGA_NKS_ReviewPic.py`** (línea 39) - Función `get_clip_info_at_playhead()` busca en track EXR
+- [ ] **`LGA_NKS/LGA_NKS_Clip_DisableEXR.py`** (líneas 25-95) - Función `find_exr_clip_at_position()` busca en track EXR
+- [ ] **`LGA_NKS_Edit/LGA_NKS_CompareEXR_to_aPlate.py`** (líneas 417-482) - Busca clip en track EXR según playhead
+- [ ] **`LGA_NKS_Edit/LGA_NKS_CompareVerToEditref.py`** (líneas 417-485) - Busca clip en track REV según playhead
+- [ ] **`LGA_NKS/LGA_NKS_InOut_Editref.py`** (línea 38) - Usa playhead para buscar en track EditRef o EditRefClean
+- [ ] **`LGA_NKS/LGA_NKS_PrevNext_Rev.py`** (línea 36) - Usa playhead para navegar entre clips con colores específicos
 
-#### Scripts de comparación (modo playhead):
-- **`LGA_NKS_Edit/LGA_NKS_CompareEXR_to_aPlate.py`** (líneas 417-482)
-  - Busca clip en track EXR según playhead
-  - Tiene modo `force_all_clips` para procesar todos los clips
-- **`LGA_NKS_Edit/LGA_NKS_CompareVerToEditref.py`** (líneas 417-485)
-  - Busca clip en track REV según playhead
-  - Tiene modo `force_all_clips` para procesar todos los clips
-
-#### Scripts que usan playhead pero no específicamente EXR:
-- **`LGA_NKS/LGA_NKS_InOut_Editref.py`** (línea 38)
-  - Usa playhead para buscar en track EditRef o EditRefClean
-- **`LGA_NKS/LGA_NKS_PrevNext_Rev.py`** (línea 36)
-  - Usa playhead para navegar entre clips con colores específicos
-
----
-
-## Método Híbrido (Recomendado)
-
-Algunos scripts implementan un método híbrido que combina lo mejor de ambos:
-
-1. **Primero intenta**: Obtener el clip del track EXR en la posición del playhead
-2. **Fallback**: Si no encuentra clip en playhead, usa los clips seleccionados
-
-### Scripts que usan método híbrido:
-- **`LGA_NKS_Flow/LGA_NKS_Flow_Shot_info.py`** (líneas 353-377)
-  - Prioriza playhead en EXR, fallback a selección
-- **`LGA_NKS_Flow/LGA_NKS_Flow_ShowInFlow.py`** ✅ **ACTUALIZADO v1.25**
-  - Usa el módulo utilitario `LGA_NKS_GetClip` (ver sección siguiente)
+**Leyenda:** [x] = Usa módulo centralizado `LGA_NKS_GetClip` | [ ] = Implementación manual
 
 ---
 
@@ -115,7 +88,7 @@ Algunos scripts implementan un método híbrido que combina lo mejor de ambos:
 ### Ubicación
 **`LGA_NKS_Utils/LGA_NKS_GetClip.py`**
 
-Este módulo centraliza la funcionalidad de obtención de clips para evitar duplicación de código y facilitar el mantenimiento.
+Este módulo centraliza la funcionalidad de obtención de clips para evitar duplicación de código y facilitar el mantenimiento. Implementa el método híbrido recomendado.
 
 ### Funciones Disponibles
 
@@ -216,11 +189,6 @@ def mi_funcion():
 
 **⚠️ IMPORTANTE:** Las funciones de este módulo **deben ejecutarse en el hilo principal** de Hiero. Si tu script usa threading, obtén el clip ANTES de crear el hilo secundario.
 
-### Scripts que Usan el Módulo Utilitario
-
-- **`LGA_NKS_Flow/LGA_NKS_Flow_ShowInFlow.py`** ✅ v1.25
-  - Usa `get_clip_to_process()` para obtener el clip antes de procesarlo en hilo secundario
-
 ### Ejemplo Completo de Implementación
 
 ```python
@@ -318,14 +286,3 @@ if exr_track:
 te = hiero.ui.getTimelineEditor(seq)
 selected_clips = te.selection()
 ```
-
----
-
-## Historial de Cambios
-
-- **2024**: Documentación inicial de los dos métodos
-- **2024**: `LGA_NKS_Flow_ShowInFlow.py` migrado de Método 1 a Método 2 (híbrido) - v1.24
-- **2024**: Creado módulo utilitario centralizado `LGA_NKS_GetClip.py` en `LGA_NKS_Utils/`
-- **2024**: `LGA_NKS_Flow_ShowInFlow.py` actualizado para usar el módulo utilitario - v1.25
-- **2024**: Documentación actualizada con instrucciones de uso del módulo utilitario
-
