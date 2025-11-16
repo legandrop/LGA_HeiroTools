@@ -1,7 +1,7 @@
 """
 _____________________________________________________________________________________________________
 
-  LGA_NKS_Flow_ShowInFlow v1.26 | Lega Pugliese
+  LGA_NKS_Flow_ShowInFlow v1.27 | Lega Pugliese
   Abre la URL de la task Comp del shot, tomando la informacion del nombre del clip en el track EXR bajo el playhead
   Si no hay clip en playhead, usa el clip seleccionado como fallback
   Verifica si existe más de un shot con el mismo nombre y te pide que selecciones uno
@@ -9,6 +9,8 @@ ________________________________________________________________________________
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
+
+  v1.27 - Agrega manejo con hilos secundarios para procesar los clips en paralelo sin bloquear el hilo principal
 _____________________________________________________________________________________________________
 """
 
@@ -19,7 +21,6 @@ import platform
 import hiero.core
 import hiero.ui
 import webbrowser
-import threading
 import subprocess
 import base64  # Importar base64
 import binascii  # Importar binascii para la excepcion
@@ -31,7 +32,7 @@ from PySide2.QtWidgets import (
     QLabel,
     QPushButton,
 )
-from PySide2.QtCore import Qt
+from PySide2.QtCore import Qt, QRunnable, Slot, QThreadPool, Signal, QObject
 
 # Variable global para controlar el debug
 DEBUG = True  # Poner en False para desactivar los mensajes de debug
@@ -330,92 +331,105 @@ class HieroOperations:
                 debug_print(f"Failed to open URL in specified browser on Windows: {e}")
 
 
-def threaded_function(clip_info):
-    """Procesa el clip en un hilo secundario.
+class ShowInFlowWorkerSignals(QObject):
+    """Señales para comunicar resultados del worker"""
+    result_ready = Signal(object, object)  # result, clip_info
+    error = Signal(str, object)  # error_message, clip_info
+
+
+class ShowInFlowWorker(QRunnable):
+    """Worker para procesar un clip en hilo secundario sin bloquear el principal"""
     
-    Args:
-        clip_info: Tupla con (file_path, exr_name) del clip a procesar
-    """
-    # Leer credenciales desde el archivo .dat usando la funcion adaptada
-    url, login, password = get_flow_credentials()
-    if not url or not login or not password:
-        config_path = get_user_config_dir() or "LGA/ToolPack/ShowInFlow.dat"
-        return f"No se pudieron leer las credenciales desde: {config_path}\nRevise la consola para detalles y asegúrese de que el archivo esté completo usando LGA_ToolPack_settings."
-
-    # Si las credenciales son validas, proceder con la logica original
-    try:
-        debug_print(f"Conectando a ShotGrid URL: {url} con login: {login}")
-        sg_manager = ShotGridManager(url, login, password)
-        hiero_ops = HieroOperations(sg_manager)
+    def __init__(self, clip_info):
+        super(ShowInFlowWorker, self).__init__()
+        self.clip_info = clip_info
+        self.signals = ShowInFlowWorkerSignals()
+    
+    @Slot()
+    def run(self):
+        """Procesa el clip en un hilo secundario."""
+        file_path, exr_name = self.clip_info
         
-        # Extraer información del clip
-        file_path, exr_name = clip_info
-        base_name, hiero_version_number = hiero_ops.parse_exr_name(exr_name)
-        debug_print(
-            f"Parsed base name: {base_name}, version number: {hiero_version_number}"
-        )
+        # Leer credenciales desde el archivo .dat usando la funcion adaptada
+        url, login, password = get_flow_credentials()
+        if not url or not login or not password:
+            config_path = get_user_config_dir() or "LGA/ToolPack/ShowInFlow.dat"
+            error_msg = f"No se pudieron leer las credenciales desde: {config_path}\nRevise la consola para detalles y asegúrese de que el archivo esté completo usando LGA_ToolPack_settings."
+            self.signals.error.emit(error_msg, self.clip_info)
+            return
 
-        # Usar funciones compartidas para extraer información (compatible con ambos formatos)
-        project_name = extract_project_name(base_name)
-        shot_code = extract_shot_code(base_name)
-        debug_print(f"Project name: {project_name}, shot code: {shot_code}")
-
-        shot, tasks = sg_manager.find_shot_and_tasks(
-            project_name, shot_code
-        )
-
-        # Verificar si tenemos multiples shots
-        if shot == "MULTIPLE_SHOTS":
-            # Devolver informacion para manejar en el hilo principal
-            return ("MULTIPLE_SHOTS", tasks)
-
-        if shot:
-            # Buscar task Comp
-            comp_task = None
-            for task in tasks:
-                if task["content"] == "Comp":
-                    comp_task = task
-                    break
-
-            if comp_task:
-                # Si hay task Comp, abrir la URL de la task
-                task_url = sg_manager.get_task_url(comp_task["id"])
-                debug_print(
-                    f"  - Task: {comp_task['content']} (Status: {comp_task['sg_status_list']}) URL: {task_url}"
-                )
-                target_url = task_url
-            else:
-                # Si no hay task Comp, abrir la URL del shot
-                shot_url = sg_manager.get_shot_url(shot["id"])
-                debug_print(
-                    f"No hay task Comp. Abriendo URL del shot: {shot_url}"
-                )
-                target_url = shot_url
-
-            if use_default_browser:
-                webbrowser.open(target_url)
-            else:
-                hiero_ops.open_url_in_browser(target_url)
-            return None  # Indicar éxito
-        else:
+        # Si las credenciales son validas, proceder con la logica original
+        try:
+            debug_print(f"Conectando a ShotGrid URL: {url} con login: {login}")
+            sg_manager = ShotGridManager(url, login, password)
+            hiero_ops = HieroOperations(sg_manager)
+            
+            # Extraer información del clip
+            base_name, hiero_version_number = hiero_ops.parse_exr_name(exr_name)
             debug_print(
-                "No se encontro el shot correspondiente en ShotGrid."
+                f"Parsed base name: {base_name}, version number: {hiero_version_number}"
             )
-            return "No se pudo procesar el clip. Verifique que haya un clip en el track EXR bajo el playhead o que haya seleccionado un clip válido."
 
-    except shotgun_api3.AuthenticationFault:
-        # Error especifico de autenticacion
-        error_message = f"Error de autenticación con ShotGrid.\nVerifique las credenciales en:\n{get_user_config_dir()}"
-        debug_print("Error de autenticación con ShotGrid.")
-        return error_message  # Devolver el mensaje de error
+            # Usar funciones compartidas para extraer información (compatible con ambos formatos)
+            project_name = extract_project_name(base_name)
+            shot_code = extract_shot_code(base_name)
+            debug_print(f"Project name: {project_name}, shot code: {shot_code}")
 
-    except Exception as e:
-        # Otros errores durante la conexion o procesamiento
-        error_message = (
-            f"Ocurrió un error al conectar o procesar la información de ShotGrid: {e}"
-        )
-        debug_print(f"Error detallado: {e}")
-        return error_message  # Devolver el mensaje de error
+            shot, tasks = sg_manager.find_shot_and_tasks(
+                project_name, shot_code
+            )
+
+            # Verificar si tenemos multiples shots
+            if shot == "MULTIPLE_SHOTS":
+                # Devolver informacion para manejar en el hilo principal
+                self.signals.result_ready.emit(("MULTIPLE_SHOTS", tasks), self.clip_info)
+                return
+
+            if shot:
+                # Buscar task Comp
+                comp_task = None
+                for task in tasks:
+                    if task["content"] == "Comp":
+                        comp_task = task
+                        break
+
+                if comp_task:
+                    # Si hay task Comp, abrir la URL de la task
+                    task_url = sg_manager.get_task_url(comp_task["id"])
+                    debug_print(
+                        f"  - Task: {comp_task['content']} (Status: {comp_task['sg_status_list']}) URL: {task_url}"
+                    )
+                    target_url = task_url
+                else:
+                    # Si no hay task Comp, abrir la URL del shot
+                    shot_url = sg_manager.get_shot_url(shot["id"])
+                    debug_print(
+                        f"No hay task Comp. Abriendo URL del shot: {shot_url}"
+                    )
+                    target_url = shot_url
+
+                # Abrir URL en el hilo principal usando señal
+                self.signals.result_ready.emit(("OPEN_URL", target_url), self.clip_info)
+                return
+            
+            # No se encontró el shot
+            error_msg = "No se pudo procesar el clip. Verifique que haya un clip en el track EXR bajo el playhead o que haya seleccionado un clip válido."
+            debug_print("No se encontro el shot correspondiente en ShotGrid.")
+            self.signals.error.emit(error_msg, self.clip_info)
+
+        except shotgun_api3.AuthenticationFault:
+            # Error especifico de autenticacion
+            error_message = f"Error de autenticación con ShotGrid.\nVerifique las credenciales en:\n{get_user_config_dir()}"
+            debug_print("Error de autenticación con ShotGrid.")
+            self.signals.error.emit(error_message, self.clip_info)
+
+        except Exception as e:
+            # Otros errores durante la conexion o procesamiento
+            error_message = (
+                f"Ocurrió un error al conectar o procesar la información de ShotGrid: {e}"
+            )
+            debug_print(f"Error detallado: {e}")
+            self.signals.error.emit(error_message, self.clip_info)
 
 
 def show_in_flow_from_selected_clip():
@@ -436,40 +450,11 @@ def show_in_flow_from_selected_clip():
         msg.exec_()
         return
 
-    # Procesar cada clip
-    for clip in clips:
-        # Verificar que el clip tenga media presente
-        if not clip.source().mediaSource().isMediaPresent():
-            debug_print(f"El clip {clip.name()} no tiene media presente. Saltando...")
-            continue
-
-        fileinfos = clip.source().mediaSource().fileinfos()
-        if not fileinfos:
-            debug_print(f"No se encontraron fileinfos para el clip {clip.name()}. Saltando...")
-            continue
-
-        # Extraer información del clip en el hilo principal
-        file_path = fileinfos[0].filename()
-        exr_name = os.path.basename(file_path)
-        clip_info = (file_path, exr_name)
-
-        # Crear un objeto para almacenar el resultado del hilo
-        result_container = {}
-
-        def run_in_thread():
-            result_container["result"] = threaded_function(clip_info)
-
-        thread = threading.Thread(target=run_in_thread)
-        thread.start()
-        thread.join()  # Esperar a que el hilo termine
-
-        # Verificar el resultado del hilo para este clip
-        result = result_container["result"]
-
-        # Si es None, todo fue exitoso para este clip, continuar con el siguiente
-        if result is None:
-            continue
-
+    # Función para manejar resultados cuando lleguen
+    def handle_result(result, clip_info):
+        """Maneja el resultado del procesamiento de un clip"""
+        file_path, exr_name = clip_info
+        
         # Si es una tupla con múltiples shots, manejar en el hilo principal
         if isinstance(result, tuple) and result[0] == "MULTIPLE_SHOTS":
             shots_with_tasks = result[1]
@@ -509,14 +494,52 @@ def show_in_flow_from_selected_clip():
                     else:
                         hiero_ops = HieroOperations(sg_manager)
                         hiero_ops.open_url_in_browser(target_url)
-                    continue  # Continuar con el siguiente clip
-            continue  # Continuar con el siguiente clip si se canceló el diálogo
-
-        # Si es un string, es un mensaje de error
-        if isinstance(result, str):
-            debug_print(f"Error procesando clip {clip.name()}: {result}")
-            # No mostrar mensaje de error para cada clip, solo loguear
+        
+        elif isinstance(result, tuple) and result[0] == "OPEN_URL":
+            # Abrir URL directamente
+            target_url = result[1]
+            if use_default_browser:
+                webbrowser.open(target_url)
+            else:
+                # Necesitamos crear un manager solo para abrir la URL
+                url, login, password = get_flow_credentials()
+                if url and login and password:
+                    sg_manager = ShotGridManager(url, login, password)
+                    hiero_ops = HieroOperations(sg_manager)
+                    hiero_ops.open_url_in_browser(target_url)
+    
+    def handle_error(error_msg, clip_info):
+        """Maneja errores del procesamiento de un clip"""
+        file_path, exr_name = clip_info
+        debug_print(f"Error procesando clip {os.path.basename(file_path)}: {error_msg}")
+        # No mostrar mensaje de error para cada clip, solo loguear
+    
+    # Procesar todos los clips en paralelo sin bloquear el hilo principal
+    for clip in clips:
+        # Verificar que el clip tenga media presente
+        if not clip.source().mediaSource().isMediaPresent():
+            debug_print(f"El clip {clip.name()} no tiene media presente. Saltando...")
             continue
+
+        fileinfos = clip.source().mediaSource().fileinfos()
+        if not fileinfos:
+            debug_print(f"No se encontraron fileinfos para el clip {clip.name()}. Saltando...")
+            continue
+
+        # Extraer información del clip en el hilo principal
+        file_path = fileinfos[0].filename()
+        exr_name = os.path.basename(file_path)
+        clip_info = (file_path, exr_name)
+
+        # Crear worker para procesar este clip
+        worker = ShowInFlowWorker(clip_info)
+        
+        # Conectar señales para manejar resultados cuando lleguen
+        worker.signals.result_ready.connect(handle_result)
+        worker.signals.error.connect(handle_error)
+        
+        # Ejecutar en hilo separado sin bloquear
+        QThreadPool.globalInstance().start(worker)
 
 
 if __name__ == "__main__":
