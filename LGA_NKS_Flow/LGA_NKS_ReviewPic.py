@@ -1,10 +1,15 @@
 """
-_______________________________________________________________________________________
+_________________________________________________________________________________________________________________________________
 
-  LGA_NKS_ReviewPic v0.4 - Lega
+  LGA_NKS_ReviewPic v1.01 - Lega
   Crea un snapshot de la imagen actual del viewer y lo guarda en ReviewPic_Cache
   organizando por clips del track EXR con numeracion de frames
-_______________________________________________________________________________________
+  Actualizado para ser compatible con ambos sistemas de nomenclatura:
+  - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+  - PROYECTO_SEQ_SHOT (3 bloques simplificado)
+  
+  v1.01 - Usa el módulo utilitario LGA_NKS_GetClip para obtener el clip a partir del playhead (no permite selecciones múltiples)
+_________________________________________________________________________________________________________________________________
 
 """
 
@@ -13,6 +18,7 @@ import hiero.ui
 import os
 import re
 import glob
+from pathlib import Path
 from PySide2.QtWidgets import QApplication
 from PySide2.QtCore import QRect
 import subprocess
@@ -20,10 +26,21 @@ import sys
 
 DEBUG = False
 
-
 def debug_print(*message):
     if DEBUG:
         print(*message)
+
+
+# Importar utilidades para obtener clips
+utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
+if utils_path.exists():
+    sys.path.insert(0, str(utils_path))
+    from LGA_NKS_GetClip import get_clip_to_process
+    # Sincronizar el debug con el módulo utilitario
+    import LGA_NKS_GetClip as clip_utils
+    clip_utils.DEBUG = DEBUG
+else:
+    debug_print("ERROR: No se encontró el módulo LGA_NKS_GetClip")
 
 
 def parse_exr_name(file_name):
@@ -36,49 +53,39 @@ def parse_exr_name(file_name):
     return base_name, version_number
 
 
-def get_clip_info_at_playhead():
+def get_clip_info_from_clip(clip):
     """
-    Obtiene informacion del clip en el track EXR en la posicion actual del playhead.
-    Retorna (base_name, version_number, frame_number) o None si no encuentra clip.
+    Extrae información del clip (base_name, version_number, frame_number).
+    Retorna (base_name, version_number, frame_number) o None si hay error.
     """
-    sequence = hiero.ui.activeSequence()
-    if not sequence:
-        debug_print("No se encontró una secuencia activa.")
+    if not clip:
         return None
+    
+    try:
+        viewer = hiero.ui.currentViewer()
+        if not viewer:
+            debug_print("No se encontró un visor activo.")
+            return None
 
-    viewer = hiero.ui.currentViewer()
-    if not viewer:
-        debug_print("No se encontró un visor activo.")
+        current_time = viewer.time()
+        debug_print(f"Tiempo actual del playhead: {current_time}")
+
+        file_path = clip.source().mediaSource().fileinfos()[0].filename()
+        fileinfo = clip.source().mediaSource().fileinfos()[0]
+        exr_name = os.path.basename(file_path)
+        base_name, version_number = parse_exr_name(exr_name)
+
+        start_frame = fileinfo.startFrame()
+        frame_offset = current_time - clip.timelineIn()
+        frame_number = int(start_frame + frame_offset)
+
+        debug_print(f"Clip encontrado: {base_name}_v{version_number}")
+        debug_print(f"Frame calculado: {frame_number:04d}")
+
+        return base_name, version_number, frame_number
+    except Exception as e:
+        debug_print(f"Error extrayendo información del clip: {e}")
         return None
-
-    current_time = viewer.time()
-    debug_print(f"Tiempo actual del playhead: {current_time}")
-
-    exr_track = next((t for t in sequence.videoTracks() if t.name() == "EXR"), None)
-    if not exr_track:
-        debug_print("No se encontró un track llamado 'EXR'.")
-        return None
-
-    for clip in exr_track:
-        if clip.timelineIn() <= current_time < clip.timelineOut():
-            file_path = clip.source().mediaSource().fileinfos()[0].filename()
-            fileinfo = clip.source().mediaSource().fileinfos()[0]
-            exr_name = os.path.basename(file_path)
-            base_name, version_number = parse_exr_name(exr_name)
-
-            start_frame = fileinfo.startFrame()
-            frame_offset = current_time - clip.timelineIn()
-            frame_number = int(start_frame + frame_offset)
-
-            debug_print(f"Clip encontrado: {base_name}_v{version_number}")
-            debug_print(f"Frame calculado: {frame_number:04d}")
-
-            return base_name, version_number, frame_number
-
-    debug_print(
-        "No se encontró un clip en el track 'EXR' en la posición actual del playhead."
-    )
-    return None
 
 
 def get_next_available_filename(base_path, base_name, frame_number):
@@ -132,10 +139,16 @@ def crop_to_aspect_ratio(qimage, target_aspect):
 
 
 def main():
-    # Obtener informacion del clip actual
-    clip_info = get_clip_info_at_playhead()
-    if not clip_info:
+    # Obtener clip usando el módulo centralizado (NO permite selecciones múltiples)
+    clip = get_clip_to_process(track_name="EXR", prioritize_multiple_selection=False)
+    if not clip:
         print("❌ No se pudo obtener información del clip en el track EXR")
+        return
+
+    # Extraer información del clip
+    clip_info = get_clip_info_from_clip(clip)
+    if not clip_info:
+        print("❌ No se pudo extraer información del clip")
         return
 
     base_name, version_number, frame_number = clip_info

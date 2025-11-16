@@ -72,10 +72,10 @@ Este método obtiene la posición actual del playhead (`viewer.time()`) y busca 
 
 ### Scripts que usan este método:
 
-- [x] **`LGA_NKS_Flow/LGA_NKS_Flow_Shot_info.py`** - Usa módulo centralizado `LGA_NKS_GetClip` (prioriza playhead)
-- [x] **`LGA_NKS_Flow/LGA_NKS_Flow_ShowInFlow.py`** - Usa módulo centralizado `LGA_NKS_GetClip` (prioriza múltiples selecciones)
-- [ ] **`LGA_NKS_Flow/LGA_NKS_ReviewPic.py`** (línea 39) - Función `get_clip_info_at_playhead()` busca en track EXR
-- [ ] **`LGA_NKS/LGA_NKS_Clip_DisableEXR.py`** (líneas 25-95) - Función `find_exr_clip_at_position()` busca en track EXR
+- [x] **`LGA_NKS_Flow/LGA_NKS_Flow_Shot_info.py`** - Usa módulo centralizado `LGA_NKS_GetClip` (NO permite selecciones múltiples)
+- [x] **`LGA_NKS_Flow/LGA_NKS_Flow_ShowInFlow.py`** - Usa módulo centralizado `LGA_NKS_GetClip` (permite selecciones múltiples)
+- [x] **`LGA_NKS_Flow/LGA_NKS_ReviewPic.py`** - Usa módulo centralizado `LGA_NKS_GetClip` (NO permite selecciones múltiples)
+- [x] **`LGA_NKS/LGA_NKS_Clip_DisableEXR.py`** - Usa módulo centralizado `LGA_NKS_GetClip` (NO permite selecciones múltiples)
 - [ ] **`LGA_NKS_Edit/LGA_NKS_CompareEXR_to_aPlate.py`** (líneas 417-482) - Busca clip en track EXR según playhead
 - [ ] **`LGA_NKS_Edit/LGA_NKS_CompareVerToEditref.py`** (líneas 417-485) - Busca clip en track REV según playhead
 - [ ] **`LGA_NKS/LGA_NKS_InOut_Editref.py`** (línea 38) - Usa playhead para buscar en track EditRef o EditRefClean
@@ -84,8 +84,8 @@ Este método obtiene la posición actual del playhead (`viewer.time()`) y busca 
 **Leyenda:** 
 - [x] = Usa módulo centralizado `LGA_NKS_GetClip`
 - [ ] = Implementación manual
-- **(prioriza playhead)** = Usa `prioritize_multiple_selection=False` (comportamiento por defecto)
-- **(prioriza múltiples selecciones)** = Usa `prioritize_multiple_selection=True` cuando hay múltiples clips seleccionados en el track
+- **(permite selecciones múltiples)** = Usa `prioritize_multiple_selection=True` o `get_clips_to_process()` para procesar múltiples clips
+- **(NO permite selecciones múltiples)** = Usa `prioritize_multiple_selection=False` (comportamiento por defecto) y procesa solo un clip a la vez
 
 ---
 
@@ -95,6 +95,38 @@ Este método obtiene la posición actual del playhead (`viewer.time()`) y busca 
 **`LGA_NKS_Utils/LGA_NKS_GetClip.py`**
 
 Este módulo centraliza la funcionalidad de obtención de clips para evitar duplicación de código y facilitar el mantenimiento. Implementa el método híbrido recomendado.
+
+### ⚠️ IMPORTANTE: Revisar Hardcodeo de Nombre de Track
+
+**Antes de migrar un script al módulo centralizado, es CRÍTICO revisar si tiene hardcodeado el nombre del track.**
+
+**Problema común:**
+- Muchos scripts tienen hardcodeado `track_name="EXR"` en las llamadas a funciones
+- Esto sobrescribe el `DEFAULT_TRACK_NAME` del módulo centralizado
+- El script seguirá buscando en "EXR" aunque cambies `DEFAULT_TRACK_NAME` a otro valor
+
+**Solución:**
+- **Usar `track_name=None`** o **no pasar el parámetro** para que use `DEFAULT_TRACK_NAME` del módulo
+- **NO hardcodear** nombres de tracks como `track_name="EXR"` en las llamadas
+
+**Ejemplo incorrecto:**
+```python
+# ❌ INCORRECTO: Hardcodea "EXR", ignora DEFAULT_TRACK_NAME
+clip = get_clip_to_process(track_name="EXR")
+```
+
+**Ejemplo correcto:**
+```python
+# ✅ CORRECTO: Usa DEFAULT_TRACK_NAME del módulo
+clip = get_clip_to_process(track_name=None)
+# O simplemente:
+clip = get_clip_to_process()  # None es el valor por defecto
+```
+
+**Al migrar scripts existentes:**
+1. Buscar todas las llamadas con `track_name="EXR"` o cualquier nombre hardcodeado
+2. Cambiarlas a `track_name=None` o eliminar el parámetro
+3. Verificar que el script ahora respete `DEFAULT_TRACK_NAME` del módulo
 
 ### Funciones Disponibles
 
@@ -107,14 +139,14 @@ Este módulo centraliza la funcionalidad de obtención de clips para evitar dupl
 **Parámetros:**
 - `track_name` (str, optional): Nombre del track a buscar. Si es `None`, usa `DEFAULT_TRACK_NAME` ("EXR" por defecto)
 - `prioritize_multiple_selection` (bool): Si `True` y hay múltiples clips seleccionados en el track especificado, 
-  prioriza esos clips sobre el playhead. Si `False` (por defecto), usa playhead primero.
+  devuelve lista de esos clips. Si `False` (por defecto), procesa solo un clip a la vez usando playhead primero.
 
 **Cuándo usar `prioritize_multiple_selection=True`:**
-- Cuando tu script puede procesar múltiples clips a la vez (ej: abrir múltiples URLs, procesar batch)
+- Cuando tu script **permite procesar múltiples clips** a la vez (ej: abrir múltiples URLs, procesar batch)
 - Cuando quieres que la selección múltiple tenga prioridad sobre el playhead
 
 **Cuándo usar `prioritize_multiple_selection=False` (por defecto):**
-- Cuando tu script procesa un solo clip a la vez
+- Cuando tu script **NO permite selecciones múltiples** y procesa solo un clip a la vez
 - Cuando quieres priorizar el clip visible en el viewer (playhead)
 
 **Retorna:**
@@ -124,14 +156,17 @@ Este módulo centraliza la funcionalidad de obtención de clips para evitar dupl
 ```python
 from LGA_NKS_GetClip import get_clip_to_process
 
-# Usar track por defecto (EXR) - prioriza playhead
-clip = get_clip_to_process()
+# Usar track por defecto (DEFAULT_TRACK_NAME) - NO permite selecciones múltiples
+# ⚠️ IMPORTANTE: Usar track_name=None para respetar DEFAULT_TRACK_NAME del módulo
+clip = get_clip_to_process(track_name=None)
+# O simplemente: clip = get_clip_to_process()
 
-# Especificar otro track - prioriza playhead
+# Especificar otro track explícitamente (solo si realmente necesitas un track específico)
 clip = get_clip_to_process(track_name="REV")
 
-# Priorizar múltiples clips seleccionados sobre playhead (para scripts que procesan múltiples clips)
-clips = get_clip_to_process(track_name="EXR", prioritize_multiple_selection=True)
+# Para scripts que permiten selecciones múltiples (procesa múltiples clips)
+# ⚠️ IMPORTANTE: Usar track_name=None para respetar DEFAULT_TRACK_NAME del módulo
+clips = get_clip_to_process(track_name=None, prioritize_multiple_selection=True)
 if isinstance(clips, list):
     # Procesar múltiples clips
     for clip in clips:
@@ -158,7 +193,7 @@ Obtiene los clips a procesar usando el método híbrido. **Siempre devuelve una 
 
 **Parámetros:**
 - `track_name` (str, optional): Nombre del track a buscar. Si es `None`, usa `DEFAULT_TRACK_NAME`
-- `prioritize_multiple_selection` (bool): Si `True` y hay múltiples clips seleccionados en el track, prioriza esos clips sobre el playhead
+- `prioritize_multiple_selection` (bool): Si `True` y hay múltiples clips seleccionados en el track, devuelve lista de esos clips (permite selecciones múltiples)
 
 **Retorna:**
 - Lista de clips encontrados (puede estar vacía)
@@ -168,7 +203,8 @@ Obtiene los clips a procesar usando el método híbrido. **Siempre devuelve una 
 from LGA_NKS_GetClip import get_clips_to_process
 
 # Obtener clips (siempre devuelve lista)
-clips = get_clips_to_process(track_name="EXR", prioritize_multiple_selection=True)
+# ⚠️ IMPORTANTE: Usar track_name=None para respetar DEFAULT_TRACK_NAME del módulo
+clips = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
 
 for clip in clips:
     # Procesar cada clip
@@ -229,11 +265,13 @@ if utils_path.exists():
 
 **Paso 2:** Usar la función en el hilo principal
 
-**Para scripts que procesan un solo clip (prioriza playhead):**
+**Para scripts que NO permiten selecciones múltiples (procesa un solo clip):**
 ```python
 def mi_funcion():
     # Obtener clip (debe ejecutarse en hilo principal)
-    clip = get_clip_to_process()  # prioritize_multiple_selection=False por defecto
+    # ⚠️ IMPORTANTE: Usar track_name=None para respetar DEFAULT_TRACK_NAME del módulo
+    clip = get_clip_to_process(track_name=None)  # prioritize_multiple_selection=False por defecto
+    # O simplemente: clip = get_clip_to_process()
     
     if not clip:
         print("No se encontró clip")
@@ -246,12 +284,13 @@ def mi_funcion():
         # ... resto del procesamiento
 ```
 
-**Para scripts que procesan múltiples clips (prioriza selección múltiple):**
+**Para scripts que permiten selecciones múltiples (procesa múltiples clips):**
 ```python
 def mi_funcion():
     # Obtener clips (debe ejecutarse en hilo principal)
+    # ⚠️ IMPORTANTE: Usar track_name=None para respetar DEFAULT_TRACK_NAME del módulo
     # Usar get_clips_to_process() que siempre devuelve lista
-    clips = get_clips_to_process(track_name="EXR", prioritize_multiple_selection=True)
+    clips = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
     
     if not clips:
         print("No se encontraron clips")
@@ -269,7 +308,7 @@ def mi_funcion():
 
 ### Ejemplo Completo de Implementación
 
-**Ejemplo 1: Script que procesa un solo clip (prioriza playhead)**
+**Ejemplo 1: Script que NO permite selecciones múltiples (procesa un solo clip)**
 ```python
 from pathlib import Path
 import sys
@@ -283,8 +322,9 @@ if utils_path.exists():
     clip_utils.DEBUG = False  # Sincronizar debug
 
 def procesar_clip():
-    # Obtener clip en hilo principal (prioriza playhead)
-    clip = get_clip_to_process()
+    # Obtener clip en hilo principal (NO permite selecciones múltiples)
+    # ⚠️ IMPORTANTE: Usar track_name=None para respetar DEFAULT_TRACK_NAME del módulo
+    clip = get_clip_to_process(track_name=None)
     
     if not clip:
         print("No se encontró clip para procesar")
@@ -306,7 +346,7 @@ def procesar_clip():
     # ... resto del procesamiento
 ```
 
-**Ejemplo 2: Script que procesa múltiples clips (prioriza selección múltiple)**
+**Ejemplo 2: Script que permite selecciones múltiples (procesa múltiples clips)**
 ```python
 from pathlib import Path
 import sys
@@ -320,8 +360,9 @@ if utils_path.exists():
     clip_utils.DEBUG = False  # Sincronizar debug
 
 def procesar_clips():
-    # Obtener clips en hilo principal (prioriza múltiples selecciones)
-    clips = get_clips_to_process(track_name="EXR", prioritize_multiple_selection=True)
+    # Obtener clips en hilo principal (permite selecciones múltiples)
+    # ⚠️ IMPORTANTE: Usar track_name=None para respetar DEFAULT_TRACK_NAME del módulo
+    clips = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
     
     if not clips:
         print("No se encontraron clips para procesar")

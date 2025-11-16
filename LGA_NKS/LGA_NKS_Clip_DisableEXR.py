@@ -1,20 +1,24 @@
 """
 ______________________________________________________________________________________________
 
-  LGA_NKS_Clip_DisableEXR v1.0 - 2024 - Lega
+  LGA_NKS_Clip_DisableEXR v1.2 - 2024 - Lega
 
-  Habilita o deshabilita el clip en el track EXR que se encuentra bajo el playhead.
+  Habilita o deshabilita el clip en el track especificado (por defecto usa DEFAULT_TRACK_NAME del módulo LGA_NKS_GetClip).
   
   Funcionamiento:
-  1. Obtiene la posición actual del playhead
-  2. Busca el track llamado "EXR"
-  3. Encuentra el clip que coincide con la posición del playhead
-  4. Invierte el estado de habilitación del clip (enabled/disabled)
+  1. Obtiene el clip del track especificado en la posición del playhead usando el módulo centralizado
+  2. Si no encuentra clip en playhead, usa el clip seleccionado como fallback
+  3. Invierte el estado de habilitación del clip (enabled/disabled)
+  
+  v1.1 - Usa el módulo utilitario LGA_NKS_GetClip para obtener el clip (no permite selecciones múltiples)
+  v1.2 - Usa DEFAULT_TRACK_NAME del módulo en lugar de hardcodear "EXR", permitiendo cambiar el track por defecto
 ______________________________________________________________________________________________
 """
 
 import hiero.core
 import hiero.ui
+from pathlib import Path
+import sys
 
 DEBUG = False
 
@@ -22,45 +26,16 @@ def debug_print(*message):
     if DEBUG:
         print(*message)
 
-def get_current_playhead_position():
-    """
-    Obtiene la posición actual del playhead.
-    """
-    try:
-        viewer = hiero.ui.currentViewer()
-        if viewer:
-            return viewer.time()
-        return None
-    except Exception as e:
-        debug_print(f"Error al obtener la posición del playhead: {e}")
-        return None
-
-def find_exr_clip_at_position(position):
-    """
-    Encuentra el clip en el track EXR en la posición dada.
-    """
-    seq = hiero.ui.activeSequence()
-    if not seq:
-        debug_print("No hay una secuencia activa.")
-        return None
-
-    # Buscar el track EXR
-    exr_track = None
-    for track in seq.videoTracks():
-        if track.name() == "EXR":
-            exr_track = track
-            break
-
-    if not exr_track:
-        debug_print("No se encontró un track llamado 'EXR'.")
-        return None
-
-    # Buscar el clip que contiene la posición
-    for item in exr_track.items():
-        if item.timelineIn() <= position < item.timelineOut():
-            return item
-
-    return None
+# Importar utilidades para obtener clips
+utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
+if utils_path.exists():
+    sys.path.insert(0, str(utils_path))
+    from LGA_NKS_GetClip import get_clip_to_process
+    # Sincronizar el debug con el módulo utilitario
+    import LGA_NKS_GetClip as clip_utils
+    clip_utils.DEBUG = DEBUG
+else:
+    debug_print("ERROR: No se encontró el módulo LGA_NKS_GetClip")
 
 def toggle_clip_enabled(clip):
     """
@@ -85,19 +60,14 @@ def main():
     """
     Función principal que ejecuta la secuencia de operaciones.
     """
-    # 1. Obtener la posición del playhead
-    playhead_pos = get_current_playhead_position()
-    if playhead_pos is None:
-        debug_print("No se pudo obtener la posición del playhead.")
-        return
-
-    # 2. Encontrar el clip en el track EXR
-    clip = find_exr_clip_at_position(playhead_pos)
+    # 1. Obtener clip usando el módulo centralizado (NO permite selecciones múltiples)
+    # Usa DEFAULT_TRACK_NAME del módulo LGA_NKS_GetClip (None = usa el valor por defecto)
+    clip = get_clip_to_process(track_name=None, prioritize_multiple_selection=False)
     if not clip:
-        debug_print("No se encontró un clip en el track EXR en la posición actual.")
+        debug_print("No se encontró un clip en el track especificado en la posición actual o seleccionado.")
         return
 
-    # 3. Cambiar el estado del clip
+    # 2. Cambiar el estado del clip
     if toggle_clip_enabled(clip):
         debug_print("Operación completada con éxito.")
     else:
