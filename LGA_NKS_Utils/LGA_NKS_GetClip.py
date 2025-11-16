@@ -23,7 +23,7 @@ import hiero.ui
 DEBUG = False  # Poner en True para activar los mensajes de debug
 
 # Variable configurable para el nombre del track por defecto
-DEFAULT_TRACK_NAME = "EXR"  # Puede cambiarse según el workflow
+DEFAULT_TRACK_NAME = "_comp_"  # Puede cambiarse según el workflow
 
 
 def debug_print(*message):

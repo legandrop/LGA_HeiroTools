@@ -1,15 +1,19 @@
 """
 _______________________________________________________________________________________
 
-  LGA_NKS_CompareEXR_to_aPlate v1.12 | Lega
-  Compara los rangos de frames de todos los clips del track EXR con
+  LGA_NKS_CompareEXR_to_aPlate v1.13 | Lega
+  Compara los rangos de frames de los clips del track especificado (por defecto _comp_) con
   los clips correspondientes del track aPlate para verificar coincidencias.
+  
+  v1.13 - Usa el módulo utilitario LGA_NKS_GetClip para obtener clips (permite selecciones múltiples)
+          Prioridad: selecciones múltiples > force_all_clips > playhead
 _______________________________________________________________________________________
 
 """
 
 import os
 import re
+from pathlib import Path
 import hiero.core
 import hiero.ui
 from PySide2.QtWidgets import (
@@ -42,6 +46,18 @@ window = None
 def debug_print(*message):
     if DEBUG:
         print(*message)
+
+
+# Importar utilidades para obtener clips
+utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
+if utils_path.exists():
+    sys.path.insert(0, str(utils_path))
+    from LGA_NKS_GetClip import get_clips_to_process
+    # Sincronizar el debug con el módulo utilitario
+    import LGA_NKS_GetClip as clip_utils
+    clip_utils.DEBUG = DEBUG
+else:
+    debug_print("ERROR: No se encontró el módulo LGA_NKS_GetClip")
 
 
 def tc_str_to_frames(tc_str, fps):
@@ -93,10 +109,12 @@ class FrameRangeComparisonGUI(QWidget):
                 self.adjust_window_size()  # COPIADO DEL PULL
                 self.show()
             else:
+                # Obtener nombre del track dinámicamente
+                track_name = self.hiero_ops.track_name if self.hiero_ops.track_name else "_comp_"
                 QMessageBox.information(
                     self,
                     "No Changes",
-                    "No se encontraron clips EXR con correspondientes clips aPlate.",
+                    f"No se encontraron clips '{track_name}' con correspondientes clips aPlate.",
                 )
 
     def add_color_to_background_list(self, row_colors):
@@ -338,6 +356,7 @@ class HieroOperations:
         self.force_all_clips = (
             False  # Parametro para forzar procesamiento de todos los clips
         )
+        self.track_name = None  # Nombre del track principal (se establece en process_tracks)
 
     def parse_clip_name(self, file_name):
         """Extrae el nombre base usando los primeros 4 bloques separados por guiones bajos"""
@@ -414,19 +433,11 @@ class HieroOperations:
                     debug_print(f"→ Eliminado tag 'Range Mismatch' del clip")
 
     def process_tracks(self, table, gui_table):
-        """MODIFICADO - Procesar clip del track EXR basado en posicion del playhead"""
+        """MODIFICADO - Procesar clips usando módulo centralizado con prioridad: selecciones múltiples > force_all_clips > playhead"""
         seq = hiero.ui.activeSequence()
         if not seq:
             QMessageBox.warning(None, "Error", "No hay secuencia activa en Hiero.")
             return False
-
-        viewer = hiero.ui.currentViewer()
-        if not viewer:
-            QMessageBox.warning(None, "Error", "No se encontró un visor activo.")
-            return False
-
-        current_time = viewer.time()
-        debug_print(f"Tiempo actual del playhead: {current_time}")
 
         # Obtener el proyecto para el manejo de UNDO
         project = seq.project()
@@ -434,51 +445,59 @@ class HieroOperations:
             QMessageBox.warning(None, "Error", "No se encontró el proyecto.")
             return False
 
-        # Encontrar tracks EXR y aPlate
-        exr_track = None
+        # Encontrar track aPlate (el track principal se obtiene del módulo centralizado)
         aplate_track = None
-
         for track in seq.videoTracks():
-            if track.name().upper() == "EXR":
-                exr_track = track
-            elif track.name().upper() == "APLATE":
+            if track.name().upper() == "APLATE":
                 aplate_track = track
-
-        if not exr_track:
-            QMessageBox.warning(None, "Error", "No se encontró el track EXR.")
-            return False
+                break
 
         if not aplate_track:
             QMessageBox.warning(None, "Error", "No se encontró el track aPlate.")
             return False
 
-        # Obtener clips a procesar - basado en force_all_clips o playhead
+        # Obtener el track principal usando el módulo centralizado para obtener su nombre
+        import LGA_NKS_GetClip as clip_utils
+        track_name = clip_utils.DEFAULT_TRACK_NAME
+        self.track_name = track_name  # Guardar para uso en la GUI
+        
+        # Encontrar el track principal
+        exr_track = None
+        for track in seq.videoTracks():
+            if track.name().upper() == track_name.upper():
+                exr_track = track
+                break
+
+        if not exr_track:
+            QMessageBox.warning(
+                None, 
+                "Error", 
+                f"No se encontró el track '{track_name}' (configurado en DEFAULT_TRACK_NAME)."
+            )
+            return False
+
+        # Obtener clips a procesar usando módulo centralizado
+        # Prioridad: selecciones múltiples > force_all_clips > playhead
         if self.force_all_clips:
-            # Procesar todos los clips del track EXR
-            exr_clips = exr_track.items()
+            # Si force_all_clips=True, procesar todos los clips del track
+            exr_clips = [clip for clip in exr_track.items() if not isinstance(clip, hiero.core.EffectTrackItem)]
             debug_print(
-                f">>> Procesando todos los {len(exr_clips)} clips del track EXR (forzado por shift+click)"
+                f">>> Procesando todos los {len(exr_clips)} clips del track '{track_name}' (forzado por shift+click)"
             )
         else:
-            # Buscar clip en track EXR en la posicion del playhead
-            exr_clip_at_playhead = None
-            for clip in exr_track:
-                if clip.timelineIn() <= current_time < clip.timelineOut():
-                    exr_clip_at_playhead = clip
-                    break
-
-            if not exr_clip_at_playhead:
+            # Usar módulo centralizado que prioriza selecciones múltiples sobre playhead
+            exr_clips = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
+            
+            if not exr_clips:
                 QMessageBox.warning(
                     None,
                     "Error",
-                    "No se encontró un clip en el track EXR en la posición actual del playhead.",
+                    f"No se encontró ningún clip en el track '{track_name}' en la posición del playhead o seleccionado.",
                 )
                 return False
-
-            # Procesar solo el clip encontrado en el playhead
-            exr_clips = [exr_clip_at_playhead]
+            
             debug_print(
-                f">>> Procesando clip EXR en posicion del playhead: {current_time}"
+                f">>> Procesando {len(exr_clips)} clip(s) del track '{track_name}'"
             )
 
         # Crear diccionario de clips aPlate por base name
