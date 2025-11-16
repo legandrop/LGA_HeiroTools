@@ -352,18 +352,19 @@ class HieroOperations:
             return []
         
         # Usar módulo utilitario para obtener clip (método híbrido)
-        playhead_clip = get_clip_to_process(track_name="EXR")
+        # ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
+        playhead_clip = get_clip_to_process(track_name=None)
         
         if playhead_clip:
             clips_to_process = [playhead_clip]
             debug_print(
-                ">>> Usando clip del playhead en track EXR; fallback a seleccion si no hay"
+                ">>> Usando clip del playhead en track TRACK_comp_EXR; fallback a seleccion si no hay"
             )
         else:
             # Fallback a selección usando módulo utilitario
             clips_to_process = get_selected_clips()
             debug_print(
-                ">>> No hay clip en playhead sobre EXR; usando clips seleccionados como fallback"
+                ">>> No hay clip en playhead sobre TRACK_comp_EXR; usando clips seleccionados como fallback"
             )
 
         results = []

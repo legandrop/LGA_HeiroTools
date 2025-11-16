@@ -24,7 +24,7 @@ Este método utiliza los clips que están actualmente seleccionados en el timeli
 
 #### Scripts de Flow:
 - **`LGA_NKS_Flow/LGA_NKS_Flow_Push.py`** (línea 1357) - `selected_clips = te.selection()`
-- **`LGA_NKS_Flow/LGA_NKS_Flow_Pull.py`** (línea 557) - `selected_clips = te.selection()`
+- **`LGA_NKS_Flow/LGA_NKS_Flow_Pull.py`** (línea 557) - `selected_clips = te.selection()` + usa `TRACK_comp_EXR` para filtrar tracks (v3.30)
 - **`LGA_NKS_Flow/LGA_NKS_Flow_Thumbs.py`** (línea 52) - `selected_clips = timeline_editor.selection()`
 - **`LGA_NKS_Flow/LGA_NKS_Flow_CreateShot_Thumbs.py`** (línea 70) - `selected_clips = timeline_editor.selection()`
 - **`LGA_NKS_Flow/LGA_NKS_Flow_CreateShot.py`** (línea 136) - `selected_clips = timeline_editor.selection()`
@@ -36,8 +36,8 @@ Este método utiliza los clips que están actualmente seleccionados en el timeli
 #### Scripts de NKS:
 - **`LGA_NKS/LGA_NKS_Trim_In.py`** (línea 396) - `selected_clips = te.selection()`
 - **`LGA_NKS/LGA_NKS_Trim_Out.py`** (línea 295) - `selected_clips = te.selection()`
-- **`LGA_NKS/LGA_NKS_Compare_Versions.py`** (línea 25) - `selected_clips = te.selection()`
-- **`LGA_NKS/LGA_NKS_Compare_Versions_OFF.py`** - Similar al anterior
+- **`LGA_NKS/LGA_NKS_Compare_Versions.py`** (línea 25) - `selected_clips = te.selection()` + usa `TRACK_comp_EXR` para identificar track
+- **`LGA_NKS/LGA_NKS_Compare_Versions_OFF.py`** - Usa `TRACK_comp_EXR` para identificar track
 - **`LGA_NKS/LGA_NKS_OpenInNukeX.py`** (línea 335) - `selected_clips = te.selection()`
 - **`LGA_NKS/LGA_NKS_RevealInExplorer.py`** (línea 62) - `selected_clips = te.selection()`
 - **`LGA_NKS/LGA_NKS_RevealNK_Script.py`** (línea 44) - `selected_clips = te.selection()`
@@ -75,9 +75,9 @@ Este método obtiene la posición actual del playhead (`viewer.time()`) y busca 
 
 ### Scripts que usan este método:
 
-- [x] **`LGA_NKS_Flow/LGA_NKS_Flow_Shot_info.py`** - Usa módulo centralizado `LGA_NKS_GetClip` (NO permite selecciones múltiples)
-- [x] **`LGA_NKS_Flow/LGA_NKS_Flow_ShowInFlow.py`** - Usa módulo centralizado `LGA_NKS_GetClip` (permite selecciones múltiples)
-- [x] **`LGA_NKS_Flow/LGA_NKS_ReviewPic.py`** - Usa módulo centralizado `LGA_NKS_GetClip` (NO permite selecciones múltiples)
+- [x] **`LGA_NKS_Flow/LGA_NKS_Flow_Shot_info.py`** - Usa módulo centralizado `LGA_NKS_GetClip` con `track_name=None` (NO permite selecciones múltiples)
+- [x] **`LGA_NKS_Flow/LGA_NKS_Flow_ShowInFlow.py`** - Usa módulo centralizado `LGA_NKS_GetClip` con `track_name=None` (permite selecciones múltiples)
+- [x] **`LGA_NKS_Flow/LGA_NKS_ReviewPic.py`** - Usa módulo centralizado `LGA_NKS_GetClip` con `track_name=None` (NO permite selecciones múltiples)
 - [x] **`LGA_NKS/LGA_NKS_Clip_DisableEXR.py`** - Usa módulo centralizado `LGA_NKS_GetClip` (NO permite selecciones múltiples)
 - [x] **`LGA_NKS_Edit/LGA_NKS_CompareEXR_to_aPlate.py`** - Usa módulo centralizado `LGA_NKS_GetClip` (permite selecciones múltiples)
 - [ ] **`LGA_NKS_Edit/LGA_NKS_CompareVerToEditref.py`** (líneas 417-485) - Busca clip en track REV según playhead
@@ -89,6 +89,16 @@ Este método obtiene la posición actual del playhead (`viewer.time()`) y busca 
 - [ ] = Implementación manual
 - **(permite selecciones múltiples)** = Usa `prioritize_multiple_selection=True` o `get_clips_to_process()` para procesar múltiples clips
 - **(NO permite selecciones múltiples)** = Usa `prioritize_multiple_selection=False` (comportamiento por defecto) y procesa solo un clip a la vez
+
+### Scripts que usan TRACK_comp_EXR directamente (no a través del módulo centralizado)
+
+Estos scripts importan `TRACK_comp_EXR` del módulo `LGA_NKS_GetClip` pero hacen comparaciones directas con tracks en lugar de usar las funciones del módulo:
+
+- [x] **`LGA_NKS/LGA_NKS_Compare_Versions.py`** - Importa `TRACK_comp_EXR` y lo usa para buscar el track (v1.2)
+- [x] **`LGA_NKS/LGA_NKS_EXRTrack_Difference.py`** - Importa `TRACK_comp_EXR` y lo usa para alternar blend mode (v1.1)
+- [x] **`LGA_NKS/LGA_NKS_Compare_Versions_OFF.py`** - Importa `TRACK_comp_EXR` y lo usa para desactivar blend mode
+
+**Nota:** Estos scripts usan selección manual (Método 1) pero también necesitan identificar el track específico por nombre, por lo que importan `TRACK_comp_EXR` para mantener la centralización del nombre del track.
 
 ---
 

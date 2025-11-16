@@ -140,9 +140,10 @@ def crop_to_aspect_ratio(qimage, target_aspect):
 
 def main():
     # Obtener clip usando el módulo centralizado (NO permite selecciones múltiples)
-    clip = get_clip_to_process(track_name="EXR", prioritize_multiple_selection=False)
+    # ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
+    clip = get_clip_to_process(track_name=None, prioritize_multiple_selection=False)
     if not clip:
-        print("❌ No se pudo obtener información del clip en el track EXR")
+        print("❌ No se pudo obtener información del clip en el track")
         return
 
     # Extraer información del clip

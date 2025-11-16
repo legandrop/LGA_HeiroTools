@@ -1,5 +1,16 @@
 import hiero.core
 import hiero.ui
+from pathlib import Path
+import sys
+
+# Importar utilidades para obtener clips
+utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
+if utils_path.exists():
+    sys.path.insert(0, str(utils_path))
+    from LGA_NKS_GetClip import TRACK_comp_EXR
+else:
+    # Fallback si no se encuentra el módulo
+    TRACK_comp_EXR = "_comp_"
 
 def remove_compare_track(seq):
     # Verificar si existe un track llamado "COMPARE" y eliminarlo
@@ -12,17 +23,17 @@ def remove_compare_track(seq):
     return False
 
 def disable_difference_mode_for_exr(seq):
-    # Iterar sobre los tracks de video para encontrar el que se llama "EXR"
+    # Iterar sobre los tracks de video para encontrar el track TRACK_comp_EXR
     for track in seq.videoTracks():
-        if track.name() == "EXR":
+        if track.name() == TRACK_comp_EXR:
             # Verificar si el blend mode esta activado
             if track.isBlendEnabled() and track.blendMode() == "difference":
                 track.setBlendEnabled(False)
-                print(f"Blend mode 'Difference' disabled for track 'EXR'.")
+                print(f"Blend mode 'Difference' disabled for track '{TRACK_comp_EXR}'.")
             else:
-                print(f"Blend mode 'Difference' is not enabled for track 'EXR'.")
+                print(f"Blend mode 'Difference' is not enabled for track '{TRACK_comp_EXR}'.")
             return True
-    print("Track 'EXR' not found.")
+    print(f"Track '{TRACK_comp_EXR}' not found.")
     return False
 
 def main():
@@ -34,13 +45,13 @@ def main():
 
     # Iniciar una accion de undo para las operaciones
     project = seq.project()
-    project.beginUndo("Remove COMPARE Track and Disable EXR Difference Mode")
+    project.beginUndo(f"Remove COMPARE Track and Disable {TRACK_comp_EXR} Difference Mode")
 
     try:
         # Remover el track "COMPARE"
         remove_compare_track(seq)
 
-        # Desactivar el modo "Difference" para el track "EXR"
+        # Desactivar el modo "Difference" para el track TRACK_comp_EXR
         disable_difference_mode_for_exr(seq)
     except Exception as e:
         print(f"Error during operation: {e}")

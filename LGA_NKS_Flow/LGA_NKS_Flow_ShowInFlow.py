@@ -435,18 +435,19 @@ class ShowInFlowWorker(QRunnable):
 def show_in_flow_from_selected_clip():
     """
     Funcion principal que puede ser llamada desde el panel.
-    Procesa los clips seleccionados en el track EXR (o el clip en playhead) y abre la task comp en Flow.
-    Si hay múltiples clips seleccionados en el track EXR, procesa todos ellos.
+    Procesa los clips seleccionados en el track TRACK_comp_EXR (o el clip en playhead) y abre la task comp en Flow.
+    Si hay múltiples clips seleccionados en el track TRACK_comp_EXR, procesa todos ellos.
     """
     # Obtener los clips en el hilo principal ANTES de entrar al hilo secundario
     # Usa prioritize_multiple_selection=True para priorizar múltiples clips seleccionados sobre playhead
-    clips = get_clips_to_process(track_name="EXR", prioritize_multiple_selection=True)
+    # ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
+    clips = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
     
     if not clips:
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Warning)
         msg.setWindowTitle("Show in Flow - Error")
-        msg.setText("No se pudo obtener ningún clip. Verifique que haya un clip en el track EXR bajo el playhead o que haya seleccionado clips válidos.")
+        msg.setText("No se pudo obtener ningún clip. Verifique que haya un clip en el track bajo el playhead o que haya seleccionado clips válidos.")
         msg.exec_()
         return
 

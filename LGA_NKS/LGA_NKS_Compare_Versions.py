@@ -1,9 +1,11 @@
 """
 ______________________________________________________________________
 
-  LGA_NKS_Compare_Versions v1.1 | Lega
+  LGA_NKS_Compare_Versions v1.2 | Lega
   Crea un nuevo track con una version anterior del clip seleccionado
   y pone al track en modo difference
+  
+  v1.2: Centralización del nombre del track usando TRACK_comp_EXR del módulo LGA_NKS_GetClip
 ______________________________________________________________________
 
 """
@@ -11,6 +13,17 @@ ______________________________________________________________________
 import hiero.core
 import hiero.ui
 from PySide2.QtGui import QColor
+from pathlib import Path
+import sys
+
+# Importar utilidades para obtener clips
+utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
+if utils_path.exists():
+    sys.path.insert(0, str(utils_path))
+    from LGA_NKS_GetClip import TRACK_comp_EXR
+else:
+    # Fallback si no se encuentra el módulo
+    TRACK_comp_EXR = "_comp_"
 
 
 def copy_clip():
@@ -47,16 +60,16 @@ def reorder_tracks_and_add_compare(seq):
             compare_track = track
             break
 
-    # Si no existe un track llamado "COMPARE", encontrar el indice del track "EXR" y crear "COMPARE"
+    # Si no existe un track llamado "COMPARE", encontrar el indice del track TRACK_comp_EXR y crear "COMPARE"
     if not compare_track:
         exr_index = -1
         for index, track in enumerate(seq.videoTracks()):
-            if track.name() == "EXR":
+            if track.name() == TRACK_comp_EXR:
                 exr_index = index
                 break
 
         if exr_index == -1:
-            print("No se encontro un track llamado 'EXR'.")
+            print(f"No se encontro un track llamado '{TRACK_comp_EXR}'.")
             return None
 
         # Obtener la lista de todos los tracks de video
@@ -70,7 +83,7 @@ def reorder_tracks_and_add_compare(seq):
         # Crear el nuevo track llamado "COMPARE"
         compare_track = hiero.core.VideoTrack("COMPARE")
 
-        # Reinsertar los tracks en el orden deseado, incluyendo el nuevo track antes de "EXR"
+        # Reinsertar los tracks en el orden deseado, incluyendo el nuevo track antes de TRACK_comp_EXR
         reordered_tracks = (
             video_tracks[:exr_index] + [compare_track] + video_tracks[exr_index:]
         )
@@ -99,25 +112,25 @@ def paste_clip_to_compare(compare_track, copied_clip, start_time, duration):
 
 
 def toggle_blend_mode_for_exr(seq):
-    # Volver a encontrar el track llamado "EXR" despues de agregar el track "COMPARE"
+    # Volver a encontrar el track TRACK_comp_EXR despues de agregar el track "COMPARE"
     for track in seq.videoTracks():
-        if track.name() == "EXR":
+        if track.name() == TRACK_comp_EXR:
             exr_track = track
             break
     else:
-        print("No se encontro un track llamado 'EXR'.")
+        print(f"No se encontro un track llamado '{TRACK_comp_EXR}'.")
         return
 
     # Verificar si el blend mode ya esta activado
     if exr_track.isBlendEnabled():
         # Si esta activado, lo desactiva
         exr_track.setBlendEnabled(False)
-        print(f"Blend mode desactivado para el track 'EXR'.")
+        print(f"Blend mode desactivado para el track '{TRACK_comp_EXR}'.")
     else:
         # Si no esta activado, lo activa y cambia el modo a "Difference"
         exr_track.setBlendEnabled(True)
         exr_track.setBlendMode("difference")
-        print(f"Blend mode 'Difference' activado para el track 'EXR'.")
+        print(f"Blend mode 'Difference' activado para el track '{TRACK_comp_EXR}'.")
 
 
 def self_replace_clip(copied_clip):
@@ -172,7 +185,7 @@ def main(selected_clip=None):
     # Iniciar una accion de undo para las primeras operaciones
     project = seq.project()
     project.beginUndo(
-        "Copy Clip, Reorder Tracks, Paste Clip to COMPARE, and Set EXR to Difference"
+        f"Copy Clip, Reorder Tracks, Paste Clip to COMPARE, and Set {TRACK_comp_EXR} to Difference"
     )
 
     try:
@@ -212,7 +225,7 @@ def main(selected_clip=None):
         # Pegar el clip copiado en el track COMPARE
         paste_clip_to_compare(compare_track, copied_clip, start_time, duration)
 
-        # Cambiar el modo del track EXR a "difference"
+        # Cambiar el modo del track TRACK_comp_EXR a "difference"
         toggle_blend_mode_for_exr(seq)
     except Exception as e:
         print(f"Error during operation: {e}")
