@@ -1,7 +1,7 @@
 """
 _____________________________________________________________
 
-  LGA_NKS_Flow_Push v3.89 | Lega
+  LGA_NKS_Flow_Push v3.90 | Lega
 
   Envia a flow nuevos estados de las tasks comps.
   En algunos estados permite enviar un mensaje a la version
@@ -15,6 +15,7 @@ _____________________________________________________________
   v3.89: Sistema de resumen con DEBUG_RESUMEN para mostrar solo información esencial
   v3.88: Fix timeout + detección correcta de shot_code con base_name sin versión
   v3.87: Logs detallados de envío de imágenes + Fix extracción de versión
+  v3.90: Verifica si la version actual es la más alta y muestra un dialogo de advertencia si no lo es
 _____________________________________________________________
 
 """
@@ -33,6 +34,8 @@ import datetime
 import subprocess  # Importar subprocess para abrir archivos
 import sys
 from pathlib import Path
+import hiero.core
+import hiero.ui
 
 # Importar el módulo de configuración segura
 sys.path.append(str(Path(__file__).parent))
@@ -77,7 +80,7 @@ status_translation = {
 }
 
 # Variable global para activar o desactivar los prints // En esta version el Debug se imprime al final del script
-DEBUG = True
+DEBUG = False
 DEBUG_RESUMEN = True
 debug_messages = []
 resumen_messages = []
@@ -980,7 +983,7 @@ class Worker(QRunnable):
             skip_check = getattr(self, 'skip_version_check', False)
 
             if not skip_check:
-                version_check = call_flow_connector("check_version", base_name=self.base_name)
+                version_check = call_flow_connector("check_version", base_name=self.base_name, original_file_name=self.original_file_name)
 
                 if version_check["success"] and version_check["needs_confirmation"]:
                     # Emitir señal para que el hilo principal muestre el diálogo
@@ -1253,6 +1256,153 @@ class MultipleShotsDialog(QDialog):
         self.adjustSize()
 
 
+def extract_version_number_from_string(version_str):
+    """Extrae el número de versión de una cadena como 'LC_4007_010_DeAging_Pamela_comp_v05'."""
+    # Buscar el patrón _v\d+ al final del nombre (igual que en LGA_NKS_Flow_Pull.py)
+    match = re.search(r"_v(\d+)(?:[-\(][^)]+)?", version_str)
+    if match:
+        try:
+            version_num = int(match.group(1))
+            debug_print(f"Versión extraída de '{version_str}': v{version_num:02d}")
+            return version_num
+        except ValueError:
+            debug_print(f"Error convirtiendo versión a número: {match.group(1)}")
+            return 0
+    debug_print(f"No se encontró versión en: {version_str}")
+    return 0
+
+
+def get_clip_versions_from_timeline():
+    """
+    Obtiene las versiones disponibles del clip seleccionado en el timeline usando la API de Hiero.
+    Retorna: (current_version_number, highest_version_number, all_versions_list)
+    """
+    try:
+        seq = hiero.ui.activeSequence()
+        if not seq:
+            debug_print("No hay secuencia activa")
+            return None, None, []
+
+        te = hiero.ui.getTimelineEditor(seq)
+        selected_clips = te.selection()
+        
+        if not selected_clips:
+            debug_print("No hay clips seleccionados")
+            return None, None, []
+
+        # Tomar el primer clip seleccionado
+        clip = selected_clips[0]
+        if isinstance(clip, hiero.core.EffectTrackItem):
+            debug_print("El clip seleccionado es un efecto, ignorando")
+            return None, None, []
+
+        # Obtener el binItem del clip
+        bin_item = clip.source().binItem()
+        if not bin_item:
+            debug_print("No se pudo obtener binItem del clip")
+            return None, None, []
+
+        # Obtener todas las versiones disponibles
+        existing_versions = list(bin_item.items())
+        debug_print(f"=== Versiones encontradas para el clip ===")
+        debug_print(f"Total de versiones: {len(existing_versions)}")
+        
+        version_numbers = []
+        for idx, version in enumerate(existing_versions):
+            version_name = version.name()
+            version_num = extract_version_number_from_string(version_name)
+            version_numbers.append(version_num)
+            debug_print(f"  [{idx}] {version_name} -> v{version_num:02d}")
+
+        if not version_numbers:
+            debug_print("No se encontraron versiones con números válidos")
+            return None, None, []
+
+        # Obtener versión actual (activa)
+        current_version_item = bin_item.activeVersion()
+        current_version_name = current_version_item.name() if current_version_item else None
+        current_version_number = extract_version_number_from_string(current_version_name) if current_version_name else None
+        
+        # Encontrar versión más alta
+        highest_version_number = max(version_numbers)
+        
+        debug_print(f"Versión actual: v{current_version_number:02d}" if current_version_number is not None else "Versión actual: No detectada")
+        debug_print(f"Versión más alta: v{highest_version_number:02d}")
+
+        return current_version_number, highest_version_number, sorted(version_numbers, reverse=True)
+
+    except Exception as e:
+        debug_print(f"Error obteniendo versiones del timeline: {e}")
+        import traceback
+        debug_print(traceback.format_exc())
+        return None, None, []
+
+
+class PushVersionDialog(QDialog):
+    """Diálogo personalizado para verificación de versión antes del push"""
+    def __init__(self, base_name, current_version, highest_version, all_versions, parent=None):
+        super().__init__(parent)
+        self.result_value = None  # None = cancelado, True = continuar con versión actual
+        
+        self.setWindowTitle("Verificación de Versión")
+        self.setModal(True)
+        
+        layout = QVBoxLayout(self)
+        
+        # Mensaje HTML
+        message_label = QLabel()
+        message_label.setTextFormat(Qt.RichText)
+        
+        # Formatear el nombre base con la versión resaltada
+        base_version_highlighted = re.sub(
+            r"(_)(v\d+)", r'\1<span style="color: #ff9900;">\2</span>', base_name
+        )
+        
+        # Lista de versiones disponibles
+        versions_list = ", ".join([f"v{v:02d}" for v in all_versions])
+        
+        message_label.setText(
+            f"<div style='text-align: center;'>"
+            f"<span style='color: #ff9900;'><b>¡Atención!</b></span><br><br>"
+            f"La versión que intentas actualizar no es la más reciente:<br><br>"
+            f"<span style='font-weight: bold;'>{base_version_highlighted}</span><br><br>"
+            f"Versión actual en timeline: <span style='color: #ff9900;'>v{current_version:02d}</span><br>"
+            f"Última versión disponible: <span style='color: #00ff00;'>v{highest_version:02d}</span><br>"
+            f"Versiones disponibles: <span style='color: #9c9c9c; font-size: 0.9em;'>{versions_list}</span><br><br>"
+            f"¿Deseas continuar con el push de la versión actual de todos modos?</div>"
+        )
+        layout.addWidget(message_label)
+        
+        # Botones
+        button_layout = QHBoxLayout()
+        
+        self.yes_button = QPushButton("Continuar con versión actual")
+        self.no_button = QPushButton("Cancelar")
+        
+        self.yes_button.clicked.connect(self.accept_continue)
+        self.no_button.clicked.connect(self.reject)
+        
+        button_layout.addWidget(self.yes_button)
+        button_layout.addWidget(self.no_button)
+        layout.addLayout(button_layout)
+        
+        # Hacer que "Cancelar" sea el botón por defecto
+        self.no_button.setDefault(True)
+    
+    def accept_continue(self):
+        debug_print("Usuario eligió continuar con versión actual")
+        self.result_value = True
+        self.accept()
+    
+    def closeEvent(self, event):
+        debug_print("Usuario cerró el diálogo con X o ESC, cancelando operación")
+        self.result_value = None
+        event.accept()
+    
+    def get_result(self):
+        return self.result_value
+
+
 def show_version_dialog(base_name, local_version, flow_version):
     """Muestra un diálogo preguntando si se desea continuar cuando la versión local es más antigua."""
     app = QApplication.instance()
@@ -1330,11 +1480,80 @@ def Push_Task_Status(button_name, base_name, update_callback=None, original_file
         )
         return False  # Retornar False si faltan credenciales
 
-    # Primero solicitar el mensaje al usuario para ciertos estados
+    # PRIMERO: Verificar versiones del timeline ANTES de abrir el diálogo de notas
+    sg_status = status_translation.get(button_name, None)
+    if sg_status in ["rev_di", "corr", "revleg", "revhld", "revjav"]:
+        debug_print("=== Verificando versiones del timeline antes del push ===")
+        
+        # Obtener versiones del clip seleccionado
+        current_version, highest_version, all_versions = get_clip_versions_from_timeline()
+        
+        if current_version is not None and highest_version is not None:
+            debug_print(f"Versión actual detectada: v{current_version:02d}, Versión más alta: v{highest_version:02d}")
+            
+            # Si la versión actual no es la más alta, mostrar diálogo de advertencia
+            if current_version < highest_version:
+                debug_print(f"⚠️  ADVERTENCIA: La versión actual (v{current_version:02d}) no es la más alta (v{highest_version:02d})")
+                
+                # Construir base_name con versión para el diálogo
+                version_base_name = base_name
+                if not any(part.startswith("v") and part[1:].isdigit() for part in base_name.split("_")):
+                    version_base_name = f"{base_name}_v{current_version:02d}"
+                
+                # Mostrar diálogo personalizado
+                app = QApplication.instance()
+                if app is None:
+                    app = QApplication([])
+                
+                dialog = PushVersionDialog(version_base_name, current_version, highest_version, all_versions)
+                dialog.exec_()
+                result = dialog.get_result()
+                
+                if result is None:
+                    # Usuario cerró el diálogo sin confirmar
+                    debug_print("Usuario canceló la operación cerrando el diálogo de versión")
+                    debug_resumen_print("=" * 70)
+                    debug_resumen_print("RESUMEN DEL PUSH")
+                    debug_resumen_print("=" * 70)
+                    debug_resumen_print(f"Shot: {base_name}")
+                    debug_resumen_print(f"Estado: {button_name}")
+                    debug_resumen_print("⚠️  RESULTADO: OPERACIÓN CANCELADA")
+                    debug_resumen_print("")
+                    debug_resumen_print("El usuario canceló porque la versión actual no es la más reciente.")
+                    debug_resumen_print(f"Versión actual en timeline: v{current_version:02d}")
+                    debug_resumen_print(f"Última versión disponible: v{highest_version:02d}")
+                    debug_resumen_print("")
+                    debug_resumen_print("Ningún cambio se aplicó en Flow.")
+                    debug_resumen_print("=" * 70)
+                    print_debug_messages()
+                    print_resumen()
+                    return False
+                elif not result:
+                    # Usuario canceló explícitamente
+                    debug_print("Usuario canceló la operación")
+                    debug_resumen_print("=" * 70)
+                    debug_resumen_print("RESUMEN DEL PUSH")
+                    debug_resumen_print("=" * 70)
+                    debug_resumen_print(f"Shot: {base_name}")
+                    debug_resumen_print(f"Estado: {button_name}")
+                    debug_resumen_print("⚠️  RESULTADO: OPERACIÓN CANCELADA")
+                    debug_resumen_print("")
+                    debug_resumen_print("El usuario canceló porque la versión actual no es la más reciente.")
+                    debug_resumen_print("=" * 70)
+                    print_debug_messages()
+                    print_resumen()
+                    return False
+                else:
+                    debug_print("Usuario confirmó continuar con la versión actual")
+            else:
+                debug_print(f"✓ Versión actual (v{current_version:02d}) es la más alta, continuando sin advertencia")
+        else:
+            debug_print("No se pudieron obtener versiones del timeline, continuando sin verificación")
+
+    # SEGUNDO: Solicitar el mensaje al usuario para ciertos estados
     message = None
     review_images = []
     should_delete_images = False
-    sg_status = status_translation.get(button_name, None)
     if sg_status in ["rev_di", "corr", "revleg", "revhld", "revjav"]:
         app = QApplication.instance()
         if app is None:

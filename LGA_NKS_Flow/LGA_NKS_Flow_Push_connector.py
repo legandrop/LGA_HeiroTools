@@ -690,10 +690,22 @@ def execute_flow_operation(operation, **kwargs):
         elif operation == "check_version":
             # Verificación de versiones para evitar congelar UI
             base_name = kwargs.get('base_name')
+            original_file_name = kwargs.get('original_file_name')
+
+            # Si original_file_name tiene la versión, usarlo para detección correcta del formato
+            base_name_for_detection = base_name
+            if original_file_name:
+                version_match = re.search(r"_v(\d+)", original_file_name)
+                if version_match:
+                    # Si base_name no tiene versión pero original_file_name sí, usar original_file_name para detección
+                    if not any(part.startswith('v') and part[1:].isdigit() for part in base_name.split("_")):
+                        # Construir base_name_for_detection con la versión
+                        base_name_for_detection = f"{base_name}_{version_match.group(0)}"
+                        debug_print(f"check_version: Usando base_name con versión para detección: {base_name_for_detection}")
 
             # Usar funciones compartidas para extraer información
-            project_name = extract_project_name(base_name)
-            shot_code = extract_shot_code(base_name)
+            project_name = extract_project_name(base_name_for_detection)
+            shot_code = extract_shot_code(base_name_for_detection)
 
             # Extraer número de versión
             parts = base_name.split("_")
@@ -702,6 +714,17 @@ def execute_flow_operation(operation, **kwargs):
                 if part.startswith("v") and part[1:].isdigit():
                     version_number_str = part
                     break
+
+            # Si no encontramos versión en base_name, intentar extraerla de original_file_name
+            if not version_number_str and original_file_name:
+                debug_print(f"check_version: No se encontró versión en base_name, intentando extraer de original_file_name: {original_file_name}")
+                version_match = re.search(r"_v(\d+)", original_file_name)
+                if version_match:
+                    version_number_str = f"v{version_match.group(1)}"
+                    debug_print(f"check_version: Versión extraída de original_file_name: {version_number_str}")
+                    # Actualizar base_name para incluir la versión para el diálogo
+                    base_name = f"{base_name}_{version_number_str}"
+                    debug_print(f"check_version: base_name actualizado para diálogo: {base_name}")
 
             if not version_number_str:
                 return {"success": True, "needs_confirmation": False}  # Continuar sin verificación
