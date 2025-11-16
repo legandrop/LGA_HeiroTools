@@ -1,12 +1,14 @@
 """
 ____________________________________________________________________________
-  LGA_NKS_Flow_Pull v3.28 | Lega Pugliese
+  LGA_NKS_Flow_Pull v3.29 | Lega Pugliese
   Compara los estados de las task Comp de los shots del timeline de Hiero
   con los estados registrados en un archivo JSON basado en Flow PT
   Tambien aplica tags con los colores de los estados en xyplorer
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
+
+  v3.29: Soporta versiones de 2 y 3 dígitos
 ____________________________________________________________________________
 """
 
@@ -897,19 +899,31 @@ class HieroOperations:
                     )
                     
                     if file_path and "_comp_" in os.path.basename(file_path).lower():
+                        filename = os.path.basename(file_path)
                         # Obtener el color actual del clip para verificar si está en review
                         current_color_hex = self.get_current_clip_color(item)
+                        
+                        # Patrón regex para detectar versiones de 2 o 3 dígitos: _comp_v00, _comp_v000, _comp_v01, _comp_v001, etc.
+                        version_pattern = re.compile(r'_comp_v(\d{2,3})', re.IGNORECASE)
+                        version_match = version_pattern.search(filename.lower())
                         
                         # Si el clip está en un estado de review, habilitarlo
                         if current_color_hex and current_color_hex.lower() in [c.lower() for c in review_status_colors]:
                             item.setEnabled(True)
-                            debug_print(f"Clip '{item.name()}' habilitado por estar en estado de review (color: {current_color_hex})")
-                        # Si es v00, deshabilitarlo
-                        elif re.search(r"_comp_v00", os.path.basename(file_path).lower()):
-                            item.setEnabled(False)
-                            debug_print(f"Clip '{item.name()}' deshabilitado por ser v00")
+                            version_info = f" (versión v{version_match.group(1)})" if version_match else " (sin versión detectada)"
+                            debug_print(f"Clip '{item.name()}' habilitado por estar en estado de review (color: {current_color_hex}){version_info}")
+                        # Si es v00 o v000 (versión cero), deshabilitarlo
+                        elif version_match:
+                            version_number = version_match.group(1)
+                            if version_number == '00' or version_number == '000':
+                                item.setEnabled(False)
+                                debug_print(f"Clip '{item.name()}' deshabilitado (versión v{version_number})")
+                            else:
+                                item.setEnabled(True)
+                                debug_print(f"Clip '{item.name()}' habilitado (versión v{version_number})")
                         else:
                             item.setEnabled(True)
+                            debug_print(f"Clip '{item.name()}' habilitado (sin versión detectada)")
                     else:
                         item.setEnabled(True)
         except Exception as e:
