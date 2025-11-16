@@ -1,8 +1,9 @@
 """
 _____________________________________________________________________________________________________
 
-  LGA_NKS_Flow_ShowInFlow v1.23 | Lega Pugliese
-  Abre la URL de la task Comp del shot, tomando la informacion del nombre del clip seleccionado
+  LGA_NKS_Flow_ShowInFlow v1.24 | Lega Pugliese
+  Abre la URL de la task Comp del shot, tomando la informacion del nombre del clip en el track EXR bajo el playhead
+  Si no hay clip en playhead, usa el clip seleccionado como fallback
   Verifica si existe más de un shot con el mismo nombre y te pide que selecciones uno
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
@@ -32,7 +33,7 @@ from PySide2.QtWidgets import (
 from PySide2.QtCore import Qt
 
 # Variable global para controlar el debug
-DEBUG = False  # Poner en False para desactivar los mensajes de debug
+DEBUG = True  # Poner en False para desactivar los mensajes de debug
 
 
 # Funcion debug_print
@@ -214,6 +215,30 @@ class HieroOperations:
     def __init__(self, shotgrid_manager):
         self.sg_manager = shotgrid_manager
 
+    def find_clip_at_playhead_in_track(self, seq, track_name="EXR"):
+        """Busca el clip en un track dado que coincide con la posicion del playhead.
+        Evita efectos y devuelve el primer clip que cumpla la condicion o None.
+        """
+        try:
+            viewer = hiero.ui.currentViewer()
+            if not viewer:
+                return None
+            current_time = viewer.time()
+            for track in seq.videoTracks():
+                if track.name().upper() == track_name.upper():
+                    for clip in track:
+                        if isinstance(clip, hiero.core.EffectTrackItem):
+                            continue
+                        if clip.timelineIn() <= current_time < clip.timelineOut():
+                            debug_print(
+                                f">>> Clip encontrado en track {track_name} en posicion {current_time}"
+                            )
+                            return clip
+            return None
+        except Exception as e:
+            debug_print(f"Error buscando clip por playhead en track {track_name}: {e}")
+            return None
+
     def parse_exr_name(self, file_name):
         """Extrae el nombre base del archivo EXR usando funciones compartidas de NamingUtils."""
         # Usar función compartida para limpiar el nombre base (compatible con ambos formatos)
@@ -223,84 +248,115 @@ class HieroOperations:
         version_number = version_match.group(1) if version_match else "Unknown"
         return base_name, version_number
 
-    def process_selected_clips(self):
+    def get_clip_to_process(self):
+        """Obtiene el clip a procesar: primero playhead en EXR, luego seleccion.
+        Debe ejecutarse en el hilo principal.
+        Retorna el clip o None.
+        """
         seq = hiero.ui.activeSequence()
         if not seq:
             debug_print("No se encontro una secuencia activa en Hiero.")
-            return False
+            return None
 
-        te = hiero.ui.getTimelineEditor(seq)
-        selected_clips = te.selection()
+        # Intentar obtener clip por playhead en track EXR
+        playhead_clip = self.find_clip_at_playhead_in_track(seq, track_name="EXR")
 
-        if not selected_clips:
-            debug_print("No se han seleccionado clips en el timeline.")
-            return False
-
-        for clip in selected_clips:
-            if not isinstance(clip, hiero.core.EffectTrackItem):
-                if clip.source().mediaSource().isMediaPresent():
-                    fileinfos = clip.source().mediaSource().fileinfos()
-                    if not fileinfos:
-                        continue
-
-                    file_path = fileinfos[0].filename()
-                    exr_name = os.path.basename(file_path)
-                    debug_print(f"Hiero clip file path: {file_path}")
-                    debug_print(f"Hiero clip name: {exr_name}")
-
-                    base_name, hiero_version_number = self.parse_exr_name(exr_name)
-                    debug_print(
-                        f"Parsed base name: {base_name}, version number: {hiero_version_number}"
-                    )
-
-                    # Usar funciones compartidas para extraer información (compatible con ambos formatos)
-                    project_name = extract_project_name(base_name)
-                    shot_code = extract_shot_code(base_name)
-                    debug_print(f"Project name: {project_name}, shot code: {shot_code}")
-
-                    shot, tasks = self.sg_manager.find_shot_and_tasks(
-                        project_name, shot_code
-                    )
-
-                    # Verificar si tenemos multiples shots
-                    if shot == "MULTIPLE_SHOTS":
-                        # Devolver informacion para manejar en el hilo principal
-                        return ("MULTIPLE_SHOTS", tasks)
-
-                    if shot:
-                        # Buscar task Comp
-                        comp_task = None
-                        for task in tasks:
-                            if task["content"] == "Comp":
-                                comp_task = task
-                                break
-
-                        if comp_task:
-                            # Si hay task Comp, abrir la URL de la task
-                            task_url = self.sg_manager.get_task_url(comp_task["id"])
-                            debug_print(
-                                f"  - Task: {comp_task['content']} (Status: {comp_task['sg_status_list']}) URL: {task_url}"
-                            )
-                            target_url = task_url
-                        else:
-                            # Si no hay task Comp, abrir la URL del shot
-                            shot_url = self.sg_manager.get_shot_url(shot["id"])
-                            debug_print(
-                                f"No hay task Comp. Abriendo URL del shot: {shot_url}"
-                            )
-                            target_url = shot_url
-
-                        if use_default_browser:
-                            webbrowser.open(target_url)
-                        else:
-                            self.open_url_in_browser(target_url)
-                        return True
-                    else:
+        # Fallback a seleccion
+        if not playhead_clip:
+            te = hiero.ui.getTimelineEditor(seq)
+            selected_clips = te.selection() if te else []
+            if selected_clips:
+                # Tomar el primer clip seleccionado que no sea un efecto
+                for clip in selected_clips:
+                    if not isinstance(clip, hiero.core.EffectTrackItem):
                         debug_print(
-                            "No se encontro el shot correspondiente en ShotGrid."
+                            ">>> No hay clip en playhead sobre EXR; usando clip seleccionado como fallback"
                         )
-                        return False
-        return False
+                        return clip
+        else:
+            debug_print(
+                ">>> Usando clip del playhead en track EXR"
+            )
+
+        return playhead_clip
+
+    def process_clip(self, clip):
+        """Procesa un clip específico y abre la URL correspondiente."""
+        if not clip:
+            debug_print("No se proporciono un clip para procesar.")
+            return False
+
+        if isinstance(clip, hiero.core.EffectTrackItem):
+            debug_print("El clip es un efecto, se omite.")
+            return False
+
+        if not clip.source().mediaSource().isMediaPresent():
+            debug_print("El clip no tiene media presente.")
+            return False
+
+        fileinfos = clip.source().mediaSource().fileinfos()
+        if not fileinfos:
+            debug_print("No se encontraron fileinfos para el clip.")
+            return False
+
+        file_path = fileinfos[0].filename()
+        exr_name = os.path.basename(file_path)
+        debug_print(f"Hiero clip file path: {file_path}")
+        debug_print(f"Hiero clip name: {exr_name}")
+
+        base_name, hiero_version_number = self.parse_exr_name(exr_name)
+        debug_print(
+            f"Parsed base name: {base_name}, version number: {hiero_version_number}"
+        )
+
+        # Usar funciones compartidas para extraer información (compatible con ambos formatos)
+        project_name = extract_project_name(base_name)
+        shot_code = extract_shot_code(base_name)
+        debug_print(f"Project name: {project_name}, shot code: {shot_code}")
+
+        shot, tasks = self.sg_manager.find_shot_and_tasks(
+            project_name, shot_code
+        )
+
+        # Verificar si tenemos multiples shots
+        if shot == "MULTIPLE_SHOTS":
+            # Devolver informacion para manejar en el hilo principal
+            return ("MULTIPLE_SHOTS", tasks)
+
+        if shot:
+            # Buscar task Comp
+            comp_task = None
+            for task in tasks:
+                if task["content"] == "Comp":
+                    comp_task = task
+                    break
+
+            if comp_task:
+                # Si hay task Comp, abrir la URL de la task
+                task_url = self.sg_manager.get_task_url(comp_task["id"])
+                debug_print(
+                    f"  - Task: {comp_task['content']} (Status: {comp_task['sg_status_list']}) URL: {task_url}"
+                )
+                target_url = task_url
+            else:
+                # Si no hay task Comp, abrir la URL del shot
+                shot_url = self.sg_manager.get_shot_url(shot["id"])
+                debug_print(
+                    f"No hay task Comp. Abriendo URL del shot: {shot_url}"
+                )
+                target_url = shot_url
+
+            if use_default_browser:
+                webbrowser.open(target_url)
+            else:
+                self.open_url_in_browser(target_url)
+            return True
+        else:
+            debug_print(
+                "No se encontro el shot correspondiente en ShotGrid."
+            )
+            return False
+
 
     def open_url_in_browser(self, url):
         if platform.system() == "Darwin":  # macOS
@@ -318,7 +374,12 @@ class HieroOperations:
                 debug_print(f"Failed to open URL in specified browser on Windows: {e}")
 
 
-def threaded_function():
+def threaded_function(clip_info):
+    """Procesa el clip en un hilo secundario.
+    
+    Args:
+        clip_info: Tupla con (file_path, exr_name) del clip a procesar
+    """
     # Leer credenciales desde el archivo .dat usando la funcion adaptada
     url, login, password = get_flow_credentials()
     if not url or not login or not password:
@@ -330,17 +391,61 @@ def threaded_function():
         debug_print(f"Conectando a ShotGrid URL: {url} con login: {login}")
         sg_manager = ShotGridManager(url, login, password)
         hiero_ops = HieroOperations(sg_manager)
-        result = hiero_ops.process_selected_clips()  # Ejecutar la lógica principal
+        
+        # Extraer información del clip
+        file_path, exr_name = clip_info
+        base_name, hiero_version_number = hiero_ops.parse_exr_name(exr_name)
+        debug_print(
+            f"Parsed base name: {base_name}, version number: {hiero_version_number}"
+        )
 
-        if result is True:
+        # Usar funciones compartidas para extraer información (compatible con ambos formatos)
+        project_name = extract_project_name(base_name)
+        shot_code = extract_shot_code(base_name)
+        debug_print(f"Project name: {project_name}, shot code: {shot_code}")
+
+        shot, tasks = sg_manager.find_shot_and_tasks(
+            project_name, shot_code
+        )
+
+        # Verificar si tenemos multiples shots
+        if shot == "MULTIPLE_SHOTS":
+            # Devolver informacion para manejar en el hilo principal
+            return ("MULTIPLE_SHOTS", tasks)
+
+        if shot:
+            # Buscar task Comp
+            comp_task = None
+            for task in tasks:
+                if task["content"] == "Comp":
+                    comp_task = task
+                    break
+
+            if comp_task:
+                # Si hay task Comp, abrir la URL de la task
+                task_url = sg_manager.get_task_url(comp_task["id"])
+                debug_print(
+                    f"  - Task: {comp_task['content']} (Status: {comp_task['sg_status_list']}) URL: {task_url}"
+                )
+                target_url = task_url
+            else:
+                # Si no hay task Comp, abrir la URL del shot
+                shot_url = sg_manager.get_shot_url(shot["id"])
+                debug_print(
+                    f"No hay task Comp. Abriendo URL del shot: {shot_url}"
+                )
+                target_url = shot_url
+
+            if use_default_browser:
+                webbrowser.open(target_url)
+            else:
+                hiero_ops.open_url_in_browser(target_url)
             return None  # Indicar éxito
-
-        if result is False:
-            return "No se pudo procesar el clip seleccionado. Verifique que haya seleccionado un clip válido."
-
-        # Si result es una tupla, significa que hay múltiples shots
-        if isinstance(result, tuple) and result[0] == "MULTIPLE_SHOTS":
-            return result  # Devolver la información para manejar en el hilo principal
+        else:
+            debug_print(
+                "No se encontro el shot correspondiente en ShotGrid."
+            )
+            return "No se pudo procesar el clip. Verifique que haya un clip en el track EXR bajo el playhead o que haya seleccionado un clip válido."
 
     except shotgun_api3.AuthenticationFault:
         # Error especifico de autenticacion
@@ -360,13 +465,48 @@ def threaded_function():
 def show_in_flow_from_selected_clip():
     """
     Funcion principal que puede ser llamada desde el panel.
-    Procesa el clip seleccionado y abre la task comp en Flow.
+    Procesa el clip en playhead del track EXR (o seleccionado) y abre la task comp en Flow.
     """
+    # Obtener el clip en el hilo principal ANTES de entrar al hilo secundario
+    hiero_ops_temp = HieroOperations(None)
+    clip = hiero_ops_temp.get_clip_to_process()
+    
+    if not clip:
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle("Show in Flow - Error")
+        msg.setText("No se pudo obtener el clip. Verifique que haya un clip en el track EXR bajo el playhead o que haya seleccionado un clip válido.")
+        msg.exec_()
+        return
+
+    # Verificar que el clip tenga media presente
+    if not clip.source().mediaSource().isMediaPresent():
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle("Show in Flow - Error")
+        msg.setText("El clip no tiene media presente.")
+        msg.exec_()
+        return
+
+    fileinfos = clip.source().mediaSource().fileinfos()
+    if not fileinfos:
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle("Show in Flow - Error")
+        msg.setText("No se encontraron fileinfos para el clip.")
+        msg.exec_()
+        return
+
+    # Extraer información del clip en el hilo principal
+    file_path = fileinfos[0].filename()
+    exr_name = os.path.basename(file_path)
+    clip_info = (file_path, exr_name)
+
     # Crear un objeto para almacenar el resultado del hilo
     result_container = {}
 
     def run_in_thread():
-        result_container["result"] = threaded_function()
+        result_container["result"] = threaded_function(clip_info)
 
     thread = threading.Thread(target=run_in_thread)
     thread.start()
