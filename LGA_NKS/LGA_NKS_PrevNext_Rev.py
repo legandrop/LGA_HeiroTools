@@ -1,7 +1,7 @@
 """
 ______________________________________________________________________________________________
 
-  LGA_NKS_PrevNext_Rev v1.22 - 2024 - Lega
+  LGA_NKS_PrevNext_Rev v1.23 - 2024 - Lega
 
   Busca el clip anterior o siguiente con estado Rev Lega, Rev Sebas o Rev Javi
   y ajusta la vista:
@@ -12,6 +12,8 @@ ________________________________________________________________________________
   5. Mueve el playhead a la posición del In.
   6. Ajusta el zoom para que se ajuste al clip seleccionado.
   7. Deselecciona todos los clips.
+
+  v1.23 - Usa módulo centralizado LGA_NKS_GetClip con método híbrido para buscar clips EditRef cuando la posición coincide con el playhead
 ______________________________________________________________________________________________
 """
 
@@ -19,8 +21,22 @@ import hiero.core
 import hiero.ui
 from PySide2.QtGui import QColor
 from PySide2.QtCore import QTimer
+from pathlib import Path
+import sys
 
 DEBUG = True
+
+# Importar métodos de selección híbrida
+utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
+if utils_path.exists():
+    sys.path.insert(0, str(utils_path))
+    try:
+        import LGA_NKS_GetClip as clip_utils
+        find_clip_at_playhead_in_track = clip_utils.find_clip_at_playhead_in_track
+    except ImportError:
+        find_clip_at_playhead_in_track = None
+else:
+    find_clip_at_playhead_in_track = None
 
 def debug_print(*message):
     if DEBUG:
@@ -113,12 +129,17 @@ def find_clip_with_color(direction, rev_type):
 def find_editref_clip_at_position(position):
     """
     Encuentra el clip en el track EditRef en la posición dada.
+    Usa método híbrido cuando la posición coincide con el playhead actual.
     """
     seq = hiero.ui.activeSequence()
     if not seq:
         debug_print("No hay una secuencia activa.")
         return None
 
+    # Verificar si la posición coincide con el playhead actual para usar método híbrido
+    current_playhead = get_current_playhead_position()
+    use_hybrid = (current_playhead is not None and position == current_playhead)
+    
     # Buscar el track EditRef
     edit_ref_track = None
     for track in seq.videoTracks():
@@ -129,6 +150,13 @@ def find_editref_clip_at_position(position):
     if not edit_ref_track:
         debug_print("No se encontró un track llamado 'EditRef'.")
         return None
+
+    # Si la posición es la del playhead actual, usar método híbrido
+    if use_hybrid and find_clip_at_playhead_in_track:
+        clip = find_clip_at_playhead_in_track(seq, track_name="EditRef")
+        if clip:
+            debug_print(f"Clip EditRef encontrado usando método híbrido: {clip.name()}")
+            return clip
 
     # Buscar el clip que contiene la posición
     for item in edit_ref_track.items():

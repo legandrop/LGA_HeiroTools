@@ -1,7 +1,7 @@
 """
 __________________________________________________________
 
-  LGA_NKS_InOut_Editref v1.41 | Lega Pugliese
+  LGA_NKS_InOut_Editref v1.42 | Lega Pugliese
 
   Establece los puntos In y Out de la secuencia activa
   basándose en el clip más cercano del track "EditRef".
@@ -10,14 +10,33 @@ __________________________________________________________
    3. Establece los puntos In y Out basados en ese clip.
    4. Selecciona el clip, mueve el playhead al inicio y ajusta
       la vista para que se ajuste al clip seleccionado.
+
+  v1.42 - Usa módulo centralizado LGA_NKS_GetClip con método híbrido para buscar clips en track EditRef o EditRefClean (playhead primero, luego selección como fallback)
 __________________________________________________________
 """
 
 import hiero.core
 import hiero.ui
 from PySide2.QtCore import QTimer
+from pathlib import Path
+import sys
 
 DEBUG = False
+
+# Importar métodos de selección híbrida
+utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
+if utils_path.exists():
+    sys.path.insert(0, str(utils_path))
+    try:
+        import LGA_NKS_GetClip as clip_utils
+        find_clip_at_playhead_in_track = clip_utils.find_clip_at_playhead_in_track
+        get_clip_to_process = clip_utils.get_clip_to_process
+    except ImportError:
+        find_clip_at_playhead_in_track = None
+        get_clip_to_process = None
+else:
+    find_clip_at_playhead_in_track = None
+    get_clip_to_process = None
 
 
 def debug_print(*message):
@@ -47,36 +66,52 @@ def set_in_out_from_edit_ref_track():
 
     # Buscar el track llamado "EditRef" o "EditRefClean"
     edit_ref_track = None
+    track_name = None
     for track in seq.videoTracks():
         if track.name() == "EditRef":
             edit_ref_track = track
+            track_name = "EditRef"
             break
     if not edit_ref_track:
         for track in seq.videoTracks():
             if track.name() == "EditRefClean":
                 edit_ref_track = track
+                track_name = "EditRefClean"
                 break
 
     if not edit_ref_track:
         debug_print("No se encontro un track llamado 'EditRef' ni 'EditRefClean'.")
         return None
 
-    # Buscar el clip mas cercano en el track EditRef
+    # Usar método híbrido de selección: primero intentar con playhead
     edit_ref_clip = None
-    min_distance = float("inf")
-    for item in edit_ref_track.items():
-        if item.timelineIn() <= playhead_frame < item.timelineOut():
-            edit_ref_clip = item
-            break
-        else:
-            # Calcular la distancia al playhead
-            if playhead_frame < item.timelineIn():
-                distance = item.timelineIn() - playhead_frame
-            else:
-                distance = playhead_frame - item.timelineOut()
-            if distance < min_distance:
-                min_distance = distance
+    if find_clip_at_playhead_in_track:
+        edit_ref_clip = find_clip_at_playhead_in_track(seq, track_name=track_name)
+        if edit_ref_clip:
+            debug_print(f"Clip encontrado usando método híbrido en playhead: {edit_ref_clip.name()}")
+    
+    # Si no se encontró por playhead, intentar con método híbrido completo (incluye selección)
+    if not edit_ref_clip and get_clip_to_process:
+        edit_ref_clip = get_clip_to_process(track_name=track_name, prioritize_multiple_selection=False)
+        if edit_ref_clip:
+            debug_print(f"Clip encontrado usando método híbrido (selección): {edit_ref_clip.name()}")
+    
+    # Si aún no se encontró, buscar el clip más cercano (fallback)
+    if not edit_ref_clip:
+        min_distance = float("inf")
+        for item in edit_ref_track.items():
+            if item.timelineIn() <= playhead_frame < item.timelineOut():
                 edit_ref_clip = item
+                break
+            else:
+                # Calcular la distancia al playhead
+                if playhead_frame < item.timelineIn():
+                    distance = item.timelineIn() - playhead_frame
+                else:
+                    distance = playhead_frame - item.timelineOut()
+                if distance < min_distance:
+                    min_distance = distance
+                    edit_ref_clip = item
 
     if not edit_ref_clip:
         debug_print("No se encontro ningun clip en el track EditRef.")

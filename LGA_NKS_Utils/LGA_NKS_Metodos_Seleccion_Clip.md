@@ -80,9 +80,9 @@ Este método obtiene la posición actual del playhead (`viewer.time()`) y busca 
 - [x] **`LGA_NKS_Flow/LGA_NKS_ReviewPic.py`** - Usa módulo centralizado `LGA_NKS_GetClip` con `track_name=None` (NO permite selecciones múltiples)
 - [x] **`LGA_NKS/LGA_NKS_Clip_DisableEXR.py`** - Usa módulo centralizado `LGA_NKS_GetClip` (NO permite selecciones múltiples)
 - [x] **`LGA_NKS_Edit/LGA_NKS_CompareEXR_to_aPlate.py`** - Usa módulo centralizado `LGA_NKS_GetClip` (permite selecciones múltiples)
-- [ ] **`LGA_NKS_Edit/LGA_NKS_CompareVerToEditref.py`** (líneas 417-485) - Busca clip en track REV según playhead
-- [ ] **`LGA_NKS/LGA_NKS_InOut_Editref.py`** (línea 38) - Usa playhead para buscar en track EditRef o EditRefClean
-- [ ] **`LGA_NKS/LGA_NKS_PrevNext_Rev.py`** (línea 36) - Usa playhead para navegar entre clips con colores específicos
+- [x] **`LGA_NKS_Edit/LGA_NKS_CompareVerToEditref.py`** - Usa módulo centralizado `LGA_NKS_GetClip` con método híbrido para buscar clip en track REV (playhead primero, luego selección como fallback)
+- [x] **`LGA_NKS/LGA_NKS_InOut_Editref.py`** - Usa módulo centralizado `LGA_NKS_GetClip` con método híbrido para buscar en track EditRef o EditRefClean
+- [x] **`LGA_NKS/LGA_NKS_PrevNext_Rev.py`** - Usa módulo centralizado `LGA_NKS_GetClip` con método híbrido para buscar clips EditRef cuando la posición coincide con el playhead
 
 **Leyenda:** 
 - [x] = Usa módulo centralizado `LGA_NKS_GetClip`

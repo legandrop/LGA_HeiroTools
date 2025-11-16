@@ -1,13 +1,14 @@
 """
 _______________________________________________________________________________________
 
-  LGA_NKS_CompareVerToEditref v1.14 | Lega
+  LGA_NKS_CompareVerToEditref v1.15 | Lega
   Compara los rangos de frames de los clips del track _rev_ (TRACK_comp_REV) con
   los clips correspondientes del track EditRef para verificar coincidencias.
   
   Track utilizado:
   - TRACK_comp_REV = "_rev_": Track que contiene los archivos MOV o MXF con el render de COMP
   
+  v1.15 - Usa módulo centralizado LGA_NKS_GetClip con método híbrido para buscar clips en track REV (playhead primero, luego selección como fallback)
   v1.14 - Actualizado para ser compatible con ambos sistemas de nomenclatura:
           - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
           - PROYECTO_SEQ_SHOT (3 bloques simplificado)
@@ -59,21 +60,27 @@ else:
     extract_shot_code = None
     clean_base_name = None
 
-# Importar variables centralizadas para nombres de tracks
+# Importar variables centralizadas para nombres de tracks y métodos de selección híbrida
 utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
 if utils_path.exists():
     sys.path.insert(0, str(utils_path))
     try:
         import LGA_NKS_GetClip as clip_utils
         TRACK_comp_REV = clip_utils.TRACK_comp_REV
+        find_clip_at_playhead_in_track = clip_utils.find_clip_at_playhead_in_track
+        get_clip_to_process = clip_utils.get_clip_to_process
     except ImportError:
         if DEBUG:
             print("ERROR: No se encontró el módulo LGA_NKS_GetClip")
         TRACK_comp_REV = "_rev_"  # Fallback
+        find_clip_at_playhead_in_track = None
+        get_clip_to_process = None
 else:
     if DEBUG:
         print("ERROR: No se encontró el directorio LGA_NKS_Utils")
     TRACK_comp_REV = "_rev_"  # Fallback
+    find_clip_at_playhead_in_track = None
+    get_clip_to_process = None
 
 # Flag para controlar si se analiza y muestra TC IN en la comparacion
 AnalizeTC = False
@@ -507,7 +514,7 @@ class HieroOperations:
             QMessageBox.warning(None, "Error", "No se encontró el track EditRef.")
             return False
 
-        # Obtener clips a procesar - basado en force_all_clips o playhead
+        # Obtener clips a procesar - basado en force_all_clips o método híbrido
         if self.force_all_clips:
             # Procesar todos los clips del track
             rev_clips = rev_track.items()
@@ -515,25 +522,33 @@ class HieroOperations:
                 f">>> Procesando todos los {len(rev_clips)} clips del track {TRACK_comp_REV} (forzado por shift+click)"
             )
         else:
-            # Buscar clip en track en la posicion del playhead
-            rev_clip_at_playhead = None
-            for clip in rev_track:
-                if clip.timelineIn() <= current_time < clip.timelineOut():
-                    rev_clip_at_playhead = clip
-                    break
+            # Usar método híbrido de selección: playhead primero, luego selección como fallback
+            if find_clip_at_playhead_in_track:
+                rev_clip_at_playhead = find_clip_at_playhead_in_track(seq, track_name=TRACK_comp_REV)
+            else:
+                # Fallback manual si no está disponible el módulo
+                rev_clip_at_playhead = None
+                for clip in rev_track:
+                    if clip.timelineIn() <= current_time < clip.timelineOut():
+                        rev_clip_at_playhead = clip
+                        break
+
+            # Si no se encontró por playhead, intentar con método híbrido completo
+            if not rev_clip_at_playhead and get_clip_to_process:
+                rev_clip_at_playhead = get_clip_to_process(track_name=TRACK_comp_REV, prioritize_multiple_selection=False)
 
             if not rev_clip_at_playhead:
                 QMessageBox.warning(
                     None,
                     "Error",
-                    f"No se encontró un clip en el track {TRACK_comp_REV} en la posición actual del playhead.",
+                    f"No se encontró un clip en el track {TRACK_comp_REV} en la posición actual del playhead ni en la selección.",
                 )
                 return False
 
-            # Procesar solo el clip encontrado en el playhead
+            # Procesar solo el clip encontrado
             rev_clips = [rev_clip_at_playhead]
             debug_print(
-                f">>> Procesando clip {TRACK_comp_REV} en posicion del playhead: {current_time}"
+                f">>> Procesando clip {TRACK_comp_REV} usando método híbrido: {rev_clip_at_playhead.name()}"
             )
 
         # Crear diccionario de clips EditRef por base name
