@@ -1,8 +1,10 @@
 """
 ________________________________________________________________
 
-  LGA_ViewerPanel v1.5 | Lega
+  LGA_ViewerPanel v1.61 | Lega
   Panel con herramientas para el viewer y el timeline de Hiero
+  
+  v1.61: Se agregaron tooltips
 ________________________________________________________________
 
 """
@@ -41,56 +43,90 @@ class ViewerPanel(QWidget):
 
         # Crear botones y agregarlos al layout
         self.buttons = [
-            ("&Viewer | Rec709", self.rec709_viewer, "#311840", "Shift+V", "Shift+V"),
-            ("Viewer | 2.35:1 ", self.viewer_235, "#311840"),
-            ("Refresh Timeline", self.refresh_timeline, "#4c4350"),
-            ("Top Track ", self.top_track, "#4c4350", "Ctrl+Shift+T"),
+            (
+                "&Viewer | Rec709",
+                self.rec709_viewer,
+                "#311840",
+                "Shift+V",
+                "Shift+V\nCambia el LUT del viewer a ACES/Rec.709",
+            ),
+            (
+                "Viewer | 2.35:1 ",
+                self.viewer_235,
+                "#311840",
+                None,
+                "Ajusta el overlay del viewer a 2.35:1 y alterna los estilos de máscara\n(None, Half, Full) ajustando el efecto Frame del track BurnIn",
+            ),
+            (
+                "Refresh Timeline",
+                self.refresh_timeline,
+                "#4c4350",
+                None,
+                "Refresca el timeline manteniendo el nivel de zoom original\n(cuando el timeline funciona mal lo resetea)",
+            ),
+            (
+                "Top Track ",
+                self.top_track,
+                "#4c4350",
+                "Ctrl+Shift+T",
+                "Ctrl+Shift+T\nScrollea al track superior del timeline",
+            ),
             (
                 "In Out Editref",
                 self.in_out_editref,
                 "#4d462b",
                 "Ctrl+Shift+U",
-                "Ctrl+Shift+U",
+                "Ctrl+Shift+U\nEstablece los puntos In y Out de la secuencia basándose\nen el clip más cercano del track EditRef o EditRefClean",
             ),
             (
                 "Prev Rev Sebas",
                 self.prev_rev_sup,
                 "#bd7f9f",
                 "Ctrl+Shift+,",
-                "Ctrl+Shift+,",
+                "Ctrl+Shift+,\nBusca el clip anterior con estado Rev Sebas y ajusta la vista\n(establece In/Out desde EditRef, selecciona clip, ajusta zoom)",
             ),
             (
                 "Next Rev Sebas",
                 self.next_rev_sup,
                 "#bd7f9f",
                 "Ctrl+Shift+.",
-                "Ctrl+Shift+.",
+                "Ctrl+Shift+.\nBusca el clip siguiente con estado Rev Sebas y ajusta la vista\n(establece In/Out desde EditRef, selecciona clip, ajusta zoom)",
             ),
             (
                 "Prev Rev Javi",
                 self.prev_rev_javi,
                 "#9c3e5e",
+                None,
+                "Busca el clip anterior con estado Rev Javi y ajusta la vista\n(establece In/Out desde EditRef, selecciona clip, ajusta zoom)",
             ),
             (
                 "Next Rev Javi",
                 self.next_rev_javi,
                 "#9c3e5e",
+                None,
+                "Busca el clip siguiente con estado Rev Javi y ajusta la vista\n(establece In/Out desde EditRef, selecciona clip, ajusta zoom)",
             ),
             (
                 "Prev Rev Lega",
                 self.prev_rev_lega,
                 "#69135e",
                 "Ctrl+Alt+Shift+,",
-                "Ctrl+Alt+Shift+,",
+                "Ctrl+Alt+Shift+,\nBusca el clip anterior con estado Rev Lega y ajusta la vista\n(establece In/Out desde EditRef, selecciona clip, ajusta zoom)",
             ),
             (
                 "Next Rev Lega",
                 self.next_rev_lega,
                 "#69135e",
                 "Ctrl+Alt+Shift+.",
-                "Ctrl+Alt+Shift+.",
+                "Ctrl+Alt+Shift+.\nBusca el clip siguiente con estado Rev Lega y ajusta la vista\n(establece In/Out desde EditRef, selecciona clip, ajusta zoom)",
             ),
-            ("SnapShot", self.snapshot, "#2d5a3d"),
+            (
+                "SnapShot",
+                self.snapshot,
+                "#2d5a3d",
+                None,
+                "Crea un snapshot de la imagen actual del viewer\n(cropeada al aspect ratio de la secuencia) y lo copia al portapapeles\nIdeal para enviar por telegram con algun comentario",
+            ),
         ]
 
         self.num_columns = 1  # Inicialmente una columna
