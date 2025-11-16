@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_GetClip v1.0 | Lega Pugliese
+  LGA_NKS_GetClip v1.1 | Lega Pugliese
   Utilidades para obtener clips del timeline de Hiero/Nuke Studio
   
   Método híbrido recomendado:
@@ -11,6 +11,8 @@ ________________________________________________________________________________
   Scripts que utilizan este módulo:
   - LGA_NKS_Flow_ShowInFlow.py
   - (otros scripts que necesiten obtener clips)
+
+  v1.1 - Agrega get_clips_to_process para obtener múltiples clips seleccionados en el track EXR
 ____________________________________________________________________________________
 """
 
@@ -75,19 +77,63 @@ def find_clip_at_playhead_in_track(seq, track_name=None):
         return None
 
 
-def get_clip_to_process(track_name=None):
+def get_selected_clips_in_track(seq, track_name=None):
+    """
+    Obtiene todos los clips seleccionados que pertenecen al track especificado.
+    
+    Args:
+        seq: Secuencia activa de Hiero
+        track_name (str, optional): Nombre del track. Si es None, usa DEFAULT_TRACK_NAME.
+    
+    Returns:
+        Lista de clips seleccionados en el track especificado (excluyendo efectos) o lista vacía.
+    """
+    if track_name is None:
+        track_name = DEFAULT_TRACK_NAME
+    
+    te = hiero.ui.getTimelineEditor(seq)
+    selected_clips = te.selection() if te else []
+    
+    # Encontrar el track especificado
+    target_track = None
+    for track in seq.videoTracks():
+        if track.name().upper() == track_name.upper():
+            target_track = track
+            break
+    
+    if not target_track:
+        debug_print(f"No se encontró el track '{track_name}' en la secuencia.")
+        return []
+    
+    # Filtrar clips seleccionados que pertenecen al track especificado
+    clips_in_track = []
+    for clip in selected_clips:
+        if isinstance(clip, hiero.core.EffectTrackItem):
+            continue
+        # Verificar si el clip pertenece al track especificado
+        if clip.parentTrack() == target_track:
+            clips_in_track.append(clip)
+    
+    return clips_in_track
+
+
+def get_clip_to_process(track_name=None, prioritize_multiple_selection=False):
     """
     Obtiene el clip a procesar usando el método híbrido:
-    1. Primero intenta obtener el clip del track especificado en la posición del playhead
-    2. Si no encuentra, usa el primer clip seleccionado como fallback
+    1. Si prioritize_multiple_selection=True y hay múltiples clips seleccionados en el track, devuelve lista
+    2. Si no, primero intenta obtener el clip del track especificado en la posición del playhead
+    3. Si no encuentra, usa el primer clip seleccionado como fallback
     
     Debe ejecutarse en el hilo principal de Hiero.
     
     Args:
         track_name (str, optional): Nombre del track a buscar. Si es None, usa DEFAULT_TRACK_NAME.
+        prioritize_multiple_selection (bool): Si True y hay múltiples clips seleccionados en el track,
+            devuelve lista de esos clips en lugar de usar playhead. Si False, usa playhead primero.
     
     Returns:
-        Clip encontrado o None si no se encuentra ningún clip.
+        Clip encontrado, lista de clips, o None si no se encuentra ningún clip.
+        Si prioritize_multiple_selection=True y hay múltiples clips, siempre devuelve lista.
     """
     if track_name is None:
         track_name = DEFAULT_TRACK_NAME
@@ -96,6 +142,20 @@ def get_clip_to_process(track_name=None):
     if not seq:
         debug_print("No se encontro una secuencia activa en Hiero.")
         return None
+
+    # Si prioritize_multiple_selection=True, verificar primero si hay múltiples clips seleccionados en el track
+    if prioritize_multiple_selection:
+        selected_clips_in_track = get_selected_clips_in_track(seq, track_name=track_name)
+        if len(selected_clips_in_track) > 1:
+            debug_print(
+                f">>> Múltiples clips seleccionados en track '{track_name}' ({len(selected_clips_in_track)} clips). Priorizando selección sobre playhead."
+            )
+            return selected_clips_in_track
+        elif len(selected_clips_in_track) == 1:
+            debug_print(
+                f">>> Un solo clip seleccionado en track '{track_name}'. Usando playhead primero."
+            )
+        # Si no hay clips seleccionados en el track, continuar con lógica normal
 
     # Intentar obtener clip por playhead en el track especificado
     playhead_clip = find_clip_at_playhead_in_track(seq, track_name=track_name)
@@ -119,6 +179,33 @@ def get_clip_to_process(track_name=None):
         )
 
     return playhead_clip
+
+
+def get_clips_to_process(track_name=None, prioritize_multiple_selection=False):
+    """
+    Obtiene los clips a procesar usando el método híbrido.
+    Siempre devuelve una lista (puede contener 0, 1 o más clips).
+    
+    Args:
+        track_name (str, optional): Nombre del track a buscar. Si es None, usa DEFAULT_TRACK_NAME.
+        prioritize_multiple_selection (bool): Si True y hay múltiples clips seleccionados en el track,
+            prioriza esos clips sobre el playhead.
+    
+    Returns:
+        Lista de clips encontrados (puede estar vacía).
+    """
+    result = get_clip_to_process(track_name=track_name, prioritize_multiple_selection=prioritize_multiple_selection)
+    
+    # Si el resultado es una lista, devolverla directamente
+    if isinstance(result, list):
+        return result
+    
+    # Si es un clip único, devolverlo en una lista
+    if result is not None:
+        return [result]
+    
+    # Si es None, devolver lista vacía
+    return []
 
 
 def get_selected_clips():

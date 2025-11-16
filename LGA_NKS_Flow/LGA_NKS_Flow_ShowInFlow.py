@@ -1,7 +1,7 @@
 """
 _____________________________________________________________________________________________________
 
-  LGA_NKS_Flow_ShowInFlow v1.25 | Lega Pugliese
+  LGA_NKS_Flow_ShowInFlow v1.26 | Lega Pugliese
   Abre la URL de la task Comp del shot, tomando la informacion del nombre del clip en el track EXR bajo el playhead
   Si no hay clip en playhead, usa el clip seleccionado como fallback
   Verifica si existe más de un shot con el mismo nombre y te pide que selecciones uno
@@ -100,7 +100,7 @@ from LGA_NKS_Flow_NamingUtils import (
 utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
 if utils_path.exists():
     sys.path.insert(0, str(utils_path))
-    from LGA_NKS_GetClip import get_clip_to_process
+    from LGA_NKS_GetClip import get_clips_to_process
     # Sincronizar el debug con el módulo utilitario
     import LGA_NKS_GetClip as clip_utils
     clip_utils.DEBUG = DEBUG
@@ -421,110 +421,102 @@ def threaded_function(clip_info):
 def show_in_flow_from_selected_clip():
     """
     Funcion principal que puede ser llamada desde el panel.
-    Procesa el clip en playhead del track EXR (o seleccionado) y abre la task comp en Flow.
+    Procesa los clips seleccionados en el track EXR (o el clip en playhead) y abre la task comp en Flow.
+    Si hay múltiples clips seleccionados en el track EXR, procesa todos ellos.
     """
-    # Obtener el clip en el hilo principal ANTES de entrar al hilo secundario
-    # Usa el módulo utilitario LGA_NKS_GetClip
-    clip = get_clip_to_process()
+    # Obtener los clips en el hilo principal ANTES de entrar al hilo secundario
+    # Usa prioritize_multiple_selection=True para priorizar múltiples clips seleccionados sobre playhead
+    clips = get_clips_to_process(track_name="EXR", prioritize_multiple_selection=True)
     
-    if not clip:
+    if not clips:
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Warning)
         msg.setWindowTitle("Show in Flow - Error")
-        msg.setText("No se pudo obtener el clip. Verifique que haya un clip en el track EXR bajo el playhead o que haya seleccionado un clip válido.")
+        msg.setText("No se pudo obtener ningún clip. Verifique que haya un clip en el track EXR bajo el playhead o que haya seleccionado clips válidos.")
         msg.exec_()
         return
 
-    # Verificar que el clip tenga media presente
-    if not clip.source().mediaSource().isMediaPresent():
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Warning)
-        msg.setWindowTitle("Show in Flow - Error")
-        msg.setText("El clip no tiene media presente.")
-        msg.exec_()
-        return
+    # Procesar cada clip
+    for clip in clips:
+        # Verificar que el clip tenga media presente
+        if not clip.source().mediaSource().isMediaPresent():
+            debug_print(f"El clip {clip.name()} no tiene media presente. Saltando...")
+            continue
 
-    fileinfos = clip.source().mediaSource().fileinfos()
-    if not fileinfos:
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Warning)
-        msg.setWindowTitle("Show in Flow - Error")
-        msg.setText("No se encontraron fileinfos para el clip.")
-        msg.exec_()
-        return
+        fileinfos = clip.source().mediaSource().fileinfos()
+        if not fileinfos:
+            debug_print(f"No se encontraron fileinfos para el clip {clip.name()}. Saltando...")
+            continue
 
-    # Extraer información del clip en el hilo principal
-    file_path = fileinfos[0].filename()
-    exr_name = os.path.basename(file_path)
-    clip_info = (file_path, exr_name)
+        # Extraer información del clip en el hilo principal
+        file_path = fileinfos[0].filename()
+        exr_name = os.path.basename(file_path)
+        clip_info = (file_path, exr_name)
 
-    # Crear un objeto para almacenar el resultado del hilo
-    result_container = {}
+        # Crear un objeto para almacenar el resultado del hilo
+        result_container = {}
 
-    def run_in_thread():
-        result_container["result"] = threaded_function(clip_info)
+        def run_in_thread():
+            result_container["result"] = threaded_function(clip_info)
 
-    thread = threading.Thread(target=run_in_thread)
-    thread.start()
-    thread.join()  # Esperar a que el hilo termine
+        thread = threading.Thread(target=run_in_thread)
+        thread.start()
+        thread.join()  # Esperar a que el hilo termine
 
-    # Verificar el resultado del hilo
-    result = result_container["result"]
+        # Verificar el resultado del hilo para este clip
+        result = result_container["result"]
 
-    # Si es None, todo fue exitoso
-    if result is None:
-        return
+        # Si es None, todo fue exitoso para este clip, continuar con el siguiente
+        if result is None:
+            continue
 
-    # Si es una tupla con múltiples shots, manejar en el hilo principal
-    if isinstance(result, tuple) and result[0] == "MULTIPLE_SHOTS":
-        shots_with_tasks = result[1]
+        # Si es una tupla con múltiples shots, manejar en el hilo principal
+        if isinstance(result, tuple) and result[0] == "MULTIPLE_SHOTS":
+            shots_with_tasks = result[1]
 
-        # Mostrar dialogo de seleccion en el hilo principal
-        dialog = ShotSelectionDialog(shots_with_tasks)
-        if dialog.exec_() == QDialog.Accepted and dialog.result_value is not None:
-            selected_shot, selected_tasks = shots_with_tasks[dialog.result_value]
-            debug_print(f"Shot seleccionado: {selected_shot['id']}")
+            # Mostrar dialogo de seleccion en el hilo principal
+            dialog = ShotSelectionDialog(shots_with_tasks)
+            if dialog.exec_() == QDialog.Accepted and dialog.result_value is not None:
+                selected_shot, selected_tasks = shots_with_tasks[dialog.result_value]
+                debug_print(f"Shot seleccionado: {selected_shot['id']}")
 
-            # Buscar task Comp y abrir URL
-            url, login, password = get_flow_credentials()
-            if url and login and password:
-                sg_manager = ShotGridManager(url, login, password)
+                # Buscar task Comp y abrir URL
+                url, login, password = get_flow_credentials()
+                if url and login and password:
+                    sg_manager = ShotGridManager(url, login, password)
 
-                # Intentar encontrar task Comp
-                comp_task = None
-                for task in selected_tasks:
-                    if task["content"] == "Comp":
-                        comp_task = task
-                        break
+                    # Intentar encontrar task Comp
+                    comp_task = None
+                    for task in selected_tasks:
+                        if task["content"] == "Comp":
+                            comp_task = task
+                            break
 
-                if comp_task:
-                    # Si hay task Comp, abrir la URL de la task
-                    task_url = sg_manager.get_task_url(comp_task["id"])
-                    debug_print(f"Abriendo URL de la task Comp: {task_url}")
-                    target_url = task_url
-                else:
-                    # Si no hay task Comp, abrir la URL del shot
-                    shot_url = sg_manager.get_shot_url(selected_shot["id"])
-                    debug_print(f"No hay task Comp. Abriendo URL del shot: {shot_url}")
-                    target_url = shot_url
+                    if comp_task:
+                        # Si hay task Comp, abrir la URL de la task
+                        task_url = sg_manager.get_task_url(comp_task["id"])
+                        debug_print(f"Abriendo URL de la task Comp: {task_url}")
+                        target_url = task_url
+                    else:
+                        # Si no hay task Comp, abrir la URL del shot
+                        shot_url = sg_manager.get_shot_url(selected_shot["id"])
+                        debug_print(f"No hay task Comp. Abriendo URL del shot: {shot_url}")
+                        target_url = shot_url
 
-                # Usar la misma lógica que en el flujo normal
-                if use_default_browser:
-                    webbrowser.open(target_url)
-                else:
-                    hiero_ops = HieroOperations(sg_manager)
-                    hiero_ops.open_url_in_browser(target_url)
-                return
-        return
+                    # Usar la misma lógica que en el flujo normal
+                    if use_default_browser:
+                        webbrowser.open(target_url)
+                    else:
+                        hiero_ops = HieroOperations(sg_manager)
+                        hiero_ops.open_url_in_browser(target_url)
+                    continue  # Continuar con el siguiente clip
+            continue  # Continuar con el siguiente clip si se canceló el diálogo
 
-    # Si es un string, es un mensaje de error
-    if isinstance(result, str):
-        # Mostrar el error usando QMessageBox
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Warning)
-        msg.setWindowTitle("Show in Flow - Error")
-        msg.setText(result)
-        msg.exec_()
+        # Si es un string, es un mensaje de error
+        if isinstance(result, str):
+            debug_print(f"Error procesando clip {clip.name()}: {result}")
+            # No mostrar mensaje de error para cada clip, solo loguear
+            continue
 
 
 if __name__ == "__main__":
