@@ -149,7 +149,8 @@ class ShotGridManager:
         except Exception as e:
             debug_print(f"Error buscando versiones para shot_id {shot_id}: {e}")
             return None, None, None
-        comp_versions = [v for v in versions if "_comp_" in v["code"].lower()]
+        # Buscar versiones que contengan _comp_ o _cmp_
+        comp_versions = [v for v in versions if "_comp_" in v["code"].lower() or "_cmp_" in v["code"].lower()]
         if comp_versions:
 
             def safe_version_num(v):
@@ -165,6 +166,60 @@ class ShotGridManager:
                 else None
             )
             return highest_version, version_number, user_id
+        return None, None, None
+
+    def find_specific_version_for_shot(self, shot_id, version_number):
+        """
+        Busca una versión específica por número de versión para un shot.
+        Busca versiones que contengan _comp_ o _cmp_ y que coincidan con el número de versión.
+        
+        Args:
+            shot_id: ID del shot en ShotGrid
+            version_number: Número de versión (ej: 13 para v013)
+            
+        Returns:
+            Tupla (version, version_number_str, user_id) o (None, None, None) si no se encuentra
+        """
+        if not self.sg:
+            debug_print("ShotGrid no inicializado")
+            return None, None, None
+        filters = [["entity", "is", {"type": "Shot", "id": shot_id}]]
+        fields = ["code", "created_at", "user", "sg_status_list", "description"]
+        try:
+            versions = self.sg.find("Version", filters, fields)
+        except Exception as e:
+            debug_print(f"Error buscando versiones para shot_id {shot_id}: {e}")
+            return None, None, None
+        
+        # Buscar versiones que contengan _comp_ o _cmp_ y que coincidan con el número de versión
+        version_pattern = re.compile(r"_v(\d+)", re.IGNORECASE)
+        matching_versions = []
+        
+        for v in versions:
+            code_lower = v["code"].lower()
+            # Verificar que contenga _comp_ o _cmp_
+            if "_comp_" in code_lower or "_cmp_" in code_lower:
+                # Extraer número de versión
+                match = version_pattern.search(v["code"])
+                if match:
+                    v_num = int(match.group(1))
+                    if v_num == version_number:
+                        matching_versions.append(v)
+        
+        if matching_versions:
+            # Si hay múltiples coincidencias, tomar la primera (o podríamos tomar la más reciente)
+            specific_version = matching_versions[0]
+            m = re.search(r"_v(\d+)", specific_version["code"])
+            version_number_str = m.group(1) if m else str(version_number)
+            user_id = (
+                specific_version["user"]["id"]
+                if specific_version.get("user") and specific_version["user"].get("id")
+                else None
+            )
+            debug_print(f"Versión específica encontrada: {specific_version['code']} (ID: {specific_version['id']})")
+            return specific_version, version_number_str, user_id
+        
+        debug_print(f"No se encontró versión específica v{version_number:02d} para shot_id {shot_id}")
         return None, None, None
 
     def update_task_status(self, task_id, new_status):
@@ -504,18 +559,23 @@ def execute_full_push_operation(sg_manager, button_name, base_name, message, rev
         if not task_id:
             return {"success": False, "error": f"No se encontró la tarea {task_name}"}
 
-        # Buscar versión más alta y actualizar estados
-        sg_highest_version, sg_version_number, user_id = sg_manager.find_highest_version_for_shot(shot["id"])
+        # Buscar versión específica correspondiente al clip actual para agregar comentarios
+        sg_specific_version, sg_version_number_str, user_id = sg_manager.find_specific_version_for_shot(shot["id"], version_number)
+        
+        # Si no se encuentra la versión específica, intentar con la más alta como fallback
+        if not sg_specific_version:
+            debug_print(f"No se encontró versión específica v{version_number:02d}, usando versión más alta como fallback")
+            sg_specific_version, sg_version_number_str, user_id = sg_manager.find_highest_version_for_shot(shot["id"])
 
         if sg_status in ["rev_di", "corr", "revleg", "revjav"]:
             debug_print(f"Actualizando versión a vwd")
             sg_manager.update_version_status(project_name, shot_code, version_number_str, "vwd")
 
-            # Agregar comentario si hay mensaje
-            if message and sg_highest_version:
-                debug_print(f"Agregando comentario a versión {sg_highest_version['id']}")
+            # Agregar comentario si hay mensaje - usar la versión específica, no la más alta
+            if message and sg_specific_version:
+                debug_print(f"Agregando comentario a versión específica {sg_specific_version['id']} (v{version_number:02d})")
                 created_note = sg_manager.add_comment_to_version(
-                    sg_highest_version["id"], project["id"], message,
+                    sg_specific_version["id"], project["id"], message,
                     user_id, task_assignee_id, shot["id"]
                 )
 
@@ -523,7 +583,7 @@ def execute_full_push_operation(sg_manager, button_name, base_name, message, rev
                 if created_note and review_images:
                     debug_print(f"=== execute_full_push: Iniciando envío de imágenes ===")
                     debug_print(f"execute_full_push: Nota creada con ID: {created_note['id']}")
-                    debug_print(f"execute_full_push: Versión ID: {sg_highest_version['id']}")
+                    debug_print(f"execute_full_push: Versión ID: {sg_specific_version['id']}")
                     debug_print(f"execute_full_push: Total de imágenes a adjuntar: {len(review_images)}")
                     debug_print(f"execute_full_push: Lista de imágenes a enviar:")
                     for idx, img_path in enumerate(review_images, 1):
@@ -532,7 +592,7 @@ def execute_full_push_operation(sg_manager, button_name, base_name, message, rev
                             debug_print(f"  ⚠️  ADVERTENCIA: La imagen [{idx}] NO EXISTE: {img_path}")
                     
                     attach_result = sg_manager.attach_images_to_note(
-                        created_note["id"], sg_highest_version["id"], review_images
+                        created_note["id"], sg_specific_version["id"], review_images
                     )
                     debug_print(f"execute_full_push: Resultado de attach_images_to_note: {attach_result} imágenes adjuntadas")
                     # Retornar información sobre imágenes adjuntadas en el resultado

@@ -12,9 +12,38 @@ Su propósito principal es mantener sincronizada la información entre ShotGrid 
 *   **Arquitectura Optimizada:** Separa UI (Hiero/Nuke) de operaciones de red (Python personalizado) para evitar conflictos de dependencias y mejorar rendimiento.
 *   **Actualización de Estados en ShotGrid:** Permite cambiar el estado de las tareas de Nuke/Hiero en ShotGrid mediante operaciones optimizadas que minimizan llamadas de red.
 *   **Sincronización con Base de Datos Local:** Mantiene una base de datos SQLite local (`pipesync.db`) sincronizada con los cambios realizados en ShotGrid.
+*   **Verificación de Versiones del Timeline:** Antes de abrir el diálogo de notas, verifica si la versión actual del clip seleccionado es la más alta disponible en el timeline. Si no lo es, muestra un diálogo de advertencia permitiendo continuar o cancelar la operación.
 *   **Gestión de Versiones Asíncrona:** Identifica versiones y realiza verificaciones sin congelar la interfaz de usuario.
 *   **Notas para Versiones:** En ciertos estados específicos, abre un diálogo para introducir comentarios que se envían a ShotGrid con adjuntos visuales.
 *   **Integración con ReviewPic:** El diálogo incluye thumbnails de imágenes capturadas, adjuntándolas automáticamente a las notas en ShotGrid.
+
+## Búsqueda de Versiones en Flow:
+
+El sistema **NO compara nombres completos de versiones**. Utiliza una estrategia basada en relaciones de ShotGrid:
+
+1. **Extracción del Shot Code:** Del nombre del clip extrae `project_name` y `shot_code`.
+2. **Búsqueda del Shot:** Busca el shot usando `shot_code` en el proyecto correspondiente y obtiene el `shot_id`.
+3. **Búsqueda de Versiones:** Busca **TODAS las versiones** asociadas a ese `shot_id`, incluyendo EXRs, MOVs renombrados y cualquier otro tipo de versión vinculada al mismo shot.
+4. **Filtrado:** Filtra versiones que contengan `_comp_` o `_cmp_` en su código.
+5. **Selección de Versión:**
+   - **Para comentarios:** Selecciona la versión específica correspondiente al número de versión del clip actual.
+   - **Para otras operaciones:** Selecciona la versión numérica más alta entre todas las encontradas.
+
+**Ejemplo:** Si el clip es `LC_1021_050_Beauty_Senora_comp_v013` y en Flow existe un MOV renombrado como `LC_101_WAN_021_050_comp_v013` vinculado al mismo shot, el sistema encontrará y usará la versión correcta aunque los nombres no coincidan completamente.
+
+## Verificación de Versiones del Timeline:
+
+Antes de abrir el diálogo de notas, el sistema verifica automáticamente si la versión actual del clip seleccionado es la más alta disponible en el timeline:
+
+1. **Obtención de Versiones:** Usa la API de Hiero para obtener todas las versiones disponibles del clip seleccionado mediante `binItem.items()`.
+2. **Detección de Versión Actual:** Identifica la versión activa usando `activeVersion()` del binItem.
+3. **Comparación:** Compara la versión actual con la versión más alta disponible.
+4. **Diálogo de Advertencia:** Si la versión actual no es la más alta, muestra un diálogo (`PushVersionDialog`) que:
+   - Muestra la versión actual y la versión más alta disponible
+   - Lista todas las versiones disponibles en el timeline
+   - Permite continuar con el push de la versión actual o cancelar la operación
+   - Si el usuario cierra el diálogo sin confirmar, la operación se cancela completamente
+5. **Prevención de Errores:** Esta verificación ocurre ANTES del diálogo de notas, evitando que el usuario escriba comentarios para luego descubrir que estaba trabajando con una versión antigua.
 
 ## Estados que Solicitan una Nota:
 
@@ -62,14 +91,19 @@ Cuando se abre el diálogo para introducir notas, el script automáticamente:
 ### Funciones Clave:
 
 **En `LGA_NKS_Flow/LGA_NKS_Flow_Push.py`:**
-- **`Push_Task_Status()`**: Función principal que inicia el proceso de actualización de estados
+- **`Push_Task_Status()`**: Función principal que inicia el proceso de actualización de estados. Verifica versiones del timeline antes de abrir el diálogo de notas.
+- **`get_clip_versions_from_timeline()`**: Obtiene todas las versiones disponibles del clip seleccionado usando la API de Hiero, detecta la versión actual y encuentra la versión más alta.
+- **`extract_version_number_from_string()`**: Extrae el número de versión de nombres de archivos usando el patrón `_v\d+`.
+- **`PushVersionDialog`**: Diálogo personalizado que muestra advertencia cuando la versión actual no es la más alta, permitiendo continuar o cancelar.
 - **`call_flow_connector()`**: Puente que comunica con el conector externo de forma asíncrona
-- **`handle_version_check_result()`**: Maneja confirmaciones de versión del usuario
+- **`handle_version_check_result()`**: Maneja confirmaciones de versión del usuario para verificaciones asíncronas con Flow
 - **`find_review_images()`**: Localiza imágenes en `LGA_NKS_Flow/ReviewPic_Cache/`
 - **`delete_single_image()`**: Borra una imagen individual del disco y la remueve de la UI y de la lista de imágenes a subir
 
 **En `LGA_NKS_Flow/LGA_NKS_Flow_Push_connector.py`:**
 - **`execute_full_push_operation()`**: Operación completa que actualiza estado, versión y comentarios en una sola llamada
+- **`find_specific_version_for_shot()`**: Busca la versión específica correspondiente al número de versión del clip actual para agregar comentarios
+- **`find_highest_version_for_shot()`**: Busca la versión más alta disponible para otras operaciones
 - **`execute_flow_operation()`**: Dispatcher principal para todas las operaciones de red
 - **`attach_images_to_note()`**: Sube imágenes a ShotGrid con números de frame
 

@@ -1,7 +1,7 @@
 """
 _____________________________________________________________
 
-  LGA_NKS_Flow_Push v3.90 | Lega
+  LGA_NKS_Flow_Push v3.91 | Lega
 
   Envia a flow nuevos estados de las tasks comps.
   En algunos estados permite enviar un mensaje a la version
@@ -16,6 +16,7 @@ _____________________________________________________________
   v3.88: Fix timeout + detección correcta de shot_code con base_name sin versión
   v3.87: Logs detallados de envío de imágenes + Fix extracción de versión
   v3.90: Verifica si la version actual es la más alta y muestra un dialogo de advertencia si no lo es
+  v3.91: Elimina la verificación de versiones con Flow duplicada en el Worker y envía comentarios a la version correcta del clip
 _____________________________________________________________
 
 """
@@ -80,7 +81,7 @@ status_translation = {
 }
 
 # Variable global para activar o desactivar los prints // En esta version el Debug se imprime al final del script
-DEBUG = False
+DEBUG = True
 DEBUG_RESUMEN = True
 debug_messages = []
 resumen_messages = []
@@ -979,23 +980,9 @@ class Worker(QRunnable):
         try:
             debug_print(f"Worker: Iniciando operación {self.button_name} para {self.base_name}")
 
-            # PRIMERO: Verificar versiones de forma asíncrona (a menos que se indique saltar)
-            skip_check = getattr(self, 'skip_version_check', False)
-
-            if not skip_check:
-                version_check = call_flow_connector("check_version", base_name=self.base_name, original_file_name=self.original_file_name)
-
-                if version_check["success"] and version_check["needs_confirmation"]:
-                    # Emitir señal para que el hilo principal muestre el diálogo
-                    debug_print("Worker: Se necesita confirmación del usuario para versiones")
-                    self.signals.version_check_result.emit(version_check)
-                    # El Worker terminará aquí, el hilo principal continuará cuando el usuario confirme
-                    return
-
-                # Si no necesita confirmación, continuar con la operación normal
-                debug_print("Worker: No se necesita confirmación, procediendo con la operación")
-            else:
-                debug_print("Worker: Saltando verificación de versiones (ya confirmada por usuario)")
+            # La verificación de versiones ya se hizo en el timeline antes de crear el Worker
+            # No es necesario hacer otra verificación con Flow aquí (era redundante)
+            debug_print("Worker: Verificación de versiones ya realizada en timeline, procediendo con push")
 
             # Usar la operación optimizada que hace todo en una sola llamada
             debug_print(f"=== Worker: Preparando envío de imágenes ===")
