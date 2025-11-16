@@ -1,7 +1,7 @@
 """
 _____________________________________________________________
 
-  LGA_NKS_Flow_Push v3.88 | Lega
+  LGA_NKS_Flow_Push v3.89 | Lega
 
   Envia a flow nuevos estados de las tasks comps.
   En algunos estados permite enviar un mensaje a la version
@@ -12,6 +12,7 @@ _____________________________________________________________
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
   
+  v3.89: Sistema de resumen con DEBUG_RESUMEN para mostrar solo información esencial
   v3.88: Fix timeout + detección correcta de shot_code con base_name sin versión
   v3.87: Logs detallados de envío de imágenes + Fix extracción de versión
 _____________________________________________________________
@@ -77,12 +78,20 @@ status_translation = {
 
 # Variable global para activar o desactivar los prints // En esta version el Debug se imprime al final del script
 DEBUG = True
+DEBUG_RESUMEN = True
 debug_messages = []
+resumen_messages = []
 
 
 def debug_print(message):
     if DEBUG:
         debug_messages.append(message)
+
+
+def debug_resumen_print(message):
+    """Imprime mensajes de resumen que se mostrarán al final"""
+    if DEBUG_RESUMEN:
+        resumen_messages.append(message)
 
 def call_flow_connector(operation, **kwargs):
     """
@@ -937,6 +946,7 @@ class WorkerSignals(QObject):
     task_finished = Signal(bool)  # Ahora incluye el estado de exito
     debug_output = Signal()  # Nueva señal para imprimir logs
     version_check_result = Signal(dict)  # Nueva señal para resultado de verificación de versiones
+    resumen_output = Signal()  # Nueva señal para imprimir resumen
 
 
 class Worker(QRunnable):
@@ -1003,22 +1013,35 @@ class Worker(QRunnable):
                                        review_images=self.review_images,
                                        original_file_name=getattr(self, 'original_file_name', None))
 
+            # Capturar información para el resumen
+            images_total = len(self.review_images)
+            images_attached = 0
+            error_message = None
+            
             if result["success"]:
                 debug_print("Worker: Operación de red completada exitosamente")
                 # Verificar si hay información sobre imágenes adjuntadas en el resultado
                 if "images_attached" in result:
-                    debug_print(f"Worker: Imágenes adjuntadas según Flow: {result['images_attached']} de {len(self.review_images)} enviadas")
+                    images_attached = result['images_attached']
+                    debug_print(f"Worker: Imágenes adjuntadas según Flow: {images_attached} de {images_total} enviadas")
                 success = True
 
                 # Si fue exitoso, actualizar también la base de datos local
                 self.update_local_database(db_manager)
             else:
-                debug_print(f"Worker: Error en operación de red: {result.get('error', 'Unknown error')}")
+                error_message = result.get('error', 'Unknown error')
+                debug_print(f"Worker: Error en operación de red: {error_message}")
                 success = False
+            
+            # Generar resumen
+            self.generate_resumen(success, images_total, images_attached, error_message)
 
         except Exception as e:
             debug_print(f"Worker: Exception in Worker.run: {e}")
             success = False
+            # Generar resumen incluso en caso de excepción
+            images_total = len(self.review_images)
+            self.generate_resumen(success, images_total, 0, f"Excepción: {str(e)}")
         finally:
             # Cerrar la conexión a la base de datos
             if db_manager:
@@ -1033,6 +1056,7 @@ class Worker(QRunnable):
 
             self.signals.task_finished.emit(success)
             self.signals.debug_output.emit()  # Emitir señal al finalizar
+            self.signals.resumen_output.emit()  # Emitir señal para imprimir resumen
 
     def continue_after_version_check(self):
         """Método para continuar la operación después de que el usuario confirme la versión"""
@@ -1052,6 +1076,7 @@ class Worker(QRunnable):
         new_worker.signals.result_ready.connect(self.signals.result_ready)
         new_worker.signals.task_finished.connect(self.signals.task_finished)
         new_worker.signals.debug_output.connect(self.signals.debug_output)
+        new_worker.signals.resumen_output.connect(self.signals.resumen_output)
         new_worker.signals.version_check_result.connect(self.signals.version_check_result)
 
         # Marcar que debe saltar la verificación de versiones
@@ -1142,6 +1167,35 @@ class Worker(QRunnable):
 
         except Exception as e:
             debug_print(f"Worker: Error actualizando base de datos local: {e}")
+
+    def generate_resumen(self, success, images_total, images_attached, error_message):
+        """Genera un resumen del proceso de push"""
+        debug_resumen_print("=" * 70)
+        debug_resumen_print("RESUMEN DEL PUSH")
+        debug_resumen_print("=" * 70)
+        debug_resumen_print(f"Shot: {self.base_name}")
+        debug_resumen_print(f"Estado: {self.button_name}")
+        
+        if success:
+            debug_resumen_print("✅ RESULTADO: ÉXITO")
+        else:
+            debug_resumen_print("❌ RESULTADO: ERROR")
+            if error_message:
+                debug_resumen_print(f"   Error: {error_message}")
+        
+        debug_resumen_print("")
+        debug_resumen_print("IMÁGENES:")
+        debug_resumen_print(f"   Total encontradas: {images_total}")
+        if images_total > 0:
+            debug_resumen_print(f"   Subidas exitosamente: {images_attached}")
+            if images_attached < images_total:
+                debug_resumen_print(f"   ⚠️  FALLIDAS: {images_total - images_attached}")
+            elif images_attached == images_total:
+                debug_resumen_print(f"   ✅ Todas las imágenes se subieron correctamente")
+        else:
+            debug_resumen_print("   No había imágenes para enviar")
+        
+        debug_resumen_print("=" * 70)
 
 
 class MessageBoxManager:
@@ -1290,7 +1344,26 @@ def Push_Task_Status(button_name, base_name, update_callback=None, original_file
         message = input_dialog.get_text()
         if message is None:
             # Operación cancelada por el usuario al cerrar el diálogo de comentarios
+            debug_print("Usuario canceló la operación cerrando el diálogo")
+            # Generar resumen de cancelación
+            debug_resumen_print("=" * 70)
+            debug_resumen_print("RESUMEN DEL PUSH")
+            debug_resumen_print("=" * 70)
+            debug_resumen_print(f"Shot: {base_name}")
+            debug_resumen_print(f"Estado: {button_name}")
+            debug_resumen_print("⚠️  RESULTADO: OPERACIÓN CANCELADA")
+            debug_resumen_print("")
+            debug_resumen_print("El usuario cerró el diálogo sin confirmar.")
+            debug_resumen_print("Ningún cambio se aplicó en Flow.")
+            debug_resumen_print("Todo permanece como estaba antes de ejecutar el script.")
+            debug_resumen_print("")
+            images_found = len(input_dialog.get_review_images()) if hasattr(input_dialog, 'get_review_images') else 0
+            debug_resumen_print("IMÁGENES:")
+            debug_resumen_print(f"   Total encontradas: {images_found}")
+            debug_resumen_print("   No se enviaron (operación cancelada)")
+            debug_resumen_print("=" * 70)
             print_debug_messages()  # Imprimir logs si el usuario cancela
+            print_resumen()  # Imprimir resumen de cancelación
             return False
 
         # Obtener información adicional del diálogo
@@ -1314,6 +1387,7 @@ def Push_Task_Status(button_name, base_name, update_callback=None, original_file
         # Conectar señales
         worker.signals.result_ready.connect(handle_results)
         worker.signals.debug_output.connect(lambda: print_debug_messages())
+        worker.signals.resumen_output.connect(lambda: print_resumen())
         worker.signals.version_check_result.connect(
             lambda result: handle_version_check_result(result, worker, update_callback)
         )
@@ -1324,6 +1398,7 @@ def Push_Task_Status(button_name, base_name, update_callback=None, original_file
         worker = Worker(button_name, base_name, None, [], False, original_file_name)
         worker.signals.result_ready.connect(handle_results)
         worker.signals.debug_output.connect(lambda: print_debug_messages())
+        worker.signals.resumen_output.connect(lambda: print_resumen())
         worker.signals.version_check_result.connect(
             lambda result: handle_version_check_result(result, worker, update_callback)
         )
@@ -1338,6 +1413,13 @@ def print_debug_messages():
     if DEBUG:
         print("\n".join(debug_messages))
         debug_messages.clear()  # Limpiar mensajes después de imprimir
+
+
+def print_resumen():
+    """Imprime el resumen del push"""
+    if DEBUG_RESUMEN and resumen_messages:
+        print("\n".join(resumen_messages))
+        resumen_messages.clear()  # Limpiar mensajes después de imprimir
 
 
 msg_manager = MessageBoxManager()
