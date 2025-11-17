@@ -5,7 +5,7 @@
 Este script posiciona un elemento de texto (box) en el viewer de Hiero. El elemento debe estar en un track llamado "BurnIn" y debe llamarse "Frame_Only". El script puede funcionar en dos modos:
 
 - **Modo Absoluto**: La posición del box se calcula basándose en las dimensiones completas de la imagen, sin importar el nivel de zoom o pan del viewer.
-- **Modo Relativo**: La posición del box se calcula basándose en el área visible del viewer, considerando el zoom y el pan. El box se posiciona a 30px del borde izquierdo del área visible y centrado verticalmente.
+- **Modo Relativo**: La posición del box se calcula basándose en el área visible del viewer, considerando el zoom y el pan. El box se posiciona a 30px del borde izquierdo y a 30px del bottom del área visible.
 
 ## Configuración
 
@@ -41,8 +41,12 @@ pan_y = translation.y()  # Offset Y del área visible
 - ✅ Obtener el zoom del player: `player.zoom()` funciona correctamente
 - ✅ Obtener el pan del viewer: `player.translation()` devuelve el pan como `QPointF`
 - ✅ Calcular el área visible basándose en el zoom, aspect ratio y pan
-- ✅ Posicionar el box correctamente en modo relativo considerando el pan
+- ✅ Posicionar el box correctamente en modo relativo considerando el pan horizontal (X)
 - ✅ Validar que el box no se salga de los límites de la imagen
+
+### ⚠️ Problemas Conocidos
+
+- **Posicionamiento vertical (Y) no funciona correctamente**: El box se posiciona incorrectamente en el eje vertical. Aunque el código intenta alinearlo al bottom del área visible con un margen de 30px, el box aparece siempre en la parte superior con un gran margen desde arriba, en lugar de estar en la parte inferior. La causa de este problema aún no se ha identificado. El cálculo del área visible y el pan vertical parecen estar funcionando, pero la conversión a coordenadas de imagen o el cálculo del offset Y puede estar incorrecto o invertido.
 
 ### Historia del Problema (Resuelto)
 
@@ -128,7 +132,7 @@ pan_y = translation.y()  # Offset Y
 
 ## Versión
 
-v0.53 - Solución encontrada: `player.translation()` devuelve el pan del viewer
+v0.54 - Cambio de posicionamiento vertical: de centrado a alineado al bottom (con margen de 30px). **Nota**: El posicionamiento vertical actualmente no funciona correctamente - el box aparece siempre arriba en lugar de abajo.
 
 ## Autor
 

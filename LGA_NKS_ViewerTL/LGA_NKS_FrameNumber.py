@@ -1,9 +1,9 @@
 """
 ______________________________________________________
 
-  LGA_NKS_FrameNumber v0.53 | Lega
+  LGA_NKS_FrameNumber v0.54 | Lega
   Busca el clip 'Frame_Only' en el track 'BurnIn' y posiciona el box
-  alineado a la izquierda con 30px de margen y centrado verticalmente
+  alineado a la izquierda y al bottom con 30px de margen
 ______________________________________________________
 
 """
@@ -269,22 +269,52 @@ def print_box_values():
                         debug_print(f"      Pan Y (viewer): {pan_y_viewer:.2f}")
                         
                         # Convertir pan del viewer a coordenadas de imagen
-                        # El pan del viewer representa el desplazamiento del área visible
-                        # IMPORTANTE: El signo está invertido - pan positivo significa ver más a la izquierda
-                        # Necesitamos calcular dónde empieza el área visible en coordenadas de imagen
+                        # CORRECCIÓN CRÍTICA: El viewer usa coordenadas Qt (Y=0 arriba) pero Hiero/Nuke usa Y=0 abajo
+                        # 
+                        # Para X: ambos sistemas coinciden (X=0 izquierda) -> pan_x_image = pan_x_viewer / zoom
+                        # Para Y: los sistemas están invertidos -> pan_y_image = -pan_y_viewer / zoom
+                        # 
+                        # Cuando pan Y del viewer es negativo (pan hacia arriba en Qt), 
+                        # en Hiero (Y=0 abajo) significa que vemos la parte superior (Y más alto)
+                        # Por eso necesitamos invertir el signo ANTES de escalar por zoom
+                        
+                        # Escalar el pan por el zoom para convertir a coordenadas de imagen
+                        pan_x_image = pan_x_viewer / zoom if zoom > 0 else pan_x_viewer
+                        pan_y_image = -pan_y_viewer / zoom if zoom > 0 else -pan_y_viewer  # INVERTIR para convertir de Qt a Hiero
+                        
+                        if abs(zoom - 1.0) < 0.0001:
+                            debug_print(f"   📐 Zoom = 1.0: escalando pan por zoom (factor 1.0)")
+                        else:
+                            debug_print(f"   📐 Zoom != 1.0 ({zoom:.6f}): escalando pan por zoom")
+                        
+                        debug_print(f"      Pan X (viewer): {pan_x_viewer:.2f} -> (imagen): {pan_x_image:.2f}")
+                        debug_print(f"      Pan Y (viewer): {pan_y_viewer:.2f} -> (imagen INVERTIDO): {pan_y_image:.2f}")
                         
                         # Calcular el centro de la imagen
                         image_center_x = image_width / 2
                         image_center_y = image_height / 2
                         
-                        # El pan del viewer está invertido: pan positivo = ver más a la izquierda
-                        # Por lo tanto, restamos el pan para obtener el centro del área visible
-                        visible_center_x = image_center_x - pan_x_viewer
-                        visible_center_y = image_center_y - pan_y_viewer
+                        # IMPORTANTE: player.translation() devuelve el pan en coordenadas del viewer/widget
+                        # El pan representa el desplazamiento del área visible desde el centro
+                        # Pan positivo en X = ver más a la izquierda (área visible se mueve a la izquierda)
+                        # Pan positivo en Y (en Hiero) = ver más arriba (área visible se mueve hacia arriba)
+                        # 
+                        # Ya invertimos el pan Y al convertir de coordenadas Qt a Hiero
+                        visible_center_x = image_center_x - pan_x_image
+                        visible_center_y = image_center_y - pan_y_image
                         
-                        # Calcular el offset del área visible (esquina superior izquierda)
+                        # Calcular el offset del área visible (esquina inferior izquierda en Hiero: bottom-left)
                         visible_x_offset = visible_center_x - (visible_width_in_image / 2)
                         visible_y_offset = visible_center_y - (visible_height_in_image / 2)
+                        
+                        # DEBUG: Verificar el cálculo
+                        debug_print(f"   🔍 Debug cálculo área visible:")
+                        debug_print(f"      Centro imagen Y: {image_center_y:.2f}")
+                        debug_print(f"      Pan Y (imagen, ya invertido Qt->Hiero): {pan_y_image:.2f}")
+                        debug_print(f"      Centro área visible Y: {visible_center_y:.2f}")
+                        debug_print(f"      Alto visible: {visible_height_in_image:.2f}")
+                        debug_print(f"      Offset Y calculado: {visible_y_offset:.2f}")
+                        debug_print(f"      Bottom calculado: {visible_y_offset + visible_height_in_image:.2f}")
                         
                         debug_print(f"   📐 Conversión a coordenadas de imagen:")
                         debug_print(f"      Centro imagen: ({image_center_x:.2f}, {image_center_y:.2f})")
@@ -430,8 +460,9 @@ def print_box_values():
             debug_print(f"\n🎯 Centro del viewer:")
             debug_print(f"   Centro: ({viewer_center_x}, {viewer_center_y})")
             
-            # Configuración: alineado a la izquierda con 30px del borde, centrado en Y
+            # Configuración: alineado a la izquierda y al bottom con 30px de margen
             LEFT_MARGIN = 30
+            BOTTOM_MARGIN = 30
             
             # Calcular nuevos valores según el modo
             if USE_ABSOLUTE_POSITION:
@@ -439,20 +470,23 @@ def print_box_values():
                 new_x = LEFT_MARGIN
                 new_r = new_x + box_width
                 
-                # Centrar verticalmente en la imagen completa
-                new_box_center_y = viewer_center_y
-                new_y = new_box_center_y - (box_height / 2)
-                new_t = new_box_center_y + (box_height / 2)
+                # CORRECCIÓN CRÍTICA: En Hiero/Nuke, Y=0 es el BOTTOM de la imagen, no el TOP
+                # Alinear al bottom de la imagen completa con margen
+                new_y = BOTTOM_MARGIN  # Bottom del box a 30px del bottom de la imagen
+                new_t = new_y + box_height  # Top del box
             else:
                 # Modo relativo: posición basada en el área visible
                 # El punto cero es el pixel más a la izquierda visible
                 new_x = visible_x_offset + LEFT_MARGIN
                 new_r = new_x + box_width
                 
-                # Centrar verticalmente en el área visible
-                new_box_center_y = visible_y_offset + viewer_center_y
-                new_y = new_box_center_y - (box_height / 2)
-                new_t = new_box_center_y + (box_height / 2)
+                # CORRECCIÓN CRÍTICA: En Hiero/Nuke, Y=0 es el BOTTOM de la imagen, no el TOP
+                # Por lo tanto, para alinear al bottom con margen, necesitamos:
+                # - El BOTTOM del box (Y) debe estar a BOTTOM_MARGIN del bottom del área visible
+                # - El TOP del box (T) debe estar a Y + box_height
+                # Alinear al bottom del área visible con margen
+                new_y = visible_y_offset + BOTTOM_MARGIN  # Bottom del box a 30px del bottom del área visible
+                new_t = new_y + box_height  # Top del box
                 
                 # Asegurar que el box quede dentro del área visible
                 # Si el box se sale por la derecha del área visible, ajustarlo
@@ -467,25 +501,46 @@ def print_box_values():
                 if new_x < visible_x_offset:
                     new_x = visible_x_offset + LEFT_MARGIN
                     new_r = new_x + box_width
+                
+                # CORRECCIÓN: Ahora Y es el bottom, T es el top
+                # Si el box se sale por el top del área visible (T > visible_top), ajustarlo
+                visible_top = visible_y_offset + visible_height
+                if new_t > visible_top:
+                    # Mover el box hacia abajo (disminuir Y y T) para que quepa
+                    offset = new_t - visible_top
+                    new_t = visible_top
+                    new_y = new_t - box_height
+                    # Si ahora se sale por el bottom, ajustar también
+                    if new_y < visible_y_offset:
+                        new_y = visible_y_offset + BOTTOM_MARGIN
+                        new_t = new_y + box_height
+                
+                # Si el box se sale por el bottom del área visible (Y < visible_y_offset), ajustarlo
+                if new_y < visible_y_offset:
+                    new_y = visible_y_offset + BOTTOM_MARGIN
+                    new_t = new_y + box_height
             
             # Asegurar que el box no se salga de los límites de la imagen
             # Limitar a los bordes de la imagen completa
+            # CORRECCIÓN: Ahora Y es el bottom (Y=0 es el bottom de la imagen, Y=image_height es el top)
             if new_x < 0:
                 offset = 0 - new_x
                 new_x = 0
                 new_r += offset
             if new_y < 0:
+                # Y no puede ser menor que 0 (bottom de la imagen)
                 offset = 0 - new_y
                 new_y = 0
-                new_t += offset
+                new_t = new_y + box_height
             if new_r > image_width:
                 offset = new_r - image_width
                 new_r = image_width
                 new_x = max(0, new_x - offset)
             if new_t > image_height:
+                # T no puede ser mayor que image_height (top de la imagen)
                 offset = new_t - image_height
                 new_t = image_height
-                new_y = max(0, new_y - offset)
+                new_y = new_t - box_height
             
             # Calcular desplazamiento para información de debug
             offset_x = new_x - x
@@ -494,15 +549,17 @@ def print_box_values():
             debug_print(f"\n📐 Configuración:")
             debug_print(f"   Modo: {'ABSOLUTO' if USE_ABSOLUTE_POSITION else 'RELATIVO'}")
             debug_print(f"   Margen izquierdo: {LEFT_MARGIN}px")
-            debug_print(f"   Centrado verticalmente: Sí")
+            debug_print(f"   Margen inferior: {BOTTOM_MARGIN}px")
+            debug_print(f"   Alineado al bottom: Sí")
             if not USE_ABSOLUTE_POSITION:
                 debug_print(f"   Punto cero: pixel más a la izquierda visible ({visible_x_offset})")
+                debug_print(f"   Bottom del área visible: {visible_y_offset + visible_height:.2f}")
             debug_print(f"\n📐 Desplazamiento necesario:")
             debug_print(f"   Offset X: {offset_x}")
             debug_print(f"   Offset Y: {offset_y}")
             
             debug_print(f"\n" + "=" * 60)
-            debug_print(f"Valores NUEVOS de 'box' (alineado izquierda, centrado Y):")
+            debug_print(f"Valores NUEVOS de 'box' (alineado izquierda y bottom):")
             debug_print("=" * 60)
             debug_print(f"x: {new_x}")
             debug_print(f"y: {new_y}")
@@ -522,9 +579,13 @@ def print_box_values():
             debug_print(f"   Nuevo centro: ({new_box_center_x}, {new_box_center_y})")
             if USE_ABSOLUTE_POSITION:
                 debug_print(f"   Posición X: {new_x}px desde el borde izquierdo de la imagen (objetivo: {LEFT_MARGIN}px)")
+                debug_print(f"   Posición Y (bottom del box): {new_y}px desde el bottom de la imagen (objetivo: {BOTTOM_MARGIN}px)")
+                debug_print(f"   Posición T (top del box): {new_t}px")
             else:
-                debug_print(f"   Posición X: {new_x}px desde el origen de la imagen ({new_x - visible_x_offset}px desde el borde visible)")
-            debug_print(f"   Centrado verticalmente: {abs(new_box_center_y - (visible_y_offset + viewer_center_y if not USE_ABSOLUTE_POSITION else viewer_center_y)) < 0.01}")
+                debug_print(f"   Posición X: {new_x}px desde el origen de la imagen ({new_x - visible_x_offset:.2f}px desde el borde visible)")
+                debug_print(f"   Posición Y (bottom del box): {new_y}px desde el bottom del área visible (offset: {visible_y_offset}, margen: {BOTTOM_MARGIN}, objetivo: {visible_y_offset + BOTTOM_MARGIN:.2f}px)")
+                debug_print(f"   Posición T (top del box): {new_t}px")
+            debug_print(f"   Alineado al bottom: {abs(new_y - (visible_y_offset + BOTTOM_MARGIN if not USE_ABSOLUTE_POSITION else BOTTOM_MARGIN)) < 0.01}")
             debug_print(f"   Dentro de límites de imagen: {new_x >= 0 and new_y >= 0 and new_r <= image_width and new_t <= image_height}")
             
             # Aplicar los nuevos valores
@@ -533,7 +594,7 @@ def print_box_values():
                 node['box'].setValue(new_box_value)
                 debug_print(f"\n✅ Box posicionado y actualizado correctamente!")
                 debug_print(f"   - Alineado a la izquierda con {LEFT_MARGIN}px de margen")
-                debug_print(f"   - Centrado verticalmente en Y")
+                debug_print(f"   - Alineado al bottom con {BOTTOM_MARGIN}px de margen")
             except Exception as e:
                 debug_print(f"\n❌ Error al actualizar el box: {e}")
         else:
