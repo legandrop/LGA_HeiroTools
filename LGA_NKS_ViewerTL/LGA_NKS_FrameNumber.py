@@ -1,7 +1,7 @@
 """
 ______________________________________________________
 
-  LGA_NKS_FrameNumber v0.51 | Lega
+  LGA_NKS_FrameNumber v0.53 | Lega
   Busca el clip 'Frame_Only' en el track 'BurnIn' y posiciona el box
   alineado a la izquierda con 30px de margen y centrado verticalmente
 ______________________________________________________
@@ -18,6 +18,11 @@ import hiero.ui
 TRACK_NAME = "BurnIn"
 CLIP_NAME = "Frame_Only"
 DEBUG = True  # Activar para ver información de depuración
+
+# Modo de posicionamiento:
+# True = Absoluto: posición basada en las dimensiones completas de la imagen (sin importar zoom/pan)
+# False = Relativo: posición basada en el área visible del viewer (considera zoom y pan)
+USE_ABSOLUTE_POSITION = False
 
 # ============================
 # Funciones Auxiliares
@@ -167,18 +172,226 @@ def print_box_values():
     qimage = viewer.image()
     if qimage:
         debug_print(f"\n📐 Información del viewer:")
-        debug_print(f"   Imagen del viewer: {qimage.width()} × {qimage.height()}")
+        debug_print(f"   Imagen visible del viewer: {qimage.width()} × {qimage.height()}")
     else:
         debug_print("⚠️ No se pudo obtener la imagen del viewer")
     
     # Obtener formato de la secuencia (ya tenemos seq desde el inicio)
     format_obj = seq.format()
-    viewer_width = format_obj.width()
-    viewer_height = format_obj.height()
+    image_width = format_obj.width()  # Ancho completo de la imagen
+    image_height = format_obj.height()  # Alto completo de la imagen
     
     debug_print(f"\n📐 Información de la secuencia:")
-    debug_print(f"   Formato de la secuencia: {viewer_width} × {viewer_height}")
-    debug_print(f"   Centro del viewer: ({viewer_width/2}, {viewer_height/2})")
+    debug_print(f"   Formato completo de la imagen: {image_width} × {image_height}")
+    
+    # Calcular área visible y transform si estamos en modo relativo
+    visible_x_offset = 0
+    visible_y_offset = 0
+    visible_width = image_width
+    visible_height = image_height
+    
+    if not USE_ABSOLUTE_POSITION:
+        # Modo relativo: calcular el área visible basándose en el zoom del player
+        if qimage:
+            viewer_width = qimage.width()
+            viewer_height = qimage.height()
+            
+            # Calcular el offset del área visible usando el zoom del player
+            visible_x_offset = 0
+            visible_y_offset = 0
+            
+            try:
+                # Obtener el zoom del player (esto sí funciona)
+                player = viewer.player()
+                if player:
+                    zoom = player.zoom()
+                    debug_print(f"   Zoom del player: {zoom:.6f}")
+                    
+                    # Calcular aspect ratios
+                    image_aspect = image_width / image_height if image_height > 0 else 1.0
+                    viewer_aspect = viewer_width / viewer_height if viewer_height > 0 else 1.0
+                    
+                    debug_print(f"   Aspect ratios:")
+                    debug_print(f"      Imagen: {image_aspect:.4f} ({image_width}:{image_height})")
+                    debug_print(f"      Viewer: {viewer_aspect:.4f} ({viewer_width}:{viewer_height})")
+                    
+                    # Calcular el área visible en coordenadas de imagen
+                    # El zoom es el factor de escala: si zoom > 1, estamos viendo una porción MÁS PEQUEÑA de la imagen
+                    # Si zoom = 2, significa que cada pixel del viewer representa 2 pixels de la imagen
+                    # Entonces: tamaño_imagen_visible = tamaño_viewer / zoom
+                    # Ejemplo: viewer_width=2004, zoom=2 -> visible_width_in_image = 2004/2 = 1002px
+                    # Si zoom < 1 (zoom out), el área visible puede ser mayor que la imagen completa
+                    
+                    # Calcular área visible inicial basada en el zoom
+                    visible_width_raw = viewer_width / zoom if zoom > 0 else viewer_width
+                    visible_height_raw = viewer_height / zoom if zoom > 0 else viewer_height
+                    
+                    debug_print(f"   Área visible inicial (sin considerar aspect ratio):")
+                    debug_print(f"      Ancho: {visible_width_raw:.2f}px")
+                    debug_print(f"      Alto: {visible_height_raw:.2f}px")
+                    
+                    # Determinar qué dimensión limita el área visible basándose en el aspect ratio
+                    # Si el viewer es más ancho que la imagen (proporcionalmente), la altura limita
+                    # Si el viewer es más alto que la imagen (proporcionalmente), el ancho limita
+                    if viewer_aspect > image_aspect:
+                        # Viewer más ancho: la altura limita el área visible
+                        # El área visible mantiene el aspect ratio de la imagen
+                        visible_height_in_image = visible_height_raw
+                        visible_height_in_image = min(visible_height_in_image, image_height)
+                        visible_width_in_image = visible_height_in_image * image_aspect
+                        visible_width_in_image = min(visible_width_in_image, image_width)
+                        debug_print(f"   Viewer más ancho: altura limita ({visible_height_in_image:.2f}px)")
+                    else:
+                        # Viewer más alto o igual: el ancho limita el área visible
+                        # El área visible mantiene el aspect ratio de la imagen
+                        visible_width_in_image = visible_width_raw
+                        visible_width_in_image = min(visible_width_in_image, image_width)
+                        visible_height_in_image = visible_width_in_image / image_aspect
+                        visible_height_in_image = min(visible_height_in_image, image_height)
+                        debug_print(f"   Viewer más alto o igual: ancho limita ({visible_width_in_image:.2f}px)")
+                    
+                    # Limitar el área visible al tamaño máximo de la imagen (por seguridad)
+                    visible_width_in_image = min(visible_width_in_image, image_width)
+                    visible_height_in_image = min(visible_height_in_image, image_height)
+                    
+                    debug_print(f"   Área visible en coordenadas de imagen:")
+                    debug_print(f"      Ancho visible: {visible_width_in_image:.2f}px")
+                    debug_print(f"      Alto visible: {visible_height_in_image:.2f}px")
+                    
+                    # Obtener el pan usando player.translation()
+                    try:
+                        translation = player.translation()  # Devuelve QPointF(x, y)
+                        pan_x_viewer = translation.x()
+                        pan_y_viewer = translation.y()
+                        
+                        debug_print(f"   ✅ Pan obtenido de player.translation():")
+                        debug_print(f"      Pan X (viewer): {pan_x_viewer:.2f}")
+                        debug_print(f"      Pan Y (viewer): {pan_y_viewer:.2f}")
+                        
+                        # Convertir pan del viewer a coordenadas de imagen
+                        # El pan del viewer representa el desplazamiento del área visible
+                        # IMPORTANTE: El signo está invertido - pan positivo significa ver más a la izquierda
+                        # Necesitamos calcular dónde empieza el área visible en coordenadas de imagen
+                        
+                        # Calcular el centro de la imagen
+                        image_center_x = image_width / 2
+                        image_center_y = image_height / 2
+                        
+                        # El pan del viewer está invertido: pan positivo = ver más a la izquierda
+                        # Por lo tanto, restamos el pan para obtener el centro del área visible
+                        visible_center_x = image_center_x - pan_x_viewer
+                        visible_center_y = image_center_y - pan_y_viewer
+                        
+                        # Calcular el offset del área visible (esquina superior izquierda)
+                        visible_x_offset = visible_center_x - (visible_width_in_image / 2)
+                        visible_y_offset = visible_center_y - (visible_height_in_image / 2)
+                        
+                        debug_print(f"   📐 Conversión a coordenadas de imagen:")
+                        debug_print(f"      Centro imagen: ({image_center_x:.2f}, {image_center_y:.2f})")
+                        debug_print(f"      Centro área visible: ({visible_center_x:.2f}, {visible_center_y:.2f})")
+                        debug_print(f"      Offset X (área visible): {visible_x_offset:.2f}")
+                        debug_print(f"      Offset Y (área visible): {visible_y_offset:.2f}")
+                    except Exception as e:
+                        debug_print(f"   ⚠️ Error obteniendo pan de player.translation(): {e}")
+                        # Fallback: asumir que está centrado
+                        # Si el área visible es igual o mayor que la imagen completa, el offset debe ser 0
+                        if visible_width_in_image >= image_width:
+                            visible_x_offset = 0
+                        else:
+                            visible_x_offset = (image_width - visible_width_in_image) / 2
+                        
+                        if visible_height_in_image >= image_height:
+                            visible_y_offset = 0
+                        else:
+                            visible_y_offset = (image_height - visible_height_in_image) / 2
+                        
+                        debug_print(f"   ⚠️ Usando aproximación centrada como fallback:")
+                        debug_print(f"      Offset X: {visible_x_offset:.2f}")
+                        debug_print(f"      Offset Y: {visible_y_offset:.2f}")
+                    
+                    # Actualizar las dimensiones visibles
+                    visible_width = visible_width_in_image
+                    visible_height = visible_height_in_image
+                    
+                    # Asegurar que el área visible no exceda las dimensiones de la imagen
+                    if visible_width > image_width:
+                        visible_width = image_width
+                    if visible_height > image_height:
+                        visible_height = image_height
+                    
+                    # Limitar el offset para que el área visible no se salga de la imagen
+                    # Pero permitir valores negativos si el área visible es más grande que la imagen
+                    if visible_x_offset < 0:
+                        visible_x_offset = 0
+                    if visible_y_offset < 0:
+                        visible_y_offset = 0
+                    
+                    # Asegurar que el área visible no se salga de la imagen por la derecha/abajo
+                    if visible_x_offset + visible_width > image_width:
+                        visible_x_offset = max(0, image_width - visible_width)
+                    if visible_y_offset + visible_height > image_height:
+                        visible_y_offset = max(0, image_height - visible_height)
+                else:
+                    debug_print(f"   ⚠️ No se pudo obtener el player del viewer")
+                    # Fallback: usar aproximación basada en tamaño del viewer
+                    if viewer_width < image_width or viewer_height < image_height:
+                        visible_x_offset = (image_width - viewer_width) / 2
+                        visible_y_offset = (image_height - viewer_height) / 2
+                        visible_width = viewer_width
+                        visible_height = viewer_height
+                    else:
+                        visible_x_offset = 0
+                        visible_y_offset = 0
+                        visible_width = image_width
+                        visible_height = image_height
+            except Exception as e:
+                # Si hay cualquier error, usar aproximación centrada
+                debug_print(f"   Error obteniendo información del viewer: {e}")
+                if qimage:
+                    viewer_width = qimage.width()
+                    viewer_height = qimage.height()
+                    if viewer_width < image_width or viewer_height < image_height:
+                        visible_x_offset = (image_width - viewer_width) / 2
+                        visible_y_offset = (image_height - viewer_height) / 2
+                        visible_width = viewer_width
+                        visible_height = viewer_height
+                    else:
+                        visible_x_offset = 0
+                        visible_y_offset = 0
+                        visible_width = image_width
+                        visible_height = image_height
+                else:
+                    visible_x_offset = 0
+                    visible_y_offset = 0
+                    visible_width = image_width
+                    visible_height = image_height
+        else:
+            debug_print("⚠️ No se pudo obtener la imagen del viewer")
+            visible_x_offset = 0
+            visible_y_offset = 0
+            visible_width = image_width
+            visible_height = image_height
+    
+    debug_print(f"\n📐 Área visible del viewer:")
+    debug_print(f"   Offset X: {visible_x_offset}")
+    debug_print(f"   Offset Y: {visible_y_offset}")
+    debug_print(f"   Ancho visible: {visible_width}")
+    debug_print(f"   Alto visible: {visible_height}")
+    
+    if USE_ABSOLUTE_POSITION:
+        debug_print(f"\n📐 Modo absoluto: usando dimensiones completas de la imagen")
+    
+    # Usar las dimensiones apropiadas según el modo
+    if USE_ABSOLUTE_POSITION:
+        viewer_width = image_width
+        viewer_height = image_height
+        viewer_center_x = image_width / 2
+        viewer_center_y = image_height / 2
+    else:
+        viewer_width = visible_width
+        viewer_height = visible_height
+        viewer_center_x = visible_width / 2
+        viewer_center_y = visible_height / 2
     
     # Obtener el valor de 'box'
     try:
@@ -220,24 +433,70 @@ def print_box_values():
             # Configuración: alineado a la izquierda con 30px del borde, centrado en Y
             LEFT_MARGIN = 30
             
-            # Calcular nuevos valores:
-            # X: alineado a la izquierda con margen de 30px
-            # Y: centrado verticalmente
-            new_x = LEFT_MARGIN
-            new_r = new_x + box_width  # Mantener el ancho
+            # Calcular nuevos valores según el modo
+            if USE_ABSOLUTE_POSITION:
+                # Modo absoluto: posición basada en la imagen completa
+                new_x = LEFT_MARGIN
+                new_r = new_x + box_width
+                
+                # Centrar verticalmente en la imagen completa
+                new_box_center_y = viewer_center_y
+                new_y = new_box_center_y - (box_height / 2)
+                new_t = new_box_center_y + (box_height / 2)
+            else:
+                # Modo relativo: posición basada en el área visible
+                # El punto cero es el pixel más a la izquierda visible
+                new_x = visible_x_offset + LEFT_MARGIN
+                new_r = new_x + box_width
+                
+                # Centrar verticalmente en el área visible
+                new_box_center_y = visible_y_offset + viewer_center_y
+                new_y = new_box_center_y - (box_height / 2)
+                new_t = new_box_center_y + (box_height / 2)
+                
+                # Asegurar que el box quede dentro del área visible
+                # Si el box se sale por la derecha del área visible, ajustarlo
+                visible_right_edge = visible_x_offset + visible_width
+                if new_r > visible_right_edge:
+                    # Mover el box hacia la izquierda para que quepa
+                    offset = new_r - visible_right_edge
+                    new_x = max(visible_x_offset + LEFT_MARGIN, new_x - offset)
+                    new_r = new_x + box_width
+                
+                # Si el box se sale por la izquierda del área visible, ajustarlo
+                if new_x < visible_x_offset:
+                    new_x = visible_x_offset + LEFT_MARGIN
+                    new_r = new_x + box_width
             
-            # Centrar verticalmente: el centro Y del box debe estar en el centro Y del viewer
-            new_box_center_y = viewer_center_y
-            new_y = new_box_center_y - (box_height / 2)
-            new_t = new_box_center_y + (box_height / 2)
+            # Asegurar que el box no se salga de los límites de la imagen
+            # Limitar a los bordes de la imagen completa
+            if new_x < 0:
+                offset = 0 - new_x
+                new_x = 0
+                new_r += offset
+            if new_y < 0:
+                offset = 0 - new_y
+                new_y = 0
+                new_t += offset
+            if new_r > image_width:
+                offset = new_r - image_width
+                new_r = image_width
+                new_x = max(0, new_x - offset)
+            if new_t > image_height:
+                offset = new_t - image_height
+                new_t = image_height
+                new_y = max(0, new_y - offset)
             
             # Calcular desplazamiento para información de debug
             offset_x = new_x - x
             offset_y = new_y - y
             
             debug_print(f"\n📐 Configuración:")
+            debug_print(f"   Modo: {'ABSOLUTO' if USE_ABSOLUTE_POSITION else 'RELATIVO'}")
             debug_print(f"   Margen izquierdo: {LEFT_MARGIN}px")
             debug_print(f"   Centrado verticalmente: Sí")
+            if not USE_ABSOLUTE_POSITION:
+                debug_print(f"   Punto cero: pixel más a la izquierda visible ({visible_x_offset})")
             debug_print(f"\n📐 Desplazamiento necesario:")
             debug_print(f"   Offset X: {offset_x}")
             debug_print(f"   Offset Y: {offset_y}")
@@ -261,8 +520,12 @@ def print_box_values():
             debug_print(f"   Ancho mantenido: {abs(new_box_width - box_width) < 0.01}")
             debug_print(f"   Alto mantenido: {abs(new_box_height - box_height) < 0.01}")
             debug_print(f"   Nuevo centro: ({new_box_center_x}, {new_box_center_y})")
-            debug_print(f"   Posición X: {new_x}px desde el borde izquierdo (objetivo: {LEFT_MARGIN}px)")
-            debug_print(f"   Centrado verticalmente: {abs(new_box_center_y - viewer_center_y) < 0.01}")
+            if USE_ABSOLUTE_POSITION:
+                debug_print(f"   Posición X: {new_x}px desde el borde izquierdo de la imagen (objetivo: {LEFT_MARGIN}px)")
+            else:
+                debug_print(f"   Posición X: {new_x}px desde el origen de la imagen ({new_x - visible_x_offset}px desde el borde visible)")
+            debug_print(f"   Centrado verticalmente: {abs(new_box_center_y - (visible_y_offset + viewer_center_y if not USE_ABSOLUTE_POSITION else viewer_center_y)) < 0.01}")
+            debug_print(f"   Dentro de límites de imagen: {new_x >= 0 and new_y >= 0 and new_r <= image_width and new_t <= image_height}")
             
             # Aplicar los nuevos valores
             try:
