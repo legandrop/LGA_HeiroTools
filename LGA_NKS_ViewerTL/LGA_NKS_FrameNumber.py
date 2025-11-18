@@ -1,10 +1,13 @@
 """
 ______________________________________________________
 
-  LGA_NKS_FrameNumber v0.56 | Lega
+  LGA_NKS_FrameNumber v0.57 | Lega
   Busca el clip 'Frame_Only' en el track 'BurnIn' y posiciona el box
   alineado a la izquierda y al bottom con 30px de margen
+  Incluye funcionalidad de toggle: si la posición no cambia y está enabled, lo deshabilita.
+  Si está disabled, lo habilita.
 
+  v0.57: Agregada funcionalidad de toggle
   v0.56: Se corrigió el problema de posición vertical (Y)
   v0.55: Logs simplificados
 ______________________________________________________
@@ -344,6 +347,21 @@ def print_box_values():
         viewer_center_x = visible_width / 2
         viewer_center_y = visible_height / 2
     
+    # Verificar el estado enabled/disabled del soft effect antes de calcular posición
+    is_effect_enabled = True
+    try:
+        if isinstance(target_clip, hiero.core.EffectTrackItem):
+            is_effect_enabled = target_clip.isEnabled()
+            debug_print(f"\n🔘 Estado del soft effect '{CLIP_NAME}': {'Habilitado' if is_effect_enabled else 'Deshabilitado'}")
+        else:
+            # Si no es un EffectTrackItem, intentar con el método del clip normal
+            if hasattr(target_clip, 'isEnabled'):
+                is_effect_enabled = target_clip.isEnabled()
+                debug_print(f"\n🔘 Estado del clip '{CLIP_NAME}': {'Habilitado' if is_effect_enabled else 'Deshabilitado'}")
+    except Exception as e:
+        debug_print(f"⚠️ No se pudo verificar el estado enabled/disabled: {e}")
+        is_effect_enabled = True  # Por defecto asumir que está habilitado
+    
     # Obtener el valor de 'box'
     try:
         box_value = node['box'].value()
@@ -354,6 +372,9 @@ def print_box_values():
             y = box_value[1]
             r = box_value[2]
             t = box_value[3]
+            
+            # Guardar posición actual para comparación
+            current_position = (x, y, r, t)
             
             # Calcular dimensiones del box
             box_width = r - x
@@ -458,9 +479,50 @@ def print_box_values():
             offset_x = new_x - x
             offset_y = new_y - y
             
+            # Nueva posición calculada
+            new_position = (new_x, new_y, new_r, new_t)
+            
+            # Comparar posición actual con nueva (con tolerancia para errores de punto flotante)
+            TOLERANCE = 0.01  # Tolerancia de 0.01 píxeles
+            position_changed = False
+            for i in range(4):
+                if abs(current_position[i] - new_position[i]) > TOLERANCE:
+                    position_changed = True
+                    break
+            
             debug_print(f"\n🎯 Posición nueva (comparación X vs Y):")
             debug_print(f"   X: {x:.2f} -> {new_x:.2f} (offset: {offset_x:.2f})")
             debug_print(f"   Y: {y:.2f} -> {new_y:.2f} (offset: {offset_y:.2f})")
+            debug_print(f"   ¿Posición cambió? {'Sí' if position_changed else 'No'}")
+            
+            # Lógica de toggle:
+            # 1. Si la posición NO cambió Y el effect está enabled -> deshabilitar
+            # 2. Si el effect está disabled -> habilitar y aplicar nueva posición
+            if not position_changed and is_effect_enabled:
+                # La posición no cambió y está enabled -> deshabilitar
+                try:
+                    if isinstance(target_clip, hiero.core.EffectTrackItem):
+                        target_clip.setEnabled(False)
+                        debug_print(f"\n🔄 Toggle: Deshabilitando soft effect '{CLIP_NAME}' (posición no cambió)")
+                    elif hasattr(target_clip, 'setEnabled'):
+                        target_clip.setEnabled(False)
+                        debug_print(f"\n🔄 Toggle: Deshabilitando clip '{CLIP_NAME}' (posición no cambió)")
+                    return  # Salir sin aplicar cambios de posición
+                except Exception as e:
+                    debug_print(f"\n❌ Error al deshabilitar el effect: {e}")
+                    # Continuar con la aplicación de posición si falla el toggle
+            elif not is_effect_enabled:
+                # El effect está disabled -> habilitar y aplicar nueva posición
+                try:
+                    if isinstance(target_clip, hiero.core.EffectTrackItem):
+                        target_clip.setEnabled(True)
+                        debug_print(f"\n🔄 Toggle: Habilitando soft effect '{CLIP_NAME}'")
+                    elif hasattr(target_clip, 'setEnabled'):
+                        target_clip.setEnabled(True)
+                        debug_print(f"\n🔄 Toggle: Habilitando clip '{CLIP_NAME}'")
+                except Exception as e:
+                    debug_print(f"\n⚠️ Error al habilitar el effect: {e}")
+                    # Continuar con la aplicación de posición aunque falle el toggle
             
             if not USE_ABSOLUTE_POSITION:
                 # Calcular posición esperada
@@ -510,7 +572,8 @@ def print_box_values():
                     except:
                         pass
             
-            # Aplicar los nuevos valores
+            # Aplicar los nuevos valores (solo si no se deshabilitó en el toggle)
+            # Si llegamos aquí, significa que o bien la posición cambió, o bien el effect estaba disabled
             try:
                 new_box_value = (new_x, new_y, new_r, new_t)
                 node['box'].setValue(new_box_value)

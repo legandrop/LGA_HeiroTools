@@ -7,6 +7,15 @@ Este script posiciona un elemento de texto (box) en el viewer de Hiero. El eleme
 - **Modo Absoluto**: La posición del box se calcula basándose en las dimensiones completas de la imagen, sin importar el nivel de zoom o pan del viewer.
 - **Modo Relativo**: La posición del box se calcula basándose en el área visible del viewer, considerando el zoom y el pan. El box se posiciona a 30px del borde izquierdo y a 30px del bottom del área visible.
 
+## Funcionalidad de Toggle (v0.57)
+
+El script incluye una funcionalidad de toggle automático:
+
+- **Si la posición no cambia y el soft effect está habilitado**: El script deshabilitará automáticamente el soft effect `Frame_Only` sin aplicar cambios de posición.
+- **Si el soft effect está deshabilitado**: El script lo habilitará y aplicará la nueva posición calculada.
+
+Esta funcionalidad permite usar el script como un toggle rápido para mostrar/ocultar el frame number sin necesidad de cambiar manualmente el estado del efecto.
+
 ## Configuración
 
 Al inicio del script hay dos flags principales:
@@ -40,6 +49,7 @@ pan_y = translation.y()  # Offset Y del área visible
 - ✅ Calcular el área visible basándose en el zoom, aspect ratio y pan
 - ✅ Posicionar el box correctamente en modo relativo en ambos ejes (X e Y)
 - ✅ El cálculo de X e Y es consistente: ambos usan el mismo método limpio sin correcciones especiales
+- ✅ Funcionalidad de toggle: deshabilita el effect si la posición no cambia y está enabled, o lo habilita si está disabled
 
 ### ⚠️ Limitaciones Conocidas
 
