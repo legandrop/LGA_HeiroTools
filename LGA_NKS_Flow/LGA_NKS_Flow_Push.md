@@ -11,11 +11,13 @@ Su propósito principal es mantener sincronizada la información entre ShotGrid 
 
 *   **Arquitectura Optimizada:** Separa UI (Hiero/Nuke) de operaciones de red (Python personalizado) para evitar conflictos de dependencias y mejorar rendimiento.
 *   **Actualización de Estados en ShotGrid:** Permite cambiar el estado de las tareas de Nuke/Hiero en ShotGrid mediante operaciones optimizadas que minimizan llamadas de red.
+*   **Selección de Clips Centralizada:** Usa el módulo utilitario `LGA_NKS_GetClip` (Método 2 híbrido: playhead primero, luego selección como fallback) para obtener clips del track configurado (por defecto `_comp_`). Soporta selecciones múltiples cuando se usa `push_from_selected_clips()`.
 *   **Sincronización con Base de Datos Local:** Mantiene una base de datos SQLite local (`pipesync.db`) sincronizada con los cambios realizados en ShotGrid.
 *   **Verificación de Versiones del Timeline:** Antes de abrir el diálogo de notas, verifica si la versión actual del clip seleccionado es la más alta disponible en el timeline. Si no lo es, muestra un diálogo de advertencia permitiendo continuar o cancelar la operación.
 *   **Gestión de Versiones Asíncrona:** Identifica versiones y realiza verificaciones sin congelar la interfaz de usuario.
 *   **Notas para Versiones:** En ciertos estados específicos, abre un diálogo para introducir comentarios que se envían a ShotGrid con adjuntos visuales.
 *   **Integración con ReviewPic:** El diálogo incluye thumbnails de imágenes capturadas, adjuntándolas automáticamente a las notas en ShotGrid.
+*   **Procesamiento de Múltiples Clips:** La función `push_from_selected_clips()` permite procesar múltiples clips en una sola operación, con limitación de 4 clips con confirmación para evitar operaciones accidentales.
 
 ## Búsqueda de Versiones en Flow:
 
@@ -91,7 +93,8 @@ Cuando se abre el diálogo para introducir notas, el script automáticamente:
 ### Funciones Clave:
 
 **En `LGA_NKS_Flow/LGA_NKS_Flow_Push.py`:**
-- **`Push_Task_Status()`**: Función principal que inicia el proceso de actualización de estados. Verifica versiones del timeline antes de abrir el diálogo de notas.
+- **`push_from_selected_clips()`**: **[NUEVO]** Función principal que usa el método centralizado para obtener clips del track `TRACK_comp_EXR` (Método 2 híbrido). Soporta selecciones múltiples, filtra clips de composición, y maneja el diálogo de notas apropiadamente. Incluye confirmación para más de 4 clips.
+- **`Push_Task_Status()`**: Función legacy que procesa un clip individual cuando se proporciona `base_name`. Mantiene compatibilidad con paneles que llaman esta función directamente. Verifica versiones del timeline antes de abrir el diálogo de notas.
 - **`get_clip_versions_from_timeline()`**: Obtiene todas las versiones disponibles del clip seleccionado usando la API de Hiero, detecta la versión actual y encuentra la versión más alta.
 - **`extract_version_number_from_string()`**: Extrae el número de versión de nombres de archivos usando el patrón `_v\d+`.
 - **`PushVersionDialog`**: Diálogo personalizado que muestra advertencia cuando la versión actual no es la más alta, permitiendo continuar o cancelar.

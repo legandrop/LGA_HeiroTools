@@ -23,7 +23,7 @@ Este método utiliza los clips que están actualmente seleccionados en el timeli
 ### Scripts que usan este método:
 
 #### Scripts de Flow:
-- **`LGA_NKS_Flow/LGA_NKS_Flow_Push.py`** (línea 1357) - `selected_clips = te.selection()`
+- **`LGA_NKS_Flow/LGA_NKS_Flow_Push.py`** - **Método Híbrido:** La función `push_from_selected_clips()` usa el módulo centralizado `LGA_NKS_GetClip` (permite selecciones múltiples). La función legacy `Push_Task_Status()` recibe `base_name` como parámetro (compatible con paneles que usan Método 1).
 - **`LGA_NKS_Flow/LGA_NKS_Flow_Pull.py`** (línea 557) - `selected_clips = te.selection()` + usa `TRACK_comp_EXR` para filtrar tracks (v3.30)
 - **`LGA_NKS_Flow/LGA_NKS_Flow_Thumbs.py`** (línea 52) - `selected_clips = timeline_editor.selection()`
 - **`LGA_NKS_Flow/LGA_NKS_Flow_CreateShot_Thumbs.py`** (línea 70) - `selected_clips = timeline_editor.selection()`
@@ -76,6 +76,7 @@ Este método obtiene la posición actual del playhead (`viewer.time()`) y busca 
 ### Scripts que usan este método:
 
 - [x] **`LGA_NKS_Flow/LGA_NKS_Flow_Shot_info.py`** - Usa módulo centralizado `LGA_NKS_GetClip` con `track_name=None` (NO permite selecciones múltiples)
+- [x] **`LGA_NKS_Flow/LGA_NKS_Flow_Push.py`** - Usa módulo centralizado `LGA_NKS_GetClip` con `track_name=None` en función `push_from_selected_clips()` (permite selecciones múltiples, con límite de 4 clips requiere confirmación)
 - [x] **`LGA_NKS_Flow/LGA_NKS_Flow_ShowInFlow.py`** - Usa módulo centralizado `LGA_NKS_GetClip` con `track_name=None` (permite selecciones múltiples)
 - [x] **`LGA_NKS_Flow/LGA_NKS_ReviewPic.py`** - Usa módulo centralizado `LGA_NKS_GetClip` con `track_name=None` (NO permite selecciones múltiples)
 - [x] **`LGA_NKS/LGA_NKS_Clip_DisableEXR.py`** - Usa módulo centralizado `LGA_NKS_GetClip` (NO permite selecciones múltiples)

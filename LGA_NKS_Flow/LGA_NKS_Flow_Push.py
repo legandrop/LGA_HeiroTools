@@ -1,7 +1,7 @@
 """
 _____________________________________________________________
 
-  LGA_NKS_Flow_Push v3.92 | Lega
+  LGA_NKS_Flow_Push v3.93 | Lega
 
   Envia a flow nuevos estados de las tasks comps.
   En algunos estados permite enviar un mensaje a la version
@@ -17,6 +17,9 @@ _____________________________________________________________
   v3.87: Logs detallados de envío de imágenes + Fix extracción de versión
   v3.90: Verifica si la version actual es la más alta y muestra un dialogo de advertencia si no lo es
   v3.91: Elimina la verificación de versiones con Flow duplicada en el Worker y envía comentarios a la version correcta del clip
+  v3.93: Agrega método centralizado de selección con función push_from_selected_clips() que usa LGA_NKS_GetClip (Método 2 híbrido).
+         Soporta selecciones múltiples del track TRACK_comp_EXR con límite de 4 clips (requiere confirmación).
+         Mantiene compatibilidad con Push_Task_Status() para llamadas desde paneles.
 _____________________________________________________________
 
 """
@@ -48,6 +51,17 @@ from LGA_NKS_Flow_NamingUtils import (
     extract_project_name,
     extract_task_name,
 )
+
+# Importar utilidades para obtener clips
+utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
+if utils_path.exists():
+    sys.path.insert(0, str(utils_path))
+    from LGA_NKS_GetClip import get_clips_to_process
+    # Sincronizar el debug con el módulo utilitario
+    import LGA_NKS_GetClip as clip_utils
+    # Se sincronizará después cuando DEBUG se defina
+else:
+    debug_print("ERROR: No se encontró el módulo LGA_NKS_GetClip")
 
 # from PySide2.QtCore import QWaitCondition, QMutex
 from PySide2.QtWidgets import (
@@ -85,6 +99,12 @@ DEBUG = True
 DEBUG_RESUMEN = True
 debug_messages = []
 resumen_messages = []
+
+# Sincronizar debug con el módulo utilitario
+try:
+    clip_utils.DEBUG = DEBUG
+except:
+    pass  # Si no se importó el módulo, ignorar
 
 
 def debug_print(message):
@@ -1709,6 +1729,232 @@ def print_resumen():
     if DEBUG_RESUMEN and resumen_messages:
         print("\n".join(resumen_messages))
         resumen_messages.clear()  # Limpiar mensajes después de imprimir
+
+
+def push_from_selected_clips(button_name, per_clip_callback=None):
+    """
+    Función principal que usa el método centralizado para obtener clips.
+    Procesa los clips seleccionados en el track TRACK_comp_EXR (o el clip en playhead).
+    Si hay múltiples clips seleccionados en el track TRACK_comp_EXR, procesa todos ellos.
+    Mantiene la limitación de 4 clips con confirmación para evitar operaciones accidentales.
+    
+    Args:
+        button_name: Nombre del botón de estado (ej: "Corrections", "Rev Dir", etc.)
+        per_clip_callback: Función opcional que se ejecuta después de cada push exitoso.
+                          Recibe (clip, base_name, exr_name) como parámetros.
+                          Se ejecuta SOLO cuando el push es exitoso (no se cancela).
+    
+    Returns:
+        bool: True si se inició la operación exitosamente, False si se canceló o hubo error
+    """
+    # Obtener los clips en el hilo principal ANTES de procesar
+    # Usa prioritize_multiple_selection=True para priorizar múltiples clips seleccionados sobre playhead
+    # ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
+    clips = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
+    
+    if not clips:
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle("Push to Flow - Error")
+        msg.setText(
+            "No se pudo obtener ningún clip. Verifique que haya un clip en el track bajo el playhead o que haya seleccionado clips válidos."
+        )
+        msg.exec_()
+        return False
+    
+    # Filtrar clips para incluir solo los que contienen "_comp_" o "_cmp_" en el nombre
+    valid_clips = []
+    for clip in clips:
+        if isinstance(clip, hiero.core.EffectTrackItem):
+            debug_print(f"Clip es un efecto, se omite: {clip.name()}")
+            continue
+        
+        if not clip.source().mediaSource().isMediaPresent():
+            debug_print(f"Clip no tiene media presente, se omite: {clip.name()}")
+            continue
+        
+        fileinfos = clip.source().mediaSource().fileinfos()
+        if not fileinfos:
+            debug_print(f"Clip no tiene fileinfos, se omite: {clip.name()}")
+            continue
+        
+        file_path = fileinfos[0].filename()
+        exr_name = os.path.basename(file_path)
+        
+        # Filtrar solo clips que contengan "_comp_" o "_cmp_"
+        if "_comp_" not in exr_name.lower() and "_cmp_" not in exr_name.lower():
+            debug_print(f"Clip no contiene '_comp_' o '_cmp_', se omite: {exr_name}")
+            continue
+        
+        valid_clips.append((clip, file_path, exr_name))
+    
+    if not valid_clips:
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle("Push to Flow - Error")
+        msg.setText(
+            "No se encontraron clips válidos de composición (deben contener '_comp_' o '_cmp_' en el nombre)."
+        )
+        msg.exec_()
+        return False
+    
+    # Confirmar si hay más de 4 clips (igual que en el panel)
+    if len(valid_clips) > 4:
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Question)
+        msg.setWindowTitle("Confirm Status Application")
+        msg.setText(
+            f"¿Estás seguro de que quieres aplicar el estado '{button_name}' a {len(valid_clips)} clips?"
+        )
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        result = msg.exec_()
+        if result != QMessageBox.Yes:
+            debug_print("Usuario canceló la operación (más de 4 clips)")
+            return False
+    
+    # Determinar si necesitamos pedir un mensaje al usuario
+    sg_status = status_translation.get(button_name, None)
+    needs_message = sg_status in ["rev_di", "corr", "revleg", "revhld", "revjav"]
+    
+    # Para múltiples clips con mensaje, usar un mensaje compartido
+    shared_message = None
+    shared_review_images = []
+    should_delete_images = False
+    
+    if needs_message and len(valid_clips) > 1:
+        # Mostrar un diálogo simplificado sin imágenes específicas de clip
+        app = QApplication.instance()
+        if app is None:
+            app = QApplication([])
+        
+        # Crear un diálogo simple sin imágenes
+        dialog = QDialog()
+        dialog.setWindowTitle("Input Dialog")
+        layout = QVBoxLayout(dialog)
+        
+        # Label con información de cuántos clips se procesarán
+        label_text = f"Mensaje para <b>{len(valid_clips)} clips</b>:"
+        label = QLabel(label_text)
+        label.setTextFormat(Qt.RichText)
+        layout.addWidget(label)
+        
+        # Area de texto para el mensaje
+        text_edit = QPlainTextEdit(dialog)
+        text_edit.setFixedHeight(120)
+        layout.addWidget(text_edit)
+        
+        # Botón OK
+        ok_button = QPushButton("OK", dialog)
+        ok_button.clicked.connect(dialog.accept)
+        layout.addWidget(ok_button)
+        
+        # Conectar Ctrl+Enter
+        shortcut = QShortcut(QKeySequence(Qt.CTRL + Qt.Key_Return), dialog)
+        shortcut.activated.connect(dialog.accept)
+        
+        dialog.adjustSize()
+        
+        if dialog.exec_() == QDialog.Accepted:
+            shared_message = text_edit.toPlainText()
+        else:
+            debug_print("Usuario canceló el diálogo de mensaje compartido")
+            # Generar resumen de cancelación
+            debug_resumen_print("=" * 70)
+            debug_resumen_print("RESUMEN DEL PUSH")
+            debug_resumen_print("=" * 70)
+            debug_resumen_print(f"Clips a procesar: {len(valid_clips)}")
+            debug_resumen_print(f"Estado: {button_name}")
+            debug_resumen_print("⚠️  RESULTADO: OPERACIÓN CANCELADA")
+            debug_resumen_print("")
+            debug_resumen_print("El usuario cerró el diálogo sin confirmar.")
+            debug_resumen_print("=" * 70)
+            print_debug_messages()
+            print_resumen()
+            return False
+    
+    # Procesar cada clip
+    success_count = 0
+    failed_count = 0
+    
+    for clip, file_path, exr_name in valid_clips:
+        try:
+            # Extraer base_name del clip
+            # Reemplazar patrón .% por _% para análisis
+            exr_name_processed = exr_name.replace(".%", "_%")
+            
+            # Usar la función del módulo de naming para obtener base_name
+            from LGA_NKS_Flow_NamingUtils import clean_base_name
+            base_name = clean_base_name(exr_name_processed)
+            
+            debug_print(f"Procesando clip: {base_name}")
+            
+            # Definir callback para este clip específico
+            def create_clip_callback(current_clip, current_base_name, current_exr_name):
+                """Crea un callback que ejecuta per_clip_callback si existe"""
+                def callback_wrapper(success):
+                    if success and per_clip_callback:
+                        try:
+                            per_clip_callback(current_clip, current_base_name, current_exr_name)
+                        except Exception as e:
+                            debug_print(f"Error ejecutando per_clip_callback: {e}")
+                return callback_wrapper
+            
+            # Llamar a Push_Task_Status para cada clip
+            # Si es un solo clip con mensaje, usar el diálogo completo (con imágenes)
+            # Si son múltiples clips, ya tenemos el mensaje compartido
+            if len(valid_clips) == 1:
+                # Un solo clip: usar Push_Task_Status con callback
+                clip_callback = create_clip_callback(clip, base_name, exr_name)
+                result = Push_Task_Status(button_name, base_name, clip_callback, exr_name)
+            else:
+                # Múltiples clips: pasar el mensaje compartido directamente
+                # Necesitamos crear un worker manualmente porque ya tenemos el mensaje
+                if needs_message:
+                    # Estados que necesitan mensaje: usar el mensaje compartido
+                    clip_callback = create_clip_callback(clip, base_name, exr_name)
+                    worker = Worker(
+                        button_name,
+                        base_name,
+                        shared_message,
+                        shared_review_images,
+                        should_delete_images,
+                        exr_name,
+                    )
+                    worker.signals.result_ready.connect(handle_results)
+                    worker.signals.debug_output.connect(lambda: print_debug_messages())
+                    worker.signals.resumen_output.connect(lambda: print_resumen())
+                    # Conectar el callback para ejecutarse cuando el push sea exitoso
+                    worker.signals.task_finished.connect(clip_callback)
+                    QThreadPool.globalInstance().start(worker)
+                    result = True
+                else:
+                    # Estados que NO necesitan mensaje: usar Push_Task_Status con callback
+                    clip_callback = create_clip_callback(clip, base_name, exr_name)
+                    result = Push_Task_Status(button_name, base_name, clip_callback, exr_name)
+            
+            if result:
+                success_count += 1
+            else:
+                failed_count += 1
+                
+        except Exception as e:
+            debug_print(f"Error procesando clip {os.path.basename(file_path)}: {e}")
+            failed_count += 1
+    
+    # Resumen final si procesamos múltiples clips
+    if len(valid_clips) > 1:
+        debug_resumen_print("=" * 70)
+        debug_resumen_print("RESUMEN DEL PUSH MÚLTIPLE")
+        debug_resumen_print("=" * 70)
+        debug_resumen_print(f"Total de clips procesados: {len(valid_clips)}")
+        debug_resumen_print(f"Estado aplicado: {button_name}")
+        debug_resumen_print(f"✅ Exitosos: {success_count}")
+        if failed_count > 0:
+            debug_resumen_print(f"❌ Fallidos: {failed_count}")
+        debug_resumen_print("=" * 70)
+        print_resumen()
+    
+    return success_count > 0
 
 
 msg_manager = MessageBoxManager()
