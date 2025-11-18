@@ -22,13 +22,10 @@ DEBUG = True  # Activar para ver información de depuración
 USE_ABSOLUTE_POSITION = False
 ```
 
-## Problema Actual
+## Obtención del Pan del Viewer
 
-### ✅ SOLUCIÓN ENCONTRADA: `player.translation()`
+El script usa `player.translation()` para obtener el pan del viewer. Este método devuelve un `QPointF` con el offset X e Y del área visible:
 
-**El problema ha sido resuelto**. Se encontró que `player.translation()` devuelve un `QPointF` con el pan (offset X e Y) del viewer.
-
-**Uso**:
 ```python
 player = viewer.player()
 translation = player.translation()  # Devuelve QPointF(x, y)
@@ -36,105 +33,27 @@ pan_x = translation.x()  # Offset X del área visible
 pan_y = translation.y()  # Offset Y del área visible
 ```
 
-### Lo que funciona ahora
+### Funcionamiento Actual
 
 - ✅ Obtener el zoom del player: `player.zoom()` funciona correctamente
 - ✅ Obtener el pan del viewer: `player.translation()` devuelve el pan como `QPointF`
 - ✅ Calcular el área visible basándose en el zoom, aspect ratio y pan
-- ✅ Posicionar el box correctamente en modo relativo considerando el pan horizontal (X)
-- ✅ Validar que el box no se salga de los límites de la imagen
+- ✅ Posicionar el box correctamente en modo relativo en ambos ejes (X e Y)
+- ✅ El cálculo de X e Y es consistente: ambos usan el mismo método limpio sin correcciones especiales
 
-### ⚠️ Problemas Conocidos
+### ⚠️ Limitaciones Conocidas
 
-- **Posicionamiento vertical (Y) no funciona correctamente**: El box se posiciona incorrectamente en el eje vertical. Aunque el código intenta alinearlo al bottom del área visible con un margen de 30px, el box aparece siempre en la parte superior con un gran margen desde arriba, en lugar de estar en la parte inferior. La causa de este problema aún no se ha identificado. El cálculo del área visible y el pan vertical parecen estar funcionando, pero la conversión a coordenadas de imagen o el cálculo del offset Y puede estar incorrecto o invertido.
+- **Aspect ratio del viewer**: Cuando el viewer tiene una proporción muy diferente a la imagen (más ancho o más alto), puede haber pequeñas inconsistencias en los márgenes. El comportamiento es funcional pero puede variar ligeramente según la proporción del viewer.
 
-### Historia del Problema (Resuelto)
+## Implementación Técnica
 
-Inicialmente, el script no podía obtener el pan del viewer y siempre asumía que el área visible estaba centrada. Después de múltiples exploraciones exhaustivas, se descubrió que `player.translation()` es el método correcto para obtener el pan.
+El script calcula el área visible del viewer usando:
 
-## Scripts Auxiliares de Exploración
+- **Zoom**: `player.zoom()` - factor de escala del viewer
+- **Pan**: `player.translation()` - devuelve `QPointF(x, y)` con el offset del área visible
+- **Aspect ratio**: Compara el aspect ratio del viewer con el de la imagen para determinar qué dimensión limita el área visible
 
-Se crearon múltiples scripts auxiliares para investigar cómo obtener el pan del viewer. La mayoría fueron eliminados después de encontrar la solución, quedando solo:
+El cálculo de posición es consistente para ambos ejes (X e Y): se calcula el centro visible restando el pan del centro de la imagen, y luego se obtiene el offset restando la mitad de las dimensiones visibles.
 
-### LGA_Test_Translation.py
-
-**Ubicación**: `+Building_Blocks/Hiero/Viewer/LGA_Test_Translation.py`
-
-**Objetivo**: Prueba específicamente el método `player.translation()` que resultó ser la solución.
-
-**Resultado**: ✅ **ÉXITO** - `player.translation()` devuelve un `QPointF` con el pan (offset X e Y) del viewer.
-
-**Nota**: Los demás scripts de exploración fueron eliminados después de encontrar la solución, ya que su propósito era investigar y ya no son necesarios.
-
-## Análisis de los Resultados
-
-Después de múltiples exploraciones exhaustivas, se encontró que **`player.translation()` es el método correcto para obtener el pan del viewer**.
-
-### Hallazgos Clave
-
-1. **`player.pan()` es solo un setter**: Acepta parámetros pero devuelve `None`, confirmando que es solo para establecer el pan, no para obtenerlo.
-
-2. **`player.translation()` es el getter correcto**: 
-   - Devuelve un `QPointF` con las coordenadas del pan (offset X e Y)
-   - Es un built-in method sin signature accesible, pero funciona llamándolo sin parámetros
-   - Ejemplo: `translation = player.translation()` devuelve `QPointF(x, y)`
-
-3. **El pan está disponible en la API pública**: Aunque no estaba documentado, el método `translation()` expone el pan del viewer.
-
-4. **Los widgets internos no son necesarios**: No necesitamos acceder a widgets internos (QGLWidget, QGraphicsView, etc.) ya que el player expone el pan directamente.
-
-## Conclusión
-
-**✅ SOLUCIÓN ENCONTRADA**: `player.translation()` devuelve el pan del viewer como `QPointF(x, y)`, permitiendo calcular correctamente el área visible del viewer en modo relativo.
-
-### Implementación
-
-```python
-# Obtener el pan del viewer
-player = viewer.player()
-translation = player.translation()  # QPointF
-pan_x = translation.x()  # Offset X del área visible
-pan_y = translation.y()  # Offset Y del área visible
-
-# Calcular el área visible
-zoom = player.zoom()
-viewer_width = viewer.image().width()
-viewer_height = viewer.image().height()
-
-visible_width = viewer_width / zoom
-visible_height = viewer_height / zoom
-
-visible_x = pan_x
-visible_y = pan_y
-```
-
-## Scripts de Exploración
-
-Durante la exploración se crearon múltiples scripts, pero la mayoría fueron eliminados después de encontrar la solución. El único script que se mantiene es:
-
-### LGA_Test_Translation.py
-
-**Ubicación**: `+Building_Blocks/Hiero/Viewer/LGA_Test_Translation.py`
-
-**Objetivo**: Prueba específicamente el método `player.translation()` que resultó ser la solución.
-
-**Resultado**: ✅ **ÉXITO** - `player.translation()` devuelve un `QPointF` con el pan (offset X e Y) del viewer.
-
-**Ejemplo de uso**:
-```python
-player = viewer.player()
-translation = player.translation()  # QPointF(x, y)
-pan_x = translation.x()  # Offset X
-pan_y = translation.y()  # Offset Y
-```
-
-**Nota**: Los demás scripts de exploración (LGA_Explorar_*, LGA_Test_*) fueron eliminados después de encontrar la solución, ya que su propósito era investigar y ya no son necesarios.
-
-## Versión
-
-v0.54 - Cambio de posicionamiento vertical: de centrado a alineado al bottom (con margen de 30px). **Nota**: El posicionamiento vertical actualmente no funciona correctamente - el box aparece siempre arriba en lugar de abajo.
-
-## Autor
-
-Lega
-
+**Archivo principal**: `LGA_NKS_ViewerTL/LGA_NKS_FrameNumber.py`  
+**Función principal**: `print_box_values()`

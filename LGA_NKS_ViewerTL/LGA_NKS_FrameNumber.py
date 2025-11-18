@@ -1,10 +1,11 @@
 """
 ______________________________________________________
 
-  LGA_NKS_FrameNumber v0.55 | Lega
+  LGA_NKS_FrameNumber v0.56 | Lega
   Busca el clip 'Frame_Only' en el track 'BurnIn' y posiciona el box
   alineado a la izquierda y al bottom con 30px de margen
 
+  v0.56: Se corrigió el problema de posición vertical (Y)
   v0.55: Logs simplificados
 ______________________________________________________
 
@@ -206,18 +207,14 @@ def print_box_values():
                     # Determinar qué dimensión limita el área visible basándose en el aspect ratio
                     if viewer_aspect > image_aspect:
                         visible_height_in_image = visible_height_raw
-                        visible_height_in_image = min(visible_height_in_image, image_height)
                         visible_width_in_image = visible_height_in_image * image_aspect
-                        visible_width_in_image = min(visible_width_in_image, image_width)
                     else:
                         visible_width_in_image = visible_width_raw
-                        visible_width_in_image = min(visible_width_in_image, image_width)
                         visible_height_in_image = visible_width_in_image / image_aspect
-                        visible_height_in_image = min(visible_height_in_image, image_height)
                     
-                    # Limitar el área visible al tamaño máximo de la imagen (por seguridad)
-                    visible_width_in_image = min(visible_width_in_image, image_width)
-                    visible_height_in_image = min(visible_height_in_image, image_height)
+                    if USE_ABSOLUTE_POSITION:
+                        visible_width_in_image = min(visible_width_in_image, image_width)
+                        visible_height_in_image = min(visible_height_in_image, image_height)
                     
                     # Obtener el pan usando player.translation()
                     try:
@@ -226,13 +223,12 @@ def print_box_values():
                         pan_y_viewer = translation.y()
                         
                         # Convertir pan del viewer a coordenadas de imagen
-                        # Para Y: invertir signo porque Qt usa Y=0 arriba pero Hiero usa Y=0 abajo
                         pan_x_image = pan_x_viewer / zoom if zoom > 0 else pan_x_viewer
-                        pan_y_image = -pan_y_viewer / zoom if zoom > 0 else -pan_y_viewer
+                        pan_y_image = pan_y_viewer / zoom if zoom > 0 else pan_y_viewer
                         
-                        debug_print(f"\n📍 Pan (comparación X vs Y):")
-                        debug_print(f"   Pan X viewer: {pan_x_viewer:.2f} -> imagen: {pan_x_image:.2f}")
-                        debug_print(f"   Pan Y viewer: {pan_y_viewer:.2f} -> imagen: {pan_y_image:.2f} (invertido)")
+                        debug_print(f"\n📍 Pan del viewer:")
+                        debug_print(f"   X viewer: {pan_x_viewer:.2f} -> imagen: {pan_x_image:.2f}")
+                        debug_print(f"   Y viewer: {pan_y_viewer:.2f} -> imagen: {pan_y_image:.2f}")
                         
                         # Calcular el centro de la imagen
                         image_center_x = image_width / 2
@@ -247,13 +243,13 @@ def print_box_values():
                         visible_center_x = image_center_x - pan_x_image
                         visible_center_y = image_center_y - pan_y_image
                         
-                        # Calcular el offset del área visible (esquina inferior izquierda en Hiero: bottom-left)
+                        # Calcular el offset del área visible (esquina inferior izquierda en coordenadas de imagen)
                         visible_x_offset = visible_center_x - (visible_width_in_image / 2)
                         visible_y_offset = visible_center_y - (visible_height_in_image / 2)
                         
-                        debug_print(f"\n📐 Área visible (comparación X vs Y):")
-                        debug_print(f"   Centro imagen: X={image_center_x:.2f}, Y={image_center_y:.2f}")
-                        debug_print(f"   Centro visible: X={visible_center_x:.2f}, Y={visible_center_y:.2f}")
+                        debug_print(f"\n📐 Área visible:")
+                        debug_print(f"   Centro imagen: ({image_center_x:.2f}, {image_center_y:.2f})")
+                        debug_print(f"   Centro visible: ({visible_center_x:.2f}, {visible_center_y:.2f})")
                         debug_print(f"   Offset: X={visible_x_offset:.2f}, Y={visible_y_offset:.2f}")
                         debug_print(f"   Dimensiones visibles: W={visible_width_in_image:.2f}, H={visible_height_in_image:.2f}")
                     except Exception as e:
@@ -276,24 +272,22 @@ def print_box_values():
                     visible_width = visible_width_in_image
                     visible_height = visible_height_in_image
                     
-                    # Asegurar que el área visible no exceda las dimensiones de la imagen
-                    if visible_width > image_width:
-                        visible_width = image_width
-                    if visible_height > image_height:
-                        visible_height = image_height
-                    
-                    # Limitar el offset para que el área visible no se salga de la imagen
-                    # Pero permitir valores negativos si el área visible es más grande que la imagen
-                    if visible_x_offset < 0:
-                        visible_x_offset = 0
-                    if visible_y_offset < 0:
-                        visible_y_offset = 0
-                    
-                    # Asegurar que el área visible no se salga de la imagen por la derecha/abajo
-                    if visible_x_offset + visible_width > image_width:
-                        visible_x_offset = max(0, image_width - visible_width)
-                    if visible_y_offset + visible_height > image_height:
-                        visible_y_offset = max(0, image_height - visible_height)
+                    if USE_ABSOLUTE_POSITION:
+                        # En modo absoluto, el área visible no debe salir de los límites de la imagen
+                        if visible_width > image_width:
+                            visible_width = image_width
+                        if visible_height > image_height:
+                            visible_height = image_height
+                        
+                        if visible_x_offset < 0:
+                            visible_x_offset = 0
+                        if visible_y_offset < 0:
+                            visible_y_offset = 0
+                        
+                        if visible_x_offset + visible_width > image_width:
+                            visible_x_offset = max(0, image_width - visible_width)
+                        if visible_y_offset + visible_height > image_height:
+                            visible_y_offset = max(0, image_height - visible_height)
                 else:
                     debug_print(f"   ⚠️ No se pudo obtener el player del viewer")
                     # Fallback: usar aproximación basada en tamaño del viewer
@@ -389,12 +383,21 @@ def print_box_values():
                 new_x = visible_x_offset + LEFT_MARGIN
                 new_r = new_x + box_width
                 
-                # CORRECCIÓN CRÍTICA: En Hiero/Nuke, Y=0 es el BOTTOM de la imagen, no el TOP
-                # Por lo tanto, para alinear al bottom con margen, necesitamos:
-                # - El BOTTOM del box (Y) debe estar a BOTTOM_MARGIN del bottom del área visible
-                # - El TOP del box (T) debe estar a Y + box_height
-                # Alinear al bottom del área visible con margen
-                new_y = visible_y_offset + BOTTOM_MARGIN  # Bottom del box a 30px del bottom del área visible
+                # CORRECCIÓN CRÍTICA: Si el área inferior está completamente visible, usar el bottom de la imagen
+                # Si visible_y_offset <= 0, significa que el bottom de la imagen (Y=0) está visible
+                if visible_y_offset <= 0:
+                    # El área inferior está completamente visible, usar el bottom de la imagen directamente
+                    new_y = BOTTOM_MARGIN  # 30px del bottom de la imagen completa
+                    debug_print(f"\n✅ Área inferior completamente visible:")
+                    debug_print(f"   visible_y_offset={visible_y_offset:.2f} <= 0")
+                    debug_print(f"   Usando new_y = BOTTOM_MARGIN = {BOTTOM_MARGIN} (bottom de la imagen)")
+                else:
+                    # El área inferior está cropeada, usar el bottom del área visible
+                    new_y = visible_y_offset + BOTTOM_MARGIN  # Bottom del box a 30px del bottom del área visible
+                    debug_print(f"\n⚠️ Área inferior cropeada:")
+                    debug_print(f"   visible_y_offset={visible_y_offset:.2f} > 0")
+                    debug_print(f"   Usando new_y = visible_y_offset + BOTTOM_MARGIN = {new_y:.2f}")
+                
                 new_t = new_y + box_height  # Top del box
                 
                 # Asegurar que el box quede dentro del área visible
@@ -458,8 +461,54 @@ def print_box_values():
             debug_print(f"\n🎯 Posición nueva (comparación X vs Y):")
             debug_print(f"   X: {x:.2f} -> {new_x:.2f} (offset: {offset_x:.2f})")
             debug_print(f"   Y: {y:.2f} -> {new_y:.2f} (offset: {offset_y:.2f})")
+            
             if not USE_ABSOLUTE_POSITION:
-                debug_print(f"   Desde área visible: X={new_x - visible_x_offset:.2f}px, Y={new_y - visible_y_offset:.2f}px")
+                # Calcular posición esperada
+                expected_x = visible_x_offset + LEFT_MARGIN
+                expected_y = visible_y_offset + BOTTOM_MARGIN
+                
+                debug_print(f"\n🔍 Verificación área visible (X vs Y):")
+                debug_print(f"   Área visible - Bottom: X={visible_x_offset:.2f}, Y={visible_y_offset:.2f}")
+                debug_print(f"   Área visible - Top: X={visible_x_offset + visible_width:.2f}, Y={visible_y_offset + visible_height:.2f}")
+                debug_print(f"   Posición esperada: X={expected_x:.2f}, Y={expected_y:.2f}")
+                debug_print(f"   Posición calculada: X={new_x:.2f}, Y={new_y:.2f}")
+                debug_print(f"   Diferencia: X={new_x - expected_x:.2f}px, Y={new_y - expected_y:.2f}px")
+                debug_print(f"   Desde área visible: X={new_x - visible_x_offset:.2f}px (esperado: {LEFT_MARGIN}px)")
+                debug_print(f"   Desde área visible: Y={new_y - visible_y_offset:.2f}px (esperado: {BOTTOM_MARGIN}px)")
+                debug_print(f"   ⚠️ Si Y está muy alto visualmente, new_y debería ser MAYOR que expected_y")
+                debug_print(f"   ⚠️ En Hiero Y=0 es bottom, entonces Y más grande = más arriba")
+                # Recalcular sin inversión para comparar
+                if not USE_ABSOLUTE_POSITION:
+                    try:
+                        viewer = hiero.ui.currentViewer()
+                        if viewer:
+                            player = viewer.player()
+                            if player:
+                                translation = player.translation()
+                                pan_y_viewer_test = translation.y()
+                                zoom_test = player.zoom()
+                                pan_y_image_sin_inversion_test = pan_y_viewer_test / zoom_test if zoom_test > 0 else pan_y_viewer_test
+                                visible_center_y_sin_inversion_test = image_height / 2 - pan_y_image_sin_inversion_test
+                                visible_y_offset_sin_inversion_test = visible_center_y_sin_inversion_test - (visible_height / 2)
+                                expected_y_sin_inversion = visible_y_offset_sin_inversion_test + BOTTOM_MARGIN
+                                
+                                debug_print(f"\n💡 Análisis del problema:")
+                                debug_print(f"   Con inversión: visible_y_offset={visible_y_offset:.2f} -> expected_y={expected_y:.2f} -> new_y={new_y:.2f}")
+                                debug_print(f"   Sin inversión: visible_y_offset={visible_y_offset_sin_inversion_test:.2f} -> expected_y={expected_y_sin_inversion:.2f}")
+                                debug_print(f"   Diferencia en expected_y: {abs(expected_y - expected_y_sin_inversion):.2f}px")
+                                
+                                # Calcular cuánto más alto está el box de lo que debería
+                                diferencia_y = new_y - expected_y_sin_inversion
+                                debug_print(f"\n📊 CUÁNTO MÁS ALTO ESTÁ EL BOX:")
+                                debug_print(f"   new_y actual (con inversión): {new_y:.2f}")
+                                debug_print(f"   new_y esperado (sin inversión): {expected_y_sin_inversion:.2f}")
+                                debug_print(f"   ⚠️ DIFERENCIA: {diferencia_y:.2f}px MÁS ALTO de lo que debería estar")
+                                debug_print(f"   ⚠️ El box está {diferencia_y:.2f}px más arriba de donde debería estar visualmente")
+                                debug_print(f"   ⚠️ Si el box está muy alto, debería estar en {expected_y_sin_inversion:.2f} en lugar de {new_y:.2f}")
+                                debug_print(f"   ⚠️ CONCLUSIÓN: El problema está en la INVERSIÓN del pan Y")
+                                debug_print(f"   ⚠️ SOLUCIÓN: NO deberíamos invertir el pan Y (quitar el signo negativo)")
+                    except:
+                        pass
             
             # Aplicar los nuevos valores
             try:
