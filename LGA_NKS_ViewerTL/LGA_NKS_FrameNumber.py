@@ -1,12 +1,14 @@
 """
 ______________________________________________________
 
-  LGA_NKS_FrameNumber v0.57 | Lega
+  LGA_NKS_FrameNumber v1.0 | Lega
   Busca el clip 'Frame_Only' en el track 'BurnIn' y posiciona el box
   alineado a la izquierda y al bottom con 30px de margen
   Incluye funcionalidad de toggle: si la posición no cambia y está enabled, lo deshabilita.
   Si está disabled, lo habilita.
+  Si el efecto no existe, lo crea automáticamente.
 
+  v1.0: Creación automática del efecto si no existe
   v0.57: Agregada funcionalidad de toggle
   v0.56: Se corrigió el problema de posición vertical (Y)
   v0.55: Logs simplificados
@@ -37,6 +39,56 @@ USE_ABSOLUTE_POSITION = False
 def debug_print(*message):
     if DEBUG:
         print(*message)
+
+def find_frame_only_effect(track, base_name="Frame_Only"):
+    """
+    Busca un efecto que empiece con 'Frame_Only' (puede ser 'Frame_Only', 'Frame_Only1', etc.)
+    Retorna el efecto con el número más bajo, o el que no tenga número si existe.
+    
+    Args:
+        track: Track donde buscar
+        base_name: Nombre base a buscar (default: "Frame_Only")
+    
+    Returns:
+        EffectTrackItem encontrado o None
+    """
+    found_effects = []
+    
+    # Buscar en soft effects
+    items = track.subTrackItems()
+    if items:
+        for item in items:
+            effect_item = item[0] if isinstance(item, (tuple, list)) else item
+            if isinstance(effect_item, hiero.core.EffectTrackItem):
+                effect_name = effect_item.name()
+                if effect_name.startswith(base_name):
+                    found_effects.append((effect_item, effect_name))
+    
+    if not found_effects:
+        return None
+    
+    # Si encontramos exactamente "Frame_Only", usarlo
+    for effect, name in found_effects:
+        if name == base_name:
+            debug_print(f"✅ Encontrado efecto exacto: '{name}'")
+            return effect
+    
+    # Si no hay exacto, buscar el que tenga el número más bajo
+    def extract_number(name):
+        """Extrae el número del nombre, retorna 0 si no tiene número."""
+        if name == base_name:
+            return 0
+        suffix = name[len(base_name):]
+        if suffix and suffix.isdigit():
+            return int(suffix)
+        return 999999  # Si tiene sufijo pero no es número, ponerlo al final
+    
+    # Ordenar por número y tomar el primero
+    found_effects.sort(key=lambda x: extract_number(x[1]))
+    selected_effect, selected_name = found_effects[0]
+    
+    debug_print(f"✅ Encontrado efecto '{selected_name}' (número más bajo de {len(found_effects)} encontrados)")
+    return selected_effect
 
 # ============================
 # Función Principal
@@ -72,14 +124,8 @@ def print_box_values():
         debug_print(f"❌ El track '{TRACK_NAME}' no tiene items.")
         return
     
-    # Buscar en los soft effects del track
-    for item in items:
-        # Cada item es una lista/tupla, tomar el primer elemento
-        effect_item = item[0]
-        if isinstance(effect_item, hiero.core.EffectTrackItem):
-            if effect_item.name() == CLIP_NAME:
-                target_clip = effect_item
-                break
+    # Buscar efecto que empiece con "Frame_Only" (puede ser Frame_Only, Frame_Only1, etc.)
+    target_clip = find_frame_only_effect(target_track, CLIP_NAME)
     
     # Si no se encontró como soft effect, buscar como clip normal
     if not target_clip:
@@ -113,7 +159,7 @@ def print_box_values():
                 break
     
     if not target_clip:
-        debug_print(f"❌ No se encontró el clip '{CLIP_NAME}' en el track '{TRACK_NAME}'.")
+        debug_print(f"⚠️ No se encontró ningún efecto que empiece con '{CLIP_NAME}' en el track '{TRACK_NAME}'.")
         debug_print(f"Soft effects encontrados en el track:")
         for item in items:
             effect_item = item[0]
@@ -126,7 +172,28 @@ def print_box_values():
             else:
                 clip_name = item.name() if hasattr(item, 'name') else "Sin nombre"
                 debug_print(f"  - Clip: {clip_name}")
-        return
+        
+        # Intentar crear el soft effect si no existe ninguno que empiece con "Frame_Only"
+        debug_print(f"\n🔧 Intentando crear el soft effect '{CLIP_NAME}'...")
+        try:
+            from LGA_NKS_ViewerTL.LGA_NKS_FrameNumber_Create import create_frame_only_effect
+            created_effect = create_frame_only_effect(seq, target_track)
+            if created_effect:
+                target_clip = created_effect
+                debug_print(f"✅ Soft effect '{CLIP_NAME}' creado exitosamente")
+                debug_print(f"   Continuando con el posicionamiento del box...")
+            else:
+                debug_print(f"❌ No se pudo crear el soft effect '{CLIP_NAME}'.")
+                return
+        except ImportError as e:
+            debug_print(f"❌ Error importando módulo de creación: {e}")
+            debug_print(f"   Asegúrate de que LGA_NKS_FrameNumber_Create.py esté disponible")
+            return
+        except Exception as e:
+            debug_print(f"❌ Error al crear el soft effect: {e}")
+            import traceback
+            debug_print(traceback.format_exc())
+            return
     
     # Obtener el nodo asociado al clip
     # Los clips normales y los efectos tienen el método node()

@@ -94,6 +94,115 @@ def safe_set_knob(node, knob_name, value):
         debug_print(f"  ⚠️ Error estableciendo '{knob_name}': {e}")
         return False
 
+def get_next_available_node_name(base_name="Frame_Only"):
+    """
+    Busca todos los nodos en el proyecto de Nuke que empiecen con 'base_name'
+    y retorna el siguiente nombre disponible (con número si es necesario).
+    
+    Args:
+        base_name: Nombre base a buscar (default: "Frame_Only")
+    
+    Returns:
+        str: Nombre disponible (puede ser "Frame_Only", "Frame_Only1", "Frame_Only2", etc.)
+    """
+    try:
+        # Obtener todos los nodos del proyecto de Nuke
+        all_nodes = nuke.allNodes()
+        
+        # Buscar nodos que empiecen con el nombre base
+        existing_names = []
+        for node in all_nodes:
+            try:
+                node_name = node.name()
+                if node_name.startswith(base_name):
+                    existing_names.append(node_name)
+            except:
+                continue
+        
+        # Si no hay ningún nodo con ese nombre, usar el nombre base
+        if not existing_names:
+            return base_name
+        
+        # Si existe exactamente el nombre base, buscar el siguiente número
+        if base_name in existing_names:
+            # Buscar números existentes
+            numbers = []
+            for name in existing_names:
+                if name == base_name:
+                    numbers.append(0)  # El nombre base cuenta como 0
+                else:
+                    suffix = name[len(base_name):]
+                    if suffix and suffix.isdigit():
+                        numbers.append(int(suffix))
+            
+            # Encontrar el siguiente número disponible
+            if numbers:
+                max_num = max(numbers)
+                next_num = max_num + 1
+            else:
+                next_num = 1
+            
+            return f"{base_name}{next_num}"
+        else:
+            # Si no existe el nombre base exacto, usarlo
+            return base_name
+            
+    except Exception as e:
+        debug_print(f"⚠️ Error buscando nombres de nodos: {e}")
+        # En caso de error, retornar el nombre base
+        return base_name
+
+def find_frame_only_effect_in_track(track, base_name="Frame_Only"):
+    """
+    Busca un efecto que empiece con 'Frame_Only' (puede ser 'Frame_Only', 'Frame_Only1', etc.)
+    Retorna el efecto con el número más bajo, o el que no tenga número si existe.
+    
+    Args:
+        track: Track donde buscar
+        base_name: Nombre base a buscar (default: "Frame_Only")
+    
+    Returns:
+        EffectTrackItem encontrado o None
+    """
+    found_effects = []
+    
+    # Buscar en soft effects
+    items = track.subTrackItems()
+    if items:
+        for item in items:
+            effect_item = item[0] if isinstance(item, (tuple, list)) else item
+            if isinstance(effect_item, hiero.core.EffectTrackItem):
+                try:
+                    effect_name = effect_item.name()
+                    if effect_name.startswith(base_name):
+                        found_effects.append((effect_item, effect_name))
+                except:
+                    continue
+    
+    if not found_effects:
+        return None
+    
+    # Si encontramos exactamente "Frame_Only", usarlo
+    for effect, name in found_effects:
+        if name == base_name:
+            return effect
+    
+    # Si no hay exacto, buscar el que tenga el número más bajo
+    def extract_number(name):
+        """Extrae el número del nombre, retorna 0 si no tiene número."""
+        if name == base_name:
+            return 0
+        suffix = name[len(base_name):]
+        if suffix and suffix.isdigit():
+            return int(suffix)
+        return 999999  # Si tiene sufijo pero no es número, ponerlo al final
+    
+    # Ordenar por número y tomar el primero
+    found_effects.sort(key=lambda x: extract_number(x[1]))
+    selected_effect, selected_name = found_effects[0]
+    
+    return selected_effect
+
 def get_track_duration_from_other_effects(track):
     """
     Obtiene la duración (timeline_in, timeline_out) basándose en otros
@@ -223,20 +332,16 @@ def create_frame_only_effect(seq=None, track=None):
     
     debug_print(f"✅ Track '{TRACK_NAME}' encontrado.")
     
-    # Verificar si el soft effect ya existe
-    # Buscar en subTrackItems (soft effects)
-    items = track.subTrackItems()
-    if items:
-        for item in items:
-            # Cada item es una tupla/lista, tomar el primer elemento
-            effect_item = item[0] if isinstance(item, (tuple, list)) else item
-            if isinstance(effect_item, hiero.core.EffectTrackItem):
-                try:
-                    if effect_item.name() == EFFECT_NAME:
-                        debug_print(f"ℹ️ El soft effect '{EFFECT_NAME}' ya existe en el track.")
-                        return effect_item
-                except:
-                    continue
+    # NOTA: La verificación de existencia se hace en el script principal antes de llamar a esta función
+    # Por lo tanto, no necesitamos verificar de nuevo aquí. Si esta función se llama, es porque
+    # el script principal ya verificó que NO existe ningún efecto que empiece con "Frame_Only"
+    
+    # Obtener el siguiente nombre disponible para el nodo en el proyecto de Nuke
+    # Esto evita que Nuke renombre automáticamente el nodo si ya existe uno con ese nombre
+    available_node_name = get_next_available_node_name(EFFECT_NAME)
+    if available_node_name != EFFECT_NAME:
+        debug_print(f"ℹ️ El nombre '{EFFECT_NAME}' ya existe en el proyecto de Nuke.")
+        debug_print(f"   Usando nombre disponible: '{available_node_name}'")
     
     # Obtener duración de otros soft effects en el track
     duration_info = get_track_duration_from_other_effects(track)
@@ -281,15 +386,15 @@ def create_frame_only_effect(seq=None, track=None):
                     if not effect_item:
                         raise Exception("createEffect() retornó None")
                     
-                    # Configurar nombre del efecto
-                    effect_item.setName(EFFECT_NAME)
+                    # Configurar nombre del efecto y del nodo usando el nombre disponible
+                    effect_item.setName(available_node_name)
                     
                     # Obtener el nodo y configurar todas las propiedades
                     effect_node = effect_item.node()
                     if not effect_node:
                         raise Exception("No se pudo obtener el nodo del efecto creado")
                     
-                    effect_node['name'].setValue(EFFECT_NAME)
+                    effect_node['name'].setValue(available_node_name)
                     
                     # Configurar todas las propiedades
                     debug_print(f"⚙️ Configurando propiedades del efecto creado...")
@@ -311,7 +416,7 @@ def create_frame_only_effect(seq=None, track=None):
                     except Exception as e:
                         debug_print(f"⚠️ Error configurando lifetime: {e}")
                     
-                    debug_print(f"✅ Soft effect '{EFFECT_NAME}' creado y configurado exitosamente")
+                    debug_print(f"✅ Soft effect '{available_node_name}' creado y configurado exitosamente")
                     if project:
                         project.endUndo()
                     return effect_item

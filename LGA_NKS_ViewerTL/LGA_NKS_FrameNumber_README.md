@@ -1,4 +1,4 @@
-# LGA_NKS_FrameNumber
+# LGA_NKS_FrameNumber v1.0
 
 ## Objetivo
 
@@ -7,7 +7,25 @@ Este script posiciona un elemento de texto (box) en el viewer de Hiero. El eleme
 - **Modo Absoluto**: La posición del box se calcula basándose en las dimensiones completas de la imagen, sin importar el nivel de zoom o pan del viewer.
 - **Modo Relativo**: La posición del box se calcula basándose en el área visible del viewer, considerando el zoom y el pan. El box se posiciona a 30px del borde izquierdo y a 30px del bottom del área visible.
 
-## Funcionalidad de Toggle (v0.57)
+## Creación Automática del Efecto (v1.0)
+
+Si el script se ejecuta y no encuentra el soft effect `Frame_Only` en el track `BurnIn`, **lo crea automáticamente** con todas las propiedades correctas:
+
+- ✅ Crea un nuevo efecto Text2 llamado `Frame_Only`
+- ✅ Configura todas las propiedades (fuente Arial, colores, sombras, fondo, etc.)
+- ✅ Usa la misma duración que otros soft effects en el track
+- ✅ Box configurado con 100px adicionales de ancho para mejor compatibilidad
+- ✅ Mensaje dinámico: `Frame: [metadata input/frame]`
+
+Una vez creado, el script continúa normalmente con el posicionamiento del box.
+
+## Funcionalidades
+
+### Creación Automática (v1.0)
+
+Si el efecto `Frame_Only` no existe en el track `BurnIn`, el script lo crea automáticamente antes de continuar con el posicionamiento.
+
+### Funcionalidad de Toggle (v0.57)
 
 El script incluye una funcionalidad de toggle automático:
 
@@ -50,6 +68,7 @@ pan_y = translation.y()  # Offset Y del área visible
 - ✅ Posicionar el box correctamente en modo relativo en ambos ejes (X e Y)
 - ✅ El cálculo de X e Y es consistente: ambos usan el mismo método limpio sin correcciones especiales
 - ✅ Funcionalidad de toggle: deshabilita el effect si la posición no cambia y está enabled, o lo habilita si está disabled
+- ✅ Creación automática: crea el efecto `Frame_Only` si no existe en el track `BurnIn`
 
 ### ⚠️ Limitaciones Conocidas
 
@@ -66,4 +85,9 @@ El script calcula el área visible del viewer usando:
 El cálculo de posición es consistente para ambos ejes (X e Y): se calcula el centro visible restando el pan del centro de la imagen, y luego se obtiene el offset restando la mitad de las dimensiones visibles.
 
 **Archivo principal**: `LGA_NKS_ViewerTL/LGA_NKS_FrameNumber.py`  
-**Función principal**: `print_box_values()`
+**Función principal**: `print_box_values()`  
+**Script auxiliar**: `LGA_NKS_ViewerTL/LGA_NKS_FrameNumber_Create.py` (creación automática del efecto)
+
+## Dependencias
+
+El script requiere el módulo `LGA_NKS_FrameNumber_Create.py` para la funcionalidad de creación automática. Este módulo debe estar disponible en la misma carpeta o en el path de Python.
