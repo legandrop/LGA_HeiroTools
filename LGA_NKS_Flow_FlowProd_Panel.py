@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_FlowProd_Panel v1.05 | Lega
+  LGA_NKS_Flow_FlowProd_Panel v1.06 | Lega
   Panel para operaciones de producción con Flow:
   - Revelar clips en Flow
   - Crear shots automáticamente
@@ -59,8 +59,8 @@ class FlowProdPanel(QWidget):
                 "Reveal in Flow",
                 self.show_in_flow_for_selected_clip,
                 "#1f1f1f",
-                "Shift+F",
-                "Shift+F - Abrir task comp en Flow",
+                "Ctrl+Shift+F",
+                "Ctrl+Shift+F - Abrir task comp en Flow",
             ),
             (
                 "Thumbnail",

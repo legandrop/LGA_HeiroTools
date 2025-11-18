@@ -6,7 +6,7 @@ El panel LGA_NKS_Flow_FlowProd_Panel proporciona herramientas esenciales para op
 ## Funcionalidades Principales
 
 ### 1. Reveal in Flow
-- **Shortcut**: `Shift+F`
+- **Shortcut**: `Ctrl+Shift+F`
 - **Función**: Abre la task comp del clip seleccionado en Chrome
 - **Tooltip**: Se muestra el shortcut al hacer hover sobre el botón
 - **Script utilizado**: `LGA_NKS_Flow/LGA_NKS_Flow_ShowInFlow.py`
@@ -43,7 +43,7 @@ El sistema detecta automáticamente el formato utilizado sin necesidad de config
 ## Estructura del Panel
 
 ### Botones Disponibles
-1. **Reveal in Flow** - `Shift+F` - Abre la task comp en Chrome
+1. **Reveal in Flow** - `Ctrl+Shift+F` - Abre la task comp en Chrome
 2. **Thumbnail** - Crea y sube thumbnail del clip seleccionado
 3. **Create Shot** - Crea shots automáticamente en Flow
 
