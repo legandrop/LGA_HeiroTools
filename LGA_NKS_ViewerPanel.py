@@ -1,9 +1,10 @@
 """
 ________________________________________________________________
 
-  LGA_ViewerPanel v1.61 | Lega
+  LGA_ViewerPanel v1.62 | Lega
   Panel con herramientas para el viewer y el timeline de Hiero
   
+  v1.62: Se agregó el botón Frame Number
   v1.61: Se agregaron tooltips
 ________________________________________________________________
 
@@ -126,6 +127,13 @@ class ViewerPanel(QWidget):
                 "#2d5a3d",
                 None,
                 "Crea un snapshot de la imagen actual del viewer\n(cropeada al aspect ratio de la secuencia) y lo copia al portapapeles\nIdeal para enviar por telegram con algun comentario",
+            ),
+            (
+                "Frame Number",
+                self.frame_number_position,
+                "#0e1f3b",
+                "Shift+F",
+                "Shift+F\nMueve el burnin de frame number al área visible\nabajo a la izquierda del viewer",
             ),
         ]
 
@@ -346,6 +354,29 @@ class ViewerPanel(QWidget):
                 debug_print(f"Script no encontrado en la ruta: {script_path}")
         except Exception as e:
             debug_print(f"Error al ejecutar el script SnapShot: {e}")
+
+    ###### Frame Number Position
+    def frame_number_position(self):
+        try:
+            script_path = os.path.join(
+                os.path.dirname(__file__), "LGA_NKS_ViewerTL", "LGA_NKS_FrameNumber.py"
+            )
+            if os.path.exists(script_path):
+                import importlib.util
+
+                spec = importlib.util.spec_from_file_location(
+                    "LGA_NKS_FrameNumber", script_path
+                )
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+
+                # Llamar a la funcion principal del script
+                module.print_box_values()
+                debug_print("Ejecutado LGA_NKS_FrameNumber script.")
+            else:
+                debug_print(f"Script no encontrado en la ruta: {script_path}")
+        except Exception as e:
+            debug_print(f"Error al ejecutar el script Frame Number Position: {e}")
 
 
 # Crear la instancia del widget y anadirlo al gestor de ventanas de Hiero
