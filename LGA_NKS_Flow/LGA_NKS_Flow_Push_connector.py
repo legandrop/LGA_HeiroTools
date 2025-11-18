@@ -34,10 +34,10 @@ except ImportError:
     def extract_shot_code(base_name):
         parts = base_name.split("_")
         return "_".join(parts[:5]) if len(parts) >= 5 else "_".join(parts)
-    
+
     def extract_project_name(base_name):
         return base_name.split("_")[0] if base_name else ""
-    
+
     def extract_task_name(base_name):
         parts = base_name.split("_")
         if len(parts) >= 6:
@@ -45,6 +45,7 @@ except ImportError:
         elif len(parts) >= 4:
             return parts[3]
         return None
+
 
 # Diccionario de traduccion de estados (igual que en el script principal)
 status_translation = {
@@ -61,7 +62,8 @@ status_translation = {
 }
 
 # Variable global para activar o desactivar los prints
-DEBUG = True
+DEBUG = False
+
 
 def debug_print(message):
     """
@@ -70,6 +72,7 @@ def debug_print(message):
     """
     if DEBUG:
         print(message, file=sys.stderr)
+
 
 class ShotGridManager:
     def __init__(self, url, login, password):
@@ -150,7 +153,11 @@ class ShotGridManager:
             debug_print(f"Error buscando versiones para shot_id {shot_id}: {e}")
             return None, None, None
         # Buscar versiones que contengan _comp_ o _cmp_
-        comp_versions = [v for v in versions if "_comp_" in v["code"].lower() or "_cmp_" in v["code"].lower()]
+        comp_versions = [
+            v
+            for v in versions
+            if "_comp_" in v["code"].lower() or "_cmp_" in v["code"].lower()
+        ]
         if comp_versions:
 
             def safe_version_num(v):
@@ -172,11 +179,11 @@ class ShotGridManager:
         """
         Busca una versión específica por número de versión para un shot.
         Busca versiones que contengan _comp_ o _cmp_ y que coincidan con el número de versión.
-        
+
         Args:
             shot_id: ID del shot en ShotGrid
             version_number: Número de versión (ej: 13 para v013)
-            
+
         Returns:
             Tupla (version, version_number_str, user_id) o (None, None, None) si no se encuentra
         """
@@ -190,11 +197,11 @@ class ShotGridManager:
         except Exception as e:
             debug_print(f"Error buscando versiones para shot_id {shot_id}: {e}")
             return None, None, None
-        
+
         # Buscar versiones que contengan _comp_ o _cmp_ y que coincidan con el número de versión
         version_pattern = re.compile(r"_v(\d+)", re.IGNORECASE)
         matching_versions = []
-        
+
         for v in versions:
             code_lower = v["code"].lower()
             # Verificar que contenga _comp_ o _cmp_
@@ -205,7 +212,7 @@ class ShotGridManager:
                     v_num = int(match.group(1))
                     if v_num == version_number:
                         matching_versions.append(v)
-        
+
         if matching_versions:
             # Si hay múltiples coincidencias, tomar la primera (o podríamos tomar la más reciente)
             specific_version = matching_versions[0]
@@ -216,10 +223,14 @@ class ShotGridManager:
                 if specific_version.get("user") and specific_version["user"].get("id")
                 else None
             )
-            debug_print(f"Versión específica encontrada: {specific_version['code']} (ID: {specific_version['id']})")
+            debug_print(
+                f"Versión específica encontrada: {specific_version['code']} (ID: {specific_version['id']})"
+            )
             return specific_version, version_number_str, user_id
-        
-        debug_print(f"No se encontró versión específica v{version_number:02d} para shot_id {shot_id}")
+
+        debug_print(
+            f"No se encontró versión específica v{version_number:02d} para shot_id {shot_id}"
+        )
         return None, None, None
 
     def update_task_status(self, task_id, new_status):
@@ -307,10 +318,16 @@ class ShotGridManager:
             return False
 
         try:
-            debug_print(f"=== attach_images_to_note: Iniciando proceso de adjuntar imágenes ===")
-            debug_print(f"attach_images_to_note: Nota ID: {note_id}, Versión ID: {version_id}")
-            debug_print(f"attach_images_to_note: Total de imágenes recibidas: {len(image_paths)}")
-            
+            debug_print(
+                f"=== attach_images_to_note: Iniciando proceso de adjuntar imágenes ==="
+            )
+            debug_print(
+                f"attach_images_to_note: Nota ID: {note_id}, Versión ID: {version_id}"
+            )
+            debug_print(
+                f"attach_images_to_note: Total de imágenes recibidas: {len(image_paths)}"
+            )
+
             # Crear una carpeta temporal para los archivos renombrados
             temp_dir = tempfile.mkdtemp()
             debug_print(f"attach_images_to_note: Carpeta temporal creada: {temp_dir}")
@@ -320,10 +337,14 @@ class ShotGridManager:
             failed_images = []
 
             for idx, image_path in enumerate(image_paths, 1):
-                debug_print(f"--- Procesando imagen [{idx}/{len(image_paths)}]: {os.path.basename(image_path)} ---")
-                
+                debug_print(
+                    f"--- Procesando imagen [{idx}/{len(image_paths)}]: {os.path.basename(image_path)} ---"
+                )
+
                 if not os.path.exists(image_path):
-                    debug_print(f"❌ ERROR: Imagen [{idx}] NO EXISTE en disco: {image_path}")
+                    debug_print(
+                        f"❌ ERROR: Imagen [{idx}] NO EXISTE en disco: {image_path}"
+                    )
                     failed_count += 1
                     failed_images.append(f"[{idx}] {image_path} (no existe)")
                     continue
@@ -348,7 +369,9 @@ class ShotGridManager:
                 except Exception as copy_error:
                     debug_print(f"  ❌ ERROR copiando archivo: {copy_error}")
                     failed_count += 1
-                    failed_images.append(f"[{idx}] {image_path} (error al copiar: {copy_error})")
+                    failed_images.append(
+                        f"[{idx}] {image_path} (error al copiar: {copy_error})"
+                    )
                     continue
 
                 # Subir archivo directamente a la nota usando el metodo que funciono en exploracion
@@ -368,47 +391,64 @@ class ShotGridManager:
                             f"  ❌ ERROR: No se obtuvo ID de attachment para {new_filename}"
                         )
                         failed_count += 1
-                        failed_images.append(f"[{idx}] {image_path} (no se obtuvo attachment ID)")
+                        failed_images.append(
+                            f"[{idx}] {image_path} (no se obtuvo attachment ID)"
+                        )
 
                 except Exception as upload_error:
                     debug_print(
                         f"  ❌ ERROR subiendo archivo {new_filename}: {upload_error}"
                     )
                     failed_count += 1
-                    failed_images.append(f"[{idx}] {image_path} (error al subir: {upload_error})")
+                    failed_images.append(
+                        f"[{idx}] {image_path} (error al subir: {upload_error})"
+                    )
                     continue
 
             # Limpiar carpeta temporal
             try:
                 shutil.rmtree(temp_dir)
-                debug_print(f"attach_images_to_note: Carpeta temporal eliminada: {temp_dir}")
+                debug_print(
+                    f"attach_images_to_note: Carpeta temporal eliminada: {temp_dir}"
+                )
             except Exception as cleanup_error:
-                debug_print(f"attach_images_to_note: Error limpiando carpeta temporal: {cleanup_error}")
+                debug_print(
+                    f"attach_images_to_note: Error limpiando carpeta temporal: {cleanup_error}"
+                )
 
             # Resumen final
             debug_print(f"=== attach_images_to_note: RESUMEN FINAL ===")
             debug_print(f"attach_images_to_note: Total recibidas: {len(image_paths)}")
-            debug_print(f"attach_images_to_note: ✅ Adjuntadas exitosamente: {attached_count}")
+            debug_print(
+                f"attach_images_to_note: ✅ Adjuntadas exitosamente: {attached_count}"
+            )
             debug_print(f"attach_images_to_note: ❌ Fallidas: {failed_count}")
-            
+
             if failed_images:
                 debug_print(f"attach_images_to_note: Lista de imágenes que fallaron:")
                 for failed_img in failed_images:
                     debug_print(f"  - {failed_img}")
-            
+
             if attached_count == len(image_paths):
-                debug_print(f"attach_images_to_note: ✅ TODAS las imágenes se adjuntaron correctamente")
+                debug_print(
+                    f"attach_images_to_note: ✅ TODAS las imágenes se adjuntaron correctamente"
+                )
             elif attached_count > 0:
-                debug_print(f"attach_images_to_note: ⚠️  ADVERTENCIA: Solo {attached_count} de {len(image_paths)} imágenes se adjuntaron")
+                debug_print(
+                    f"attach_images_to_note: ⚠️  ADVERTENCIA: Solo {attached_count} de {len(image_paths)} imágenes se adjuntaron"
+                )
             else:
-                debug_print(f"attach_images_to_note: ❌ ERROR: Ninguna imagen se pudo adjuntar")
-            
+                debug_print(
+                    f"attach_images_to_note: ❌ ERROR: Ninguna imagen se pudo adjuntar"
+                )
+
             # Retornar el número de imágenes adjuntadas (no solo booleano)
             return attached_count
 
         except Exception as e:
             debug_print(f"❌ ERROR CRÍTICO adjuntando imagenes a la nota: {e}")
             import traceback
+
             debug_print(traceback.format_exc())
             return 0  # Retornar 0 imágenes adjuntadas en caso de error
 
@@ -456,29 +496,38 @@ class ShotGridManager:
             return None
 
 
-def execute_full_push_operation(sg_manager, button_name, base_name, message, review_images, original_file_name=None):
+def execute_full_push_operation(
+    sg_manager, button_name, base_name, message, review_images, original_file_name=None
+):
     """
     Ejecuta todo el proceso de push en una sola operación para mayor eficiencia
     """
     try:
         debug_print(f"Ejecutando push completo: {button_name} para {base_name}")
-        
+
         # Si original_file_name tiene la versión, usarlo para detección correcta del formato
         base_name_for_detection = base_name
         if original_file_name:
             version_match = re.search(r"_v(\d+)", original_file_name)
             if version_match:
                 # Si base_name no tiene versión pero original_file_name sí, usar original_file_name para detección
-                if not any(part.startswith('v') and part[1:].isdigit() for part in base_name.split("_")):
+                if not any(
+                    part.startswith("v") and part[1:].isdigit()
+                    for part in base_name.split("_")
+                ):
                     # Construir base_name_for_detection con la versión
                     base_name_for_detection = f"{base_name}_{version_match.group(0)}"
-                    debug_print(f"execute_full_push: Usando base_name con versión para detección: {base_name_for_detection}")
+                    debug_print(
+                        f"execute_full_push: Usando base_name con versión para detección: {base_name_for_detection}"
+                    )
 
         # Usar funciones compartidas para extraer información
         project_name = extract_project_name(base_name_for_detection)
         shot_code = extract_shot_code(base_name_for_detection)
-        
-        debug_print(f"execute_full_push: project_name={project_name}, shot_code={shot_code}")
+
+        debug_print(
+            f"execute_full_push: project_name={project_name}, shot_code={shot_code}"
+        )
 
         # Extraer task_name usando función compartida o método alternativo
         task_name_extracted = extract_task_name(base_name)
@@ -492,7 +541,7 @@ def execute_full_push_operation(sg_manager, button_name, base_name, message, rev
                 if part.startswith("v") and part[1:].isdigit():
                     version_number_str = part
                     break
-            
+
             if version_number_str:
                 try:
                     version_index = parts.index(version_number_str)
@@ -515,17 +564,23 @@ def execute_full_push_operation(sg_manager, button_name, base_name, message, rev
 
         # Si no encontramos versión en base_name, intentar extraerla de original_file_name
         if not version_number_str and original_file_name:
-            debug_print(f"execute_full_push: No se encontró versión en base_name, intentando extraer de original_file_name: {original_file_name}")
+            debug_print(
+                f"execute_full_push: No se encontró versión en base_name, intentando extraer de original_file_name: {original_file_name}"
+            )
             version_match = re.search(r"_v(\d+)", original_file_name)
             if version_match:
                 version_number_str = f"v{version_match.group(1)}"
-                debug_print(f"execute_full_push: Versión extraída de original_file_name: {version_number_str}")
+                debug_print(
+                    f"execute_full_push: Versión extraída de original_file_name: {version_number_str}"
+                )
                 # Actualizar base_name para incluir la versión
                 base_name = f"{base_name}_{version_number_str}"
                 debug_print(f"execute_full_push: base_name actualizado: {base_name}")
 
         if not version_number_str:
-            error_msg = f"No se encontró número de versión válido en base_name '{base_name}'"
+            error_msg = (
+                f"No se encontró número de versión válido en base_name '{base_name}'"
+            )
             if original_file_name:
                 error_msg += f" ni en original_file_name '{original_file_name}'"
             debug_print(f"execute_full_push: ERROR: {error_msg}")
@@ -533,7 +588,9 @@ def execute_full_push_operation(sg_manager, button_name, base_name, message, rev
 
         version_number = int(version_number_str.replace("v", ""))
 
-        debug_print(f"Proyecto: {project_name}, Shot: {shot_code}, Task: {task_name}, Version: {version_number}")
+        debug_print(
+            f"Proyecto: {project_name}, Shot: {shot_code}, Task: {task_name}, Version: {version_number}"
+        )
 
         # Buscar proyecto, shot y tareas
         project, shot, tasks = sg_manager.find_shot_and_tasks(project_name, shot_code)
@@ -543,7 +600,10 @@ def execute_full_push_operation(sg_manager, button_name, base_name, message, rev
         # Encontrar la tarea correspondiente
         sg_status = status_translation.get(button_name)
         if not sg_status:
-            return {"success": False, "error": f"No se encontró estado válido para {button_name}"}
+            return {
+                "success": False,
+                "error": f"No se encontró estado válido para {button_name}",
+            }
 
         task_id = None
         task_assignee_id = None
@@ -560,75 +620,109 @@ def execute_full_push_operation(sg_manager, button_name, base_name, message, rev
             return {"success": False, "error": f"No se encontró la tarea {task_name}"}
 
         # Buscar versión específica correspondiente al clip actual para agregar comentarios
-        sg_specific_version, sg_version_number_str, user_id = sg_manager.find_specific_version_for_shot(shot["id"], version_number)
-        
+        sg_specific_version, sg_version_number_str, user_id = (
+            sg_manager.find_specific_version_for_shot(shot["id"], version_number)
+        )
+
         # Si no se encuentra la versión específica, intentar con la más alta como fallback
         if not sg_specific_version:
-            debug_print(f"No se encontró versión específica v{version_number:02d}, usando versión más alta como fallback")
-            sg_specific_version, sg_version_number_str, user_id = sg_manager.find_highest_version_for_shot(shot["id"])
+            debug_print(
+                f"No se encontró versión específica v{version_number:02d}, usando versión más alta como fallback"
+            )
+            sg_specific_version, sg_version_number_str, user_id = (
+                sg_manager.find_highest_version_for_shot(shot["id"])
+            )
 
         if sg_status in ["rev_di", "corr", "revleg", "revjav"]:
             debug_print(f"Actualizando versión a vwd")
-            sg_manager.update_version_status(project_name, shot_code, version_number_str, "vwd")
+            sg_manager.update_version_status(
+                project_name, shot_code, version_number_str, "vwd"
+            )
 
             # Agregar comentario si hay mensaje - usar la versión específica, no la más alta
             if message and sg_specific_version:
-                debug_print(f"Agregando comentario a versión específica {sg_specific_version['id']} (v{version_number:02d})")
+                debug_print(
+                    f"Agregando comentario a versión específica {sg_specific_version['id']} (v{version_number:02d})"
+                )
                 created_note = sg_manager.add_comment_to_version(
-                    sg_specific_version["id"], project["id"], message,
-                    user_id, task_assignee_id, shot["id"]
+                    sg_specific_version["id"],
+                    project["id"],
+                    message,
+                    user_id,
+                    task_assignee_id,
+                    shot["id"],
                 )
 
                 # Adjuntar imágenes si existen y se creó la nota
                 if created_note and review_images:
-                    debug_print(f"=== execute_full_push: Iniciando envío de imágenes ===")
-                    debug_print(f"execute_full_push: Nota creada con ID: {created_note['id']}")
-                    debug_print(f"execute_full_push: Versión ID: {sg_specific_version['id']}")
-                    debug_print(f"execute_full_push: Total de imágenes a adjuntar: {len(review_images)}")
+                    debug_print(
+                        f"=== execute_full_push: Iniciando envío de imágenes ==="
+                    )
+                    debug_print(
+                        f"execute_full_push: Nota creada con ID: {created_note['id']}"
+                    )
+                    debug_print(
+                        f"execute_full_push: Versión ID: {sg_specific_version['id']}"
+                    )
+                    debug_print(
+                        f"execute_full_push: Total de imágenes a adjuntar: {len(review_images)}"
+                    )
                     debug_print(f"execute_full_push: Lista de imágenes a enviar:")
                     for idx, img_path in enumerate(review_images, 1):
                         debug_print(f"  [{idx}] {img_path}")
                         if not os.path.exists(img_path):
-                            debug_print(f"  ⚠️  ADVERTENCIA: La imagen [{idx}] NO EXISTE: {img_path}")
-                    
+                            debug_print(
+                                f"  ⚠️  ADVERTENCIA: La imagen [{idx}] NO EXISTE: {img_path}"
+                            )
+
                     attach_result = sg_manager.attach_images_to_note(
                         created_note["id"], sg_specific_version["id"], review_images
                     )
-                    debug_print(f"execute_full_push: Resultado de attach_images_to_note: {attach_result} imágenes adjuntadas")
+                    debug_print(
+                        f"execute_full_push: Resultado de attach_images_to_note: {attach_result} imágenes adjuntadas"
+                    )
                     # Retornar información sobre imágenes adjuntadas en el resultado
                     return {
                         "success": True,
                         "message": "Push completado exitosamente",
-                        "images_attached": attach_result  # attach_result ahora es el número de imágenes adjuntadas
+                        "images_attached": attach_result,  # attach_result ahora es el número de imágenes adjuntadas
                     }
                 elif created_note and not review_images:
-                    debug_print(f"execute_full_push: Nota creada pero no hay imágenes para adjuntar")
+                    debug_print(
+                        f"execute_full_push: Nota creada pero no hay imágenes para adjuntar"
+                    )
                     return {
                         "success": True,
                         "message": "Push completado exitosamente",
-                        "images_attached": 0
+                        "images_attached": 0,
                     }
                 elif not created_note and review_images:
-                    debug_print(f"⚠️  ADVERTENCIA: Hay {len(review_images)} imágenes pero no se creó la nota, no se pueden adjuntar")
+                    debug_print(
+                        f"⚠️  ADVERTENCIA: Hay {len(review_images)} imágenes pero no se creó la nota, no se pueden adjuntar"
+                    )
                     return {
                         "success": True,
                         "message": "Push completado exitosamente (nota no creada, imágenes no adjuntadas)",
-                        "images_attached": 0
+                        "images_attached": 0,
                     }
 
         elif sg_status == "rev_su":
             debug_print(f"Actualizando versión a rev")
-            sg_manager.update_version_status(project_name, shot_code, version_number_str, "rev")
+            sg_manager.update_version_status(
+                project_name, shot_code, version_number_str, "rev"
+            )
 
         elif sg_status == "revleg":
             debug_print(f"Actualizando versión a unvleg")
-            sg_manager.update_version_status(project_name, shot_code, version_number_str, "unvleg")
+            sg_manager.update_version_status(
+                project_name, shot_code, version_number_str, "unvleg"
+            )
 
         debug_print("execute_full_push: Push completado exitosamente")
         return {
             "success": True,
             "message": "Push completado exitosamente",
-            "images_attached": 0  # No hay imágenes para este tipo de estado
+            "images_attached": 0,  # No hay imágenes para este tipo de estado
         }
 
     except Exception as e:
@@ -644,9 +738,9 @@ def execute_flow_operation(operation, **kwargs):
     """
     try:
         # Obtener credenciales
-        url = kwargs.get('url')
-        login = kwargs.get('login')
-        password = kwargs.get('password')
+        url = kwargs.get("url")
+        login = kwargs.get("login")
+        password = kwargs.get("password")
 
         if not url or not login or not password:
             print("ERROR: Credenciales faltantes")
@@ -656,15 +750,19 @@ def execute_flow_operation(operation, **kwargs):
         sg_manager = ShotGridManager(url, login, password)
 
         if operation == "find_shot_and_tasks":
-            project_name = kwargs.get('project_name')
-            shot_code = kwargs.get('shot_code')
-            project, shot, tasks = sg_manager.find_shot_and_tasks(project_name, shot_code)
+            project_name = kwargs.get("project_name")
+            shot_code = kwargs.get("shot_code")
+            project, shot, tasks = sg_manager.find_shot_and_tasks(
+                project_name, shot_code
+            )
 
             # Convertir objetos datetime a strings para JSON serialization
             def convert_datetime(obj):
                 if isinstance(obj, dict):
-                    return {k: (v.isoformat() if hasattr(v, 'isoformat') else v)
-                           for k, v in obj.items()}
+                    return {
+                        k: (v.isoformat() if hasattr(v, "isoformat") else v)
+                        for k, v in obj.items()
+                    }
                 elif isinstance(obj, list):
                     return [convert_datetime(item) for item in obj]
                 else:
@@ -674,83 +772,98 @@ def execute_flow_operation(operation, **kwargs):
                 "success": True,
                 "project": convert_datetime(project) if project else None,
                 "shot": convert_datetime(shot) if shot else None,
-                "tasks": convert_datetime(tasks) if tasks else []
+                "tasks": convert_datetime(tasks) if tasks else [],
             }
 
         elif operation == "find_highest_version":
-            shot_id = kwargs.get('shot_id')
-            version, version_num, user_id = sg_manager.find_highest_version_for_shot(shot_id)
+            shot_id = kwargs.get("shot_id")
+            version, version_num, user_id = sg_manager.find_highest_version_for_shot(
+                shot_id
+            )
 
             # Convertir objetos datetime a strings para JSON serialization
             if version:
-                version = {k: (v.isoformat() if hasattr(v, 'isoformat') else v)
-                          for k, v in version.items()}
+                version = {
+                    k: (v.isoformat() if hasattr(v, "isoformat") else v)
+                    for k, v in version.items()
+                }
 
             return {
                 "success": True,
                 "version": version,
                 "version_number": version_num,
-                "user_id": user_id
+                "user_id": user_id,
             }
 
         elif operation == "update_task":
-            task_id = kwargs.get('task_id')
-            status = kwargs.get('status')
+            task_id = kwargs.get("task_id")
+            status = kwargs.get("status")
             sg_manager.update_task_status(task_id, status)
             return {"success": True}
 
         elif operation == "update_version":
-            project_name = kwargs.get('project_name')
-            shot_code = kwargs.get('shot_code')
-            version_str = kwargs.get('version_str')
-            status = kwargs.get('status')
-            sg_manager.update_version_status(project_name, shot_code, version_str, status)
+            project_name = kwargs.get("project_name")
+            shot_code = kwargs.get("shot_code")
+            version_str = kwargs.get("version_str")
+            status = kwargs.get("status")
+            sg_manager.update_version_status(
+                project_name, shot_code, version_str, status
+            )
             return {"success": True}
 
         elif operation == "get_task_assignee":
-            task_id = kwargs.get('task_id')
+            task_id = kwargs.get("task_id")
             assignee_id = sg_manager.get_task_assignee(task_id)
             return {"success": True, "assignee_id": assignee_id}
 
         elif operation == "add_comment":
-            version_id = kwargs.get('version_id')
-            project_id = kwargs.get('project_id')
-            comment = kwargs.get('comment')
-            user_id = kwargs.get('user_id')
-            task_assignee_id = kwargs.get('task_assignee_id')
-            shot_id = kwargs.get('shot_id')
+            version_id = kwargs.get("version_id")
+            project_id = kwargs.get("project_id")
+            comment = kwargs.get("comment")
+            user_id = kwargs.get("user_id")
+            task_assignee_id = kwargs.get("task_assignee_id")
+            shot_id = kwargs.get("shot_id")
             note = sg_manager.add_comment_to_version(
                 version_id, project_id, comment, user_id, task_assignee_id, shot_id
             )
 
             # Convertir objetos datetime a strings para JSON serialization
             if note:
-                note = {k: (v.isoformat() if hasattr(v, 'isoformat') else v)
-                       for k, v in note.items()}
+                note = {
+                    k: (v.isoformat() if hasattr(v, "isoformat") else v)
+                    for k, v in note.items()
+                }
 
             return {"success": True, "note": note}
 
         elif operation == "attach_images":
-            note_id = kwargs.get('note_id')
-            version_id = kwargs.get('version_id')
-            image_paths = kwargs.get('image_paths', [])
+            note_id = kwargs.get("note_id")
+            version_id = kwargs.get("version_id")
+            image_paths = kwargs.get("image_paths", [])
             success = sg_manager.attach_images_to_note(note_id, version_id, image_paths)
             return {"success": success}
 
         elif operation == "execute_full_push":
             # Operación optimizada que hace todo el push de una vez
-            button_name = kwargs.get('button_name')
-            base_name = kwargs.get('base_name')
-            message = kwargs.get('message')
-            review_images = kwargs.get('review_images', [])
-            original_file_name = kwargs.get('original_file_name')
+            button_name = kwargs.get("button_name")
+            base_name = kwargs.get("base_name")
+            message = kwargs.get("message")
+            review_images = kwargs.get("review_images", [])
+            original_file_name = kwargs.get("original_file_name")
 
-            return execute_full_push_operation(sg_manager, button_name, base_name, message, review_images, original_file_name)
+            return execute_full_push_operation(
+                sg_manager,
+                button_name,
+                base_name,
+                message,
+                review_images,
+                original_file_name,
+            )
 
         elif operation == "check_version":
             # Verificación de versiones para evitar congelar UI
-            base_name = kwargs.get('base_name')
-            original_file_name = kwargs.get('original_file_name')
+            base_name = kwargs.get("base_name")
+            original_file_name = kwargs.get("original_file_name")
 
             # Si original_file_name tiene la versión, usarlo para detección correcta del formato
             base_name_for_detection = base_name
@@ -758,10 +871,17 @@ def execute_flow_operation(operation, **kwargs):
                 version_match = re.search(r"_v(\d+)", original_file_name)
                 if version_match:
                     # Si base_name no tiene versión pero original_file_name sí, usar original_file_name para detección
-                    if not any(part.startswith('v') and part[1:].isdigit() for part in base_name.split("_")):
+                    if not any(
+                        part.startswith("v") and part[1:].isdigit()
+                        for part in base_name.split("_")
+                    ):
                         # Construir base_name_for_detection con la versión
-                        base_name_for_detection = f"{base_name}_{version_match.group(0)}"
-                        debug_print(f"check_version: Usando base_name con versión para detección: {base_name_for_detection}")
+                        base_name_for_detection = (
+                            f"{base_name}_{version_match.group(0)}"
+                        )
+                        debug_print(
+                            f"check_version: Usando base_name con versión para detección: {base_name_for_detection}"
+                        )
 
             # Usar funciones compartidas para extraer información
             project_name = extract_project_name(base_name_for_detection)
@@ -777,35 +897,53 @@ def execute_flow_operation(operation, **kwargs):
 
             # Si no encontramos versión en base_name, intentar extraerla de original_file_name
             if not version_number_str and original_file_name:
-                debug_print(f"check_version: No se encontró versión en base_name, intentando extraer de original_file_name: {original_file_name}")
+                debug_print(
+                    f"check_version: No se encontró versión en base_name, intentando extraer de original_file_name: {original_file_name}"
+                )
                 version_match = re.search(r"_v(\d+)", original_file_name)
                 if version_match:
                     version_number_str = f"v{version_match.group(1)}"
-                    debug_print(f"check_version: Versión extraída de original_file_name: {version_number_str}")
+                    debug_print(
+                        f"check_version: Versión extraída de original_file_name: {version_number_str}"
+                    )
                     # Actualizar base_name para incluir la versión para el diálogo
                     base_name = f"{base_name}_{version_number_str}"
-                    debug_print(f"check_version: base_name actualizado para diálogo: {base_name}")
+                    debug_print(
+                        f"check_version: base_name actualizado para diálogo: {base_name}"
+                    )
 
             if not version_number_str:
-                return {"success": True, "needs_confirmation": False}  # Continuar sin verificación
+                return {
+                    "success": True,
+                    "needs_confirmation": False,
+                }  # Continuar sin verificación
 
             local_version = int(version_number_str.replace("v", ""))
 
             # Buscar shot en Flow
             project, shot, _ = sg_manager.find_shot_and_tasks(project_name, shot_code)
             if not shot:
-                return {"success": True, "needs_confirmation": False}  # Continuar sin verificación
+                return {
+                    "success": True,
+                    "needs_confirmation": False,
+                }  # Continuar sin verificación
 
             # Buscar versión más alta
-            sg_highest_version, sg_version_number, _ = sg_manager.find_highest_version_for_shot(shot["id"])
+            sg_highest_version, sg_version_number, _ = (
+                sg_manager.find_highest_version_for_shot(shot["id"])
+            )
 
-            if sg_highest_version and sg_version_number and int(sg_version_number) > local_version:
+            if (
+                sg_highest_version
+                and sg_version_number
+                and int(sg_version_number) > local_version
+            ):
                 return {
                     "success": True,
                     "needs_confirmation": True,
                     "local_version": local_version,
                     "flow_version": int(sg_version_number),
-                    "base_name": base_name
+                    "base_name": base_name,
                 }
 
             return {"success": True, "needs_confirmation": False}
@@ -835,5 +973,8 @@ if __name__ == "__main__":
         result = execute_flow_operation(operation, **params)
         print(json.dumps(result))
     except Exception as e:
-        print(json.dumps({"success": False, "error": f"Error procesando parámetros: {str(e)}"}))
-
+        print(
+            json.dumps(
+                {"success": False, "error": f"Error procesando parámetros: {str(e)}"}
+            )
+        )

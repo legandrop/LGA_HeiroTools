@@ -24,7 +24,7 @@ from PySide2.QtCore import QTimer
 from pathlib import Path
 import sys
 
-DEBUG = True
+DEBUG = False
 
 # Importar métodos de selección híbrida
 utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
@@ -32,15 +32,18 @@ if utils_path.exists():
     sys.path.insert(0, str(utils_path))
     try:
         import LGA_NKS_GetClip as clip_utils
+
         find_clip_at_playhead_in_track = clip_utils.find_clip_at_playhead_in_track
     except ImportError:
         find_clip_at_playhead_in_track = None
 else:
     find_clip_at_playhead_in_track = None
 
+
 def debug_print(*message):
     if DEBUG:
         print(*message)
+
 
 # Definir los colores que buscamos
 COLORS = {
@@ -48,6 +51,7 @@ COLORS = {
     "sup": QColor(189, 127, 159),  # #bd7f9f
     "javi": QColor(156, 62, 94),  # #9c3e5e
 }
+
 
 def get_current_playhead_position():
     """
@@ -61,6 +65,7 @@ def get_current_playhead_position():
     except Exception as e:
         debug_print(f"Error al obtener la posición del playhead: {e}")
         return None
+
 
 def find_clip_with_color(direction, rev_type):
     """
@@ -78,7 +83,7 @@ def find_clip_with_color(direction, rev_type):
         return None
 
     target_clip = None
-    min_distance = float('inf')
+    min_distance = float("inf")
     target_color = COLORS.get(rev_type)
 
     # Buscar en todas las pistas de video
@@ -109,7 +114,9 @@ def find_clip_with_color(direction, rev_type):
                     if distance < min_distance:
                         min_distance = distance
                         target_clip = item
-                        debug_print(f"Encontrado clip siguiente: {item.name()} a distancia {distance}")
+                        debug_print(
+                            f"Encontrado clip siguiente: {item.name()} a distancia {distance}"
+                        )
 
                 # Para dirección "prev", buscar clips antes del playhead
                 elif direction == "prev" and clip_end < playhead_pos:
@@ -117,7 +124,9 @@ def find_clip_with_color(direction, rev_type):
                     if distance < min_distance:
                         min_distance = distance
                         target_clip = item
-                        debug_print(f"Encontrado clip anterior: {item.name()} a distancia {distance}")
+                        debug_print(
+                            f"Encontrado clip anterior: {item.name()} a distancia {distance}"
+                        )
 
     if target_clip:
         debug_print(f"Clip seleccionado: {target_clip.name()}")
@@ -125,6 +134,7 @@ def find_clip_with_color(direction, rev_type):
         debug_print(f"No se encontraron más clips {rev_type} en dirección {direction}")
 
     return target_clip
+
 
 def find_editref_clip_at_position(position):
     """
@@ -138,8 +148,8 @@ def find_editref_clip_at_position(position):
 
     # Verificar si la posición coincide con el playhead actual para usar método híbrido
     current_playhead = get_current_playhead_position()
-    use_hybrid = (current_playhead is not None and position == current_playhead)
-    
+    use_hybrid = current_playhead is not None and position == current_playhead
+
     # Buscar el track EditRef
     edit_ref_track = None
     for track in seq.videoTracks():
@@ -166,7 +176,7 @@ def find_editref_clip_at_position(position):
     # Si no se encuentra un clip que contenga la posición,
     # buscar el más cercano después de la posición
     closest_clip = None
-    min_distance = float('inf')
+    min_distance = float("inf")
     for item in edit_ref_track.items():
         if item.timelineIn() > position:
             distance = item.timelineIn() - position
@@ -175,6 +185,7 @@ def find_editref_clip_at_position(position):
                 closest_clip = item
 
     return closest_clip  # Retornar el clip más cercano si no se encuentra uno exacto
+
 
 def set_in_out_from_clip(clip):
     """
@@ -196,6 +207,7 @@ def set_in_out_from_clip(clip):
 
     return ref_in, ref_out
 
+
 def move_playhead_to_position(position):
     """
     Mueve el playhead a una posición específica.
@@ -204,6 +216,7 @@ def move_playhead_to_position(position):
     if viewer:
         debug_print(f"Moviendo playhead a la posición: {position}")
         viewer.setTime(position)
+
 
 def ajustar_vista_al_clip():
     """
@@ -217,10 +230,11 @@ def ajustar_vista_al_clip():
         window.setFocus()
 
         # Ejecutar el comando Zoom to Fit después de que la UI se actualice
-        QTimer.singleShot(0, lambda: hiero.ui.findMenuAction('Zoom to Fit').trigger())
+        QTimer.singleShot(0, lambda: hiero.ui.findMenuAction("Zoom to Fit").trigger())
         debug_print("Ejecutando comando Zoom to Fit")
     except Exception as e:
         debug_print(f"Error al ajustar la vista: {e}")
+
 
 def main(direction, rev_type):
     """
@@ -229,12 +243,16 @@ def main(direction, rev_type):
     # 1. Encontrar el clip con el color especificado en la dirección indicada
     target_clip = find_clip_with_color(direction, rev_type)
     if not target_clip:
-        debug_print(f"No se encontraron más clips con estado Rev_{rev_type.capitalize()}.")
+        debug_print(
+            f"No se encontraron más clips con estado Rev_{rev_type.capitalize()}."
+        )
         return
 
     # 2. Obtener la posición del clip
     clip_position = target_clip.timelineIn()
-    debug_print(f"Clip Rev_{rev_type.capitalize()} encontrado en posición: {clip_position}")
+    debug_print(
+        f"Clip Rev_{rev_type.capitalize()} encontrado en posición: {clip_position}"
+    )
 
     # 3. Encontrar el clip EditRef correspondiente
     edit_ref_clip = find_editref_clip_at_position(clip_position)
@@ -264,6 +282,7 @@ def main(direction, rev_type):
     if timeline_editor:
         timeline_editor.selectNone()
         debug_print("Clips deseleccionados")
+
 
 if __name__ == "__main__":
     # Si se ejecuta directamente, usar valores por defecto

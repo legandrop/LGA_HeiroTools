@@ -7,7 +7,7 @@ ________________________________________________________________________________
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
-  
+
   v2.48: Actualizado para usar método centralizado de selección de clips (LGA_NKS_GetClip).
          Ahora usa el Método 2 híbrido (playhead primero, luego selección como fallback)
          para obtener clips del track TRACK_comp_EXR. Soporta selecciones múltiples.
@@ -37,7 +37,7 @@ from LGA_NKS_Flow_NamingUtils import clean_base_name
 
 
 # Variable global para activar o desactivar los prints
-DEBUG = True
+DEBUG = False
 
 
 def debug_print(*message):
@@ -191,12 +191,16 @@ class ColorChangeWidget(QWidget):
                 button.setToolTip(tooltip_text)
             elif action == "review_pic":
                 button.clicked.connect(self.run_review_pic_script)
-                button.setToolTip("Crea snapshot del viewer y lo guarda con su número de frame para ser enviado junto con los comentarios")
+                button.setToolTip(
+                    "Crea snapshot del viewer y lo guarda con su número de frame para ser enviado junto con los comentarios"
+                )
             elif action == "shot_info":
                 button.clicked.connect(self.run_shot_info_script)
                 if "shortcut" in button_info:
                     button.setShortcut(QKeySequence(button_info["shortcut"]))
-                button.setToolTip("Muestra información del shot y comentarios de las versiones de la task comp")
+                button.setToolTip(
+                    "Muestra información del shot y comentarios de las versiones de la task comp"
+                )
 
             row = index // self.num_columns
             column = index % self.num_columns
@@ -384,28 +388,30 @@ class ColorChangeWidget(QWidget):
         try:
             # Guardar el nombre original para validación
             original_name = exr_name
-            
+
             # Ajustar el manejo del formato del nombre del archivo EXR
             if "%04d" in exr_name:
-                exr_name = exr_name.replace(".%", "_%")  # Reemplazar patron para analisis
-            
+                exr_name = exr_name.replace(
+                    ".%", "_%"
+                )  # Reemplazar patron para analisis
+
             # Verificar que tenga una versión en el nombre original ANTES de limpiar
             version_match = re.search(r"_v(\d+)", original_name)
             if not version_match:
                 raise ValueError(
                     f"Nombre del archivo EXR no tiene versión válida: {original_name}"
                 )
-            
+
             # Usar función compartida para limpiar el nombre base
             base_name = clean_base_name(original_name)
-            
+
             # Validar que tenga al menos los campos básicos (proyecto_seq_shot_task)
             parts = base_name.split("_")
             if len(parts) < 3:
                 raise ValueError(
                     f"Nombre del archivo EXR no tiene el formato esperado (muy corto): {original_name}"
                 )
-            
+
             return base_name
         except ValueError:
             # Re-lanzar ValueError tal cual
@@ -416,7 +422,9 @@ class ColorChangeWidget(QWidget):
                 f"Nombre del archivo EXR no tiene el formato esperado: {exr_name}"
             )
 
-    def push_task_status(self, button_name, base_name, update_callback=None, original_file_name=None):
+    def push_task_status(
+        self, button_name, base_name, update_callback=None, original_file_name=None
+    ):
         try:
             # Importar y ejecutar el script de push
             script_path = os.path.join(
@@ -464,67 +472,74 @@ class ColorChangeWidget(QWidget):
             if not os.path.exists(script_path):
                 debug_print(f"Script no encontrado en la ruta: {script_path}")
                 return
-            
+
             import importlib.util
+
             spec = importlib.util.spec_from_file_location(
                 "LGA_NKS_Flow_Push", script_path
             )
             if spec is None or spec.loader is None:
                 debug_print("No se pudo cargar el módulo LGA_NKS_Flow_Push")
                 return
-            
+
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            
+
             # Importar el módulo utilitario para obtener clips
             from pathlib import Path
+
             utils_path = Path(__file__).parent / "LGA_NKS_Utils"
             if not utils_path.exists():
                 debug_print("ERROR: No se encontró el módulo LGA_NKS_Utils")
                 return
-            
+
             import sys
+
             sys.path.insert(0, str(utils_path))
             from LGA_NKS_GetClip import get_clips_to_process
-            
+
             # Obtener clips usando el método centralizado (Método 2 híbrido)
             # ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
-            clips = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
-            
+            clips = get_clips_to_process(
+                track_name=None, prioritize_multiple_selection=True
+            )
+
             if not clips:
                 debug_print("No se encontraron clips para procesar")
                 return
-            
+
             # Filtrar clips válidos (sin cambiar color todavía)
             valid_clips_with_info = []
             for clip in clips:
                 if isinstance(clip, hiero.core.EffectTrackItem):
                     continue
-                
+
                 if not clip.source().mediaSource().isMediaPresent():
                     continue
-                
+
                 fileinfos = clip.source().mediaSource().fileinfos()
                 if not fileinfos:
                     continue
-                
+
                 file_path = fileinfos[0].filename()
                 exr_name = os.path.basename(file_path)
-                
+
                 # Filtrar solo clips que contengan "_comp_" o "_cmp_"
                 if "_comp_" not in exr_name.lower() and "_cmp_" not in exr_name.lower():
                     continue
-                
+
                 # Guardar información del clip para el push
                 valid_clips_with_info.append((clip, exr_name))
-            
+
             # Si hay clips válidos, ejecutar el push usando el método centralizado
             if valid_clips_with_info:
                 # Definir callback que cambia el color SOLO después de push exitoso
                 def change_color_callback(clip, base_name, exr_name):
                     """Callback que cambia el color del clip después de push exitoso"""
                     try:
-                        project = hiero.core.projects()[0] if hiero.core.projects() else None
+                        project = (
+                            hiero.core.projects()[0] if hiero.core.projects() else None
+                        )
                         if project:
                             project.beginUndo("Change Clip Color")
                             try:
@@ -533,22 +548,27 @@ class ColorChangeWidget(QWidget):
                                     active_version = bin_item.activeVersion()
                                     if active_version:
                                         bin_item.setColor(color)
-                                        debug_print(f"Color cambiado para clip (después de push exitoso): {exr_name}")
+                                        debug_print(
+                                            f"Color cambiado para clip (después de push exitoso): {exr_name}"
+                                        )
                             finally:
                                 project.endUndo()
                     except Exception as e:
                         debug_print(f"Error cambiando color del clip {exr_name}: {e}")
-                
+
                 # Usar la nueva función push_from_selected_clips con callback
-                result = module.push_from_selected_clips(button_name, change_color_callback)
+                result = module.push_from_selected_clips(
+                    button_name, change_color_callback
+                )
                 if not result:
                     debug_print("Push cancelado o fallido")
             else:
                 debug_print("No se encontraron clips válidos de composición")
-                
+
         except Exception as e:
             debug_print(f"Error durante la operacion: {e}")
             import traceback
+
             debug_print(traceback.format_exc())
 
     def confirm_status_application(self, status):
@@ -559,6 +579,7 @@ class ColorChangeWidget(QWidget):
         try:
             # Importar el módulo utilitario para obtener clips
             from pathlib import Path
+
             utils_path = Path(__file__).parent / "LGA_NKS_Utils"
             if not utils_path.exists():
                 # Fallback al método antiguo si no existe el módulo
@@ -577,18 +598,21 @@ class ColorChangeWidget(QWidget):
                         result = msg.exec_()
                         return result == QMessageBox.Yes
                 return True
-            
+
             import sys
+
             sys.path.insert(0, str(utils_path))
             from LGA_NKS_GetClip import get_clips_to_process
-            
+
             # Obtener clips usando el método centralizado (Método 2 híbrido)
             # ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
-            clips = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
-            
+            clips = get_clips_to_process(
+                track_name=None, prioritize_multiple_selection=True
+            )
+
             if not clips:
                 return True
-            
+
             # Filtrar solo clips válidos de composición
             valid_clips = []
             for clip in clips:
@@ -604,7 +628,7 @@ class ColorChangeWidget(QWidget):
                 if "_comp_" not in exr_name.lower() and "_cmp_" not in exr_name.lower():
                     continue
                 valid_clips.append(clip)
-            
+
             if len(valid_clips) > 4:
                 msg = QMessageBox()
                 msg.setIcon(QMessageBox.Question)
@@ -615,7 +639,7 @@ class ColorChangeWidget(QWidget):
                 msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
                 result = msg.exec_()
                 return result == QMessageBox.Yes
-            
+
             return True
         except Exception as e:
             debug_print(f"Error en confirm_status_application: {e}")

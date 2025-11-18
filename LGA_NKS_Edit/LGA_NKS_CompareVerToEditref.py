@@ -4,10 +4,10 @@ ________________________________________________________________________________
   LGA_NKS_CompareVerToEditref v1.15 | Lega
   Compara los rangos de frames de los clips del track _rev_ (TRACK_comp_REV) con
   los clips correspondientes del track EditRef para verificar coincidencias.
-  
+
   Track utilizado:
   - TRACK_comp_REV = "_rev_": Track que contiene los archivos MOV o MXF con el render de COMP
-  
+
   v1.15 - Usa módulo centralizado LGA_NKS_GetClip con método híbrido para buscar clips en track REV (playhead primero, luego selección como fallback)
   v1.14 - Actualizado para ser compatible con ambos sistemas de nomenclatura:
           - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
@@ -38,7 +38,7 @@ from PySide2.QtCore import Qt
 import sys
 
 # Variable global para activar o desactivar los prints
-DEBUG = True
+DEBUG = False
 
 # Importar utilidades para naming (compatibilidad con ambos formatos)
 naming_utils_path = Path(__file__).parent.parent / "LGA_NKS_Flow"
@@ -66,6 +66,7 @@ if utils_path.exists():
     sys.path.insert(0, str(utils_path))
     try:
         import LGA_NKS_GetClip as clip_utils
+
         TRACK_comp_REV = clip_utils.TRACK_comp_REV
         find_clip_at_playhead_in_track = clip_utils.find_clip_at_playhead_in_track
         get_clip_to_process = clip_utils.get_clip_to_process
@@ -507,7 +508,9 @@ class HieroOperations:
                 editrefclean_track = track
 
         if not rev_track:
-            QMessageBox.warning(None, "Error", f"No se encontró el track {TRACK_comp_REV}.")
+            QMessageBox.warning(
+                None, "Error", f"No se encontró el track {TRACK_comp_REV}."
+            )
             return False
 
         if not editref_track:
@@ -524,7 +527,9 @@ class HieroOperations:
         else:
             # Usar método híbrido de selección: playhead primero, luego selección como fallback
             if find_clip_at_playhead_in_track:
-                rev_clip_at_playhead = find_clip_at_playhead_in_track(seq, track_name=TRACK_comp_REV)
+                rev_clip_at_playhead = find_clip_at_playhead_in_track(
+                    seq, track_name=TRACK_comp_REV
+                )
             else:
                 # Fallback manual si no está disponible el módulo
                 rev_clip_at_playhead = None
@@ -535,7 +540,9 @@ class HieroOperations:
 
             # Si no se encontró por playhead, intentar con método híbrido completo
             if not rev_clip_at_playhead and get_clip_to_process:
-                rev_clip_at_playhead = get_clip_to_process(track_name=TRACK_comp_REV, prioritize_multiple_selection=False)
+                rev_clip_at_playhead = get_clip_to_process(
+                    track_name=TRACK_comp_REV, prioritize_multiple_selection=False
+                )
 
             if not rev_clip_at_playhead:
                 QMessageBox.warning(
@@ -606,9 +613,7 @@ class HieroOperations:
                 # Busca _v seguido de uno o más ceros seguido de delimitador (_ o .) o final del string
                 file_basename = os.path.basename(file_path)
                 if re.search(r"_v0+(_|\.|$)", file_basename):
-                    debug_print(
-                        f">>> SALTEANDO clip v00: {file_basename}"
-                    )
+                    debug_print(f">>> SALTEANDO clip v00: {file_basename}")
                     continue
 
                 base_identifier, version_str = self.parse_clip_name(
@@ -620,7 +625,9 @@ class HieroOperations:
                 # Obtener rangos del clip
                 rev_fileinfos = rev_clip.source().mediaSource().fileinfos()
                 if not rev_fileinfos:
-                    debug_print(f"⚠️ No se encontraron fileinfos para el clip {TRACK_comp_REV}.")
+                    debug_print(
+                        f"⚠️ No se encontraron fileinfos para el clip {TRACK_comp_REV}."
+                    )
                     continue
 
                 rev_start_frame = rev_fileinfos[0].startFrame()
@@ -776,7 +783,9 @@ class HieroOperations:
                             tag_description,
                             tag_icon,
                         )
-                        debug_print(f"→ Agregado tag '{status}' al clip {TRACK_comp_REV}")
+                        debug_print(
+                            f"→ Agregado tag '{status}' al clip {TRACK_comp_REV}"
+                        )
 
                     self.gui_table.add_result(
                         base_identifier,

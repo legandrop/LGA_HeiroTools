@@ -10,7 +10,7 @@ from boto3 import Session
 import json
 
 # Variable global para activar o desactivar los prints
-DEBUG = True
+DEBUG = False
 
 
 def debug_print(*message):

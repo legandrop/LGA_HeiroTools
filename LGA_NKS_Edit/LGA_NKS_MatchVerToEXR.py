@@ -4,7 +4,7 @@ ________________________________________________________________________________
   LGA_NKS_MatchVerToEXR v0.6 | Lega
   Busca la version actual de los clips del track _comp_ (TRACK_comp_EXR) e
   intenta subir la versión de los clips correspondientes del track _rev_ (TRACK_comp_REV) a la misma versión.
-  
+
   v0.6 - Usa módulo centralizado LGA_NKS_GetClip para obtener clips (método híbrido: selecciones múltiples > playhead > selección)
   v0.5 - Actualizado para ser compatible con ambos sistemas de nomenclatura:
          - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
@@ -35,7 +35,7 @@ from PySide2.QtCore import Qt
 import sys
 
 # Variable global para activar o desactivar los prints
-DEBUG = True
+DEBUG = False
 
 # Importar utilidades para naming (compatibilidad con ambos formatos)
 naming_utils_path = Path(__file__).parent.parent / "LGA_NKS_Flow"
@@ -64,6 +64,7 @@ if utils_path.exists():
     try:
         from LGA_NKS_GetClip import get_clips_to_process
         import LGA_NKS_GetClip as clip_utils
+
         TRACK_comp_EXR = clip_utils.TRACK_comp_EXR
         TRACK_comp_REV = clip_utils.TRACK_comp_REV
         # Sincronizar el debug con el módulo utilitario
@@ -123,18 +124,20 @@ class VersionMatcherGUI(QWidget):
                 self.adjust_window_size()  # COPIADO DEL PULL
                 self.show()
             else:
-                    QMessageBox.information(
-                        self,
-                        "No Changes",
-                        f"No se encontraron clips del track {TRACK_comp_EXR} con correspondientes clips del track {TRACK_comp_REV}.",
-                    )
+                QMessageBox.information(
+                    self,
+                    "No Changes",
+                    f"No se encontraron clips del track {TRACK_comp_EXR} con correspondientes clips del track {TRACK_comp_REV}.",
+                )
 
     def add_color_to_background_list(self, row_colors):
         """COPIADO DEL PULL - Agrega una lista de colores de fondo para una nueva fila."""
         self.row_background_colors.append(row_colors)
 
     def initUI(self):
-        self.setWindowTitle(f"{TRACK_comp_EXR} to {TRACK_comp_REV} Version Matcher - Results")
+        self.setWindowTitle(
+            f"{TRACK_comp_EXR} to {TRACK_comp_REV} Version Matcher - Results"
+        )
         layout = QVBoxLayout(self)
 
         self.table = QTableWidget(0, 4, self)
@@ -376,32 +379,44 @@ class HieroOperations:
                 rev_track = track
 
         if not exr_track:
-            QMessageBox.warning(None, "Error", f"No se encontró el track {TRACK_comp_EXR}.")
+            QMessageBox.warning(
+                None, "Error", f"No se encontró el track {TRACK_comp_EXR}."
+            )
             return False
 
         if not rev_track:
-            QMessageBox.warning(None, "Error", f"No se encontró el track {TRACK_comp_REV}.")
+            QMessageBox.warning(
+                None, "Error", f"No se encontró el track {TRACK_comp_REV}."
+            )
             return False
 
         # Obtener clips a procesar usando módulo centralizado
         # Prioridad: selecciones múltiples > force_all_clips > playhead
         if self.force_all_clips:
             # Si force_all_clips=True, procesar todos los clips del track
-            exr_clips = [clip for clip in exr_track.items() if not isinstance(clip, hiero.core.EffectTrackItem)]
+            exr_clips = [
+                clip
+                for clip in exr_track.items()
+                if not isinstance(clip, hiero.core.EffectTrackItem)
+            ]
             debug_print(
                 f">>> Procesando todos los {len(exr_clips)} clips del track {TRACK_comp_EXR} (forzado por shift+click)"
             )
         else:
             # Usar módulo centralizado que prioriza selecciones múltiples sobre playhead
             if get_clips_to_process:
-                exr_clips = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
+                exr_clips = get_clips_to_process(
+                    track_name=None, prioritize_multiple_selection=True
+                )
             else:
                 # Fallback manual si no está disponible el módulo
                 te = hiero.ui.getTimelineEditor(seq)
                 selected_clips = te.selection() if te else []
                 exr_clips = [
-                    clip for clip in selected_clips 
-                    if clip.parentTrack() == exr_track and not isinstance(clip, hiero.core.EffectTrackItem)
+                    clip
+                    for clip in selected_clips
+                    if clip.parentTrack() == exr_track
+                    and not isinstance(clip, hiero.core.EffectTrackItem)
                 ]
                 if not exr_clips:
                     # Fallback a playhead
@@ -414,7 +429,7 @@ class HieroOperations:
                             if clip.timelineIn() <= current_time < clip.timelineOut():
                                 exr_clips = [clip]
                                 break
-            
+
             if not exr_clips:
                 QMessageBox.warning(
                     None,
@@ -422,7 +437,7 @@ class HieroOperations:
                     f"No se encontró ningún clip en el track {TRACK_comp_EXR} en la posición del playhead o seleccionado.",
                 )
                 return False
-            
+
             debug_print(
                 f">>> Procesando {len(exr_clips)} clip(s) del track {TRACK_comp_EXR}"
             )

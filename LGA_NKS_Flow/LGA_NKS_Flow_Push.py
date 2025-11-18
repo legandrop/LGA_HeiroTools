@@ -11,7 +11,7 @@ _____________________________________________________________
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
-  
+
   v3.89: Sistema de resumen con DEBUG_RESUMEN para mostrar solo información esencial
   v3.88: Fix timeout + detección correcta de shot_code con base_name sin versión
   v3.87: Logs detallados de envío de imágenes + Fix extracción de versión
@@ -57,8 +57,10 @@ utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
 if utils_path.exists():
     sys.path.insert(0, str(utils_path))
     from LGA_NKS_GetClip import get_clips_to_process
+
     # Sincronizar el debug con el módulo utilitario
     import LGA_NKS_GetClip as clip_utils
+
     # Se sincronizará después cuando DEBUG se defina
 else:
     debug_print("ERROR: No se encontró el módulo LGA_NKS_GetClip")
@@ -95,7 +97,7 @@ status_translation = {
 }
 
 # Variable global para activar o desactivar los prints // En esta version el Debug se imprime al final del script
-DEBUG = True
+DEBUG = False
 DEBUG_RESUMEN = True
 debug_messages = []
 resumen_messages = []
@@ -117,6 +119,7 @@ def debug_resumen_print(message):
     if DEBUG_RESUMEN:
         resumen_messages.append(message)
 
+
 def call_flow_connector(operation, **kwargs):
     """
     Llama al conector de Flow usando el Python personalizado
@@ -124,16 +127,20 @@ def call_flow_connector(operation, **kwargs):
     """
     try:
         # Configuración del Python personalizado para Windows
-        WINDOWS_PYTHON_PATH = r"C:\Portable\LGA\PipeSync\python_runtime\windows\python.exe"
+        WINDOWS_PYTHON_PATH = (
+            r"C:\Portable\LGA\PipeSync\python_runtime\windows\python.exe"
+        )
 
         # Obtener credenciales y agregarlas a los parámetros
         sg_url, sg_login, sg_password = get_flow_credentials()
-        kwargs['url'] = sg_url
-        kwargs['login'] = sg_login
-        kwargs['password'] = sg_password
+        kwargs["url"] = sg_url
+        kwargs["login"] = sg_login
+        kwargs["password"] = sg_password
 
         # Ruta al script conector
-        connector_script = os.path.join(os.path.dirname(__file__), "LGA_NKS_Flow_Push_connector.py")
+        connector_script = os.path.join(
+            os.path.dirname(__file__), "LGA_NKS_Flow_Push_connector.py"
+        )
 
         if not os.path.exists(connector_script):
             debug_print(f"Conector no encontrado: {connector_script}")
@@ -152,11 +159,13 @@ def call_flow_connector(operation, **kwargs):
             timeout_seconds = 30  # Más tiempo para subir imágenes
         elif operation == "execute_full_push":
             # Calcular timeout basado en número de imágenes a enviar
-            num_images = len(kwargs.get('review_images', []))
+            num_images = len(kwargs.get("review_images", []))
             if num_images > 0:
                 # 10 segundos base + 10 segundos por imagen (para copiar, subir, etc.)
                 timeout_seconds = 10 + (num_images * 10)
-                debug_print(f"Timeout ajustado para execute_full_push: {timeout_seconds}s ({num_images} imágenes)")
+                debug_print(
+                    f"Timeout ajustado para execute_full_push: {timeout_seconds}s ({num_images} imágenes)"
+                )
             else:
                 timeout_seconds = 10  # Sin imágenes, timeout normal
         else:
@@ -168,16 +177,16 @@ def call_flow_connector(operation, **kwargs):
             input=json.dumps(kwargs),
             capture_output=True,
             text=True,
-            timeout=timeout_seconds
+            timeout=timeout_seconds,
         )
 
         if result.returncode == 0:
             # Capturar logs de debug del stderr
             if result.stderr:
-                for line in result.stderr.strip().split('\n'):
+                for line in result.stderr.strip().split("\n"):
                     if line:
                         debug_print(f"[Conector] {line}")
-            
+
             try:
                 response = json.loads(result.stdout.strip())
                 debug_print(f"Conector completado: {response}")
@@ -185,7 +194,10 @@ def call_flow_connector(operation, **kwargs):
             except json.JSONDecodeError:
                 debug_print(f"Error parseando respuesta JSON")
                 debug_print(f"STDOUT recibido: {result.stdout}")
-                return {"success": False, "error": f"Respuesta inválida: {result.stdout}"}
+                return {
+                    "success": False,
+                    "error": f"Respuesta inválida: {result.stdout}",
+                }
         else:
             error_msg = f"Conector falló: {result.stderr}"
             debug_print(error_msg)
@@ -203,7 +215,7 @@ def find_review_images(base_name, original_file_name=None):
     """
     Busca imagenes de ReviewPic para el shot y version especificados.
     Retorna una lista de rutas de imagenes encontradas.
-    
+
     Args:
         base_name: Nombre base sin versión (ej: "BRDA_080_010_comp")
         original_file_name: Nombre original del archivo con versión (opcional, ej: "BRDA_080_010_comp_v007_%04d.exr")
@@ -212,52 +224,60 @@ def find_review_images(base_name, original_file_name=None):
         # Obtener la ruta del script actual
         script_dir = os.path.dirname(__file__)
         cache_dir = os.path.join(script_dir, "ReviewPic_Cache")
-        
+
         # Si tenemos el nombre original, extraer la versión de ahí
         version_number_str = None
         if original_file_name:
             import re
+
             version_match = re.search(r"_v(\d+)", original_file_name)
             if version_match:
                 version_number_str = f"v{version_match.group(1)}"
                 # Construir el nombre de carpeta exacto: {base_name}_v{version}
                 clip_folder_name = f"{base_name}_{version_number_str}"
                 clip_dir = os.path.join(cache_dir, clip_folder_name)
-                
+
                 debug_print(f"Buscando imagenes en carpeta específica: {clip_dir}")
                 debug_print(f"Nombre de carpeta construido: {clip_folder_name}")
-                
+
                 if os.path.exists(clip_dir):
                     image_pattern = os.path.join(clip_dir, "*.jpg")
                     images = glob.glob(image_pattern)
-                    debug_print(f"Imagenes encontradas en {clip_folder_name}: {len(images)}")
+                    debug_print(
+                        f"Imagenes encontradas en {clip_folder_name}: {len(images)}"
+                    )
                     return sorted(images)
                 else:
                     debug_print(f"Carpeta específica no existe: {clip_dir}")
-        
+
         # Fallback: buscar en todas las carpetas que coincidan con el patrón {base_name}_v*
         debug_print(f"Buscando en todas las carpetas que coincidan con: {base_name}_v*")
         pattern = os.path.join(cache_dir, f"{base_name}_v*")
         matching_folders = glob.glob(pattern)
-        
+
         all_images = []
         for folder in matching_folders:
             if os.path.isdir(folder):
                 image_pattern = os.path.join(folder, "*.jpg")
                 images = glob.glob(image_pattern)
                 all_images.extend(images)
-                debug_print(f"Encontradas {len(images)} imágenes en {os.path.basename(folder)}")
-        
+                debug_print(
+                    f"Encontradas {len(images)} imágenes en {os.path.basename(folder)}"
+                )
+
         if all_images:
             debug_print(f"Total de imagenes encontradas: {len(all_images)}")
             return sorted(all_images)
         else:
-            debug_print(f"No se encontraron imagenes en ninguna carpeta que coincida con {base_name}_v*")
+            debug_print(
+                f"No se encontraron imagenes en ninguna carpeta que coincida con {base_name}_v*"
+            )
             return []
 
     except Exception as e:
         debug_print(f"Error buscando imagenes de review: {e}")
         import traceback
+
         debug_print(traceback.format_exc())
         return []
 
@@ -509,7 +529,7 @@ class InputDialog(QDialog):
 
         # Obtener información del shot y assignee desde la DB
         assignee = self.get_shot_assignee(base_name)
-        
+
         # Label para el mensaje con formato HTML usando los mismos colores que Shot_info
         if assignee:
             label_text = (
@@ -518,7 +538,7 @@ class InputDialog(QDialog):
             )
         else:
             label_text = f"Message for <b style='color:#CCCC00;'>{base_name}</b>:"
-        
+
         self.label = QLabel(label_text)
         self.label.setTextFormat(Qt.RichText)  # Permitir formato HTML
         self.layout.addWidget(self.label)
@@ -531,9 +551,13 @@ class InputDialog(QDialog):
         # Buscar imagenes de ReviewPic y mostrar thumbnails si existen
         self.review_images = find_review_images(base_name, original_file_name)
         debug_print(f"=== InputDialog: Búsqueda de imágenes completada ===")
-        debug_print(f"InputDialog: Total de imágenes encontradas: {len(self.review_images)}")
+        debug_print(
+            f"InputDialog: Total de imágenes encontradas: {len(self.review_images)}"
+        )
         if self.review_images:
-            debug_print(f"InputDialog: Lista de imágenes que se mostrarán en la ventana:")
+            debug_print(
+                f"InputDialog: Lista de imágenes que se mostrarán en la ventana:"
+            )
             for idx, img_path in enumerate(self.review_images, 1):
                 debug_print(f"  [{idx}] {os.path.basename(img_path)}")
             self.add_thumbnails_section(self.review_images)
@@ -565,45 +589,50 @@ class InputDialog(QDialog):
             # Extraer información del base_name
             project_name = extract_project_name(base_name)
             shot_code = extract_shot_code(base_name)
-            
+
             if not project_name or not shot_code:
-                debug_print(f"No se pudo extraer project_name o shot_code de: {base_name}")
+                debug_print(
+                    f"No se pudo extraer project_name o shot_code de: {base_name}"
+                )
                 return None
-            
+
             # Conectar a la base de datos
             db_manager = DBManager()
             if not db_manager.conn:
                 debug_print("No hay conexión a la base de datos para obtener assignee")
                 return None
-            
+
             # Buscar el shot
             db_shot = db_manager.find_shot(project_name, shot_code)
             if not db_shot:
-                debug_print(f"No se encontró el shot {shot_code} en proyecto {project_name}")
+                debug_print(
+                    f"No se encontró el shot {shot_code} en proyecto {project_name}"
+                )
                 db_manager.close()
                 return None
-            
+
             # Buscar la task comp
             db_task = db_manager.find_task(db_shot["id"], "comp")
             if not db_task:
                 debug_print(f"No se encontró la task comp para shot_id {db_shot['id']}")
                 db_manager.close()
                 return None
-            
+
             # Obtener el assignee
             assignee = db_manager.get_task_assignee(db_task["id"])
             db_manager.close()
-            
+
             if assignee:
                 debug_print(f"Assignee encontrado para {base_name}: {assignee}")
             else:
                 debug_print(f"No se encontró assignee para {base_name}")
-            
+
             return assignee
-            
+
         except Exception as e:
             debug_print(f"Error obteniendo assignee para {base_name}: {e}")
             import traceback
+
             debug_print(traceback.format_exc())
             return None
 
@@ -678,7 +707,7 @@ class InputDialog(QDialog):
                         frame_container_layout = QHBoxLayout()
                         frame_container_layout.setContentsMargins(4, 0, 0, 0)
                         frame_container_layout.setSpacing(4)
-                        
+
                         # Botón de tachito para borrar imagen
                         delete_button = QPushButton()
                         delete_button.setFixedSize(16, 16)
@@ -699,26 +728,26 @@ class InputDialog(QDialog):
                         )
                         delete_button.setText("×")  # Usar símbolo × como tachito
                         delete_button.setToolTip("Borrar esta imagen")
-                        
+
                         # Conectar el botón para borrar la imagen
                         delete_button.clicked.connect(
-                            lambda checked=False, path=image_path, container=thumbnail_container: self.delete_single_image(path, container)
+                            lambda checked=False, path=image_path, container=thumbnail_container: self.delete_single_image(
+                                path, container
+                            )
                         )
-                        
+
                         frame_container_layout.addWidget(delete_button)
-                        
+
                         # Agregar numero de frame
                         frame_number = self.extract_frame_number_from_filename(
                             image_path
                         )
                         frame_label = QLabel(f"Frame: {frame_number}")
-                        frame_label.setStyleSheet(
-                            "color: #9c9c9c; font-size: 11px;"
-                        )
+                        frame_label.setStyleSheet("color: #9c9c9c; font-size: 11px;")
                         frame_label.setAlignment(Qt.AlignLeft)
                         frame_container_layout.addWidget(frame_label)
                         frame_container_layout.addStretch()  # Empujar contenido a la izquierda
-                        
+
                         # Widget contenedor para el layout horizontal
                         frame_container_widget = QWidget()
                         frame_container_widget.setLayout(frame_container_layout)
@@ -822,7 +851,7 @@ class InputDialog(QDialog):
     def delete_single_image(self, image_path, container_widget):
         """
         Borra una imagen individual del disco y la remueve de la UI.
-        
+
         Args:
             image_path: Ruta completa del archivo de imagen a borrar
             container_widget: Widget contenedor del thumbnail a remover
@@ -834,39 +863,40 @@ class InputDialog(QDialog):
                 "Confirmar borrado",
                 f"¿Estás seguro de que quieres borrar esta imagen?\n{os.path.basename(image_path)}",
                 QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
+                QMessageBox.No,
             )
-            
+
             if reply == QMessageBox.Yes:
                 # Borrar archivo del disco
                 if os.path.exists(image_path):
                     os.remove(image_path)
                     debug_print(f"Imagen borrada del disco: {image_path}")
-                
+
                 # Remover de la lista de review_images
                 if image_path in self.review_images:
                     self.review_images.remove(image_path)
-                    debug_print(f"Imagen removida de la lista. Quedan {len(self.review_images)} imágenes")
-                
+                    debug_print(
+                        f"Imagen removida de la lista. Quedan {len(self.review_images)} imágenes"
+                    )
+
                 # Remover el widget del thumbnail de la UI
                 container_widget.setParent(None)
                 container_widget.deleteLater()
-                
+
                 # Actualizar tamaño de ventana si es necesario
                 self.adjust_window_size()
-                
+
                 debug_print(f"Thumbnail removido de la UI")
             else:
                 debug_print("Borrado cancelado por el usuario")
-                
+
         except Exception as e:
             debug_print(f"Error borrando imagen individual: {e}")
             import traceback
+
             debug_print(traceback.format_exc())
             QMessageBox.warning(
-                self,
-                "Error",
-                f"No se pudo borrar la imagen:\n{str(e)}"
+                self, "Error", f"No se pudo borrar la imagen:\n{str(e)}"
             )
 
     def get_text(self):
@@ -935,30 +965,40 @@ class ShotGridManager:
         self.password = password
 
     def find_shot_and_tasks(self, project_name, shot_code):
-        debug_print(f"Buscando proyecto y shot usando conector externo: {project_name} / {shot_code}")
-        result = call_flow_connector("find_shot_and_tasks",
-                                   project_name=project_name,
-                                   shot_code=shot_code)
+        debug_print(
+            f"Buscando proyecto y shot usando conector externo: {project_name} / {shot_code}"
+        )
+        result = call_flow_connector(
+            "find_shot_and_tasks", project_name=project_name, shot_code=shot_code
+        )
 
         if result["success"]:
             project = result.get("project")
             shot = result.get("shot")
             tasks = result.get("tasks")
-            debug_print(f"Resultado: project={project is not None}, shot={shot is not None}, tasks={len(tasks) if tasks else 0}")
+            debug_print(
+                f"Resultado: project={project is not None}, shot={shot is not None}, tasks={len(tasks) if tasks else 0}"
+            )
             return project, shot, tasks
         else:
-            debug_print(f"Error en find_shot_and_tasks: {result.get('error', 'Unknown error')}")
+            debug_print(
+                f"Error en find_shot_and_tasks: {result.get('error', 'Unknown error')}"
+            )
             return None, None, None
 
     def find_tasks_for_shot(self, shot_id):
         debug_print(f"Buscando tareas para shot_id {shot_id} usando conector externo")
         # Este método se llama desde find_shot_and_tasks, así que las tareas ya están incluidas en el resultado
         # Por simplicidad, devolveremos una lista vacía ya que no necesitamos este método por separado
-        debug_print("find_tasks_for_shot: método simplificado, tareas obtenidas en find_shot_and_tasks")
+        debug_print(
+            "find_tasks_for_shot: método simplificado, tareas obtenidas en find_shot_and_tasks"
+        )
         return []
 
     def find_highest_version_for_shot(self, shot_id):
-        debug_print(f"Buscando versión más alta para shot_id {shot_id} usando conector externo")
+        debug_print(
+            f"Buscando versión más alta para shot_id {shot_id} usando conector externo"
+        )
         result = call_flow_connector("find_highest_version", shot_id=shot_id)
 
         if result["success"]:
@@ -968,26 +1008,38 @@ class ShotGridManager:
             debug_print(f"Versión encontrada: {version_number}, user_id: {user_id}")
             return version, version_number, user_id
         else:
-            debug_print(f"Error en find_highest_version_for_shot: {result.get('error', 'Unknown error')}")
+            debug_print(
+                f"Error en find_highest_version_for_shot: {result.get('error', 'Unknown error')}"
+            )
             return None, None, None
 
     def update_task_status(self, task_id, new_status):
-        debug_print(f"Actualizando tarea {task_id} a {new_status} usando conector externo")
+        debug_print(
+            f"Actualizando tarea {task_id} a {new_status} usando conector externo"
+        )
         result = call_flow_connector("update_task", task_id=task_id, status=new_status)
 
         if not result["success"]:
-            debug_print(f"Error en update_task_status: {result.get('error', 'Unknown error')}")
+            debug_print(
+                f"Error en update_task_status: {result.get('error', 'Unknown error')}"
+            )
 
     def update_version_status(self, project_name, shot_code, version_str, new_status):
-        debug_print(f"Actualizando versión {version_str} de {shot_code} a {new_status} usando conector externo")
-        result = call_flow_connector("update_version",
-                                   project_name=project_name,
-                                   shot_code=shot_code,
-                                   version_str=version_str,
-                                   status=new_status)
+        debug_print(
+            f"Actualizando versión {version_str} de {shot_code} a {new_status} usando conector externo"
+        )
+        result = call_flow_connector(
+            "update_version",
+            project_name=project_name,
+            shot_code=shot_code,
+            version_str=version_str,
+            status=new_status,
+        )
 
         if not result["success"]:
-            debug_print(f"Error en update_version_status: {result.get('error', 'Unknown error')}")
+            debug_print(
+                f"Error en update_version_status: {result.get('error', 'Unknown error')}"
+            )
 
     def get_task_assignee(self, task_id):
         debug_print(f"Obteniendo asignado de tarea {task_id} usando conector externo")
@@ -996,39 +1048,53 @@ class ShotGridManager:
         if result["success"]:
             return result.get("assignee_id")
         else:
-            debug_print(f"Error en get_task_assignee: {result.get('error', 'Unknown error')}")
+            debug_print(
+                f"Error en get_task_assignee: {result.get('error', 'Unknown error')}"
+            )
             return None
 
     def add_comment_to_version(
         self, version_id, project_id, comment, user_id, task_assignee_id, shot_id=None
     ):
-        debug_print(f"Agregando comentario a versión {version_id} usando conector externo")
-        result = call_flow_connector("add_comment",
-                                   version_id=version_id,
-                                   project_id=project_id,
-                                   comment=comment,
-                                   user_id=user_id,
-                                   task_assignee_id=task_assignee_id,
-                                   shot_id=shot_id)
+        debug_print(
+            f"Agregando comentario a versión {version_id} usando conector externo"
+        )
+        result = call_flow_connector(
+            "add_comment",
+            version_id=version_id,
+            project_id=project_id,
+            comment=comment,
+            user_id=user_id,
+            task_assignee_id=task_assignee_id,
+            shot_id=shot_id,
+        )
 
         if result["success"]:
             return result.get("note")
         else:
-            debug_print(f"Error en add_comment_to_version: {result.get('error', 'Unknown error')}")
+            debug_print(
+                f"Error en add_comment_to_version: {result.get('error', 'Unknown error')}"
+            )
             return None
 
     def attach_images_to_note(self, note_id, version_id, image_paths):
-        debug_print(f"Adjuntando {len(image_paths)} imágenes a nota {note_id} usando conector externo")
-        result = call_flow_connector("attach_images",
-                                   note_id=note_id,
-                                   version_id=version_id,
-                                   image_paths=image_paths)
+        debug_print(
+            f"Adjuntando {len(image_paths)} imágenes a nota {note_id} usando conector externo"
+        )
+        result = call_flow_connector(
+            "attach_images",
+            note_id=note_id,
+            version_id=version_id,
+            image_paths=image_paths,
+        )
 
         if result["success"]:
             debug_print("Imágenes adjuntadas exitosamente")
             return True
         else:
-            debug_print(f"Error en attach_images_to_note: {result.get('error', 'Unknown error')}")
+            debug_print(
+                f"Error en attach_images_to_note: {result.get('error', 'Unknown error')}"
+            )
             return False
 
     def extract_frame_number_from_path(self, image_path):
@@ -1042,7 +1108,9 @@ class ShotGridManager:
         """
         Método simplificado - obtiene el ID del proyecto usando conector externo
         """
-        debug_print(f"Obteniendo project_id de versión {version_id} usando conector externo")
+        debug_print(
+            f"Obteniendo project_id de versión {version_id} usando conector externo"
+        )
         # Este método no se usa frecuentemente, devolver None por simplicidad
         debug_print("get_project_id_from_version: método simplificado, retornando None")
         return None
@@ -1052,7 +1120,9 @@ class WorkerSignals(QObject):
     result_ready = Signal(str, int, int)
     task_finished = Signal(bool)  # Ahora incluye el estado de exito
     debug_output = Signal()  # Nueva señal para imprimir logs
-    version_check_result = Signal(dict)  # Nueva señal para resultado de verificación de versiones
+    version_check_result = Signal(
+        dict
+    )  # Nueva señal para resultado de verificación de versiones
     resumen_output = Signal()  # Nueva señal para imprimir resumen
 
 
@@ -1081,51 +1151,63 @@ class Worker(QRunnable):
         success = False
 
         try:
-            debug_print(f"Worker: Iniciando operación {self.button_name} para {self.base_name}")
+            debug_print(
+                f"Worker: Iniciando operación {self.button_name} para {self.base_name}"
+            )
 
             # La verificación de versiones ya se hizo en el timeline antes de crear el Worker
             # No es necesario hacer otra verificación con Flow aquí (era redundante)
-            debug_print("Worker: Verificación de versiones ya realizada en timeline, procediendo con push")
+            debug_print(
+                "Worker: Verificación de versiones ya realizada en timeline, procediendo con push"
+            )
 
             # Usar la operación optimizada que hace todo en una sola llamada
             debug_print(f"=== Worker: Preparando envío de imágenes ===")
-            debug_print(f"Worker: Total de imágenes a enviar: {len(self.review_images)}")
+            debug_print(
+                f"Worker: Total de imágenes a enviar: {len(self.review_images)}"
+            )
             if self.review_images:
                 debug_print(f"Worker: Lista de imágenes que se enviarán a Flow:")
                 for idx, img_path in enumerate(self.review_images, 1):
                     debug_print(f"  [{idx}] {img_path}")
                     if not os.path.exists(img_path):
-                        debug_print(f"  ⚠️  ADVERTENCIA: La imagen [{idx}] NO EXISTE en disco: {img_path}")
+                        debug_print(
+                            f"  ⚠️  ADVERTENCIA: La imagen [{idx}] NO EXISTE en disco: {img_path}"
+                        )
             else:
                 debug_print(f"Worker: No hay imágenes para enviar")
-            
-            result = call_flow_connector("execute_full_push",
-                                       button_name=self.button_name,
-                                       base_name=self.base_name,
-                                       message=self.message,
-                                       review_images=self.review_images,
-                                       original_file_name=getattr(self, 'original_file_name', None))
+
+            result = call_flow_connector(
+                "execute_full_push",
+                button_name=self.button_name,
+                base_name=self.base_name,
+                message=self.message,
+                review_images=self.review_images,
+                original_file_name=getattr(self, "original_file_name", None),
+            )
 
             # Capturar información para el resumen
             images_total = len(self.review_images)
             images_attached = 0
             error_message = None
-            
+
             if result["success"]:
                 debug_print("Worker: Operación de red completada exitosamente")
                 # Verificar si hay información sobre imágenes adjuntadas en el resultado
                 if "images_attached" in result:
-                    images_attached = result['images_attached']
-                    debug_print(f"Worker: Imágenes adjuntadas según Flow: {images_attached} de {images_total} enviadas")
+                    images_attached = result["images_attached"]
+                    debug_print(
+                        f"Worker: Imágenes adjuntadas según Flow: {images_attached} de {images_total} enviadas"
+                    )
                 success = True
 
                 # Si fue exitoso, actualizar también la base de datos local
                 self.update_local_database(db_manager)
             else:
-                error_message = result.get('error', 'Unknown error')
+                error_message = result.get("error", "Unknown error")
                 debug_print(f"Worker: Error en operación de red: {error_message}")
                 success = False
-            
+
             # Generar resumen
             self.generate_resumen(success, images_total, images_attached, error_message)
 
@@ -1142,10 +1224,14 @@ class Worker(QRunnable):
 
             # Borrar imagenes SOLO si se completó exitosamente y el usuario lo solicitó
             if success and self.should_delete_images:
-                debug_print("Worker: Operacion exitosa: Borrando carpeta ReviewPic_Cache como solicitó el usuario")
+                debug_print(
+                    "Worker: Operacion exitosa: Borrando carpeta ReviewPic_Cache como solicitó el usuario"
+                )
                 delete_review_pic_cache()
             elif not success and self.should_delete_images:
-                debug_print("Worker: Operacion fallida: NO se borra la carpeta ReviewPic_Cache")
+                debug_print(
+                    "Worker: Operacion fallida: NO se borra la carpeta ReviewPic_Cache"
+                )
 
             self.signals.task_finished.emit(success)
             self.signals.debug_output.emit()  # Emitir señal al finalizar
@@ -1162,7 +1248,7 @@ class Worker(QRunnable):
             self.message,
             self.review_images,
             self.should_delete_images,
-            self.original_file_name
+            self.original_file_name,
         )
 
         # Conectar las mismas señales
@@ -1170,7 +1256,9 @@ class Worker(QRunnable):
         new_worker.signals.task_finished.connect(self.signals.task_finished)
         new_worker.signals.debug_output.connect(self.signals.debug_output)
         new_worker.signals.resumen_output.connect(self.signals.resumen_output)
-        new_worker.signals.version_check_result.connect(self.signals.version_check_result)
+        new_worker.signals.version_check_result.connect(
+            self.signals.version_check_result
+        )
 
         # Marcar que debe saltar la verificación de versiones
         new_worker.skip_version_check = True
@@ -1197,7 +1285,7 @@ class Worker(QRunnable):
                     if part.startswith("v") and part[1:].isdigit():
                         version_number_str = part
                         break
-                
+
                 if version_number_str:
                     try:
                         version_index = parts.index(version_number_str)
@@ -1209,7 +1297,7 @@ class Worker(QRunnable):
                         task_name = "comp"  # Fallback por defecto
                 else:
                     task_name = "comp"  # Fallback por defecto
-            
+
             sg_status = status_translation.get(self.button_name, None)
 
             if not sg_status:
@@ -1218,17 +1306,23 @@ class Worker(QRunnable):
             # Buscar shot en base de datos local
             db_shot = db_manager.find_shot(project_name, shot_code)
             if not db_shot:
-                debug_print(f"Worker: No se encontró el shot {shot_code} en la base de datos local")
+                debug_print(
+                    f"Worker: No se encontró el shot {shot_code} en la base de datos local"
+                )
                 return
 
             # Buscar tarea en base de datos local
             db_task = db_manager.find_task(db_shot["id"], task_name)
             if not db_task:
-                debug_print(f"Worker: No se encontró la tarea {task_name} en la base de datos local")
+                debug_print(
+                    f"Worker: No se encontró la tarea {task_name} en la base de datos local"
+                )
                 return
 
             # Actualizar estado de tarea local
-            debug_print(f"Worker: Actualizando estado de tarea local (ID: {db_task['id']}) a: {sg_status}")
+            debug_print(
+                f"Worker: Actualizando estado de tarea local (ID: {db_task['id']}) a: {sg_status}"
+            )
             db_manager.update_task_status(db_task["id"], sg_status)
 
             # Obtener la última versión para esta tarea
@@ -1255,7 +1349,9 @@ class Worker(QRunnable):
 
                 # Añadir nota si hay mensaje
                 if self.message:
-                    debug_print(f"Worker: Añadiendo nota a versión local (ID: {latest_version['id']})")
+                    debug_print(
+                        f"Worker: Añadiendo nota a versión local (ID: {latest_version['id']})"
+                    )
                     db_manager.add_version_note(latest_version["id"], self.message)
 
         except Exception as e:
@@ -1268,14 +1364,14 @@ class Worker(QRunnable):
         debug_resumen_print("=" * 70)
         debug_resumen_print(f"Shot: {self.base_name}")
         debug_resumen_print(f"Estado: {self.button_name}")
-        
+
         if success:
             debug_resumen_print("✅ RESULTADO: ÉXITO")
         else:
             debug_resumen_print("❌ RESULTADO: ERROR")
             if error_message:
                 debug_resumen_print(f"   Error: {error_message}")
-        
+
         debug_resumen_print("")
         debug_resumen_print("IMÁGENES:")
         debug_resumen_print(f"   Total encontradas: {images_total}")
@@ -1284,10 +1380,12 @@ class Worker(QRunnable):
             if images_attached < images_total:
                 debug_resumen_print(f"   ⚠️  FALLIDAS: {images_total - images_attached}")
             elif images_attached == images_total:
-                debug_resumen_print(f"   ✅ Todas las imágenes se subieron correctamente")
+                debug_resumen_print(
+                    f"   ✅ Todas las imágenes se subieron correctamente"
+                )
         else:
             debug_resumen_print("   No había imágenes para enviar")
-        
+
         debug_resumen_print("=" * 70)
 
 
@@ -1375,7 +1473,7 @@ def get_clip_versions_from_timeline():
 
         te = hiero.ui.getTimelineEditor(seq)
         selected_clips = te.selection()
-        
+
         if not selected_clips:
             debug_print("No hay clips seleccionados")
             return None, None, []
@@ -1396,7 +1494,7 @@ def get_clip_versions_from_timeline():
         existing_versions = list(bin_item.items())
         debug_print(f"=== Versiones encontradas para el clip ===")
         debug_print(f"Total de versiones: {len(existing_versions)}")
-        
+
         version_numbers = []
         for idx, version in enumerate(existing_versions):
             version_name = version.name()
@@ -1410,47 +1508,67 @@ def get_clip_versions_from_timeline():
 
         # Obtener versión actual (activa)
         current_version_item = bin_item.activeVersion()
-        current_version_name = current_version_item.name() if current_version_item else None
-        current_version_number = extract_version_number_from_string(current_version_name) if current_version_name else None
-        
+        current_version_name = (
+            current_version_item.name() if current_version_item else None
+        )
+        current_version_number = (
+            extract_version_number_from_string(current_version_name)
+            if current_version_name
+            else None
+        )
+
         # Encontrar versión más alta
         highest_version_number = max(version_numbers)
-        
-        debug_print(f"Versión actual: v{current_version_number:02d}" if current_version_number is not None else "Versión actual: No detectada")
+
+        debug_print(
+            f"Versión actual: v{current_version_number:02d}"
+            if current_version_number is not None
+            else "Versión actual: No detectada"
+        )
         debug_print(f"Versión más alta: v{highest_version_number:02d}")
 
-        return current_version_number, highest_version_number, sorted(version_numbers, reverse=True)
+        return (
+            current_version_number,
+            highest_version_number,
+            sorted(version_numbers, reverse=True),
+        )
 
     except Exception as e:
         debug_print(f"Error obteniendo versiones del timeline: {e}")
         import traceback
+
         debug_print(traceback.format_exc())
         return None, None, []
 
 
 class PushVersionDialog(QDialog):
     """Diálogo personalizado para verificación de versión antes del push"""
-    def __init__(self, base_name, current_version, highest_version, all_versions, parent=None):
+
+    def __init__(
+        self, base_name, current_version, highest_version, all_versions, parent=None
+    ):
         super().__init__(parent)
-        self.result_value = None  # None = cancelado, True = continuar con versión actual
-        
+        self.result_value = (
+            None  # None = cancelado, True = continuar con versión actual
+        )
+
         self.setWindowTitle("Verificación de Versión")
         self.setModal(True)
-        
+
         layout = QVBoxLayout(self)
-        
+
         # Mensaje HTML
         message_label = QLabel()
         message_label.setTextFormat(Qt.RichText)
-        
+
         # Formatear el nombre base con la versión resaltada
         base_version_highlighted = re.sub(
             r"(_)(v\d+)", r'\1<span style="color: #ff9900;">\2</span>', base_name
         )
-        
+
         # Lista de versiones disponibles
         versions_list = ", ".join([f"v{v:02d}" for v in all_versions])
-        
+
         message_label.setText(
             f"<div style='text-align: center;'>"
             f"<span style='color: #ff9900;'><b>¡Atención!</b></span><br><br>"
@@ -1462,33 +1580,33 @@ class PushVersionDialog(QDialog):
             f"¿Deseas continuar con el push de la versión actual de todos modos?</div>"
         )
         layout.addWidget(message_label)
-        
+
         # Botones
         button_layout = QHBoxLayout()
-        
+
         self.yes_button = QPushButton("Continuar con versión actual")
         self.no_button = QPushButton("Cancelar")
-        
+
         self.yes_button.clicked.connect(self.accept_continue)
         self.no_button.clicked.connect(self.reject)
-        
+
         button_layout.addWidget(self.yes_button)
         button_layout.addWidget(self.no_button)
         layout.addLayout(button_layout)
-        
+
         # Hacer que "Cancelar" sea el botón por defecto
         self.no_button.setDefault(True)
-    
+
     def accept_continue(self):
         debug_print("Usuario eligió continuar con versión actual")
         self.result_value = True
         self.accept()
-    
+
     def closeEvent(self, event):
         debug_print("Usuario cerró el diálogo con X o ESC, cancelando operación")
         self.result_value = None
         event.accept()
-    
+
     def get_result(self):
         return self.result_value
 
@@ -1542,7 +1660,9 @@ def handle_version_check_result(version_check_result, worker, update_callback):
         flow_version = version_check_result["flow_version"]
         base_name = version_check_result["base_name"]
 
-        debug_print(f"Mostrando diálogo de confirmación: v{local_version} vs v{flow_version}")
+        debug_print(
+            f"Mostrando diálogo de confirmación: v{local_version} vs v{flow_version}"
+        )
 
         # Mostrar el diálogo y esperar respuesta del usuario
         if show_version_dialog(base_name, local_version, flow_version):
@@ -1558,7 +1678,9 @@ def handle_version_check_result(version_check_result, worker, update_callback):
             worker.signals.debug_output.emit()
 
 
-def Push_Task_Status(button_name, base_name, update_callback=None, original_file_name=None):
+def Push_Task_Status(
+    button_name, base_name, update_callback=None, original_file_name=None
+):
     global msg_manager
 
     # Verificar que tengamos las credenciales disponibles
@@ -1574,34 +1696,47 @@ def Push_Task_Status(button_name, base_name, update_callback=None, original_file
     sg_status = status_translation.get(button_name, None)
     if sg_status in ["rev_di", "corr", "revleg", "revhld", "revjav"]:
         debug_print("=== Verificando versiones del timeline antes del push ===")
-        
+
         # Obtener versiones del clip seleccionado
-        current_version, highest_version, all_versions = get_clip_versions_from_timeline()
-        
+        current_version, highest_version, all_versions = (
+            get_clip_versions_from_timeline()
+        )
+
         if current_version is not None and highest_version is not None:
-            debug_print(f"Versión actual detectada: v{current_version:02d}, Versión más alta: v{highest_version:02d}")
-            
+            debug_print(
+                f"Versión actual detectada: v{current_version:02d}, Versión más alta: v{highest_version:02d}"
+            )
+
             # Si la versión actual no es la más alta, mostrar diálogo de advertencia
             if current_version < highest_version:
-                debug_print(f"⚠️  ADVERTENCIA: La versión actual (v{current_version:02d}) no es la más alta (v{highest_version:02d})")
-                
+                debug_print(
+                    f"⚠️  ADVERTENCIA: La versión actual (v{current_version:02d}) no es la más alta (v{highest_version:02d})"
+                )
+
                 # Construir base_name con versión para el diálogo
                 version_base_name = base_name
-                if not any(part.startswith("v") and part[1:].isdigit() for part in base_name.split("_")):
+                if not any(
+                    part.startswith("v") and part[1:].isdigit()
+                    for part in base_name.split("_")
+                ):
                     version_base_name = f"{base_name}_v{current_version:02d}"
-                
+
                 # Mostrar diálogo personalizado
                 app = QApplication.instance()
                 if app is None:
                     app = QApplication([])
-                
-                dialog = PushVersionDialog(version_base_name, current_version, highest_version, all_versions)
+
+                dialog = PushVersionDialog(
+                    version_base_name, current_version, highest_version, all_versions
+                )
                 dialog.exec_()
                 result = dialog.get_result()
-                
+
                 if result is None:
                     # Usuario cerró el diálogo sin confirmar
-                    debug_print("Usuario canceló la operación cerrando el diálogo de versión")
+                    debug_print(
+                        "Usuario canceló la operación cerrando el diálogo de versión"
+                    )
                     debug_resumen_print("=" * 70)
                     debug_resumen_print("RESUMEN DEL PUSH")
                     debug_resumen_print("=" * 70)
@@ -1609,9 +1744,15 @@ def Push_Task_Status(button_name, base_name, update_callback=None, original_file
                     debug_resumen_print(f"Estado: {button_name}")
                     debug_resumen_print("⚠️  RESULTADO: OPERACIÓN CANCELADA")
                     debug_resumen_print("")
-                    debug_resumen_print("El usuario canceló porque la versión actual no es la más reciente.")
-                    debug_resumen_print(f"Versión actual en timeline: v{current_version:02d}")
-                    debug_resumen_print(f"Última versión disponible: v{highest_version:02d}")
+                    debug_resumen_print(
+                        "El usuario canceló porque la versión actual no es la más reciente."
+                    )
+                    debug_resumen_print(
+                        f"Versión actual en timeline: v{current_version:02d}"
+                    )
+                    debug_resumen_print(
+                        f"Última versión disponible: v{highest_version:02d}"
+                    )
                     debug_resumen_print("")
                     debug_resumen_print("Ningún cambio se aplicó en Flow.")
                     debug_resumen_print("=" * 70)
@@ -1628,7 +1769,9 @@ def Push_Task_Status(button_name, base_name, update_callback=None, original_file
                     debug_resumen_print(f"Estado: {button_name}")
                     debug_resumen_print("⚠️  RESULTADO: OPERACIÓN CANCELADA")
                     debug_resumen_print("")
-                    debug_resumen_print("El usuario canceló porque la versión actual no es la más reciente.")
+                    debug_resumen_print(
+                        "El usuario canceló porque la versión actual no es la más reciente."
+                    )
                     debug_resumen_print("=" * 70)
                     print_debug_messages()
                     print_resumen()
@@ -1636,9 +1779,13 @@ def Push_Task_Status(button_name, base_name, update_callback=None, original_file
                 else:
                     debug_print("Usuario confirmó continuar con la versión actual")
             else:
-                debug_print(f"✓ Versión actual (v{current_version:02d}) es la más alta, continuando sin advertencia")
+                debug_print(
+                    f"✓ Versión actual (v{current_version:02d}) es la más alta, continuando sin advertencia"
+                )
         else:
-            debug_print("No se pudieron obtener versiones del timeline, continuando sin verificación")
+            debug_print(
+                "No se pudieron obtener versiones del timeline, continuando sin verificación"
+            )
 
     # SEGUNDO: Solicitar el mensaje al usuario para ciertos estados
     message = None
@@ -1664,9 +1811,15 @@ def Push_Task_Status(button_name, base_name, update_callback=None, original_file
             debug_resumen_print("")
             debug_resumen_print("El usuario cerró el diálogo sin confirmar.")
             debug_resumen_print("Ningún cambio se aplicó en Flow.")
-            debug_resumen_print("Todo permanece como estaba antes de ejecutar el script.")
+            debug_resumen_print(
+                "Todo permanece como estaba antes de ejecutar el script."
+            )
             debug_resumen_print("")
-            images_found = len(input_dialog.get_review_images()) if hasattr(input_dialog, 'get_review_images') else 0
+            images_found = (
+                len(input_dialog.get_review_images())
+                if hasattr(input_dialog, "get_review_images")
+                else 0
+            )
             debug_resumen_print("IMÁGENES:")
             debug_resumen_print(f"   Total encontradas: {images_found}")
             debug_resumen_print("   No se enviaron (operación cancelada)")
@@ -1737,13 +1890,13 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
     Procesa los clips seleccionados en el track TRACK_comp_EXR (o el clip en playhead).
     Si hay múltiples clips seleccionados en el track TRACK_comp_EXR, procesa todos ellos.
     Mantiene la limitación de 4 clips con confirmación para evitar operaciones accidentales.
-    
+
     Args:
         button_name: Nombre del botón de estado (ej: "Corrections", "Rev Dir", etc.)
         per_clip_callback: Función opcional que se ejecuta después de cada push exitoso.
                           Recibe (clip, base_name, exr_name) como parámetros.
                           Se ejecuta SOLO cuando el push es exitoso (no se cancela).
-    
+
     Returns:
         bool: True si se inició la operación exitosamente, False si se canceló o hubo error
     """
@@ -1751,7 +1904,7 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
     # Usa prioritize_multiple_selection=True para priorizar múltiples clips seleccionados sobre playhead
     # ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
     clips = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
-    
+
     if not clips:
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Warning)
@@ -1761,33 +1914,33 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
         )
         msg.exec_()
         return False
-    
+
     # Filtrar clips para incluir solo los que contienen "_comp_" o "_cmp_" en el nombre
     valid_clips = []
     for clip in clips:
         if isinstance(clip, hiero.core.EffectTrackItem):
             debug_print(f"Clip es un efecto, se omite: {clip.name()}")
             continue
-        
+
         if not clip.source().mediaSource().isMediaPresent():
             debug_print(f"Clip no tiene media presente, se omite: {clip.name()}")
             continue
-        
+
         fileinfos = clip.source().mediaSource().fileinfos()
         if not fileinfos:
             debug_print(f"Clip no tiene fileinfos, se omite: {clip.name()}")
             continue
-        
+
         file_path = fileinfos[0].filename()
         exr_name = os.path.basename(file_path)
-        
+
         # Filtrar solo clips que contengan "_comp_" o "_cmp_"
         if "_comp_" not in exr_name.lower() and "_cmp_" not in exr_name.lower():
             debug_print(f"Clip no contiene '_comp_' o '_cmp_', se omite: {exr_name}")
             continue
-        
+
         valid_clips.append((clip, file_path, exr_name))
-    
+
     if not valid_clips:
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Warning)
@@ -1797,7 +1950,7 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
         )
         msg.exec_()
         return False
-    
+
     # Confirmar si hay más de 4 clips (igual que en el panel)
     if len(valid_clips) > 4:
         msg = QMessageBox()
@@ -1811,49 +1964,49 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
         if result != QMessageBox.Yes:
             debug_print("Usuario canceló la operación (más de 4 clips)")
             return False
-    
+
     # Determinar si necesitamos pedir un mensaje al usuario
     sg_status = status_translation.get(button_name, None)
     needs_message = sg_status in ["rev_di", "corr", "revleg", "revhld", "revjav"]
-    
+
     # Para múltiples clips con mensaje, usar un mensaje compartido
     shared_message = None
     shared_review_images = []
     should_delete_images = False
-    
+
     if needs_message and len(valid_clips) > 1:
         # Mostrar un diálogo simplificado sin imágenes específicas de clip
         app = QApplication.instance()
         if app is None:
             app = QApplication([])
-        
+
         # Crear un diálogo simple sin imágenes
         dialog = QDialog()
         dialog.setWindowTitle("Input Dialog")
         layout = QVBoxLayout(dialog)
-        
+
         # Label con información de cuántos clips se procesarán
         label_text = f"Mensaje para <b>{len(valid_clips)} clips</b>:"
         label = QLabel(label_text)
         label.setTextFormat(Qt.RichText)
         layout.addWidget(label)
-        
+
         # Area de texto para el mensaje
         text_edit = QPlainTextEdit(dialog)
         text_edit.setFixedHeight(120)
         layout.addWidget(text_edit)
-        
+
         # Botón OK
         ok_button = QPushButton("OK", dialog)
         ok_button.clicked.connect(dialog.accept)
         layout.addWidget(ok_button)
-        
+
         # Conectar Ctrl+Enter
         shortcut = QShortcut(QKeySequence(Qt.CTRL + Qt.Key_Return), dialog)
         shortcut.activated.connect(dialog.accept)
-        
+
         dialog.adjustSize()
-        
+
         if dialog.exec_() == QDialog.Accepted:
             shared_message = text_edit.toPlainText()
         else:
@@ -1871,41 +2024,48 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
             print_debug_messages()
             print_resumen()
             return False
-    
+
     # Procesar cada clip
     success_count = 0
     failed_count = 0
-    
+
     for clip, file_path, exr_name in valid_clips:
         try:
             # Extraer base_name del clip
             # Reemplazar patrón .% por _% para análisis
             exr_name_processed = exr_name.replace(".%", "_%")
-            
+
             # Usar la función del módulo de naming para obtener base_name
             from LGA_NKS_Flow_NamingUtils import clean_base_name
+
             base_name = clean_base_name(exr_name_processed)
-            
+
             debug_print(f"Procesando clip: {base_name}")
-            
+
             # Definir callback para este clip específico
             def create_clip_callback(current_clip, current_base_name, current_exr_name):
                 """Crea un callback que ejecuta per_clip_callback si existe"""
+
                 def callback_wrapper(success):
                     if success and per_clip_callback:
                         try:
-                            per_clip_callback(current_clip, current_base_name, current_exr_name)
+                            per_clip_callback(
+                                current_clip, current_base_name, current_exr_name
+                            )
                         except Exception as e:
                             debug_print(f"Error ejecutando per_clip_callback: {e}")
+
                 return callback_wrapper
-            
+
             # Llamar a Push_Task_Status para cada clip
             # Si es un solo clip con mensaje, usar el diálogo completo (con imágenes)
             # Si son múltiples clips, ya tenemos el mensaje compartido
             if len(valid_clips) == 1:
                 # Un solo clip: usar Push_Task_Status con callback
                 clip_callback = create_clip_callback(clip, base_name, exr_name)
-                result = Push_Task_Status(button_name, base_name, clip_callback, exr_name)
+                result = Push_Task_Status(
+                    button_name, base_name, clip_callback, exr_name
+                )
             else:
                 # Múltiples clips: pasar el mensaje compartido directamente
                 # Necesitamos crear un worker manualmente porque ya tenemos el mensaje
@@ -1930,17 +2090,19 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
                 else:
                     # Estados que NO necesitan mensaje: usar Push_Task_Status con callback
                     clip_callback = create_clip_callback(clip, base_name, exr_name)
-                    result = Push_Task_Status(button_name, base_name, clip_callback, exr_name)
-            
+                    result = Push_Task_Status(
+                        button_name, base_name, clip_callback, exr_name
+                    )
+
             if result:
                 success_count += 1
             else:
                 failed_count += 1
-                
+
         except Exception as e:
             debug_print(f"Error procesando clip {os.path.basename(file_path)}: {e}")
             failed_count += 1
-    
+
     # Resumen final si procesamos múltiples clips
     if len(valid_clips) > 1:
         debug_resumen_print("=" * 70)
@@ -1953,7 +2115,7 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
             debug_resumen_print(f"❌ Fallidos: {failed_count}")
         debug_resumen_print("=" * 70)
         print_resumen()
-    
+
     return success_count > 0
 
 
