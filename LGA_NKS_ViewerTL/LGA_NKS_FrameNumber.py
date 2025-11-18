@@ -1,9 +1,11 @@
 """
 ______________________________________________________
 
-  LGA_NKS_FrameNumber v0.54 | Lega
+  LGA_NKS_FrameNumber v0.55 | Lega
   Busca el clip 'Frame_Only' en el track 'BurnIn' y posiciona el box
   alineado a la izquierda y al bottom con 30px de margen
+
+  v0.55: Logs simplificados
 ______________________________________________________
 
 """
@@ -56,8 +58,6 @@ def print_box_values():
     if not target_track:
         debug_print(f"❌ No se encontró el track '{TRACK_NAME}'.")
         return
-    
-    debug_print(f"✅ Track '{TRACK_NAME}' encontrado.")
     
     # Buscar el clip especificado en el track usando subTrackItems() para soft effects
     target_clip = None
@@ -124,37 +124,22 @@ def print_box_values():
                 debug_print(f"  - Clip: {clip_name}")
         return
     
-    debug_print(f"✅ Clip '{CLIP_NAME}' encontrado.")
-    debug_print(f"   Tipo: {type(target_clip).__name__}")
-    
     # Obtener el nodo asociado al clip
     # Los clips normales y los efectos tienen el método node()
     node = None
     try:
         node = target_clip.node()
-        if node:
-            debug_print(f"✅ Nodo obtenido con node(): {node.name()}")
     except Exception as e:
-        debug_print(f"⚠️ Error al obtener nodo con node(): {e}")
         # Intentar otros métodos si node() no funciona
         if hasattr(target_clip, 'node'):
             try:
                 node = target_clip.node
-                if node:
-                    debug_print(f"✅ Nodo obtenido con atributo node: {node.name()}")
             except Exception as e2:
-                debug_print(f"⚠️ Error al obtener nodo con atributo: {e2}")
+                pass
     
     if not node:
         debug_print("❌ No se pudo obtener el nodo asociado al clip.")
-        debug_print("   Métodos disponibles del clip:")
-        import inspect
-        for name, method in inspect.getmembers(target_clip, predicate=inspect.ismethod):
-            if not name.startswith("_") and 'node' in name.lower():
-                debug_print(f"     - {name}")
         return
-    
-    debug_print(f"✅ Nodo encontrado: {node.name()}")
     
     # Verificar si el nodo tiene la propiedad 'box'
     if 'box' not in node.knobs():
@@ -170,19 +155,11 @@ def print_box_values():
     
     # Obtener imagen del viewer para debuggear
     qimage = viewer.image()
-    if qimage:
-        debug_print(f"\n📐 Información del viewer:")
-        debug_print(f"   Imagen visible del viewer: {qimage.width()} × {qimage.height()}")
-    else:
-        debug_print("⚠️ No se pudo obtener la imagen del viewer")
     
     # Obtener formato de la secuencia (ya tenemos seq desde el inicio)
     format_obj = seq.format()
     image_width = format_obj.width()  # Ancho completo de la imagen
     image_height = format_obj.height()  # Alto completo de la imagen
-    
-    debug_print(f"\n📐 Información de la secuencia:")
-    debug_print(f"   Formato completo de la imagen: {image_width} × {image_height}")
     
     # Calcular área visible y transform si estamos en modo relativo
     visible_x_offset = 0
@@ -226,37 +203,21 @@ def print_box_values():
                     visible_width_raw = viewer_width / zoom if zoom > 0 else viewer_width
                     visible_height_raw = viewer_height / zoom if zoom > 0 else viewer_height
                     
-                    debug_print(f"   Área visible inicial (sin considerar aspect ratio):")
-                    debug_print(f"      Ancho: {visible_width_raw:.2f}px")
-                    debug_print(f"      Alto: {visible_height_raw:.2f}px")
-                    
                     # Determinar qué dimensión limita el área visible basándose en el aspect ratio
-                    # Si el viewer es más ancho que la imagen (proporcionalmente), la altura limita
-                    # Si el viewer es más alto que la imagen (proporcionalmente), el ancho limita
                     if viewer_aspect > image_aspect:
-                        # Viewer más ancho: la altura limita el área visible
-                        # El área visible mantiene el aspect ratio de la imagen
                         visible_height_in_image = visible_height_raw
                         visible_height_in_image = min(visible_height_in_image, image_height)
                         visible_width_in_image = visible_height_in_image * image_aspect
                         visible_width_in_image = min(visible_width_in_image, image_width)
-                        debug_print(f"   Viewer más ancho: altura limita ({visible_height_in_image:.2f}px)")
                     else:
-                        # Viewer más alto o igual: el ancho limita el área visible
-                        # El área visible mantiene el aspect ratio de la imagen
                         visible_width_in_image = visible_width_raw
                         visible_width_in_image = min(visible_width_in_image, image_width)
                         visible_height_in_image = visible_width_in_image / image_aspect
                         visible_height_in_image = min(visible_height_in_image, image_height)
-                        debug_print(f"   Viewer más alto o igual: ancho limita ({visible_width_in_image:.2f}px)")
                     
                     # Limitar el área visible al tamaño máximo de la imagen (por seguridad)
                     visible_width_in_image = min(visible_width_in_image, image_width)
                     visible_height_in_image = min(visible_height_in_image, image_height)
-                    
-                    debug_print(f"   Área visible en coordenadas de imagen:")
-                    debug_print(f"      Ancho visible: {visible_width_in_image:.2f}px")
-                    debug_print(f"      Alto visible: {visible_height_in_image:.2f}px")
                     
                     # Obtener el pan usando player.translation()
                     try:
@@ -264,31 +225,14 @@ def print_box_values():
                         pan_x_viewer = translation.x()
                         pan_y_viewer = translation.y()
                         
-                        debug_print(f"   ✅ Pan obtenido de player.translation():")
-                        debug_print(f"      Pan X (viewer): {pan_x_viewer:.2f}")
-                        debug_print(f"      Pan Y (viewer): {pan_y_viewer:.2f}")
-                        
                         # Convertir pan del viewer a coordenadas de imagen
-                        # CORRECCIÓN CRÍTICA: El viewer usa coordenadas Qt (Y=0 arriba) pero Hiero/Nuke usa Y=0 abajo
-                        # 
-                        # Para X: ambos sistemas coinciden (X=0 izquierda) -> pan_x_image = pan_x_viewer / zoom
-                        # Para Y: los sistemas están invertidos -> pan_y_image = -pan_y_viewer / zoom
-                        # 
-                        # Cuando pan Y del viewer es negativo (pan hacia arriba en Qt), 
-                        # en Hiero (Y=0 abajo) significa que vemos la parte superior (Y más alto)
-                        # Por eso necesitamos invertir el signo ANTES de escalar por zoom
-                        
-                        # Escalar el pan por el zoom para convertir a coordenadas de imagen
+                        # Para Y: invertir signo porque Qt usa Y=0 arriba pero Hiero usa Y=0 abajo
                         pan_x_image = pan_x_viewer / zoom if zoom > 0 else pan_x_viewer
-                        pan_y_image = -pan_y_viewer / zoom if zoom > 0 else -pan_y_viewer  # INVERTIR para convertir de Qt a Hiero
+                        pan_y_image = -pan_y_viewer / zoom if zoom > 0 else -pan_y_viewer
                         
-                        if abs(zoom - 1.0) < 0.0001:
-                            debug_print(f"   📐 Zoom = 1.0: escalando pan por zoom (factor 1.0)")
-                        else:
-                            debug_print(f"   📐 Zoom != 1.0 ({zoom:.6f}): escalando pan por zoom")
-                        
-                        debug_print(f"      Pan X (viewer): {pan_x_viewer:.2f} -> (imagen): {pan_x_image:.2f}")
-                        debug_print(f"      Pan Y (viewer): {pan_y_viewer:.2f} -> (imagen INVERTIDO): {pan_y_image:.2f}")
+                        debug_print(f"\n📍 Pan (comparación X vs Y):")
+                        debug_print(f"   Pan X viewer: {pan_x_viewer:.2f} -> imagen: {pan_x_image:.2f}")
+                        debug_print(f"   Pan Y viewer: {pan_y_viewer:.2f} -> imagen: {pan_y_image:.2f} (invertido)")
                         
                         # Calcular el centro de la imagen
                         image_center_x = image_width / 2
@@ -307,20 +251,11 @@ def print_box_values():
                         visible_x_offset = visible_center_x - (visible_width_in_image / 2)
                         visible_y_offset = visible_center_y - (visible_height_in_image / 2)
                         
-                        # DEBUG: Verificar el cálculo
-                        debug_print(f"   🔍 Debug cálculo área visible:")
-                        debug_print(f"      Centro imagen Y: {image_center_y:.2f}")
-                        debug_print(f"      Pan Y (imagen, ya invertido Qt->Hiero): {pan_y_image:.2f}")
-                        debug_print(f"      Centro área visible Y: {visible_center_y:.2f}")
-                        debug_print(f"      Alto visible: {visible_height_in_image:.2f}")
-                        debug_print(f"      Offset Y calculado: {visible_y_offset:.2f}")
-                        debug_print(f"      Bottom calculado: {visible_y_offset + visible_height_in_image:.2f}")
-                        
-                        debug_print(f"   📐 Conversión a coordenadas de imagen:")
-                        debug_print(f"      Centro imagen: ({image_center_x:.2f}, {image_center_y:.2f})")
-                        debug_print(f"      Centro área visible: ({visible_center_x:.2f}, {visible_center_y:.2f})")
-                        debug_print(f"      Offset X (área visible): {visible_x_offset:.2f}")
-                        debug_print(f"      Offset Y (área visible): {visible_y_offset:.2f}")
+                        debug_print(f"\n📐 Área visible (comparación X vs Y):")
+                        debug_print(f"   Centro imagen: X={image_center_x:.2f}, Y={image_center_y:.2f}")
+                        debug_print(f"   Centro visible: X={visible_center_x:.2f}, Y={visible_center_y:.2f}")
+                        debug_print(f"   Offset: X={visible_x_offset:.2f}, Y={visible_y_offset:.2f}")
+                        debug_print(f"   Dimensiones visibles: W={visible_width_in_image:.2f}, H={visible_height_in_image:.2f}")
                     except Exception as e:
                         debug_print(f"   ⚠️ Error obteniendo pan de player.translation(): {e}")
                         # Fallback: asumir que está centrado
@@ -335,9 +270,7 @@ def print_box_values():
                         else:
                             visible_y_offset = (image_height - visible_height_in_image) / 2
                         
-                        debug_print(f"   ⚠️ Usando aproximación centrada como fallback:")
-                        debug_print(f"      Offset X: {visible_x_offset:.2f}")
-                        debug_print(f"      Offset Y: {visible_y_offset:.2f}")
+                        debug_print(f"   ⚠️ Fallback centrado: X={visible_x_offset:.2f}, Y={visible_y_offset:.2f}")
                     
                     # Actualizar las dimensiones visibles
                     visible_width = visible_width_in_image
@@ -402,12 +335,6 @@ def print_box_values():
             visible_width = image_width
             visible_height = image_height
     
-    debug_print(f"\n📐 Área visible del viewer:")
-    debug_print(f"   Offset X: {visible_x_offset}")
-    debug_print(f"   Offset Y: {visible_y_offset}")
-    debug_print(f"   Ancho visible: {visible_width}")
-    debug_print(f"   Alto visible: {visible_height}")
-    
     if USE_ABSOLUTE_POSITION:
         debug_print(f"\n📐 Modo absoluto: usando dimensiones completas de la imagen")
     
@@ -434,31 +361,13 @@ def print_box_values():
             r = box_value[2]
             t = box_value[3]
             
-            debug_print("\n" + "=" * 60)
-            debug_print(f"Valores ACTUALES de 'box' para el clip '{CLIP_NAME}':")
-            debug_print("=" * 60)
-            debug_print(f"x: {x}")
-            debug_print(f"y: {y}")
-            debug_print(f"r: {r}")
-            debug_print(f"t: {t}")
-            
             # Calcular dimensiones del box
             box_width = r - x
             box_height = t - y
-            box_center_x = (x + r) / 2
-            box_center_y = (y + t) / 2
             
-            debug_print(f"\n📏 Dimensiones del box:")
-            debug_print(f"   Ancho: {box_width}")
-            debug_print(f"   Alto: {box_height}")
-            debug_print(f"   Centro actual: ({box_center_x}, {box_center_y})")
-            
-            # Calcular centro del viewer
-            viewer_center_x = viewer_width / 2
-            viewer_center_y = viewer_height / 2
-            
-            debug_print(f"\n🎯 Centro del viewer:")
-            debug_print(f"   Centro: ({viewer_center_x}, {viewer_center_y})")
+            debug_print(f"\n📦 Box actual:")
+            debug_print(f"   Posición: x={x:.2f}, y={y:.2f}, r={r:.2f}, t={t:.2f}")
+            debug_print(f"   Dimensiones: W={box_width:.2f}, H={box_height:.2f}")
             
             # Configuración: alineado a la izquierda y al bottom con 30px de margen
             LEFT_MARGIN = 30
@@ -546,55 +455,17 @@ def print_box_values():
             offset_x = new_x - x
             offset_y = new_y - y
             
-            debug_print(f"\n📐 Configuración:")
-            debug_print(f"   Modo: {'ABSOLUTO' if USE_ABSOLUTE_POSITION else 'RELATIVO'}")
-            debug_print(f"   Margen izquierdo: {LEFT_MARGIN}px")
-            debug_print(f"   Margen inferior: {BOTTOM_MARGIN}px")
-            debug_print(f"   Alineado al bottom: Sí")
+            debug_print(f"\n🎯 Posición nueva (comparación X vs Y):")
+            debug_print(f"   X: {x:.2f} -> {new_x:.2f} (offset: {offset_x:.2f})")
+            debug_print(f"   Y: {y:.2f} -> {new_y:.2f} (offset: {offset_y:.2f})")
             if not USE_ABSOLUTE_POSITION:
-                debug_print(f"   Punto cero: pixel más a la izquierda visible ({visible_x_offset})")
-                debug_print(f"   Bottom del área visible: {visible_y_offset + visible_height:.2f}")
-            debug_print(f"\n📐 Desplazamiento necesario:")
-            debug_print(f"   Offset X: {offset_x}")
-            debug_print(f"   Offset Y: {offset_y}")
-            
-            debug_print(f"\n" + "=" * 60)
-            debug_print(f"Valores NUEVOS de 'box' (alineado izquierda y bottom):")
-            debug_print("=" * 60)
-            debug_print(f"x: {new_x}")
-            debug_print(f"y: {new_y}")
-            debug_print(f"r: {new_r}")
-            debug_print(f"t: {new_t}")
-            debug_print("=" * 60)
-            
-            # Verificar que las dimensiones se mantienen
-            new_box_width = new_r - new_x
-            new_box_height = new_t - new_y
-            new_box_center_x = (new_x + new_r) / 2
-            new_box_center_y = (new_y + new_t) / 2
-            
-            debug_print(f"\n✅ Verificación:")
-            debug_print(f"   Ancho mantenido: {abs(new_box_width - box_width) < 0.01}")
-            debug_print(f"   Alto mantenido: {abs(new_box_height - box_height) < 0.01}")
-            debug_print(f"   Nuevo centro: ({new_box_center_x}, {new_box_center_y})")
-            if USE_ABSOLUTE_POSITION:
-                debug_print(f"   Posición X: {new_x}px desde el borde izquierdo de la imagen (objetivo: {LEFT_MARGIN}px)")
-                debug_print(f"   Posición Y (bottom del box): {new_y}px desde el bottom de la imagen (objetivo: {BOTTOM_MARGIN}px)")
-                debug_print(f"   Posición T (top del box): {new_t}px")
-            else:
-                debug_print(f"   Posición X: {new_x}px desde el origen de la imagen ({new_x - visible_x_offset:.2f}px desde el borde visible)")
-                debug_print(f"   Posición Y (bottom del box): {new_y}px desde el bottom del área visible (offset: {visible_y_offset}, margen: {BOTTOM_MARGIN}, objetivo: {visible_y_offset + BOTTOM_MARGIN:.2f}px)")
-                debug_print(f"   Posición T (top del box): {new_t}px")
-            debug_print(f"   Alineado al bottom: {abs(new_y - (visible_y_offset + BOTTOM_MARGIN if not USE_ABSOLUTE_POSITION else BOTTOM_MARGIN)) < 0.01}")
-            debug_print(f"   Dentro de límites de imagen: {new_x >= 0 and new_y >= 0 and new_r <= image_width and new_t <= image_height}")
+                debug_print(f"   Desde área visible: X={new_x - visible_x_offset:.2f}px, Y={new_y - visible_y_offset:.2f}px")
             
             # Aplicar los nuevos valores
             try:
                 new_box_value = (new_x, new_y, new_r, new_t)
                 node['box'].setValue(new_box_value)
-                debug_print(f"\n✅ Box posicionado y actualizado correctamente!")
-                debug_print(f"   - Alineado a la izquierda con {LEFT_MARGIN}px de margen")
-                debug_print(f"   - Alineado al bottom con {BOTTOM_MARGIN}px de margen")
+                debug_print(f"\n✅ Box actualizado: x={new_x:.2f}, y={new_y:.2f}, r={new_r:.2f}, t={new_t:.2f}")
             except Exception as e:
                 debug_print(f"\n❌ Error al actualizar el box: {e}")
         else:
