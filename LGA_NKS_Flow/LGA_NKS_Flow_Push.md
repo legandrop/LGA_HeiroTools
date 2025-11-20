@@ -56,7 +56,7 @@ La ventana para introducir una nota se activa cuando el estado de la tarea se ca
 *   **"Rev_Dir"** (se traduce a `rev_di` en ShotGrid)
 *   **"Rev Lega"** (se traduce a `revleg` en ShotGrid)
 *   **"Rev Javi"** (se traduce a `revjav` en ShotGrid)
-*   **"Rev_Hold"** (se traduce a `revhld` en ShotGrid)
+*   **"Rev Hold"** (se traduce a `revhld` en ShotGrid)
 
 ## Arquitectura y Rendimiento:
 

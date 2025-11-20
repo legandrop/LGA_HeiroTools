@@ -67,7 +67,7 @@ status_translation = {
     "Approved": "apr",
     "Delivery Ok": "check",
     "Rev Dir Den": "rev_di",
-    "Rev_Hold": "revhld",
+    "Rev Hold": "revhld",
 }
 
 # Variable global para activar o desactivar los prints

@@ -115,7 +115,7 @@ class ShotGridManager:
             "rev_su": ("Review Sup", "#bd7f9f", "Rev_Sup"),
             "revjav": ("Review Javi", "#9c3e5e", "Rev_Sup"),
             "revleg": ("Review Lega", "#69135e", "Rev_Lega"),
-            "revhld": ("Review Hold", "#933100", "Rev_Hold"),
+            "revhld": ("Review Hold", "#933100", "Rev Hold"),
             "rev_di": ("Review Dir", "#98c054", "ReviewDir"),
             "pubsh": ("Publish", "#244c19", "Approved"),
             "pbshed": ("Published", "#244c19", "Approved"),
