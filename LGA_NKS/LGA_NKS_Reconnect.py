@@ -1,8 +1,11 @@
 """
 ______________________________________________________________________
 
-  LGA_NKS_Reconnect v1.1 | Lega
+  LGA_NKS_Reconnect v1.11 | Lega
   Reconecta clips seleccionados a diferentes rutas, manteniendo el color original.
+  
+  v1.11: Agregado parámetro force_all_clips para procesar todos los clips del timeline
+         o solo los seleccionados. Compatible con el botón Reconnect Win > Mac del Edit Panel.
 ______________________________________________________________________
 
 """
@@ -80,7 +83,7 @@ def set_clip_color(clip, color):
     except Exception as e:
         debug_print(f"No se pudo asignar el color al clip: {e}")
 
-def main():
+def main(force_all_clips=False):
     debug_print("\n==== INICIANDO SCRIPT DE RECONNECT ====")
     try:
         project = hiero.core.projects()[-1]
@@ -91,7 +94,19 @@ def main():
                 return
 
             te = hiero.ui.getTimelineEditor(seq)
-            selected_clips = te.selection()
+            
+            # Si force_all_clips es True, obtener todos los clips del timeline
+            if force_all_clips:
+                all_clips = []
+                for track in seq.videoTracks():
+                    for track_item in track:
+                        if not isinstance(track_item, hiero.core.EffectTrackItem):
+                            all_clips.append(track_item)
+                selected_clips = all_clips
+                debug_print(f"Procesando todos los clips del timeline ({len(selected_clips)} clips)...")
+            else:
+                selected_clips = te.selection()
+                debug_print(f"Procesando clips seleccionados ({len(selected_clips)} clips)...")
 
             if len(selected_clips) == 0:
                 debug_print("*** No clips selected on the track ***")

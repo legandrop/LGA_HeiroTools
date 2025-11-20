@@ -1,10 +1,14 @@
 """
 _________________________________________
 
-  LGA_EditToolsPanel v2.91 | Lega
+  LGA_EditToolsPanel v2.92 | Lega
   Tools panel for Hiero / Nuke Studio
   
   v2.91: Se agregaron tooltips mejorados y descriptivos para todos los botones del panel
+  v2.92: Invertido comportamiento del botón Reconnect Win > Mac:
+         Click: Reconecta todos los clips del timeline
+         Shift+Click: Reconecta solo los clips seleccionados
+         Agregado método execute_external_script_with_param para pasar parámetros a scripts
 _________________________________________
 
 """
@@ -119,7 +123,7 @@ class ReconnectMediaWidget(QWidget):
             ("Trim &Out", self.trim_out, "#453434", "Alt+]", "Alt+]\nTrimea el OUT del clip a la posicion del playhead"),
             ("Reconnect T > N", self.reconnect_t_to_n, "#4a4329", None, "Reconecta clips cambiando rutas de t: a n:"),
             ("Reconnect N > T", self.reconnect_n_to_t, "#4a4329", None, "Reconecta clips cambiando rutas de n: a t:"),
-            ("Reconnect T Win > Mac", self.execute_reconnect_win_to_mac, "#4a4329", None, "Reconecta clips de Windows a Mac y ejecuta SelfReplace"),
+            ("Reconnect Win > Mac", self.execute_reconnect_win_to_mac, "#4a4329", None, "Click: Reconecta todos los clips del timeline\nShift+Click: Reconecta solo los clips seleccionados"),
             (
                 "Reconnect Media",
                 self.reconnectMediaFromTimeline,
@@ -173,7 +177,7 @@ class ReconnectMediaWidget(QWidget):
             shortcut = button_info[3] if len(button_info) > 3 else None
             tooltip = button_info[4] if len(button_info) > 4 else None
 
-            # Usar CustomButton para el boton Match Rev Ver, Compare Rev EdRef y Compare EXR aPlate
+            # Usar CustomButton para el boton Match Rev Ver, Compare Rev EdRef, Compare EXR aPlate y Reconnect Win > Mac
             if name == "Match Rev Ver":
                 button = CustomButton(name)
                 button.setCustomClickHandler(self.match_rev_version)
@@ -186,6 +190,10 @@ class ReconnectMediaWidget(QWidget):
                 button = CustomButton(name)
                 button.setCustomClickHandler(self.compare_exr_aplate)
                 button.setShiftClickHandler(self.compare_exr_aplate_force_all)
+            elif name == "Reconnect Win > Mac":
+                button = CustomButton(name)
+                button.setCustomClickHandler(self.execute_reconnect_win_to_mac)
+                button.setShiftClickHandler(self.execute_reconnect_win_to_mac_selected)
             else:
                 button = QPushButton(name)
                 button.clicked.connect(handler)
@@ -515,18 +523,39 @@ class ReconnectMediaWidget(QWidget):
                     debug_print("No current undo item to end.")
 
     def execute_reconnect_win_to_mac(self):
-        debug_print_b("\n=== INICIANDO PROCESO DE RECONNECT + REPLACE ===")
+        """Ejecuta reconnect y selfreplace para todos los clips del timeline."""
+        debug_print_b("\n=== INICIANDO PROCESO DE RECONNECT + REPLACE (TODOS LOS CLIPS) ===")
 
         try:
-            debug_print_b("\n>>> Ejecutando Reconnect script...")
-            self.execute_external_script("LGA_NKS_Reconnect.py")
+            debug_print_b("\n>>> Ejecutando Reconnect script (todos los clips)...")
+            self.execute_external_script_with_param("LGA_NKS_Reconnect.py", force_all_clips=True)
             debug_print_b(">>> Reconnect script completado")
         except Exception as e:
             debug_print_b(f"Error en Reconnect: {e}")
 
         try:
-            debug_print_b("\n>>> Ejecutando SelfReplace script...")
-            self.execute_external_script("LGA_NKS_SelfReplaceClip.py")
+            debug_print_b("\n>>> Ejecutando SelfReplace script (todos los clips)...")
+            self.execute_external_script_with_param("LGA_NKS_SelfReplaceClip.py", force_all_clips=True)
+            debug_print_b(">>> SelfReplace script completado")
+        except Exception as e:
+            debug_print_b(f"Error en SelfReplace: {e}")
+
+        debug_print_b("\n=== PROCESO COMPLETO ===")
+
+    def execute_reconnect_win_to_mac_selected(self):
+        """Ejecuta reconnect y selfreplace solo para los clips seleccionados."""
+        debug_print_b("\n=== INICIANDO PROCESO DE RECONNECT + REPLACE (CLIPS SELECCIONADOS) ===")
+
+        try:
+            debug_print_b("\n>>> Ejecutando Reconnect script (clips seleccionados)...")
+            self.execute_external_script_with_param("LGA_NKS_Reconnect.py", force_all_clips=False)
+            debug_print_b(">>> Reconnect script completado")
+        except Exception as e:
+            debug_print_b(f"Error en Reconnect: {e}")
+
+        try:
+            debug_print_b("\n>>> Ejecutando SelfReplace script (clips seleccionados)...")
+            self.execute_external_script_with_param("LGA_NKS_SelfReplaceClip.py", force_all_clips=False)
             debug_print_b(">>> SelfReplace script completado")
         except Exception as e:
             debug_print_b(f"Error en SelfReplace: {e}")
@@ -613,6 +642,65 @@ class ReconnectMediaWidget(QWidget):
             clean_action.CleanUnused()
         except Exception as e:
             debug_print(f"Error during project cleaning: {e}")
+
+    # Metodo para ejecutar scripts externos con parametros
+    def execute_external_script_with_param(self, script_name, force_all_clips=False):
+        # Intentamos varias rutas posibles para encontrar el script
+        script_paths = [
+            os.path.join(
+                os.path.dirname(__file__), "LGA_NKS", script_name
+            ),  # Ruta estándar
+            os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "LGA_NKS", script_name
+            ),  # Ruta absoluta
+            os.path.join(
+                os.path.dirname(__file__), script_name
+            ),  # Directamente en la carpeta del panel
+            os.path.join(
+                "Python/Startup/LGA_NKS", script_name
+            ),  # Ruta directa a la carpeta de scripts
+        ]
+
+        debug_print_b(f"Intentando localizar script: {script_name}")
+        debug_print_b(f"Directorio actual: {os.path.dirname(__file__)}")
+
+        # Probamos con cada posible ruta
+        for script_path in script_paths:
+            debug_print_b(f"Intentando ruta: {script_path}")
+            if os.path.exists(script_path):
+                debug_print_b(f"Script encontrado en: {script_path}")
+                try:
+                    spec = importlib.util.spec_from_file_location(
+                        script_name[:-3], script_path
+                    )
+                    if spec is not None and isinstance(
+                        spec.loader, importlib.machinery.SourceFileLoader
+                    ):  # Añadir isinstance para el linter
+                        module = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(module)
+
+                        # Llamar a la función 'main' con el parámetro force_all_clips
+                        if hasattr(module, "main"):
+                            module.main(force_all_clips=force_all_clips)
+                        else:
+                            debug_print_b(f"El script {script_name} no tiene función 'main'")
+                            return False
+
+                        return True
+                    else:
+                        debug_print_b(
+                            f"No se pudo crear el spec o loader para el script: {script_name}"
+                        )
+                        return False
+                except Exception as e:
+                    debug_print_b(f"Error ejecutando el script {script_name}: {e}")
+                    return False
+
+        # Si llegamos aquí, no encontramos el script
+        debug_print_b(
+            f"Script no encontrado en ninguna de las rutas probadas: {script_name}"
+        )
+        return False
 
     # Metodo para ejecutar scripts externos
     def execute_external_script(self, script_name):
