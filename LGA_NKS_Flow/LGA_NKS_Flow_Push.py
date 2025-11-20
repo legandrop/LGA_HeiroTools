@@ -1,7 +1,7 @@
 """
 _____________________________________________________________
 
-  LGA_NKS_Flow_Push v3.93 | Lega
+  LGA_NKS_Flow_Push v3.94 | Lega
 
   Envia a flow nuevos estados de las tasks comps.
   En algunos estados permite enviar un mensaje a la version
@@ -12,6 +12,7 @@ _____________________________________________________________
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 
+  v3.94: Agrega ruta principal de Python dentro de PipeSync.app para macOS
   v3.89: Sistema de resumen con DEBUG_RESUMEN para mostrar solo información esencial
   v3.88: Fix timeout + detección correcta de shot_code con base_name sin versión
   v3.87: Logs detallados de envío de imágenes + Fix extracción de versión
@@ -97,7 +98,7 @@ status_translation = {
 }
 
 # Variable global para activar o desactivar los prints // En esta version el Debug se imprime al final del script
-DEBUG = False
+DEBUG = True
 DEBUG_RESUMEN = True
 debug_messages = []
 resumen_messages = []
@@ -125,10 +126,18 @@ def call_flow_connector(operation, **kwargs):
     Llama al conector de Flow usando el Python personalizado
     Esta es la función más simple posible para delegar operaciones de red
     """
+    import shutil
+    
     try:
         # Configuración del Python personalizado para Windows
         WINDOWS_PYTHON_PATH = (
             r"C:\Portable\LGA\PipeSync\python_runtime\windows\python.exe"
+        )
+        
+        # Configuración del Python personalizado para macOS
+        # Ruta principal: Python dentro de PipeSync.app
+        MACOS_PYTHON_PATH = (
+            "/Users/leg4/Desktop/Codin/LGA_PipeSync_2/deploy-MacOS-OLD/PipeSync.app/Contents/Resources/python_runtime/macos/python3/bin/python3"
         )
 
         # Obtener credenciales y agregarlas a los parámetros
@@ -146,11 +155,60 @@ def call_flow_connector(operation, **kwargs):
             debug_print(f"Conector no encontrado: {connector_script}")
             return {"success": False, "error": "Conector no encontrado"}
 
-        # Preparar comando
-        if platform.system() == "Windows" and os.path.exists(WINDOWS_PYTHON_PATH):
-            cmd = [WINDOWS_PYTHON_PATH, connector_script, operation]
+        # Preparar comando según el sistema operativo
+        
+        if platform.system() == "Windows":
+            if os.path.exists(WINDOWS_PYTHON_PATH):
+                cmd = [WINDOWS_PYTHON_PATH, connector_script, operation]
+            else:
+                debug_print(f"WARNING: Python personalizado no encontrado en {WINDOWS_PYTHON_PATH}")
+                python3_path = shutil.which("python3")
+                if python3_path:
+                    cmd = [python3_path, connector_script, operation]
+                    debug_print(f"Usando python3 del sistema: {python3_path}")
+                else:
+                    debug_print("ERROR: No se encontró Python personalizado ni python3 del sistema")
+                    return {"success": False, "error": "No se encontró intérprete de Python válido"}
+        elif platform.system() == "Darwin":  # macOS
+            # Buscar Python personalizado en múltiples ubicaciones posibles
+            possible_paths = [
+                MACOS_PYTHON_PATH,  # Ruta principal de PipeSync.app
+                "/Users/leg4/Desktop/Codin/LGA_PipeSync_2/deploy-MacOS-OLD/PipeSync.app/Contents/Resources/python_runtime/macos/python3/bin/python3.10",
+                "/Users/leg4/Portable/LGA/PipeSync/python_runtime/macos/bin/python3",
+                "/Users/leg4/Portable/LGA/PipeSync/python_runtime/macos/bin/python",
+                os.path.expanduser("~/Portable/LGA/PipeSync/python_runtime/macos/python"),
+                os.path.expanduser("~/Portable/LGA/PipeSync/python_runtime/macos/bin/python3"),
+            ]
+            
+            python_path = None
+            for path in possible_paths:
+                if os.path.exists(path):
+                    python_path = path
+                    debug_print(f"Python personalizado encontrado: {python_path}")
+                    break
+            
+            if python_path:
+                cmd = [python_path, connector_script, operation]
+            else:
+                # Fallback: intentar usar python3 del sistema
+                debug_print(f"WARNING: Python personalizado no encontrado en ninguna de las rutas:")
+                for path in possible_paths:
+                    debug_print(f"  - {path}")
+                python3_path = shutil.which("python3")
+                if python3_path:
+                    cmd = [python3_path, connector_script, operation]
+                    debug_print(f"Usando python3 del sistema: {python3_path}")
+                else:
+                    debug_print("ERROR: No se encontró Python personalizado ni python3 del sistema")
+                    return {"success": False, "error": "No se encontró intérprete de Python válido"}
         else:
-            cmd = [sys.executable, connector_script, operation]
+            # Linux u otros sistemas
+            python3_path = shutil.which("python3")
+            if python3_path:
+                cmd = [python3_path, connector_script, operation]
+            else:
+                debug_print("ERROR: No se encontró python3 del sistema")
+                return {"success": False, "error": "No se encontró intérprete de Python válido"}
 
         debug_print(f"Llamando conector: {' '.join(cmd)}")
 

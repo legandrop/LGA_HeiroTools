@@ -14,10 +14,19 @@ import shutil
 from pathlib import Path
 
 # Agregar la ruta de shotgun_api3 al sys.path
+# shotgun_api3 está un nivel arriba del directorio del script
 script_dir = os.path.dirname(__file__)
-shotgun_path = os.path.join(script_dir, "shotgun_api3")
+parent_dir = os.path.dirname(script_dir)  # Un nivel arriba
+shotgun_path = os.path.join(parent_dir, "shotgun_api3")
+
+# Intentar primero un nivel arriba (ubicación correcta)
 if os.path.exists(shotgun_path):
     sys.path.insert(0, shotgun_path)
+else:
+    # Fallback: buscar en el mismo directorio del script (por compatibilidad)
+    shotgun_path_local = os.path.join(script_dir, "shotgun_api3")
+    if os.path.exists(shotgun_path_local):
+        sys.path.insert(0, shotgun_path_local)
 
 import shotgun_api3
 
