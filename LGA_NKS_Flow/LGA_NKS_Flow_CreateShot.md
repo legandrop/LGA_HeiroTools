@@ -75,6 +75,7 @@ LGA_NKS_Flow_CreateShot.py
 #### `create_shot(project_id, shot_code, shot_config, thumbnail_path=None)`
 - Crea shot sin template
 - Genera task "Comp" manualmente con estado "noread"
+- Asigna reviewers usando el campo `task_reviewers` de la task
 - Sube thumbnail si está disponible
 
 #### `find_tasks_for_shot(shot_id, shot_config)`
@@ -93,6 +94,10 @@ LGA_NKS_Flow_CreateShot.py
   - ☑️ Copy shot description to Comp Description
   - ☑️ Shot status Ready to start
   - ☑️ Task Comp status Ready to start
+- **Reviewers:** (Todos activados por defecto)
+  - ☑️ Lega Pugliese
+  - ☑️ Sebas Romano
+  - ☑️ Javi Bravo
 
 ### Estados de Task
 
@@ -119,6 +124,7 @@ LGA_NKS_Flow_CreateShot.py
 Para cada clip seleccionado:
 - Se crea un shot en ShotGrid (si no existe)
 - Se crea la task "Comp" con estado "noread"
+- Se asignan los reviewers seleccionados como `task_reviewers` (no como assignees)
 - Se sube thumbnail desde Hiero
 - Se actualizan estados según configuración
 
@@ -136,6 +142,7 @@ Para cada clip seleccionado:
 - `entity`: Shot padre
 - `sg_status_list`: Estado de la task
 - `sg_description`: Descripción (opcional)
+- `task_reviewers`: Lista de usuarios asignados como reviewers
 - `project`: Proyecto
 
 ## Sistema de Logging
@@ -195,6 +202,7 @@ DEBUG = False  # Cambiar a True para debug detallado
 ### v1.2 - Creación sin Templates (Actual)
 - ✅ Eliminada dependencia de templates
 - ✅ Creación manual de tasks
+- ✅ Asignación automática de reviewers
 - ✅ Mayor compatibilidad entre proyectos
 - ✅ Documentación completa
 

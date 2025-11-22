@@ -1,23 +1,18 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_CreateShot v1.20 | Lega
+  LGA_NKS_Flow_CreateShot v1.21 | Lega
   Script para crear shots en ShotGrid basado en el nombre del clip seleccionado en Hiero
   SIN usar templates predefinidos - crea tasks manualmente para mayor control
 
-  Funcionalidad:
-  - Compatible con ambos sistemas de nomenclatura:
+  v1.21: Asigna reviewers a la task usando el campo task_reviewers
+
+  v1.20: Creación sin Templates (actual)
+
+  v1.10: Sistema Dual de Nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
-  - Crea shots sin templates: task "Comp" con estado "noread"
-  - Actualiza status de tasks según configuración
-  - Sube thumbnails automáticamente
-
-  Investigación realizada:
-  - Template "Template_comp" solo crea 1 task: "Comp" con status "noread"
-  - No establece reviewers automáticamente
-  - No tiene campos task_defaults especiales
-____________________________________________________________________________________
+_________________________________
 """
 
 import hiero.core
@@ -384,6 +379,34 @@ class ShotConfigDialog(QDialog):
         self.task_ready_cb.setStyleSheet("color: #CCCCCC; padding: 5px;")
         layout.addWidget(self.task_ready_cb)
 
+        # Reviewers section
+        reviewers_label = QLabel("Reviewers:")
+        reviewers_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 15px;")
+        layout.addWidget(reviewers_label)
+
+        # Reviewers checkboxes en una fila horizontal
+        reviewers_layout = QHBoxLayout()
+
+        self.reviewer_lega_cb = QCheckBox("Lega Pugliese")
+        self.reviewer_lega_cb.setChecked(True)
+        self.reviewer_lega_cb.setStyleSheet("color: #CCCCCC; padding: 5px;")
+        reviewers_layout.addWidget(self.reviewer_lega_cb)
+
+        self.reviewer_sebas_cb = QCheckBox("Sebas Romano")
+        self.reviewer_sebas_cb.setChecked(True)
+        self.reviewer_sebas_cb.setStyleSheet("color: #CCCCCC; padding: 5px;")
+        reviewers_layout.addWidget(self.reviewer_sebas_cb)
+
+        self.reviewer_javi_cb = QCheckBox("Javi Bravo")
+        self.reviewer_javi_cb.setChecked(True)
+        self.reviewer_javi_cb.setStyleSheet("color: #CCCCCC; padding: 5px;")
+        reviewers_layout.addWidget(self.reviewer_javi_cb)
+
+        # Espaciador para alinear
+        reviewers_layout.addStretch()
+
+        layout.addLayout(reviewers_layout)
+
         # Thumbnail del shot (solo si hay un clip seleccionado)
         self.thumbnail_label = None
         self.thumbnail_path = None
@@ -459,6 +482,11 @@ class ShotConfigDialog(QDialog):
             "copy_to_comp": self.copy_to_comp_cb.isChecked(),
             "shot_ready": self.shot_ready_cb.isChecked(),
             "task_ready": self.task_ready_cb.isChecked(),
+            "reviewers": {
+                "lega_pugliese": self.reviewer_lega_cb.isChecked(),
+                "sebas_romano": self.reviewer_sebas_cb.isChecked(),
+                "javi_bravo": self.reviewer_javi_cb.isChecked(),
+            }
         }
         self.accept()
 
@@ -886,23 +914,52 @@ class ShotGridManager:
             new_task = self.sg.create("Task", task_data)
             debug_print(f"Task 'Comp' creada exitosamente (ID: {new_task['id']})")
 
+            # Asignar reviewers seleccionados usando task_reviewers
+            selected_reviewer_ids = []
+            reviewer_names_to_assign = []
+
+            if shot_config["reviewers"]["lega_pugliese"]:
+                reviewer_names_to_assign.append("Lega Pugliese")
+            if shot_config["reviewers"]["sebas_romano"]:
+                reviewer_names_to_assign.append("Sebas Romano")
+            if shot_config["reviewers"]["javi_bravo"]:
+                reviewer_names_to_assign.append("Javi Bravo")
+
+            # Buscar IDs de todos los reviewers seleccionados
+            for reviewer_name in reviewer_names_to_assign:
+                try:
+                    users = self.sg.find("HumanUser", [["name", "is", reviewer_name]], ["id", "name"])
+                    if users:
+                        selected_reviewer_ids.append({"type": "HumanUser", "id": users[0]["id"]})
+                        debug_print(f"Reviewer '{reviewer_name}' encontrado (ID: {users[0]['id']})")
+                    else:
+                        debug_print(f"Usuario '{reviewer_name}' no encontrado")
+                except Exception as e:
+                    debug_print(f"Error buscando reviewer '{reviewer_name}': {e}")
+
+            # Asignar todos los reviewers a la task usando task_reviewers
+            if selected_reviewer_ids:
+                try:
+                    self.sg.update("Task", new_task["id"], {"task_reviewers": selected_reviewer_ids})
+                    debug_print(f"Asignados {len(selected_reviewer_ids)} reviewers a task Comp")
+                except Exception as e:
+                    debug_print(f"Error asignando reviewers a task: {e}")
+            else:
+                debug_print("No se encontraron reviewers para asignar")
+
             # Subir thumbnail si se proporciono
             if thumbnail_path:
-                debug_print(
-                    f"[INFO] Subiendo thumbnail para shot: {shot_code} - Path: {thumbnail_path}"
-                )
-                debug_print(f"[INFO] Archivo existe: {os.path.exists(thumbnail_path)}")
+                debug_print(f"Subiendo thumbnail para shot: {shot_code} - Path: {thumbnail_path}")
+                debug_print(f"Archivo existe: {os.path.exists(thumbnail_path)}")
                 upload_success = self.upload_thumbnail(
                     "Shot", new_shot["id"], thumbnail_path
                 )
                 if upload_success:
-                    debug_print(
-                        f"[INFO] Thumbnail subido exitosamente para shot: {shot_code}"
-                    )
+                    debug_print(f"Thumbnail subido exitosamente para shot: {shot_code}")
                 else:
-                    debug_print(f"[ERROR] Error subiendo thumbnail para shot: {shot_code}")
+                    debug_print(f"Error subiendo thumbnail para shot: {shot_code}")
             else:
-                debug_print(f"[INFO] No se proporciono thumbnail_path para shot: {shot_code}")
+                debug_print(f"No se proporciono thumbnail_path para shot: {shot_code}")
 
             return new_shot
         except Exception as e:
