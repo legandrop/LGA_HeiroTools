@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_CreateShot v1.20 | Lega
+  LGA_NKS_Flow_CreateShot v1.2 | Lega
   Script para crear shots en ShotGrid basado en el nombre del clip seleccionado en Hiero
   SIN usar templates predefinidos - crea tasks manualmente para mayor control
 
@@ -273,7 +273,7 @@ def create_shot_thumbnail():
 class ShotConfigDialog(QDialog):
     def __init__(self, clips_info, sequence_name=None, parent=None):
         super(ShotConfigDialog, self).__init__(parent)
-        self.setWindowTitle("Flow | Shot Creation")
+        self.setWindowTitle("Flow | Shot Creation (No Template)")
         self.setModal(True)
         self.setMinimumWidth(600)
         self.setMinimumHeight(400)
@@ -287,7 +287,7 @@ class ShotConfigDialog(QDialog):
         self.setLayout(layout)
 
         # Titulo
-        title_label = QLabel("Configuracion para crear shots")
+        title_label = QLabel("Configuracion para crear shots SIN templates")
         title_font = QFont()
         title_font.setPointSize(12)
         title_font.setBold(True)
@@ -420,7 +420,7 @@ class ShotConfigDialog(QDialog):
 
         button_layout.addStretch()
 
-        self.create_button = QPushButton("Create Shot")
+        self.create_button = QPushButton("Create Shots (No Template)")
         self.create_button.clicked.connect(self.accept_config)
         self.create_button.setStyleSheet(
             """
@@ -552,7 +552,7 @@ class ShotConfigDialog(QDialog):
 class FlowStatusWindow(QDialog):
     def __init__(self, task_type="crear shot", parent=None):
         super(FlowStatusWindow, self).__init__(parent)
-        self.setWindowTitle("Flow | Create Shot")
+        self.setWindowTitle("Flow | Create Shot (No Template)")
         self.setModal(False)  # Cambiar a no modal para evitar problemas
         self.setMinimumWidth(500)
         self.setMinimumHeight(150)  # Establecer una altura minima
@@ -900,9 +900,13 @@ class ShotGridManager:
                         f"[INFO] Thumbnail subido exitosamente para shot: {shot_code}"
                     )
                 else:
-                    debug_print(f"[ERROR] Error subiendo thumbnail para shot: {shot_code}")
+                    debug_print(
+                        f"[ERROR] Error subiendo thumbnail para shot: {shot_code}"
+                    )
             else:
-                debug_print(f"[INFO] No se proporciono thumbnail_path para shot: {shot_code}")
+                debug_print(
+                    f"[INFO] No se proporciono thumbnail_path para shot: {shot_code}"
+                )
 
             return new_shot
         except Exception as e:
