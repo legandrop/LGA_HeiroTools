@@ -1,9 +1,12 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_CreateShot v1.26 | Lega
+  LGA_NKS_Flow_CreateShot v1.27 | Lega
   Script para crear shots en ShotGrid basado en el nombre del clip seleccionado en Hiero
   SIN usar templates predefinidos - crea tasks manualmente para mayor control
+
+  v1.27: Sistema modular de tasks - Fácil agregar nuevas tasks (DRY)
+         Agregada task Roto + enable/disable dinámico de campos
 
   v1.26: UI reorganizada en columnas
 
@@ -63,6 +66,29 @@ from LGA_NKS_Flow_NamingUtils import (
     extract_project_name,
     clean_base_name,
 )
+
+
+# ==================================================================================
+# CONFIGURACIÓN DE TASKS DISPONIBLES
+# ==================================================================================
+# Para agregar una nueva task, solo agregar un diccionario a esta lista:
+# {
+#     "name": "Nombre",           # Nombre de la task (UI y ShotGrid)
+#     "pipeline_step": "Step",    # Nombre del pipeline step en ShotGrid
+#     "enabled_by_default": True/False  # Si está habilitada por defecto
+# }
+AVAILABLE_TASKS = [
+    {
+        "name": "Comp",
+        "pipeline_step": "Comp",
+        "enabled_by_default": True,
+    },
+    {
+        "name": "Roto",
+        "pipeline_step": "Roto",
+        "enabled_by_default": False,
+    },
+]
 
 
 DEBUG = True  # IMPORTANTE!!!! NO ACTIVAR DEBUG PORQUE CRASHEA HIERO!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -285,6 +311,10 @@ class ShotConfigDialog(QDialog):
         self.clips_info = clips_info
         self.sequence_name = sequence_name
         self.shot_config = None
+        
+        # Diccionario para almacenar widgets de tasks dinámicamente
+        # Estructura: {task_name: {widget_key: widget_object}}
+        self.task_widgets = {}
 
         # Layout principal
         layout = QVBoxLayout()
@@ -494,102 +524,21 @@ class ShotConfigDialog(QDialog):
         # Espacio pequeño antes del separador
         layout.addSpacing(10)
 
-        # Línea divisoria antes de Task Comp
-        comp_separator = QFrame()
-        comp_separator.setFrameShape(QFrame.HLine)
-        comp_separator.setFrameShadow(QFrame.Sunken)
-        comp_separator.setStyleSheet("color: #444444;")
-        layout.addWidget(comp_separator)
-
-        # Layout de 5 columnas para Task Comp
-        comp_task_layout = QHBoxLayout()
-
-        # Columna 1: COMP
-        comp_layout = QVBoxLayout()
-        comp_label = QLabel("COMP")
-        comp_label.setStyleSheet("color: #6AB5CA; font-weight: bold; padding-top: 15px; font-size: 12px;")
-        comp_layout.addWidget(comp_label)
-
-        self.comp_enabled_cb = QCheckBox("")  # Checkbox sin texto
-        self.comp_enabled_cb.setChecked(True)  # Activado por defecto
-        self.comp_enabled_cb.setStyleSheet("color: #a7a7a7; padding: 5px;")
-        comp_layout.addWidget(self.comp_enabled_cb)
-        comp_task_layout.addLayout(comp_layout, 1)
-
-        # Espacio entre columnas
-        comp_task_layout.addSpacing(30)
-
-        # Columna 2: Est. Days
-        est_days_layout = QVBoxLayout()
-        est_days_label = QLabel("Est. Days")
-        est_days_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 15px;")
-        est_days_layout.addWidget(est_days_label)
-
-        # El campo estimated_days_line_edit ya está definido arriba, solo lo agregamos aquí
-        est_days_layout.addWidget(self.estimated_days_line_edit)
-        comp_task_layout.addLayout(est_days_layout, 1)
-
-        # Espacio entre columnas
-        comp_task_layout.addSpacing(30)
-
-        # Columna 3: Status
-        status_layout = QVBoxLayout()
-        status_label = QLabel("Status")
-        status_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 5px;")
-        status_layout.addWidget(status_label)
-
-        self.task_ready_cb = QCheckBox("Ready to start")
-        self.task_ready_cb.setChecked(True)  # Activado por defecto
-        self.task_ready_cb.setStyleSheet("color: #a7a7a7; padding: 5px;")
-        status_layout.addWidget(self.task_ready_cb)
-        comp_task_layout.addLayout(status_layout, 1)
-
-        # Espacio entre columnas
-        comp_task_layout.addSpacing(30)
-
-        # Columna 4: Description
-        desc_layout = QVBoxLayout()
-        desc_label = QLabel("Description")
-        desc_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 5px;")
-        desc_layout.addWidget(desc_label)
-
-        self.copy_to_comp_cb = QCheckBox("copy from shot")
-        self.copy_to_comp_cb.setChecked(True)  # Activado por defecto
-        self.copy_to_comp_cb.setStyleSheet("color: #a7a7a7; padding: 5px;")
-        desc_layout.addWidget(self.copy_to_comp_cb)
-        comp_task_layout.addLayout(desc_layout, 1)
-
-        # Espacio entre columnas
-        comp_task_layout.addSpacing(30)
-
-        # Columna 5: Reviewers (más ancha)
-        reviewers_layout = QVBoxLayout()
-        reviewers_label = QLabel("Reviewers")
-        reviewers_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 5px;")
-        reviewers_layout.addWidget(reviewers_label)
-
-        # Reviewers checkboxes en línea horizontal
-        reviewers_checkboxes_layout = QHBoxLayout()
-
-        self.reviewer_lega_cb = QCheckBox("Lega")
-        self.reviewer_lega_cb.setChecked(True)
-        self.reviewer_lega_cb.setStyleSheet("color: #a7a7a7; padding: 2px;")
-        reviewers_checkboxes_layout.addWidget(self.reviewer_lega_cb)
-
-        self.reviewer_sebas_cb = QCheckBox("Sebas")
-        self.reviewer_sebas_cb.setChecked(True)
-        self.reviewer_sebas_cb.setStyleSheet("color: #a7a7a7; padding: 2px;")
-        reviewers_checkboxes_layout.addWidget(self.reviewer_sebas_cb)
-
-        self.reviewer_javi_cb = QCheckBox("Javi")
-        self.reviewer_javi_cb.setChecked(True)
-        self.reviewer_javi_cb.setStyleSheet("color: #a7a7a7; padding: 2px;")
-        reviewers_checkboxes_layout.addWidget(self.reviewer_javi_cb)
-
-        reviewers_layout.addLayout(reviewers_checkboxes_layout)
-        comp_task_layout.addLayout(reviewers_layout, 2)  # Stretch factor 2 para hacerla más ancha
-
-        layout.addLayout(comp_task_layout)
+        # ==================================================================================
+        # GENERACIÓN DINÁMICA DE TASKS
+        # ==================================================================================
+        # Generar una sección para cada task configurada
+        for task_config in AVAILABLE_TASKS:
+            # Separador antes de cada task
+            task_separator = QFrame()
+            task_separator.setFrameShape(QFrame.HLine)
+            task_separator.setFrameShadow(QFrame.Sunken)
+            task_separator.setStyleSheet("color: #444444;")
+            layout.addWidget(task_separator)
+            
+            # Crear fila de task
+            task_layout = self.create_task_row(task_config)
+            layout.addLayout(task_layout)
 
         # Thumbnail del shot (solo si hay un clip seleccionado)
         self.thumbnail_label = None
@@ -658,29 +607,225 @@ class ShotConfigDialog(QDialog):
         """
         )
 
+    def create_task_row(self, task_config):
+        """
+        Crea una fila de UI para una task de forma dinámica.
+        
+        Args:
+            task_config (dict): Configuración de la task con keys: name, pipeline_step, enabled_by_default
+            
+        Returns:
+            QHBoxLayout: Layout con todos los widgets de la task
+        """
+        task_name = task_config["name"]
+        enabled_by_default = task_config["enabled_by_default"]
+        
+        # Inicializar diccionario para esta task
+        self.task_widgets[task_name] = {}
+        
+        # Layout principal de 5 columnas
+        task_layout = QHBoxLayout()
+
+        # ===== Columna 1: Nombre de Task y Checkbox Enable =====
+        name_layout = QVBoxLayout()
+        name_label = QLabel(task_name.upper())
+        name_label.setStyleSheet("color: #6AB5CA; font-weight: bold; padding-top: 15px; font-size: 12px;")
+        name_layout.addWidget(name_label)
+
+        enabled_cb = QCheckBox("")  # Checkbox sin texto
+        enabled_cb.setChecked(enabled_by_default)
+        enabled_cb.setStyleSheet("color: #a7a7a7; padding: 5px;")
+        name_layout.addWidget(enabled_cb)
+        task_layout.addLayout(name_layout, 1)
+        
+        self.task_widgets[task_name]["enabled"] = enabled_cb
+
+        # Espacio entre columnas
+        task_layout.addSpacing(30)
+
+        # ===== Columna 2: Est. Days =====
+        est_days_layout = QVBoxLayout()
+        est_days_label = QLabel("Est. Days")
+        est_days_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 15px;")
+        est_days_layout.addWidget(est_days_label)
+
+        estimated_days_edit = QLineEdit()
+        estimated_days_edit.setText("0")
+        estimated_days_edit.setMaxLength(5)  # Permitir decimales (ej: 12.5)
+        estimated_days_edit.setFixedWidth(80)
+        estimated_days_edit.setStyleSheet(
+            """
+            QLineEdit {
+                background-color: #272727;
+                border: 1px solid #333333;
+                color: #a7a7a7;
+                padding: 5px;
+                border-radius: 3px;
+                height: 20px;
+            }
+        """
+        )
+        # Validación para números decimales
+        from PySide2.QtGui import QDoubleValidator
+        validator = QDoubleValidator(0.0, 99.9, 1)
+        validator.setNotation(QDoubleValidator.StandardNotation)
+        estimated_days_edit.setValidator(validator)
+        
+        est_days_layout.addWidget(estimated_days_edit)
+        task_layout.addLayout(est_days_layout, 1)
+        
+        self.task_widgets[task_name]["estimated_days"] = estimated_days_edit
+        self.task_widgets[task_name]["est_days_label"] = est_days_label
+
+        # Espacio entre columnas
+        task_layout.addSpacing(30)
+
+        # ===== Columna 3: Status =====
+        status_layout = QVBoxLayout()
+        status_label = QLabel("Status")
+        status_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 5px;")
+        status_layout.addWidget(status_label)
+
+        task_ready_cb = QCheckBox("Ready to start")
+        task_ready_cb.setChecked(True)  # Activado por defecto
+        task_ready_cb.setStyleSheet("color: #a7a7a7; padding: 5px;")
+        status_layout.addWidget(task_ready_cb)
+        task_layout.addLayout(status_layout, 1)
+        
+        self.task_widgets[task_name]["task_ready"] = task_ready_cb
+        self.task_widgets[task_name]["status_label"] = status_label
+
+        # Espacio entre columnas
+        task_layout.addSpacing(30)
+
+        # ===== Columna 4: Description =====
+        desc_layout = QVBoxLayout()
+        desc_label = QLabel("Description")
+        desc_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 5px;")
+        desc_layout.addWidget(desc_label)
+
+        copy_description_cb = QCheckBox("copy from shot")
+        copy_description_cb.setChecked(True)  # Activado por defecto
+        copy_description_cb.setStyleSheet("color: #a7a7a7; padding: 5px;")
+        desc_layout.addWidget(copy_description_cb)
+        task_layout.addLayout(desc_layout, 1)
+        
+        self.task_widgets[task_name]["copy_description"] = copy_description_cb
+        self.task_widgets[task_name]["desc_label"] = desc_label
+
+        # Espacio entre columnas
+        task_layout.addSpacing(30)
+
+        # ===== Columna 5: Reviewers (más ancha) =====
+        reviewers_layout = QVBoxLayout()
+        reviewers_label = QLabel("Reviewers")
+        reviewers_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 5px;")
+        reviewers_layout.addWidget(reviewers_label)
+
+        # Reviewers checkboxes en línea horizontal
+        reviewers_checkboxes_layout = QHBoxLayout()
+
+        reviewer_lega_cb = QCheckBox("Lega")
+        reviewer_lega_cb.setChecked(True)
+        reviewer_lega_cb.setStyleSheet("color: #a7a7a7; padding: 2px;")
+        reviewers_checkboxes_layout.addWidget(reviewer_lega_cb)
+
+        reviewer_sebas_cb = QCheckBox("Sebas")
+        reviewer_sebas_cb.setChecked(True)
+        reviewer_sebas_cb.setStyleSheet("color: #a7a7a7; padding: 2px;")
+        reviewers_checkboxes_layout.addWidget(reviewer_sebas_cb)
+
+        reviewer_javi_cb = QCheckBox("Javi")
+        reviewer_javi_cb.setChecked(True)
+        reviewer_javi_cb.setStyleSheet("color: #a7a7a7; padding: 2px;")
+        reviewers_checkboxes_layout.addWidget(reviewer_javi_cb)
+
+        reviewers_layout.addLayout(reviewers_checkboxes_layout)
+        task_layout.addLayout(reviewers_layout, 2)  # Stretch factor 2 para hacerla más ancha
+        
+        self.task_widgets[task_name]["reviewer_lega"] = reviewer_lega_cb
+        self.task_widgets[task_name]["reviewer_sebas"] = reviewer_sebas_cb
+        self.task_widgets[task_name]["reviewer_javi"] = reviewer_javi_cb
+        self.task_widgets[task_name]["reviewers_label"] = reviewers_label
+
+        # ===== Conectar checkbox de enable para habilitar/deshabilitar campos =====
+        enabled_cb.toggled.connect(
+            lambda checked, tn=task_name: self.toggle_task_fields(tn, checked)
+        )
+        
+        # Aplicar estado inicial
+        self.toggle_task_fields(task_name, enabled_by_default)
+
+        return task_layout
+
+    def toggle_task_fields(self, task_name, enabled):
+        """
+        Habilita o deshabilita los campos de una task según el estado del checkbox.
+        
+        Args:
+            task_name (str): Nombre de la task
+            enabled (bool): Si está habilitada o no
+        """
+        widgets = self.task_widgets.get(task_name, {})
+        
+        # Lista de widgets a habilitar/deshabilitar (excluyendo el checkbox de enable)
+        fields_to_toggle = [
+            "estimated_days", "est_days_label",
+            "task_ready", "status_label",
+            "copy_description", "desc_label",
+            "reviewer_lega", "reviewer_sebas", "reviewer_javi", "reviewers_label"
+        ]
+        
+        for field_key in fields_to_toggle:
+            widget = widgets.get(field_key)
+            if widget:
+                widget.setEnabled(enabled)
+                
+                # Cambiar color del label según estado
+                if "label" in field_key:
+                    if enabled:
+                        widget.setStyleSheet(widget.styleSheet().replace("color: #666666", "color: #CCCCCC"))
+                        if "color: #CCCCCC" not in widget.styleSheet():
+                            # Si no estaba deshabilitado antes, agregar el color normal
+                            style = widget.styleSheet()
+                            if "color:" not in style:
+                                widget.setStyleSheet(style + " color: #CCCCCC;")
+                    else:
+                        widget.setStyleSheet(widget.styleSheet().replace("color: #CCCCCC", "color: #666666"))
+
     def accept_config(self):
         """Acepta la configuracion y guarda los valores"""
-        # Obtener el valor de días estimados, convertir a float, usar 0 si está vacío
-        try:
-            estimated_days = float(self.estimated_days_line_edit.text().strip()) if self.estimated_days_line_edit.text().strip() else 0.0
-        except ValueError:
-            estimated_days = 0.0
-
+        # Configuración base del shot
         self.shot_config = {
             "description": self.description_text.toPlainText(),
             "sequence_name": self.sequence_line_edit.text().strip(),
-            "comp_enabled": self.comp_enabled_cb.isChecked(),
-            "copy_to_comp": self.copy_to_comp_cb.isChecked(),
             "shot_ready": self.shot_ready_cb.isChecked(),
-            "task_ready": self.task_ready_cb.isChecked(),
-            "estimated_days": estimated_days,
             "high_priority": self.high_priority_cb.isChecked(),
-            "reviewers": {
-                "lega_pugliese": self.reviewer_lega_cb.isChecked(),
-                "sebas_romano": self.reviewer_sebas_cb.isChecked(),
-                "javi_bravo": self.reviewer_javi_cb.isChecked(),
-            }
         }
+        
+        # Recopilar configuración de tasks dinámicamente
+        tasks_config = {}
+        for task_name, widgets in self.task_widgets.items():
+            # Obtener el valor de días estimados
+            try:
+                estimated_days_text = widgets["estimated_days"].text().strip()
+                estimated_days = float(estimated_days_text) if estimated_days_text else 0.0
+            except ValueError:
+                estimated_days = 0.0
+            
+            tasks_config[task_name] = {
+                "enabled": widgets["enabled"].isChecked(),
+                "task_ready": widgets["task_ready"].isChecked(),
+                "copy_description": widgets["copy_description"].isChecked(),
+                "estimated_days": estimated_days,
+                "reviewers": {
+                    "lega_pugliese": widgets["reviewer_lega"].isChecked(),
+                    "sebas_romano": widgets["reviewer_sebas"].isChecked(),
+                    "javi_bravo": widgets["reviewer_javi"].isChecked(),
+                }
+            }
+        
+        self.shot_config["tasks"] = tasks_config
         self.accept()
 
     def get_config(self):
@@ -1085,7 +1230,7 @@ class ShotGridManager:
             debug_print(f"Error actualizando task description: {e}")
 
     def create_shot(self, project_id, shot_code, shot_config, thumbnail_path=None):
-        """Crea un shot en ShotGrid SIN usar templates - crea la task Comp manualmente."""
+        """Crea un shot en ShotGrid SIN usar templates - crea tasks manualmente."""
         if not self.sg:
             debug_print("Conexion a ShotGrid no esta inicializada")
             return None
@@ -1129,79 +1274,30 @@ class ShotGridManager:
                 f"Shot creado exitosamente: {new_shot['code']} (ID: {new_shot['id']})"
             )
 
-            # Buscar el pipeline step "Comp" (Steps son entidades globales, no asociadas a proyectos)
-            comp_step_filters = [
-                ["code", "is", "Comp"],
-            ]
-            comp_steps = self.sg.find("Step", comp_step_filters, ["id", "code"])
-            comp_step_id = None
-            if comp_steps:
-                comp_step_id = comp_steps[0]["id"]
-                debug_print(f"Pipeline step 'Comp' encontrado (ID: {comp_step_id})")
-            else:
-                debug_print("ADVERTENCIA: No se encontró el pipeline step 'Comp'")
-
-            # Crear la task "Comp" manualmente solo si está habilitada
-            if shot_config.get("comp_enabled", True):
-                task_data = {
-                    "content": "Comp",
-                    "entity": {"type": "Shot", "id": new_shot["id"]},
-                    "sg_status_list": "noread",  # Estado inicial que usa el template
-                    "project": {"type": "Project", "id": project_id},
-                }
-
-                # Asignar pipeline step si se encontró
-                if comp_step_id:
-                    task_data["step"] = {"type": "Step", "id": comp_step_id}
-
-                # Aplicar configuración inicial a la task antes de crearla
-                if shot_config["task_ready"]:
-                    task_data["sg_status_list"] = "ready"
-
-                if shot_config["copy_to_comp"] and shot_config["description"]:
-                    task_data["sg_description"] = shot_config["description"]
-
-                # Agregar tiempo estimado si es mayor que 0
-                if shot_config.get("estimated_days", 0) > 0:
-                    task_data["sg_estdias"] = shot_config["estimated_days"]
-
-                new_task = self.sg.create("Task", task_data)
-                debug_print(f"Task 'Comp' creada exitosamente (ID: {new_task['id']})")
-
-                # Asignar reviewers seleccionados usando task_reviewers
-                selected_reviewer_ids = []
-                reviewer_names_to_assign = []
-
-                if shot_config["reviewers"]["lega_pugliese"]:
-                    reviewer_names_to_assign.append("Lega Pugliese")
-                if shot_config["reviewers"]["sebas_romano"]:
-                    reviewer_names_to_assign.append("Sebas Romano")
-                if shot_config["reviewers"]["javi_bravo"]:
-                    reviewer_names_to_assign.append("Javi Bravo")
-
-                # Buscar IDs de todos los reviewers seleccionados
-                for reviewer_name in reviewer_names_to_assign:
-                    try:
-                        users = self.sg.find("HumanUser", [["name", "is", reviewer_name]], ["id", "name"])
-                        if users:
-                            selected_reviewer_ids.append({"type": "HumanUser", "id": users[0]["id"]})
-                            debug_print(f"Reviewer '{reviewer_name}' encontrado (ID: {users[0]['id']})")
-                        else:
-                            debug_print(f"Usuario '{reviewer_name}' no encontrado")
-                    except Exception as e:
-                        debug_print(f"Error buscando reviewer '{reviewer_name}': {e}")
-
-                # Asignar todos los reviewers a la task usando task_reviewers
-                if selected_reviewer_ids:
-                    try:
-                        self.sg.update("Task", new_task["id"], {"task_reviewers": selected_reviewer_ids})
-                        debug_print(f"Asignados {len(selected_reviewer_ids)} reviewers a task Comp")
-                    except Exception as e:
-                        debug_print(f"Error asignando reviewers a task: {e}")
+            # ==================================================================================
+            # CREAR TASKS DINÁMICAMENTE
+            # ==================================================================================
+            tasks_config = shot_config.get("tasks", {})
+            
+            for task_name, task_cfg in tasks_config.items():
+                # Saltar tasks deshabilitadas
+                if not task_cfg.get("enabled", False):
+                    debug_print(f"Task '{task_name}' deshabilitada por configuración del usuario")
+                    continue
+                
+                # Crear la task
+                success = self.create_task_for_shot(
+                    project_id=project_id,
+                    shot_id=new_shot["id"],
+                    task_name=task_name,
+                    task_config=task_cfg,
+                    shot_description=shot_config["description"]
+                )
+                
+                if success:
+                    debug_print(f"Task '{task_name}' creada exitosamente")
                 else:
-                    debug_print("No se encontraron reviewers para asignar")
-            else:
-                debug_print("Task Comp deshabilitada por configuración del usuario")
+                    debug_print(f"Error creando task '{task_name}'")
 
             # Subir thumbnail si se proporciono
             if thumbnail_path:
@@ -1221,6 +1317,116 @@ class ShotGridManager:
         except Exception as e:
             debug_print(f"ERROR al crear el shot: {e}")
             return None
+
+    def create_task_for_shot(self, project_id, shot_id, task_name, task_config, shot_description):
+        """
+        Crea una task para un shot de forma genérica.
+        
+        Args:
+            project_id (int): ID del proyecto
+            shot_id (int): ID del shot
+            task_name (str): Nombre de la task (ej: "Comp", "Roto")
+            task_config (dict): Configuración de la task
+            shot_description (str): Descripción del shot (para copiar si está habilitado)
+            
+        Returns:
+            bool: True si se creó exitosamente, False si hubo error
+        """
+        if not self.sg:
+            debug_print("Conexion a ShotGrid no esta inicializada")
+            return False
+        
+        try:
+            # Buscar el pipeline step correspondiente
+            # NOTA: Para encontrar el pipeline step, buscamos por el nombre de la task
+            # que debe coincidir con el código del step en ShotGrid
+            pipeline_step_name = None
+            for task_cfg in AVAILABLE_TASKS:
+                if task_cfg["name"] == task_name:
+                    pipeline_step_name = task_cfg["pipeline_step"]
+                    break
+            
+            if not pipeline_step_name:
+                debug_print(f"ADVERTENCIA: No se encontró configuración para task '{task_name}'")
+                pipeline_step_name = task_name  # Usar el nombre de la task como fallback
+            
+            step_filters = [["code", "is", pipeline_step_name]]
+            steps = self.sg.find("Step", step_filters, ["id", "code"])
+            step_id = None
+            if steps:
+                step_id = steps[0]["id"]
+                debug_print(f"Pipeline step '{pipeline_step_name}' encontrado (ID: {step_id})")
+            else:
+                debug_print(f"ADVERTENCIA: No se encontró el pipeline step '{pipeline_step_name}'")
+            
+            # Crear data de la task
+            task_data = {
+                "content": task_name,
+                "entity": {"type": "Shot", "id": shot_id},
+                "sg_status_list": "noread",  # Estado inicial por defecto
+                "project": {"type": "Project", "id": project_id},
+            }
+            
+            # Asignar pipeline step si se encontró
+            if step_id:
+                task_data["step"] = {"type": "Step", "id": step_id}
+            
+            # Aplicar configuración de status
+            if task_config.get("task_ready", False):
+                task_data["sg_status_list"] = "ready"
+            
+            # Copiar descripción del shot si está habilitado
+            if task_config.get("copy_description", False) and shot_description:
+                task_data["sg_description"] = shot_description
+            
+            # Agregar tiempo estimado si es mayor que 0
+            estimated_days = task_config.get("estimated_days", 0)
+            if estimated_days > 0:
+                task_data["sg_estdias"] = estimated_days
+            
+            # Crear la task
+            new_task = self.sg.create("Task", task_data)
+            debug_print(f"Task '{task_name}' creada exitosamente (ID: {new_task['id']})")
+            
+            # Asignar reviewers
+            reviewers_config = task_config.get("reviewers", {})
+            selected_reviewer_ids = []
+            reviewer_names_to_assign = []
+            
+            if reviewers_config.get("lega_pugliese", False):
+                reviewer_names_to_assign.append("Lega Pugliese")
+            if reviewers_config.get("sebas_romano", False):
+                reviewer_names_to_assign.append("Sebas Romano")
+            if reviewers_config.get("javi_bravo", False):
+                reviewer_names_to_assign.append("Javi Bravo")
+            
+            # Buscar IDs de todos los reviewers seleccionados
+            for reviewer_name in reviewer_names_to_assign:
+                try:
+                    users = self.sg.find("HumanUser", [["name", "is", reviewer_name]], ["id", "name"])
+                    if users:
+                        selected_reviewer_ids.append({"type": "HumanUser", "id": users[0]["id"]})
+                        debug_print(f"Reviewer '{reviewer_name}' encontrado (ID: {users[0]['id']})")
+                    else:
+                        debug_print(f"Usuario '{reviewer_name}' no encontrado")
+                except Exception as e:
+                    debug_print(f"Error buscando reviewer '{reviewer_name}': {e}")
+            
+            # Asignar todos los reviewers a la task usando task_reviewers
+            if selected_reviewer_ids:
+                try:
+                    self.sg.update("Task", new_task["id"], {"task_reviewers": selected_reviewer_ids})
+                    debug_print(f"Asignados {len(selected_reviewer_ids)} reviewers a task {task_name}")
+                except Exception as e:
+                    debug_print(f"Error asignando reviewers a task: {e}")
+            else:
+                debug_print(f"No se seleccionaron reviewers para task '{task_name}'")
+            
+            return True
+            
+        except Exception as e:
+            debug_print(f"ERROR al crear task '{task_name}': {e}")
+            return False
 
 
 class HieroOperations:

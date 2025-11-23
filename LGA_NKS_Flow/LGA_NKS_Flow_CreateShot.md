@@ -1,4 +1,4 @@
-# LGA_NKS_Flow_CreateShot v1.24
+# LGA_NKS_Flow_CreateShot v1.27
 
 ## Descripción General
 
@@ -6,11 +6,25 @@ Script para crear shots en ShotGrid/Flow Production Tracking basado en clips sel
 
 **Cambio importante en v1.2:** Ya no usa templates predefinidos. Crea shots y tasks manualmente para mayor control y flexibilidad.
 
+**Cambio importante en v1.27:** Sistema modular y DRY para crear múltiples tasks. Agregar nuevas tasks es extremadamente fácil.
+
 ## Funcionalidades
+
+### ✅ Sistema Modular de Tasks (NUEVO v1.27)
+- Código completamente refactorizado para ser DRY (Don't Repeat Yourself)
+- Agregar nuevas tasks es tan simple como agregar una línea a `AVAILABLE_TASKS`
+- UI generada dinámicamente desde configuración
+- Creación de tasks en ShotGrid completamente genérica
+- Enable/disable dinámico de campos según checkbox de cada task
+
+### ✅ Tasks Disponibles
+- **Comp** (habilitada por defecto)
+- **Roto** (deshabilitada por defecto)
+- Fácil agregar más: Animation, Lighting, FX, etc.
 
 ### ✅ Creación de Shots sin Templates
 - Crea shots directamente sin depender de templates predefinidos
-- Genera automáticamente la task "Comp" con estado "noread"
+- Genera automáticamente las tasks habilitadas con estado "noread"
 - Mayor control sobre la creación de tasks
 - Compatible con cualquier proyecto
 
@@ -62,6 +76,7 @@ El script original usaba `"Template_comp"` hardcodeado, pero este template solo 
 
 ```
 LGA_NKS_Flow_CreateShot.py
+├── AVAILABLE_TASKS (configuración de tasks disponibles) ⭐ NUEVO
 ├── Conexión ShotGrid
 ├── Funciones de Thumbnail
 ├── Clases de UI (ShotConfigDialog, FlowStatusWindow)
@@ -70,12 +85,90 @@ LGA_NKS_Flow_CreateShot.py
 └── Worker (procesamiento en background)
 ```
 
-### Funciones Clave
+### Cómo Agregar una Nueva Task ⭐
+
+**¡Es súper fácil!** Solo necesitas agregar una entrada a `AVAILABLE_TASKS`:
+
+```python
+AVAILABLE_TASKS = [
+    {
+        "name": "Comp",
+        "pipeline_step": "Comp",
+        "enabled_by_default": True,
+    },
+    {
+        "name": "Roto",
+        "pipeline_step": "Roto",
+        "enabled_by_default": False,
+    },
+    # ¡Agregar tu nueva task aquí! ⬇️
+    {
+        "name": "Animation",           # Nombre que aparecerá en UI y ShotGrid
+        "pipeline_step": "Animation",   # Pipeline step en ShotGrid
+        "enabled_by_default": False,    # Checkbox apagado por defecto
+    },
+]
+```
+
+**¡Eso es todo!** El resto del código se encarga automáticamente de:
+- Generar la UI con todos los campos
+- Habilitar/deshabilitar campos según el checkbox
+- Crear la task en ShotGrid con el pipeline step correcto
+- Asignar reviewers, descripción, días estimados, etc.
+
+#### Ejemplos Prácticos de Nuevas Tasks
+
+**Agregar task de Lighting:**
+```python
+{
+    "name": "Lighting",
+    "pipeline_step": "Lighting",
+    "enabled_by_default": False,
+},
+```
+
+**Agregar task de FX:**
+```python
+{
+    "name": "FX",
+    "pipeline_step": "FX",
+    "enabled_by_default": False,
+},
+```
+
+**Agregar task de Matchmove (habilitada por defecto):**
+```python
+{
+    "name": "Matchmove",
+    "pipeline_step": "Matchmove",
+    "enabled_by_default": True,  # ⭐ Estará encendida por defecto
+},
+```
+
+**IMPORTANTE:** El `pipeline_step` debe coincidir exactamente con el código del Step en ShotGrid. Si no existe, se mostrará una advertencia pero la task se creará de todos modos (sin pipeline step asignado).
+
+### Funciones Clave (Refactorizadas v1.27)
+
+#### `create_task_row(task_config)` ⭐ NUEVO
+- Genera dinámicamente una fila completa de UI para una task
+- Crea todos los widgets (enable, est. days, status, description, reviewers)
+- Conecta señales para enable/disable dinámico
+- Totalmente genérico y reutilizable
+
+#### `toggle_task_fields(task_name, enabled)` ⭐ NUEVO
+- Habilita/deshabilita campos de una task según su checkbox
+- Cambia colores de labels (gris cuando deshabilitado)
+- Manejo centralizado del estado de UI
+
+#### `create_task_for_shot(...)` ⭐ NUEVO
+- Crea una task para un shot de forma completamente genérica
+- Busca automáticamente el pipeline step correspondiente
+- Aplica toda la configuración (status, descripción, días, reviewers)
+- Reutilizable para cualquier tipo de task
 
 #### `create_shot(project_id, shot_code, shot_config, thumbnail_path=None)`
 - Crea shot sin template
-- Genera task "Comp" manualmente con estado "noread"
-- Asigna reviewers usando el campo `task_reviewers` de la task
+- Itera sobre todas las tasks habilitadas y las crea dinámicamente ⭐
 - Sube thumbnail si está disponible
 
 #### `find_tasks_for_shot(shot_id, shot_config)`
@@ -90,17 +183,41 @@ LGA_NKS_Flow_CreateShot.py
 #### Configuración del Shot (3 columnas)
 - **Sequence:** Campo de entrada limitado + **Shot status:** ☑️ Ready to start + **Priority:** ☑️ High
 
-#### Configuración de Task Comp (5 columnas)
-- **COMP:** ☑️ (habilitar/deshabilitar creación de task Comp)
+#### Configuración de Tasks (5 columnas por task) ⭐ NUEVO
+Cada task tiene su propia fila con:
+- **[NOMBRE TASK]:** ☑️ (habilitar/deshabilitar creación de esta task)
 - **Est. Days:** Campo numérico para tiempo estimado (0-99.9)
 - **Status:** ☑️ Ready to start (estado inicial de la task)
 - **Description:** ☑️ copy from shot (copiar descripción del shot)
-- **Reviewers:** Checkboxes verticales (solo nombres en UI)
+- **Reviewers:** Checkboxes horizontales (solo nombres en UI)
   - ☑️ Lega
   - ☑️ Sebas
   - ☑️ Javi
 
+**Comportamiento:**
+- **Comp:** Habilitada por defecto, todos los campos activos
+- **Roto:** Deshabilitada por defecto, campos en gris hasta activar checkbox
+- Cuando se deshabilita una task, todos sus campos se ponen en gris
+- Cuando se habilita, todos los campos se activan
+
 **Shot Description:** Campo de texto para descripción general del shot
+
+#### Ejemplo Visual de la UI
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        Flow | Shot Creation                              │
+├─────────────────────────────────────────────────────────────────────────┤
+│  Configuración del Shot (3 columnas):                                    │
+│  [Thumbnail]  [Description]  │  [Sequence]  │  [Status + Priority]      │
+├─────────────────────────────────────────────────────────────────────────┤
+│  COMP ☑  │  Est. Days [0]  │  Status ☑ Ready  │  Desc ☑ copy  │ Rev... │
+│  (enabled - todos los campos activos)                                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│  ROTO ☐  │  Est. Days [0]  │  Status ☐ Ready  │  Desc ☐ copy  │ Rev... │
+│  (disabled - todos los campos en gris/deshabilitados)                   │
+└─────────────────────────────────────────────────────────────────────────┘
+```
 
 ### Estados de Task
 
@@ -126,10 +243,12 @@ LGA_NKS_Flow_CreateShot.py
 
 Para cada clip seleccionado:
 - Se crea un shot en ShotGrid (si no existe)
-- Se crea la task "Comp" con estado "noread"
+- Se crean todas las tasks habilitadas (ej: Comp, Roto) ⭐
+- Cada task se crea con su pipeline step correspondiente ⭐
 - Se asignan los reviewers seleccionados como `task_reviewers` (no como assignees)
 - Se sube thumbnail desde Hiero
 - Se actualizan estados según configuración
+- Tasks deshabilitadas no se crean ⭐
 
 ## Campos ShotGrid Utilizados
 
@@ -216,7 +335,20 @@ El script utiliza un sistema de logging seguro para entornos multi-hilo que evit
 
 ## Historial de Versiones
 
-### v1.26 - UI Reorganizada para Task Comp (Actual)
+### v1.27 - Sistema Modular de Tasks (Actual) ⭐
+- ✅ **Refactorización completa a código DRY (Don't Repeat Yourself)**
+- ✅ **Sistema modular:** Agregar nuevas tasks es tan fácil como agregar una línea
+- ✅ **UI dinámica:** Generada automáticamente desde `AVAILABLE_TASKS`
+- ✅ **Creación genérica de tasks en ShotGrid**
+- ✅ **Task Roto agregada** (deshabilitada por defecto)
+- ✅ **Enable/disable dinámico:** Campos se ponen en gris cuando task está deshabilitada
+- ✅ **Estructura de datos mejorada:** `shot_config["tasks"]` con configuración por task
+- ✅ **Método `create_task_row()`:** Genera UI dinámicamente
+- ✅ **Método `toggle_task_fields()`:** Maneja enable/disable de campos
+- ✅ **Método `create_task_for_shot()`:** Crea cualquier task de forma genérica
+- ✅ **Preparado para el futuro:** Fácil agregar Animation, Lighting, FX, etc.
+
+### v1.26 - UI Reorganizada para Task Comp
 - ✅ Layout reorganizado: 3 columnas para configuración del shot
 - ✅ 5 columnas dedicadas para configuración de Task Comp
 - ✅ Checkbox de habilitación para Task Comp
@@ -263,6 +395,41 @@ El script utiliza un sistema de logging seguro para entornos multi-hilo que evit
 - ✅ Template "Template_comp" hardcodeado
 - ✅ Solo proyecto LC
 
+## Quick Start: Agregar una Nueva Task
+
+### Paso 1: Editar AVAILABLE_TASKS
+
+Abre `LGA_NKS_Flow_CreateShot.py` y busca la sección `AVAILABLE_TASKS` (línea ~70):
+
+```python
+AVAILABLE_TASKS = [
+    {
+        "name": "Comp",
+        "pipeline_step": "Comp",
+        "enabled_by_default": True,
+    },
+    {
+        "name": "Roto",
+        "pipeline_step": "Roto",
+        "enabled_by_default": False,
+    },
+    # ⬇️ AGREGAR AQUÍ TU NUEVA TASK ⬇️
+    {
+        "name": "TU_TASK",              # Ej: "Animation", "Lighting", "FX"
+        "pipeline_step": "TU_STEP",     # Debe existir en ShotGrid
+        "enabled_by_default": False,    # True o False
+    },
+]
+```
+
+### Paso 2: Guardar y Reiniciar Hiero
+
+¡Listo! No necesitas modificar nada más. La nueva task aparecerá automáticamente en la UI con todos sus campos.
+
+### Paso 3: Verificar Pipeline Step en ShotGrid
+
+Asegúrate de que el pipeline step existe en ShotGrid con el mismo código (`code` field). Si no existe, la task se creará sin pipeline step (con advertencia en logs).
+
 ## Scripts Relacionados
 
 - **LGA_NKS_Flow_Push.py:** Subida de versiones
@@ -271,7 +438,22 @@ El script utiliza un sistema de logging seguro para entornos multi-hilo que evit
 
 ## Conclusión
 
+**v1.27** representa un salto cualitativo en mantenibilidad y escalabilidad:
+
+### Antes (v1.26)
+- Código hardcodeado para cada task
+- Agregar una nueva task requería duplicar ~200 líneas de código
+- UI generada manualmente
+- Propenso a errores y difícil de mantener
+
+### Ahora (v1.27) ⭐
+- **Código DRY y modular**
+- **Agregar nueva task: 1 entrada en `AVAILABLE_TASKS` (~5 líneas)**
+- **UI generada dinámicamente**
+- **Todo el comportamiento es automático**
+- **Fácil de mantener y extender**
+
 Esta versión del script representa una mejora significativa al eliminar dependencias de templates específicos, permitiendo que funcione de manera consistente en cualquier proyecto ShotGrid mientras mantiene toda la funcionalidad original.
 
-La investigación exhaustiva realizada asegura que la implementación manual replica exactamente el comportamiento de los templates investigados, pero con mayor flexibilidad y control.
+La refactorización a código modular asegura que el script sea fácil de mantener y extender en el futuro, sin necesidad de duplicar lógica.
 
