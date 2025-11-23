@@ -1,4 +1,4 @@
-# LGA_NKS_Flow_CreateShot v1.27
+# LGA_NKS_Flow_CreateShot v1.28
 
 ## Descripción General
 
@@ -7,6 +7,8 @@ Script para crear shots en ShotGrid/Flow Production Tracking basado en clips sel
 **Cambio importante en v1.2:** Ya no usa templates predefinidos. Crea shots y tasks manualmente para mayor control y flexibilidad.
 
 **Cambio importante en v1.27:** Sistema modular y DRY para crear múltiples tasks. Agregar nuevas tasks es extremadamente fácil.
+
+**Cambio importante en v1.28:** Todas las tasks del pipeline agregadas con sus colores específicos.
 
 ## Funcionalidades
 
@@ -17,10 +19,26 @@ Script para crear shots en ShotGrid/Flow Production Tracking basado en clips sel
 - Creación de tasks en ShotGrid completamente genérica
 - Enable/disable dinámico de campos según checkbox de cada task
 
-### ✅ Tasks Disponibles
-- **Comp** (habilitada por defecto)
-- **Roto** (deshabilitada por defecto)
-- Fácil agregar más: Animation, Lighting, FX, etc.
+### ✅ Tasks Disponibles (v1.28)
+
+Todas las tasks del pipeline están disponibles con sus colores específicos:
+
+| # | Task | Color | Pipeline Step | Por Defecto |
+|---|------|-------|---------------|-------------|
+| 1 | **Comp** | 🔵 Azul | Comp | ✅ Habilitada |
+| 2 | **Roto** | 🔵 Azul | Roto | ❌ Deshabilitada |
+| 3 | **Cleanup** | 🔵 Cyan | Cleanup | ❌ Deshabilitada |
+| 4 | **DMP** | 🟡 Amarillo | DMP | ❌ Deshabilitada |
+| 5 | **Model** | 🟠 Naranja | Model | ❌ Deshabilitada |
+| 6 | **Retopo** | 🟠 Naranja | Retopo | ❌ Deshabilitada |
+| 7 | **Rigging** | 🟢 Verde | Rigging | ❌ Deshabilitada |
+| 8 | **Shaders** | 🟢 Verde | Shaders | ❌ Deshabilitada |
+| 9 | **Match Move** | 🟣 Morado | Match Move | ❌ Deshabilitada |
+| 10 | **Animation** | 🟠 Naranja | Animation | ❌ Deshabilitada |
+| 11 | **FX** | 🟣 Magenta | FX | ❌ Deshabilitada |
+| 12 | **Lighting** | 🟢 Verde | Lighting | ❌ Deshabilitada |
+
+**Nota importante:** El orden de las tasks en la UI coincide exactamente con el orden en ShotGrid. Los colores también son exactos según los pipeline steps configurados.
 
 ### ✅ Creación de Shots sin Templates
 - Crea shots directamente sin depender de templates predefinidos
@@ -112,36 +130,39 @@ AVAILABLE_TASKS = [
 
 **¡Eso es todo!** El resto del código se encarga automáticamente de:
 - Generar la UI con todos los campos
+- Aplicar el color específico de la task
 - Habilitar/deshabilitar campos según el checkbox
 - Crear la task en ShotGrid con el pipeline step correcto
 - Asignar reviewers, descripción, días estimados, etc.
 
-#### Ejemplos Prácticos de Nuevas Tasks
+#### Ejemplo: Estado Actual de AVAILABLE_TASKS (v1.28)
 
-**Agregar task de Lighting:**
 ```python
-{
-    "name": "Lighting",
-    "pipeline_step": "Lighting",
-    "enabled_by_default": False,
-},
+AVAILABLE_TASKS = [
+    {"name": "Comp", "pipeline_step": "Comp", "enabled_by_default": True, "color": "#3B9ACA"},
+    {"name": "Roto", "pipeline_step": "Roto", "enabled_by_default": False, "color": "#3B9ACA"},
+    {"name": "Cleanup", "pipeline_step": "Cleanup", "enabled_by_default": False, "color": "#3BCACA"},
+    {"name": "DMP", "pipeline_step": "DMP", "enabled_by_default": False, "color": "#CACA3B"},
+    {"name": "Model", "pipeline_step": "Model", "enabled_by_default": False, "color": "#CA7A3B"},
+    {"name": "Retopo", "pipeline_step": "Retopo", "enabled_by_default": False, "color": "#CA7A3B"},
+    {"name": "Rigging", "pipeline_step": "Rigging", "enabled_by_default": False, "color": "#3BCA7A"},
+    {"name": "Shaders", "pipeline_step": "Shaders", "enabled_by_default": False, "color": "#3BCA7A"},
+    {"name": "Match Move", "pipeline_step": "Match Move", "enabled_by_default": False, "color": "#9A3BCA"},
+    {"name": "Animation", "pipeline_step": "Animation", "enabled_by_default": False, "color": "#CA7A3B"},
+    {"name": "FX", "pipeline_step": "FX", "enabled_by_default": False, "color": "#CA3B9A"},
+    {"name": "Lighting", "pipeline_step": "Lighting", "enabled_by_default": False, "color": "#3BCA7A"},
+]
 ```
 
-**Agregar task de FX:**
-```python
-{
-    "name": "FX",
-    "pipeline_step": "FX",
-    "enabled_by_default": False,
-},
-```
+#### Ejemplos Prácticos de Nuevas Tasks (Si necesitas agregar más)
 
-**Agregar task de Matchmove (habilitada por defecto):**
+**Agregar task personalizada:**
 ```python
 {
-    "name": "Matchmove",
-    "pipeline_step": "Matchmove",
-    "enabled_by_default": True,  # ⭐ Estará encendida por defecto
+    "name": "Custom Task",
+    "pipeline_step": "Custom Task",
+    "enabled_by_default": False,
+    "color": "#FF5733",  # Color personalizado
 },
 ```
 
@@ -202,22 +223,34 @@ Cada task tiene su propia fila con:
 
 **Shot Description:** Campo de texto para descripción general del shot
 
-#### Ejemplo Visual de la UI
+#### Ejemplo Visual de la UI (v1.28)
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        Flow | Shot Creation                              │
-├─────────────────────────────────────────────────────────────────────────┤
-│  Configuración del Shot (3 columnas):                                    │
-│  [Thumbnail]  [Description]  │  [Sequence]  │  [Status + Priority]      │
-├─────────────────────────────────────────────────────────────────────────┤
-│  COMP ☑  │  Est. Days [0]  │  Status ☑ Ready  │  Desc ☑ copy  │ Rev... │
-│  (enabled - todos los campos activos)                                   │
-├─────────────────────────────────────────────────────────────────────────┤
-│  ROTO ☐  │  Est. Days [0]  │  Status ☐ Ready  │  Desc ☐ copy  │ Rev... │
-│  (disabled - todos los campos en gris/deshabilitados)                   │
-└─────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        Flow | Shot Creation                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Configuración del Shot (3 columnas):                                        │
+│  [Thumbnail]  [Description]  │  [Sequence]  │  [Status + Priority]          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  🔵 COMP ☑        │ Days [2] │ ☑ Ready │ ☑ copy │ ☑Lega ☑Sebas ☑Javi        │
+│  (HABILITADA por defecto - campos activos)                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  🔵 ROTO ☐        │ Days [0] │ ☐ Ready │ ☐ copy │ ☐Lega ☐Sebas ☐Javi        │
+│  🔵 CLEANUP ☐     │ Days [0] │ ☐ Ready │ ☐ copy │ ☐Lega ☐Sebas ☐Javi        │
+│  🟡 DMP ☐         │ Days [0] │ ☐ Ready │ ☐ copy │ ☐Lega ☐Sebas ☐Javi        │
+│  🟠 MODEL ☐       │ Days [0] │ ☐ Ready │ ☐ copy │ ☐Lega ☐Sebas ☐Javi        │
+│  🟠 RETOPO ☐      │ Days [0] │ ☐ Ready │ ☐ copy │ ☐Lega ☐Sebas ☐Javi        │
+│  🟢 RIGGING ☐     │ Days [0] │ ☐ Ready │ ☐ copy │ ☐Lega ☐Sebas ☐Javi        │
+│  🟢 SHADERS ☐     │ Days [0] │ ☐ Ready │ ☐ copy │ ☐Lega ☐Sebas ☐Javi        │
+│  🟣 MATCH MOVE ☐  │ Days [0] │ ☐ Ready │ ☐ copy │ ☐Lega ☐Sebas ☐Javi        │
+│  🟠 ANIMATION ☐   │ Days [0] │ ☐ Ready │ ☐ copy │ ☐Lega ☐Sebas ☐Javi        │
+│  🟣 FX ☐          │ Days [0] │ ☐ Ready │ ☐ copy │ ☐Lega ☐Sebas ☐Javi        │
+│  🟢 LIGHTING ☐    │ Days [0] │ ☐ Ready │ ☐ copy │ ☐Lega ☐Sebas ☐Javi        │
+│  (DESHABILITADAS por defecto - campos en gris hasta activar checkbox)       │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+**Nota:** Los colores en el nombre de cada task coinciden con los colores de pipeline steps en ShotGrid.
 
 ### Estados de Task
 
@@ -335,7 +368,21 @@ El script utiliza un sistema de logging seguro para entornos multi-hilo que evit
 
 ## Historial de Versiones
 
-### v1.27 - Sistema Modular de Tasks (Actual) ⭐
+### v1.28 - Pipeline Completo con Colores (Actual) ⭐
+- ✅ **12 tasks del pipeline agregadas:** Comp, Roto, Cleanup, DMP, Model, Retopo, Rigging, Shaders, Match Move, Animation, FX, Lighting
+- ✅ **Colores específicos por task:** Cada task muestra su color de pipeline step en la UI
+- ✅ **Sistema de colores implementado:** 
+  - 🔵 Azul: Comp, Roto
+  - 🔵 Cyan: Cleanup
+  - 🟡 Amarillo: DMP
+  - 🟠 Naranja: Model, Retopo, Animation
+  - 🟢 Verde: Rigging, Shaders, Lighting
+  - 🟣 Morado: Match Move
+  - 🟣 Magenta: FX
+- ✅ **Orden respetado:** Mismo orden que en ShotGrid
+- ✅ **Todo funcional:** Todas las tasks se crean con sus pipeline steps correctos
+
+### v1.27 - Sistema Modular de Tasks ⭐
 - ✅ **Refactorización completa a código DRY (Don't Repeat Yourself)**
 - ✅ **Sistema modular:** Agregar nuevas tasks es tan fácil como agregar una línea
 - ✅ **UI dinámica:** Generada automáticamente desde `AVAILABLE_TASKS`
@@ -346,7 +393,7 @@ El script utiliza un sistema de logging seguro para entornos multi-hilo que evit
 - ✅ **Método `create_task_row()`:** Genera UI dinámicamente
 - ✅ **Método `toggle_task_fields()`:** Maneja enable/disable de campos
 - ✅ **Método `create_task_for_shot()`:** Crea cualquier task de forma genérica
-- ✅ **Preparado para el futuro:** Fácil agregar Animation, Lighting, FX, etc.
+- ✅ **Preparado para el futuro:** Fácil agregar más tasks
 
 ### v1.26 - UI Reorganizada para Task Comp
 - ✅ Layout reorganizado: 3 columnas para configuración del shot
@@ -438,20 +485,39 @@ Asegúrate de que el pipeline step existe en ShotGrid con el mismo código (`cod
 
 ## Conclusión
 
-**v1.27** representa un salto cualitativo en mantenibilidad y escalabilidad:
+**v1.28** completa el pipeline con todas las tasks disponibles y sus colores específicos:
 
-### Antes (v1.26)
+### Evolución del Script
+
+#### Antes (v1.26)
 - Código hardcodeado para cada task
+- Solo task Comp disponible
 - Agregar una nueva task requería duplicar ~200 líneas de código
 - UI generada manualmente
 - Propenso a errores y difícil de mantener
 
-### Ahora (v1.27) ⭐
+#### v1.27 ⭐
 - **Código DRY y modular**
 - **Agregar nueva task: 1 entrada en `AVAILABLE_TASKS` (~5 líneas)**
 - **UI generada dinámicamente**
 - **Todo el comportamiento es automático**
-- **Fácil de mantener y extender**
+- 2 tasks: Comp, Roto
+
+#### v1.28 ⭐⭐ (Actual)
+- **12 tasks del pipeline completo**
+- **Sistema de colores implementado**
+- **Orden y colores respetan ShotGrid exactamente**
+- **Listo para producción con cualquier tipo de shot**
+- Tasks: Comp, Roto, Cleanup, DMP, Model, Retopo, Rigging, Shaders, Match Move, Animation, FX, Lighting
+
+### Ventajas del Sistema Actual
+
+✅ **Modularidad:** Agregar/modificar tasks es trivial  
+✅ **Consistencia:** Colores y nombres coinciden con ShotGrid  
+✅ **Escalabilidad:** 12 tasks funcionan igual que 2  
+✅ **Mantenibilidad:** Código limpio y DRY  
+✅ **Flexibilidad:** Habilitar solo las tasks necesarias por shot  
+✅ **Sin templates:** Funciona en cualquier proyecto  
 
 Esta versión del script representa una mejora significativa al eliminar dependencias de templates específicos, permitiendo que funcione de manera consistente en cualquier proyecto ShotGrid mientras mantiene toda la funcionalidad original.
 

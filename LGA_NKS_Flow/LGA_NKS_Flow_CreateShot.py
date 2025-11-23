@@ -1,9 +1,13 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_CreateShot v1.27 | Lega
+  LGA_NKS_Flow_CreateShot v1.28 | Lega
   Script para crear shots en ShotGrid basado en el nombre del clip seleccionado en Hiero
   SIN usar templates predefinidos - crea tasks manualmente para mayor control
+
+  v1.28: Todas las tasks del pipeline agregadas con colores específicos
+         Comp, Roto, Cleanup, DMP, Model, Retopo, Rigging, Shaders,
+         Match Move, Animation, FX, Lighting
 
   v1.27: Sistema modular de tasks - Fácil agregar nuevas tasks (DRY)
          Agregada task Roto + enable/disable dinámico de campos
@@ -75,18 +79,81 @@ from LGA_NKS_Flow_NamingUtils import (
 # {
 #     "name": "Nombre",           # Nombre de la task (UI y ShotGrid)
 #     "pipeline_step": "Step",    # Nombre del pipeline step en ShotGrid
-#     "enabled_by_default": True/False  # Si está habilitada por defecto
+#     "enabled_by_default": True/False,  # Si está habilitada por defecto
+#     "color": "#RRGGBB"          # Color del pipeline step (para futura UI)
 # }
 AVAILABLE_TASKS = [
     {
         "name": "Comp",
         "pipeline_step": "Comp",
         "enabled_by_default": True,
+        "color": "#3B9ACA",  # Azul
     },
     {
         "name": "Roto",
         "pipeline_step": "Roto",
         "enabled_by_default": False,
+        "color": "#3B9ACA",  # Azul
+    },
+    {
+        "name": "Cleanup",
+        "pipeline_step": "Cleanup",
+        "enabled_by_default": False,
+        "color": "#3BCACA",  # Cyan
+    },
+    {
+        "name": "DMP",
+        "pipeline_step": "DMP",
+        "enabled_by_default": False,
+        "color": "#CACA3B",  # Amarillo
+    },
+    {
+        "name": "Model",
+        "pipeline_step": "Model",
+        "enabled_by_default": False,
+        "color": "#CA7A3B",  # Naranja
+    },
+    {
+        "name": "Retopo",
+        "pipeline_step": "Retopo",
+        "enabled_by_default": False,
+        "color": "#CA7A3B",  # Naranja
+    },
+    {
+        "name": "Rigging",
+        "pipeline_step": "Rigging",
+        "enabled_by_default": False,
+        "color": "#3BCA7A",  # Verde
+    },
+    {
+        "name": "Shaders",
+        "pipeline_step": "Shaders",
+        "enabled_by_default": False,
+        "color": "#3BCA7A",  # Verde
+    },
+    {
+        "name": "Match Move",
+        "pipeline_step": "Match Move",
+        "enabled_by_default": False,
+        "color": "#9A3BCA",  # Morado/Púrpura
+    },
+    {
+        "name": "Animation",
+        "pipeline_step": "Animation",
+        "enabled_by_default": False,
+        "color": "#CA7A3B",  # Naranja
+    },
+    {
+        "name": "FX",
+        "pipeline_step": "FX",
+        "enabled_by_default": False,
+        "color": "#CA3B9A",  # Magenta/Fucsia
+    },
+    {
+        "name": "Lighting",
+        "pipeline_step": "Lighting",
+        "enabled_by_default": False,
+        "color": "#3BCA7A",  # Verde
     },
 ]
 
@@ -612,13 +679,14 @@ class ShotConfigDialog(QDialog):
         Crea una fila de UI para una task de forma dinámica.
         
         Args:
-            task_config (dict): Configuración de la task con keys: name, pipeline_step, enabled_by_default
+            task_config (dict): Configuración de la task con keys: name, pipeline_step, enabled_by_default, color
             
         Returns:
             QHBoxLayout: Layout con todos los widgets de la task
         """
         task_name = task_config["name"]
         enabled_by_default = task_config["enabled_by_default"]
+        task_color = task_config.get("color", "#6AB5CA")  # Color por defecto si no está especificado
         
         # Inicializar diccionario para esta task
         self.task_widgets[task_name] = {}
@@ -629,7 +697,7 @@ class ShotConfigDialog(QDialog):
         # ===== Columna 1: Nombre de Task y Checkbox Enable =====
         name_layout = QVBoxLayout()
         name_label = QLabel(task_name.upper())
-        name_label.setStyleSheet("color: #6AB5CA; font-weight: bold; padding-top: 15px; font-size: 12px;")
+        name_label.setStyleSheet(f"color: {task_color}; font-weight: bold; padding-top: 15px; font-size: 12px;")
         name_layout.addWidget(name_label)
 
         enabled_cb = QCheckBox("")  # Checkbox sin texto
