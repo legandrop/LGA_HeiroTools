@@ -1,9 +1,11 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_CreateShot v1.24 | Lega
+  LGA_NKS_Flow_CreateShot v1.25 | Lega
   Script para crear shots en ShotGrid basado en el nombre del clip seleccionado en Hiero
   SIN usar templates predefinidos - crea tasks manualmente para mayor control
+
+  v1.25: Agregado checkbox "High Priority" para asignar sg_prioridad="high"
 
   v1.24: Mensajes diferenciados para shots existentes vs creados + pipeline step Comp
 
@@ -412,6 +414,11 @@ class ShotConfigDialog(QDialog):
         self.task_ready_cb.setStyleSheet("color: #CCCCCC; padding: 5px;")
         layout.addWidget(self.task_ready_cb)
 
+        self.high_priority_cb = QCheckBox("High Priority")
+        self.high_priority_cb.setChecked(False)  # Desactivado por defecto
+        self.high_priority_cb.setStyleSheet("color: #CCCCCC; padding: 5px;")
+        layout.addWidget(self.high_priority_cb)
+
         # Reviewers section
         reviewers_label = QLabel("Reviewers:")
         reviewers_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 15px;")
@@ -522,6 +529,7 @@ class ShotConfigDialog(QDialog):
             "shot_ready": self.shot_ready_cb.isChecked(),
             "task_ready": self.task_ready_cb.isChecked(),
             "estimated_days": estimated_days,
+            "high_priority": self.high_priority_cb.isChecked(),
             "reviewers": {
                 "lega_pugliese": self.reviewer_lega_cb.isChecked(),
                 "sebas_romano": self.reviewer_sebas_cb.isChecked(),
@@ -930,6 +938,10 @@ class ShotGridManager:
         # Agregar status si esta configurado
         if shot_config["shot_ready"]:
             shot_data["sg_status_list"] = "ready"
+
+        # Agregar prioridad alta si esta configurada
+        if shot_config.get("high_priority", False):
+            shot_data["sg_prioridad"] = "high"
 
         try:
             new_shot = self.sg.create("Shot", shot_data)

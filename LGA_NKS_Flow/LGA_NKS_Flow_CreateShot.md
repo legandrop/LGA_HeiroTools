@@ -95,6 +95,7 @@ LGA_NKS_Flow_CreateShot.py
   - ☑️ Copy shot description to Comp Description
   - ☑️ Shot status Ready to start
   - ☑️ Task Comp status Ready to start
+  - ☐ High Priority (envía "high" al campo sg_prioridad)
 - **Reviewers:** (Todos activados por defecto)
   - ☑️ Lega Pugliese
   - ☑️ Sebas Romano
@@ -136,6 +137,7 @@ Para cada clip seleccionado:
 - `description`: Descripción
 - `sg_sequence`: Secuencia padre
 - `sg_status_list`: Estado del shot
+- `sg_prioridad`: Prioridad del shot ("high" si activado, opcional)
 - `project`: Proyecto
 
 ### Entidad Task
@@ -219,6 +221,7 @@ El script utiliza un sistema de logging seguro para entornos multi-hilo que evit
 - ✅ Mejor feedback visual para el usuario
 - ✅ Lógica clara: crear = verde, existente = rojo
 - ✅ Task Comp asignada automáticamente al pipeline step "Comp"
+- ✅ Checkbox "High Priority" para asignar sg_prioridad="high"
 
 ### v1.23 - Sistema de Logging Seguro para Hilos
 - ✅ Sistema de logging multi-hilo seguro
