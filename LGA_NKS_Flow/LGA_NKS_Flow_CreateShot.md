@@ -87,19 +87,20 @@ LGA_NKS_Flow_CreateShot.py
 
 ### Diálogo de Configuración
 
-**Campos disponibles:**
-- **Shot Description:** Descripción del shot
-- **Sequence:** Nombre de la secuencia
-- **Estimated Days:** Tiempo estimado en días para la task Comp (0-99.9, opcional)
-- **Opciones:**
-  - ☑️ Copy shot description to Comp Description
-  - ☑️ Shot status Ready to start
-  - ☑️ Task Comp status Ready to start
-  - ☐ High Priority (envía "high" al campo sg_prioridad)
-- **Reviewers:** (Todos activados por defecto)
-  - ☑️ Lega Pugliese
-  - ☑️ Sebas Romano
-  - ☑️ Javi Bravo
+#### Configuración del Shot (3 columnas)
+- **Sequence:** Campo de entrada limitado + **Shot status:** ☑️ Ready to start + **Priority:** ☑️ High
+
+#### Configuración de Task Comp (5 columnas)
+- **COMP:** ☑️ (habilitar/deshabilitar creación de task Comp)
+- **Est. Days:** Campo numérico para tiempo estimado (0-99.9)
+- **Status:** ☑️ Ready to start (estado inicial de la task)
+- **Description:** ☑️ copy from shot (copiar descripción del shot)
+- **Reviewers:** Checkboxes verticales (solo nombres en UI)
+  - ☑️ Lega
+  - ☑️ Sebas
+  - ☑️ Javi
+
+**Shot Description:** Campo de texto para descripción general del shot
 
 ### Estados de Task
 
@@ -215,7 +216,16 @@ El script utiliza un sistema de logging seguro para entornos multi-hilo que evit
 
 ## Historial de Versiones
 
-### v1.24 - Mensajes Diferenciados para Shots (Actual)
+### v1.26 - UI Reorganizada para Task Comp (Actual)
+- ✅ Layout reorganizado: 3 columnas para configuración del shot
+- ✅ 5 columnas dedicadas para configuración de Task Comp
+- ✅ Checkbox de habilitación para Task Comp
+- ✅ Reviewers mostrados solo con nombres (sin apellidos) en UI
+
+### v1.25 - Checkbox "High Priority"
+- ✅ Agregado checkbox "High Priority" para asignar sg_prioridad="high"
+
+### v1.24 - Mensajes Diferenciados para Shots
 - ✅ Shots existentes muestran mensaje de error en rojo
 - ✅ Solo shots recién creados cuentan como éxito
 - ✅ Mejor feedback visual para el usuario

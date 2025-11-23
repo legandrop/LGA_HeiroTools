@@ -1,9 +1,11 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_CreateShot v1.25 | Lega
+  LGA_NKS_Flow_CreateShot v1.26 | Lega
   Script para crear shots en ShotGrid basado en el nombre del clip seleccionado en Hiero
   SIN usar templates predefinidos - crea tasks manualmente para mayor control
+
+  v1.26: UI reorganizada en columnas
 
   v1.25: Agregado checkbox "High Priority" para asignar sg_prioridad="high"
 
@@ -295,19 +297,19 @@ class ShotConfigDialog(QDialog):
         title_font.setBold(True)
         title_label.setFont(title_font)
         title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet("color: #CCCCCC; padding: 10px;")
+        title_label.setStyleSheet("color: #CCCCCC; padding: 5px;")
         layout.addWidget(title_label)
 
         # Informacion de clips
         clips_label = QLabel(f"Se van a procesar {len(self.clips_info)} clips:")
-        clips_label.setStyleSheet("color: #CCCCCC; padding: 5px;")
+        clips_label.setStyleSheet("color: #CCCCCC; padding: 2px 5px 0px 5px;")
         layout.addWidget(clips_label)
 
         # Lista de clips
         for clip_info in self.clips_info:
             clip_frame = QFrame()
             clip_frame.setStyleSheet(
-                "border: 1px solid #444444; border-radius: 3px; margin: 2px; padding: 5px;"
+                "border: none; border-radius: 3px; margin: 1px; padding: 2px;"
             )
             clip_layout = QVBoxLayout(clip_frame)
 
@@ -319,19 +321,61 @@ class ShotConfigDialog(QDialog):
 
             layout.addWidget(clip_frame)
 
+        # Espacio pequeño antes del separador
+        layout.addSpacing(5)
+
         # Separador
         separator = QFrame()
         separator.setFrameShape(QFrame.HLine)
         separator.setFrameShadow(QFrame.Sunken)
-        separator.setStyleSheet("color: #444444;")
+        separator.setStyleSheet("color: #444444; margin: 0px;")
         layout.addWidget(separator)
 
-        # Campo de descripcion del shot
+        # Espacio pequeño después del separador
+        layout.addSpacing(5)
+
+        # Layout horizontal para thumbnail y descripción
+        thumbnail_description_layout = QHBoxLayout()
+
+        # Columna izquierda: Thumbnail (primera columna)
+        self.thumbnail_placeholder_layout = QVBoxLayout()
+        thumbnail_label = QLabel("Shot Thumbnail:")
+        thumbnail_label.setStyleSheet(
+            "color: #CCCCCC; font-weight: bold; padding-top: 5px;"
+        )
+        self.thumbnail_placeholder_layout.addWidget(thumbnail_label)
+
+        # Placeholder para el thumbnail con tamaño fijo igual a la descripción
+        self.thumbnail_placeholder = QLabel()
+        self.thumbnail_placeholder.setFixedSize(120, 80)  # Ancho proporcional, altura igual al campo de descripción
+        self.thumbnail_placeholder.setStyleSheet(
+            """
+            QLabel {
+                border: 2px dashed #555555;
+                border-radius: 3px;
+                background-color: #1a1a1a;
+                color: #666666;
+                text-align: center;
+                padding: 5px;
+            }
+        """
+        )
+        self.thumbnail_placeholder.setText("Thumbnail\n(120x80)")
+        self.thumbnail_placeholder.setAlignment(Qt.AlignCenter)
+        self.thumbnail_placeholder_layout.addWidget(self.thumbnail_placeholder)
+
+        thumbnail_description_layout.addLayout(self.thumbnail_placeholder_layout, 1)  # Stretch factor reducido para dar más espacio a descripción
+
+        # Espacio entre columnas
+        thumbnail_description_layout.addSpacing(20)
+
+        # Columna derecha: Descripción del shot (segunda columna)
+        description_layout = QVBoxLayout()
         desc_label = QLabel("Shot Description:")
         desc_label.setStyleSheet(
-            "color: #CCCCCC; font-weight: bold; padding-top: 10px;"
+            "color: #CCCCCC; font-weight: bold; padding-top: 5px;"
         )
-        layout.addWidget(desc_label)
+        description_layout.addWidget(desc_label)
 
         self.description_text = QTextEdit()
         self.description_text.setMaximumHeight(80)  # 3 lineas aproximadamente
@@ -339,42 +383,92 @@ class ShotConfigDialog(QDialog):
         self.description_text.setStyleSheet(
             """
             QTextEdit {
-                background-color: #2B2B2B;
-                border: 1px solid #555555;
-                color: #CCCCCC;
+                background-color: #272727;
+                border: 1px solid #333333;
+                color: #a7a7a7;
                 padding: 5px;
                 border-radius: 3px;
             }
         """
         )
-        layout.addWidget(self.description_text)
+        description_layout.addWidget(self.description_text)
+        thumbnail_description_layout.addLayout(description_layout, 3)  # Stretch factor mayor para más espacio horizontal
 
-        # Campo de secuencia
+        # Layout de 3 columnas principales: [Thumb+Desc] | [Sequence] | [Status+Priority]
+        main_three_column_layout = QHBoxLayout()
+
+        # Columna 1: Thumbnail + Descripción del shot (ya creado arriba)
+        main_three_column_layout.addLayout(thumbnail_description_layout, 4)  # Stretch factor mayor para dar más espacio al shot description
+
+        # Espacio entre columnas principales
+        main_three_column_layout.addSpacing(30)
+
+        # Columna 2: Sequence
+        sequence_column_layout = QVBoxLayout()
         seq_label = QLabel("Sequence:")
-        seq_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 10px;")
-        layout.addWidget(seq_label)
+        seq_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 5px;")
+        sequence_column_layout.addWidget(seq_label)
 
         self.sequence_line_edit = QLineEdit()
         self.sequence_line_edit.setText(self.sequence_name)
+        self.sequence_line_edit.setMaximumWidth(120)  # Limitar ancho máximo
         self.sequence_line_edit.setStyleSheet(
             """
             QLineEdit {
-                background-color: #2B2B2B;
-                border: 1px solid #555555;
-                color: #CCCCCC;
+                background-color: #272727;
+                border: 1px solid #333333;
+                color: #a7a7a7;
                 padding: 5px;
                 border-radius: 3px;
                 height: 20px;
             }
         """
         )
-        layout.addWidget(self.sequence_line_edit)
+        sequence_column_layout.addWidget(self.sequence_line_edit)
 
-        # Campo de tiempo estimado en días
-        est_days_label = QLabel("Estimated Days (0-99.9):")
-        est_days_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 10px;")
-        layout.addWidget(est_days_label)
+        # Espaciador para alinear hacia arriba
+        sequence_column_layout.addStretch()
 
+        main_three_column_layout.addLayout(sequence_column_layout, 1)  # Stretch factor 1
+
+        # Espacio entre segunda y tercera columna
+        main_three_column_layout.addSpacing(30)
+
+        # Columna 3: Shot status + Priority (layout vertical)
+        status_priority_column_layout = QVBoxLayout()
+
+        # Shot status (arriba)
+        shot_status_layout = QVBoxLayout()
+        shot_status_label = QLabel("Shot status:")
+        shot_status_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 5px;")
+        shot_status_layout.addWidget(shot_status_label)
+
+        self.shot_ready_cb = QCheckBox("Ready to start")
+        self.shot_ready_cb.setChecked(True)  # Activado por defecto
+        self.shot_ready_cb.setStyleSheet("color: #a7a7a7; padding: 2px;")
+        shot_status_layout.addWidget(self.shot_ready_cb)
+        status_priority_column_layout.addLayout(shot_status_layout)
+
+        # Espacio entre status y priority
+        status_priority_column_layout.addSpacing(10)
+
+        # Priority (abajo)
+        priority_layout = QVBoxLayout()
+        priority_label = QLabel("Priority:")
+        priority_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 5px;")
+        priority_layout.addWidget(priority_label)
+
+        self.high_priority_cb = QCheckBox("High")
+        self.high_priority_cb.setChecked(False)  # Desactivado por defecto
+        self.high_priority_cb.setStyleSheet("color: #a7a7a7; padding: 2px;")
+        priority_layout.addWidget(self.high_priority_cb)
+        status_priority_column_layout.addLayout(priority_layout)
+
+        main_three_column_layout.addLayout(status_priority_column_layout, 1)  # Stretch factor reducido
+
+        layout.addLayout(main_three_column_layout)
+
+        # Campo de tiempo estimado en días (se agrega en el layout de 5 columnas más abajo)
         self.estimated_days_line_edit = QLineEdit()
         self.estimated_days_line_edit.setText("0")
         self.estimated_days_line_edit.setMaxLength(5)  # Permitir decimales (ej: 12.5)
@@ -382,9 +476,9 @@ class ShotConfigDialog(QDialog):
         self.estimated_days_line_edit.setStyleSheet(
             """
             QLineEdit {
-                background-color: #2B2B2B;
-                border: 1px solid #555555;
-                color: #CCCCCC;
+                background-color: #272727;
+                border: 1px solid #333333;
+                color: #a7a7a7;
                 padding: 5px;
                 border-radius: 3px;
                 height: 20px;
@@ -396,56 +490,106 @@ class ShotConfigDialog(QDialog):
         validator = QDoubleValidator(0.0, 99.9, 1)  # Mínimo 0, máximo 99.9, 1 decimal
         validator.setNotation(QDoubleValidator.StandardNotation)
         self.estimated_days_line_edit.setValidator(validator)
-        layout.addWidget(self.estimated_days_line_edit)
 
-        # Checkboxes
-        self.copy_to_comp_cb = QCheckBox("Copy shot description to Comp Description")
-        self.copy_to_comp_cb.setChecked(True)  # Activado por defecto
-        self.copy_to_comp_cb.setStyleSheet("color: #CCCCCC; padding: 5px;")
-        layout.addWidget(self.copy_to_comp_cb)
+        # Espacio pequeño antes del separador
+        layout.addSpacing(10)
 
-        self.shot_ready_cb = QCheckBox("Shot status Ready to start")
-        self.shot_ready_cb.setChecked(True)  # Activado por defecto
-        self.shot_ready_cb.setStyleSheet("color: #CCCCCC; padding: 5px;")
-        layout.addWidget(self.shot_ready_cb)
+        # Línea divisoria antes de Task Comp
+        comp_separator = QFrame()
+        comp_separator.setFrameShape(QFrame.HLine)
+        comp_separator.setFrameShadow(QFrame.Sunken)
+        comp_separator.setStyleSheet("color: #444444;")
+        layout.addWidget(comp_separator)
 
-        self.task_ready_cb = QCheckBox("Task Comp status Ready to start")
+        # Layout de 5 columnas para Task Comp
+        comp_task_layout = QHBoxLayout()
+
+        # Columna 1: COMP
+        comp_layout = QVBoxLayout()
+        comp_label = QLabel("COMP")
+        comp_label.setStyleSheet("color: #6AB5CA; font-weight: bold; padding-top: 15px; font-size: 12px;")
+        comp_layout.addWidget(comp_label)
+
+        self.comp_enabled_cb = QCheckBox("")  # Checkbox sin texto
+        self.comp_enabled_cb.setChecked(True)  # Activado por defecto
+        self.comp_enabled_cb.setStyleSheet("color: #a7a7a7; padding: 5px;")
+        comp_layout.addWidget(self.comp_enabled_cb)
+        comp_task_layout.addLayout(comp_layout, 1)
+
+        # Espacio entre columnas
+        comp_task_layout.addSpacing(30)
+
+        # Columna 2: Est. Days
+        est_days_layout = QVBoxLayout()
+        est_days_label = QLabel("Est. Days")
+        est_days_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 15px;")
+        est_days_layout.addWidget(est_days_label)
+
+        # El campo estimated_days_line_edit ya está definido arriba, solo lo agregamos aquí
+        est_days_layout.addWidget(self.estimated_days_line_edit)
+        comp_task_layout.addLayout(est_days_layout, 1)
+
+        # Espacio entre columnas
+        comp_task_layout.addSpacing(30)
+
+        # Columna 3: Status
+        status_layout = QVBoxLayout()
+        status_label = QLabel("Status")
+        status_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 5px;")
+        status_layout.addWidget(status_label)
+
+        self.task_ready_cb = QCheckBox("Ready to start")
         self.task_ready_cb.setChecked(True)  # Activado por defecto
-        self.task_ready_cb.setStyleSheet("color: #CCCCCC; padding: 5px;")
-        layout.addWidget(self.task_ready_cb)
+        self.task_ready_cb.setStyleSheet("color: #a7a7a7; padding: 5px;")
+        status_layout.addWidget(self.task_ready_cb)
+        comp_task_layout.addLayout(status_layout, 1)
 
-        self.high_priority_cb = QCheckBox("High Priority")
-        self.high_priority_cb.setChecked(False)  # Desactivado por defecto
-        self.high_priority_cb.setStyleSheet("color: #CCCCCC; padding: 5px;")
-        layout.addWidget(self.high_priority_cb)
+        # Espacio entre columnas
+        comp_task_layout.addSpacing(30)
 
-        # Reviewers section
-        reviewers_label = QLabel("Reviewers:")
-        reviewers_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 15px;")
-        layout.addWidget(reviewers_label)
+        # Columna 4: Description
+        desc_layout = QVBoxLayout()
+        desc_label = QLabel("Description")
+        desc_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 5px;")
+        desc_layout.addWidget(desc_label)
 
-        # Reviewers checkboxes en una fila horizontal
-        reviewers_layout = QHBoxLayout()
+        self.copy_to_comp_cb = QCheckBox("copy from shot")
+        self.copy_to_comp_cb.setChecked(True)  # Activado por defecto
+        self.copy_to_comp_cb.setStyleSheet("color: #a7a7a7; padding: 5px;")
+        desc_layout.addWidget(self.copy_to_comp_cb)
+        comp_task_layout.addLayout(desc_layout, 1)
 
-        self.reviewer_lega_cb = QCheckBox("Lega Pugliese")
+        # Espacio entre columnas
+        comp_task_layout.addSpacing(30)
+
+        # Columna 5: Reviewers (más ancha)
+        reviewers_layout = QVBoxLayout()
+        reviewers_label = QLabel("Reviewers")
+        reviewers_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 5px;")
+        reviewers_layout.addWidget(reviewers_label)
+
+        # Reviewers checkboxes en línea horizontal
+        reviewers_checkboxes_layout = QHBoxLayout()
+
+        self.reviewer_lega_cb = QCheckBox("Lega")
         self.reviewer_lega_cb.setChecked(True)
-        self.reviewer_lega_cb.setStyleSheet("color: #CCCCCC; padding: 5px;")
-        reviewers_layout.addWidget(self.reviewer_lega_cb)
+        self.reviewer_lega_cb.setStyleSheet("color: #a7a7a7; padding: 2px;")
+        reviewers_checkboxes_layout.addWidget(self.reviewer_lega_cb)
 
-        self.reviewer_sebas_cb = QCheckBox("Sebas Romano")
+        self.reviewer_sebas_cb = QCheckBox("Sebas")
         self.reviewer_sebas_cb.setChecked(True)
-        self.reviewer_sebas_cb.setStyleSheet("color: #CCCCCC; padding: 5px;")
-        reviewers_layout.addWidget(self.reviewer_sebas_cb)
+        self.reviewer_sebas_cb.setStyleSheet("color: #a7a7a7; padding: 2px;")
+        reviewers_checkboxes_layout.addWidget(self.reviewer_sebas_cb)
 
-        self.reviewer_javi_cb = QCheckBox("Javi Bravo")
+        self.reviewer_javi_cb = QCheckBox("Javi")
         self.reviewer_javi_cb.setChecked(True)
-        self.reviewer_javi_cb.setStyleSheet("color: #CCCCCC; padding: 5px;")
-        reviewers_layout.addWidget(self.reviewer_javi_cb)
+        self.reviewer_javi_cb.setStyleSheet("color: #a7a7a7; padding: 2px;")
+        reviewers_checkboxes_layout.addWidget(self.reviewer_javi_cb)
 
-        # Espaciador para alinear
-        reviewers_layout.addStretch()
+        reviewers_layout.addLayout(reviewers_checkboxes_layout)
+        comp_task_layout.addLayout(reviewers_layout, 2)  # Stretch factor 2 para hacerla más ancha
 
-        layout.addLayout(reviewers_layout)
+        layout.addLayout(comp_task_layout)
 
         # Thumbnail del shot (solo si hay un clip seleccionado)
         self.thumbnail_label = None
@@ -453,7 +597,7 @@ class ShotConfigDialog(QDialog):
         debug_print(f"[INFO] Numero de clips seleccionados: {len(self.clips_info)}")
         if len(self.clips_info) == 1:
             debug_print("[INFO] Creando thumbnail para clip unico...")
-            self.create_and_show_thumbnail(layout)
+            self.create_and_show_thumbnail()
         else:
             debug_print("[INFO] No se crea thumbnail (multiples clips o ninguno)")
 
@@ -481,22 +625,22 @@ class ShotConfigDialog(QDialog):
         )
         button_layout.addWidget(self.cancel_button)
 
-        button_layout.addStretch()
+        button_layout.addSpacing(10)  # Espacio pequeño entre botones
 
         self.create_button = QPushButton("Create Shot")
         self.create_button.clicked.connect(self.accept_config)
         self.create_button.setStyleSheet(
             """
             QPushButton {
-                background-color: #0078D4;
-                border: 1px solid #106EBE;
-                color: white;
+                background-color: #443a91;
+                color: #b2b2b2;
                 padding: 8px 15px;
                 border-radius: 3px;
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #106EBE;
+                background-color: #774dcb;
+                color: #CCCCCC;
             }
         """
         )
@@ -525,6 +669,7 @@ class ShotConfigDialog(QDialog):
         self.shot_config = {
             "description": self.description_text.toPlainText(),
             "sequence_name": self.sequence_line_edit.text().strip(),
+            "comp_enabled": self.comp_enabled_cb.isChecked(),
             "copy_to_comp": self.copy_to_comp_cb.isChecked(),
             "shot_ready": self.shot_ready_cb.isChecked(),
             "task_ready": self.task_ready_cb.isChecked(),
@@ -542,27 +687,17 @@ class ShotConfigDialog(QDialog):
         """Retorna la configuracion seleccionada"""
         return self.shot_config
 
-    def create_and_show_thumbnail(self, layout):
-        """Crea y muestra el thumbnail del shot en la UI"""
+    def create_and_show_thumbnail(self):
+        """Crea y muestra el thumbnail del shot en la columna derecha"""
         try:
             # Crear el thumbnail
             thumbnail_path = create_shot_thumbnail()
             if thumbnail_path:
                 self.thumbnail_path = thumbnail_path
 
-                # Crear separador para el thumbnail
-                thumb_separator = QFrame()
-                thumb_separator.setFrameShape(QFrame.HLine)
-                thumb_separator.setFrameShadow(QFrame.Sunken)
-                thumb_separator.setStyleSheet("color: #444444;")
-                layout.addWidget(thumb_separator)
-
-                # Label para el thumbnail
-                thumb_title = QLabel("Shot Preview:")
-                thumb_title.setStyleSheet(
-                    "color: #CCCCCC; font-weight: bold; padding-top: 10px;"
-                )
-                layout.addWidget(thumb_title)
+                # Remover el placeholder
+                self.thumbnail_placeholder.hide()
+                self.thumbnail_placeholder.setParent(None)
 
                 # Widget para mostrar el thumbnail
                 self.thumbnail_label = QLabel()
@@ -570,10 +705,10 @@ class ShotConfigDialog(QDialog):
                 self.thumbnail_label.setStyleSheet(
                     """
                     QLabel {
-                        border: 1px solid #555555;
+                        border: none;
                         border-radius: 3px;
                         padding: 5px;
-                        background-color: #1E1E1E;
+                        background-color: transparent;
                     }
                 """
                 )
@@ -581,22 +716,67 @@ class ShotConfigDialog(QDialog):
                 # Cargar y escalar la imagen
                 pixmap = QPixmap(thumbnail_path)
                 if not pixmap.isNull():
-                    # Escalar la imagen manteniendo la relacion de aspecto
-                    scaled_pixmap = pixmap.scaled(
-                        300, 200, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                    # Escalar la imagen manteniendo la relacion de aspecto, con altura fija de 80px
+                    scaled_pixmap = pixmap.scaledToHeight(
+                        80, Qt.SmoothTransformation
                     )
                     self.thumbnail_label.setPixmap(scaled_pixmap)
-                    self.thumbnail_label.setFixedSize(
-                        320, 220
-                    )  # Un poco mas grande que la imagen para el padding
-                    layout.addWidget(self.thumbnail_label)
+
+                    # Ajustar el ancho para que quepa en el layout (máximo ~120px considerando padding)
+                    label_width = min(scaled_pixmap.width() + 10, 120)
+                    self.thumbnail_label.setFixedSize(label_width, 80)
+
+                    # Reemplazar el placeholder con el thumbnail real
+                    self.thumbnail_placeholder_layout.addWidget(self.thumbnail_label)
                     debug_print(f"✅ Thumbnail mostrado en la UI: {thumbnail_path}")
                 else:
                     debug_print("❌ No se pudo cargar el pixmap del thumbnail")
+                    # Mostrar mensaje de error en el placeholder
+                    self.thumbnail_placeholder.setText("Error\ncargando\nthumbnail")
+                    self.thumbnail_placeholder.setStyleSheet(
+                        """
+                        QLabel {
+                            border: 2px dashed #C05050;
+                            border-radius: 3px;
+                            background-color: #1a1a1a;
+                            color: #C05050;
+                            text-align: center;
+                            padding: 5px;
+                        }
+                    """
+                    )
             else:
                 debug_print("❌ No se pudo crear el thumbnail")
+                # Mostrar mensaje cuando no se puede crear el thumbnail
+                self.thumbnail_placeholder.setText("No se pudo\ncrear\nthumbnail")
+                self.thumbnail_placeholder.setStyleSheet(
+                    """
+                    QLabel {
+                        border: 2px dashed #C05050;
+                        border-radius: 3px;
+                        background-color: #1a1a1a;
+                        color: #C05050;
+                        text-align: center;
+                        padding: 5px;
+                    }
+                """
+                )
         except Exception as e:
             debug_print(f"❌ Error creando thumbnail: {e}")
+            # Mostrar mensaje de error
+            self.thumbnail_placeholder.setText("Error\ncreando\nthumbnail")
+            self.thumbnail_placeholder.setStyleSheet(
+                """
+                QLabel {
+                    border: 2px dashed #C05050;
+                    border-radius: 3px;
+                    background-color: #1a1a1a;
+                    color: #C05050;
+                    text-align: center;
+                    padding: 5px;
+                }
+            """
+            )
 
     def cleanup_thumbnail(self):
         """Limpia el archivo temporal del thumbnail"""
@@ -961,64 +1141,67 @@ class ShotGridManager:
             else:
                 debug_print("ADVERTENCIA: No se encontró el pipeline step 'Comp'")
 
-            # Crear la task "Comp" manualmente (igual que hace el template "Template_comp")
-            task_data = {
-                "content": "Comp",
-                "entity": {"type": "Shot", "id": new_shot["id"]},
-                "sg_status_list": "noread",  # Estado inicial que usa el template
-                "project": {"type": "Project", "id": project_id},
-            }
+            # Crear la task "Comp" manualmente solo si está habilitada
+            if shot_config.get("comp_enabled", True):
+                task_data = {
+                    "content": "Comp",
+                    "entity": {"type": "Shot", "id": new_shot["id"]},
+                    "sg_status_list": "noread",  # Estado inicial que usa el template
+                    "project": {"type": "Project", "id": project_id},
+                }
 
-            # Asignar pipeline step si se encontró
-            if comp_step_id:
-                task_data["step"] = {"type": "Step", "id": comp_step_id}
+                # Asignar pipeline step si se encontró
+                if comp_step_id:
+                    task_data["step"] = {"type": "Step", "id": comp_step_id}
 
-            # Aplicar configuración inicial a la task antes de crearla
-            if shot_config["task_ready"]:
-                task_data["sg_status_list"] = "ready"
+                # Aplicar configuración inicial a la task antes de crearla
+                if shot_config["task_ready"]:
+                    task_data["sg_status_list"] = "ready"
 
-            if shot_config["copy_to_comp"] and shot_config["description"]:
-                task_data["sg_description"] = shot_config["description"]
+                if shot_config["copy_to_comp"] and shot_config["description"]:
+                    task_data["sg_description"] = shot_config["description"]
 
-            # Agregar tiempo estimado si es mayor que 0
-            if shot_config.get("estimated_days", 0) > 0:
-                task_data["sg_estdias"] = shot_config["estimated_days"]
+                # Agregar tiempo estimado si es mayor que 0
+                if shot_config.get("estimated_days", 0) > 0:
+                    task_data["sg_estdias"] = shot_config["estimated_days"]
 
-            new_task = self.sg.create("Task", task_data)
-            debug_print(f"Task 'Comp' creada exitosamente (ID: {new_task['id']})")
+                new_task = self.sg.create("Task", task_data)
+                debug_print(f"Task 'Comp' creada exitosamente (ID: {new_task['id']})")
 
-            # Asignar reviewers seleccionados usando task_reviewers
-            selected_reviewer_ids = []
-            reviewer_names_to_assign = []
+                # Asignar reviewers seleccionados usando task_reviewers
+                selected_reviewer_ids = []
+                reviewer_names_to_assign = []
 
-            if shot_config["reviewers"]["lega_pugliese"]:
-                reviewer_names_to_assign.append("Lega Pugliese")
-            if shot_config["reviewers"]["sebas_romano"]:
-                reviewer_names_to_assign.append("Sebas Romano")
-            if shot_config["reviewers"]["javi_bravo"]:
-                reviewer_names_to_assign.append("Javi Bravo")
+                if shot_config["reviewers"]["lega_pugliese"]:
+                    reviewer_names_to_assign.append("Lega Pugliese")
+                if shot_config["reviewers"]["sebas_romano"]:
+                    reviewer_names_to_assign.append("Sebas Romano")
+                if shot_config["reviewers"]["javi_bravo"]:
+                    reviewer_names_to_assign.append("Javi Bravo")
 
-            # Buscar IDs de todos los reviewers seleccionados
-            for reviewer_name in reviewer_names_to_assign:
-                try:
-                    users = self.sg.find("HumanUser", [["name", "is", reviewer_name]], ["id", "name"])
-                    if users:
-                        selected_reviewer_ids.append({"type": "HumanUser", "id": users[0]["id"]})
-                        debug_print(f"Reviewer '{reviewer_name}' encontrado (ID: {users[0]['id']})")
-                    else:
-                        debug_print(f"Usuario '{reviewer_name}' no encontrado")
-                except Exception as e:
-                    debug_print(f"Error buscando reviewer '{reviewer_name}': {e}")
+                # Buscar IDs de todos los reviewers seleccionados
+                for reviewer_name in reviewer_names_to_assign:
+                    try:
+                        users = self.sg.find("HumanUser", [["name", "is", reviewer_name]], ["id", "name"])
+                        if users:
+                            selected_reviewer_ids.append({"type": "HumanUser", "id": users[0]["id"]})
+                            debug_print(f"Reviewer '{reviewer_name}' encontrado (ID: {users[0]['id']})")
+                        else:
+                            debug_print(f"Usuario '{reviewer_name}' no encontrado")
+                    except Exception as e:
+                        debug_print(f"Error buscando reviewer '{reviewer_name}': {e}")
 
-            # Asignar todos los reviewers a la task usando task_reviewers
-            if selected_reviewer_ids:
-                try:
-                    self.sg.update("Task", new_task["id"], {"task_reviewers": selected_reviewer_ids})
-                    debug_print(f"Asignados {len(selected_reviewer_ids)} reviewers a task Comp")
-                except Exception as e:
-                    debug_print(f"Error asignando reviewers a task: {e}")
+                # Asignar todos los reviewers a la task usando task_reviewers
+                if selected_reviewer_ids:
+                    try:
+                        self.sg.update("Task", new_task["id"], {"task_reviewers": selected_reviewer_ids})
+                        debug_print(f"Asignados {len(selected_reviewer_ids)} reviewers a task Comp")
+                    except Exception as e:
+                        debug_print(f"Error asignando reviewers a task: {e}")
+                else:
+                    debug_print("No se encontraron reviewers para asignar")
             else:
-                debug_print("No se encontraron reviewers para asignar")
+                debug_print("Task Comp deshabilitada por configuración del usuario")
 
             # Subir thumbnail si se proporciono
             if thumbnail_path:
