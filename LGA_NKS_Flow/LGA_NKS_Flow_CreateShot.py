@@ -1,9 +1,15 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_CreateShot v1.21 | Lega
+  LGA_NKS_Flow_CreateShot v1.24 | Lega
   Script para crear shots en ShotGrid basado en el nombre del clip seleccionado en Hiero
   SIN usar templates predefinidos - crea tasks manualmente para mayor control
+
+  v1.24: Mensajes diferenciados para shots existentes vs creados + pipeline step Comp
+
+  v1.23: Sistema de Logging Seguro para Hilos
+
+  v1.22: Agregado campo para tiempo estimado en días (sg_estdias)
 
   v1.21: Asigna reviewers a la task usando el campo task_reviewers
 
@@ -55,7 +61,7 @@ from LGA_NKS_Flow_NamingUtils import (
 )
 
 
-DEBUG = False  # IMPORTANTE!!!! NO ACTIVAR DEBUG PORQUE CRASHEA HIERO!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+DEBUG = True  # IMPORTANTE!!!! NO ACTIVAR DEBUG PORQUE CRASHEA HIERO!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 debug_messages = []
 
 
@@ -65,7 +71,6 @@ def debug_print(message):
         # Limitar mensajes de debug para evitar memory issues
         if len(debug_messages) < 100:  # Máximo 100 mensajes
             debug_messages.append(str(message))
-        print(f"[DEBUG] {message}")  # Imprimir inmediatamente tambien
 
 
 def print_debug_messages():
@@ -363,6 +368,34 @@ class ShotConfigDialog(QDialog):
         )
         layout.addWidget(self.sequence_line_edit)
 
+        # Campo de tiempo estimado en días
+        est_days_label = QLabel("Estimated Days (0-99.9):")
+        est_days_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 10px;")
+        layout.addWidget(est_days_label)
+
+        self.estimated_days_line_edit = QLineEdit()
+        self.estimated_days_line_edit.setText("0")
+        self.estimated_days_line_edit.setMaxLength(5)  # Permitir decimales (ej: 12.5)
+        self.estimated_days_line_edit.setFixedWidth(80)  # Ancho mayor para decimales
+        self.estimated_days_line_edit.setStyleSheet(
+            """
+            QLineEdit {
+                background-color: #2B2B2B;
+                border: 1px solid #555555;
+                color: #CCCCCC;
+                padding: 5px;
+                border-radius: 3px;
+                height: 20px;
+            }
+        """
+        )
+        # Validación para números decimales
+        from PySide2.QtGui import QDoubleValidator
+        validator = QDoubleValidator(0.0, 99.9, 1)  # Mínimo 0, máximo 99.9, 1 decimal
+        validator.setNotation(QDoubleValidator.StandardNotation)
+        self.estimated_days_line_edit.setValidator(validator)
+        layout.addWidget(self.estimated_days_line_edit)
+
         # Checkboxes
         self.copy_to_comp_cb = QCheckBox("Copy shot description to Comp Description")
         self.copy_to_comp_cb.setChecked(True)  # Activado por defecto
@@ -476,12 +509,19 @@ class ShotConfigDialog(QDialog):
 
     def accept_config(self):
         """Acepta la configuracion y guarda los valores"""
+        # Obtener el valor de días estimados, convertir a float, usar 0 si está vacío
+        try:
+            estimated_days = float(self.estimated_days_line_edit.text().strip()) if self.estimated_days_line_edit.text().strip() else 0.0
+        except ValueError:
+            estimated_days = 0.0
+
         self.shot_config = {
             "description": self.description_text.toPlainText(),
             "sequence_name": self.sequence_line_edit.text().strip(),
             "copy_to_comp": self.copy_to_comp_cb.isChecked(),
             "shot_ready": self.shot_ready_cb.isChecked(),
             "task_ready": self.task_ready_cb.isChecked(),
+            "estimated_days": estimated_days,
             "reviewers": {
                 "lega_pugliese": self.reviewer_lega_cb.isChecked(),
                 "sebas_romano": self.reviewer_sebas_cb.isChecked(),
@@ -758,10 +798,11 @@ class ShotGridManager:
     def find_shot_and_tasks(
         self, project_name, shot_code, shot_config, thumbnail_path=None
     ):
-        """Encuentra el shot en ShotGrid y sus tareas asociadas. Si no existe, lo crea."""
+        """Encuentra el shot en ShotGrid y sus tareas asociadas. Si no existe, lo crea.
+        Retorna: (shot, tasks, was_created) donde was_created es True si se creó nuevo."""
         if not self.sg:
             debug_print("Conexion a ShotGrid no esta inicializada")
-            return None, None
+            return None, None, False
 
         projects = self.sg.find(
             "Project", [["name", "is", project_name]], ["id", "name"]
@@ -785,7 +826,7 @@ class ShotGridManager:
                 )
 
                 tasks = self.find_tasks_for_shot(shot_id, shot_config)
-                return shots[0], tasks
+                return shots[0], tasks, False  # False = no fue creado, ya existía
             else:
                 debug_print("No se encontro el shot. Creando shot...")
                 created_shot = self.create_shot(
@@ -793,11 +834,11 @@ class ShotGridManager:
                 )
                 if created_shot:
                     tasks = self.find_tasks_for_shot(created_shot["id"], shot_config)
-                    return created_shot, tasks
-                return None, None
+                    return created_shot, tasks, True  # True = fue creado
+                return None, None, False
         else:
             debug_print("No se encontro el proyecto en ShotGrid.")
-        return None, None
+        return None, None, False
 
     def find_tasks_for_shot(self, shot_id, shot_config):
         """Encuentra las tareas asociadas a un shot."""
@@ -896,6 +937,18 @@ class ShotGridManager:
                 f"Shot creado exitosamente: {new_shot['code']} (ID: {new_shot['id']})"
             )
 
+            # Buscar el pipeline step "Comp" (Steps son entidades globales, no asociadas a proyectos)
+            comp_step_filters = [
+                ["code", "is", "Comp"],
+            ]
+            comp_steps = self.sg.find("Step", comp_step_filters, ["id", "code"])
+            comp_step_id = None
+            if comp_steps:
+                comp_step_id = comp_steps[0]["id"]
+                debug_print(f"Pipeline step 'Comp' encontrado (ID: {comp_step_id})")
+            else:
+                debug_print("ADVERTENCIA: No se encontró el pipeline step 'Comp'")
+
             # Crear la task "Comp" manualmente (igual que hace el template "Template_comp")
             task_data = {
                 "content": "Comp",
@@ -904,12 +957,20 @@ class ShotGridManager:
                 "project": {"type": "Project", "id": project_id},
             }
 
+            # Asignar pipeline step si se encontró
+            if comp_step_id:
+                task_data["step"] = {"type": "Step", "id": comp_step_id}
+
             # Aplicar configuración inicial a la task antes de crearla
             if shot_config["task_ready"]:
                 task_data["sg_status_list"] = "ready"
 
             if shot_config["copy_to_comp"] and shot_config["description"]:
                 task_data["sg_description"] = shot_config["description"]
+
+            # Agregar tiempo estimado si es mayor que 0
+            if shot_config.get("estimated_days", 0) > 0:
+                task_data["sg_estdias"] = shot_config["estimated_days"]
 
             new_task = self.sg.create("Task", task_data)
             debug_print(f"Task 'Comp' creada exitosamente (ID: {new_task['id']})")
@@ -1021,7 +1082,7 @@ class HieroOperations:
 
         results = []
         for clip_info in clips_info:
-            shot, tasks = self.sg_manager.find_shot_and_tasks(
+            shot, tasks, _ = self.sg_manager.find_shot_and_tasks(
                 clip_info["project_name"],
                 clip_info["shot_code"],
                 shot_config,
@@ -1066,6 +1127,7 @@ class WorkerSignals(QObject):
     step_update = Signal(str)  # step message
     finished = Signal(bool, str)  # success, message
     error = Signal(str)
+    debug_output = Signal()  # Señal para imprimir logs al final
 
 
 class CreateShotWorker(QRunnable):
@@ -1085,6 +1147,7 @@ class CreateShotWorker(QRunnable):
             self.signals.step_update.emit("Obteniendo credenciales...")
             sg_url, sg_login, sg_password = get_flow_credentials_secure()
             if not all([sg_url, sg_login, sg_password]):
+                self.signals.debug_output.emit()
                 self.signals.error.emit(
                     "No se pudieron obtener las credenciales de Flow desde SecureConfig."
                 )
@@ -1094,6 +1157,7 @@ class CreateShotWorker(QRunnable):
             self.signals.step_update.emit("Conectando a ShotGrid...")
             sg_manager = ShotGridManager(sg_url, sg_login, sg_password)
             if not sg_manager.sg:
+                self.signals.debug_output.emit()
                 self.signals.error.emit(
                     "No se pudo inicializar la conexión a ShotGrid."
                 )
@@ -1106,6 +1170,7 @@ class CreateShotWorker(QRunnable):
             # Obtener informacion de clips
             clips_info = hiero_ops.get_selected_clips_info()
             if not clips_info:
+                self.signals.debug_output.emit()
                 self.signals.error.emit(
                     "No se encontraron clips seleccionados en Hiero."
                 )
@@ -1126,18 +1191,33 @@ class CreateShotWorker(QRunnable):
                 )
 
                 # Procesar shot
-                shot, tasks = sg_manager.find_shot_and_tasks(
+                shot, tasks, was_created = sg_manager.find_shot_and_tasks(
                     clip_info["project_name"],
                     clip_info["shot_code"],
                     self.shot_config,
                     self.thumbnail_path,
                 )
 
-                if shot:
+                if shot and was_created:
+                    # Shot creado exitosamente
                     success_count += 1
-                    debug_print(f"Shot procesado exitosamente: {shot['code']}")
+                    debug_print(f"Shot creado exitosamente: {shot['code']}")
+                elif shot and not was_created:
+                    # Shot ya existía
+                    debug_print(f"Shot ya existe: {clip_info['shot_code']}")
+                    self.signals.step_update.emit(
+                        f"ERROR: Shot '{clip_info['shot_code']}' ya existe en ShotGrid"
+                    )
+                    # No incrementar success_count, será tratado como error
                 else:
+                    # Error al procesar shot
                     debug_print(f"Error procesando shot: {clip_info['shot_code']}")
+                    self.signals.step_update.emit(
+                        f"ERROR: No se pudo procesar el shot '{clip_info['shot_code']}'"
+                    )
+
+            # Emitir señal para imprimir logs al final
+            self.signals.debug_output.emit()
 
             # Mensaje final
             if success_count == total_clips:
@@ -1155,6 +1235,8 @@ class CreateShotWorker(QRunnable):
 
         except Exception as e:
             debug_print(f"Error en CreateShotWorker: {e}")
+            # Emitir señal para imprimir logs al final
+            self.signals.debug_output.emit()
             self.signals.error.emit(f"Error: {str(e)}")
 
 
@@ -1263,6 +1345,7 @@ def create_shots_from_selected_clips():
             cleanup_thumbnail_file(thumbnail_path),
         )
     )
+    worker.signals.debug_output.connect(lambda: print_debug_messages())
 
     # Ejecutar en hilo separado
     QThreadPool.globalInstance().start(worker)

@@ -1,4 +1,4 @@
-# LGA_NKS_Flow_CreateShot v1.2
+# LGA_NKS_Flow_CreateShot v1.24
 
 ## Descripción General
 
@@ -90,6 +90,7 @@ LGA_NKS_Flow_CreateShot.py
 **Campos disponibles:**
 - **Shot Description:** Descripción del shot
 - **Sequence:** Nombre de la secuencia
+- **Estimated Days:** Tiempo estimado en días para la task Comp (0-99.9, opcional)
 - **Opciones:**
   - ☑️ Copy shot description to Comp Description
   - ☑️ Shot status Ready to start
@@ -140,10 +141,16 @@ Para cada clip seleccionado:
 ### Entidad Task
 - `content`: Nombre de la task ("Comp")
 - `entity`: Shot padre
+- `step`: Pipeline step (asignado automáticamente a "Comp")
 - `sg_status_list`: Estado de la task
 - `sg_description`: Descripción (opcional)
+- `sg_estdias`: Tiempo estimado en días (opcional, solo si > 0)
 - `task_reviewers`: Lista de usuarios asignados como reviewers
 - `project`: Proyecto
+
+### Entidad Step (Pipeline Steps)
+- `code`: Código del step (ej: "Comp", "Animation", "Lighting")
+- **Nota:** Los pipeline steps son entidades globales en ShotGrid y no están asociados a proyectos específicos
 
 ## Sistema de Logging
 
@@ -152,9 +159,16 @@ Para cada clip seleccionado:
 DEBUG = False  # Cambiar a True para debug detallado
 ```
 
+### Sistema de Logging Seguro para Hilos
+El script utiliza un sistema de logging seguro para entornos multi-hilo que evita conflictos con la GUI de Hiero:
+
+- **Acumulación en memoria:** Los mensajes de debug se acumulan en una lista durante el procesamiento en hilos separados
+- **Impresión diferida:** Los logs se imprimen solo al finalizar la operación, evitando crashes por acceso concurrente a la consola
+- **Señales seguras:** Utiliza señales Qt para coordinar la impresión de logs entre hilos
+
 ### Niveles de Log
 - **INFO:** Operaciones normales
-- **DEBUG:** Detalles técnicos (solo con DEBUG=True)
+- **DEBUG:** Detalles técnicos (solo con DEBUG=True, se imprime al final)
 - **ERROR:** Errores críticos
 
 ## Compatibilidad
@@ -199,7 +213,27 @@ DEBUG = False  # Cambiar a True para debug detallado
 
 ## Historial de Versiones
 
-### v1.2 - Creación sin Templates (Actual)
+### v1.24 - Mensajes Diferenciados para Shots (Actual)
+- ✅ Shots existentes muestran mensaje de error en rojo
+- ✅ Solo shots recién creados cuentan como éxito
+- ✅ Mejor feedback visual para el usuario
+- ✅ Lógica clara: crear = verde, existente = rojo
+- ✅ Task Comp asignada automáticamente al pipeline step "Comp"
+
+### v1.23 - Sistema de Logging Seguro para Hilos
+- ✅ Sistema de logging multi-hilo seguro
+- ✅ Impresión diferida de debug logs para evitar crashes
+- ✅ Señalización Qt para coordinación entre hilos
+- ✅ Compatible con procesamiento en background
+
+### v1.22 - Campo de Tiempo Estimado
+- ✅ Agregado campo numérico para tiempo estimado en días (0-99.9)
+- ✅ Soporte para valores decimales (ej: 12.5)
+- ✅ Campo sg_estdias solo se envía si el valor es mayor que 0
+- ✅ Validación de entrada con decimales
+
+### v1.21 - Asignación de Reviewers
+- ✅ Asigna reviewers a la task usando el campo task_reviewers
 - ✅ Eliminada dependencia de templates
 - ✅ Creación manual de tasks
 - ✅ Asignación automática de reviewers
