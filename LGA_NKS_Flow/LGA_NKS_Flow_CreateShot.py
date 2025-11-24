@@ -1,9 +1,12 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_CreateShot v1.28 | Lega
+  LGA_NKS_Flow_CreateShot v1.29 | Lega
   Script para crear shots en ShotGrid basado en el nombre del clip seleccionado en Hiero
   SIN usar templates predefinidos - crea tasks manualmente para mayor control
+
+  v1.29: UI compacta - Tasks deshabilitadas ocupan 1 línea sin campos ni divisores
+         Checkbox a la izquierda del nombre, columnas aparecen solo cuando se habilita
 
   v1.28: Todas las tasks del pipeline agregadas con colores específicos
          Comp, Roto, Cleanup, DMP, Model, Retopo, Rigging, Shaders,
@@ -603,8 +606,11 @@ class ShotConfigDialog(QDialog):
             task_separator.setStyleSheet("color: #444444;")
             layout.addWidget(task_separator)
             
+            # Espaciado pequeño y consistente después del separador
+            layout.addSpacing(1)
+            
             # Crear fila de task
-            task_layout = self.create_task_row(task_config)
+            task_layout = self.create_task_row(task_config, task_separator)
             layout.addLayout(task_layout)
 
         # Thumbnail del shot (solo si hay un clip seleccionado)
@@ -674,12 +680,13 @@ class ShotConfigDialog(QDialog):
         """
         )
 
-    def create_task_row(self, task_config):
+    def create_task_row(self, task_config, task_separator):
         """
         Crea una fila de UI para una task de forma dinámica.
         
         Args:
             task_config (dict): Configuración de la task con keys: name, pipeline_step, enabled_by_default, color
+            task_separator (QFrame): Separador asociado a esta task (para ocultarlo cuando está deshabilitada)
             
         Returns:
             QHBoxLayout: Layout con todos los widgets de la task
@@ -690,20 +697,28 @@ class ShotConfigDialog(QDialog):
         
         # Inicializar diccionario para esta task
         self.task_widgets[task_name] = {}
+        self.task_widgets[task_name]["separator"] = task_separator
         
         # Layout principal de 5 columnas
         task_layout = QHBoxLayout()
 
-        # ===== Columna 1: Nombre de Task y Checkbox Enable =====
-        name_layout = QVBoxLayout()
-        name_label = QLabel(task_name.upper())
-        name_label.setStyleSheet(f"color: {task_color}; font-weight: bold; padding-top: 15px; font-size: 12px;")
-        name_layout.addWidget(name_label)
-
+        # ===== Columna 1: Checkbox Enable y Nombre de Task =====
+        name_layout = QHBoxLayout()  # Cambiado a horizontal
+        name_layout.setSpacing(1)  # Espacio pequeño entre checkbox y nombre
+        name_layout.setContentsMargins(0, 0, 0, 0)  # Sin márgenes adicionales
+        
         enabled_cb = QCheckBox("")  # Checkbox sin texto
         enabled_cb.setChecked(enabled_by_default)
-        enabled_cb.setStyleSheet("color: #a7a7a7; padding: 5px;")
+        enabled_cb.setStyleSheet("color: #a7a7a7; padding: 2px;")
         name_layout.addWidget(enabled_cb)
+        
+        name_label = QLabel(task_name.upper())
+        name_label.setStyleSheet(f"color: {task_color}; font-weight: bold; padding-top: 0px; font-size: 12px;")
+        name_layout.addWidget(name_label)
+        
+        # Espaciador para empujar todo a la izquierda
+        name_layout.addStretch()
+        
         task_layout.addLayout(name_layout, 1)
         
         self.task_widgets[task_name]["enabled"] = enabled_cb
@@ -712,9 +727,12 @@ class ShotConfigDialog(QDialog):
         task_layout.addSpacing(30)
 
         # ===== Columna 2: Est. Days =====
-        est_days_layout = QVBoxLayout()
+        est_days_widget = QFrame()  # Widget contenedor para poder ocultarlo
+        est_days_widget.setFrameShape(QFrame.NoFrame)  # Sin borde visible
+        est_days_layout = QVBoxLayout(est_days_widget)
+        est_days_layout.setContentsMargins(0, 0, 0, 0)  # Sin márgenes adicionales
         est_days_label = QLabel("Est. Days")
-        est_days_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 15px;")
+        est_days_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 3px;")
         est_days_layout.addWidget(est_days_label)
 
         estimated_days_edit = QLineEdit()
@@ -727,7 +745,7 @@ class ShotConfigDialog(QDialog):
                 background-color: #272727;
                 border: 1px solid #333333;
                 color: #a7a7a7;
-                padding: 5px;
+                padding: 2px 5px;
                 border-radius: 3px;
                 height: 20px;
             }
@@ -740,54 +758,66 @@ class ShotConfigDialog(QDialog):
         estimated_days_edit.setValidator(validator)
         
         est_days_layout.addWidget(estimated_days_edit)
-        task_layout.addLayout(est_days_layout, 1)
+        task_layout.addWidget(est_days_widget, 1)
         
         self.task_widgets[task_name]["estimated_days"] = estimated_days_edit
         self.task_widgets[task_name]["est_days_label"] = est_days_label
+        self.task_widgets[task_name]["est_days_widget"] = est_days_widget
 
         # Espacio entre columnas
         task_layout.addSpacing(30)
 
         # ===== Columna 3: Status =====
-        status_layout = QVBoxLayout()
+        status_widget = QFrame()  # Widget contenedor para poder ocultarlo
+        status_widget.setFrameShape(QFrame.NoFrame)  # Sin borde visible
+        status_layout = QVBoxLayout(status_widget)
+        status_layout.setContentsMargins(0, 0, 0, 0)  # Sin márgenes adicionales
         status_label = QLabel("Status")
-        status_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 5px;")
+        status_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 0px;")
         status_layout.addWidget(status_label)
 
         task_ready_cb = QCheckBox("Ready to start")
         task_ready_cb.setChecked(True)  # Activado por defecto
         task_ready_cb.setStyleSheet("color: #a7a7a7; padding: 5px;")
         status_layout.addWidget(task_ready_cb)
-        task_layout.addLayout(status_layout, 1)
+        task_layout.addWidget(status_widget, 1)
         
         self.task_widgets[task_name]["task_ready"] = task_ready_cb
         self.task_widgets[task_name]["status_label"] = status_label
+        self.task_widgets[task_name]["status_widget"] = status_widget
 
         # Espacio entre columnas
         task_layout.addSpacing(30)
 
         # ===== Columna 4: Description =====
-        desc_layout = QVBoxLayout()
+        desc_widget = QFrame()  # Widget contenedor para poder ocultarlo
+        desc_widget.setFrameShape(QFrame.NoFrame)  # Sin borde visible
+        desc_layout = QVBoxLayout(desc_widget)
+        desc_layout.setContentsMargins(0, 0, 0, 0)  # Sin márgenes adicionales
         desc_label = QLabel("Description")
-        desc_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 5px;")
+        desc_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 0px;")
         desc_layout.addWidget(desc_label)
 
         copy_description_cb = QCheckBox("copy from shot")
         copy_description_cb.setChecked(True)  # Activado por defecto
         copy_description_cb.setStyleSheet("color: #a7a7a7; padding: 5px;")
         desc_layout.addWidget(copy_description_cb)
-        task_layout.addLayout(desc_layout, 1)
+        task_layout.addWidget(desc_widget, 1)
         
         self.task_widgets[task_name]["copy_description"] = copy_description_cb
         self.task_widgets[task_name]["desc_label"] = desc_label
+        self.task_widgets[task_name]["desc_widget"] = desc_widget
 
         # Espacio entre columnas
         task_layout.addSpacing(30)
 
         # ===== Columna 5: Reviewers (más ancha) =====
-        reviewers_layout = QVBoxLayout()
+        reviewers_widget = QFrame()  # Widget contenedor para poder ocultarlo
+        reviewers_widget.setFrameShape(QFrame.NoFrame)  # Sin borde visible
+        reviewers_layout = QVBoxLayout(reviewers_widget)
+        reviewers_layout.setContentsMargins(0, 0, 0, 0)  # Sin márgenes adicionales
         reviewers_label = QLabel("Reviewers")
-        reviewers_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 5px;")
+        reviewers_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 0px;")
         reviewers_layout.addWidget(reviewers_label)
 
         # Reviewers checkboxes en línea horizontal
@@ -809,12 +839,13 @@ class ShotConfigDialog(QDialog):
         reviewers_checkboxes_layout.addWidget(reviewer_javi_cb)
 
         reviewers_layout.addLayout(reviewers_checkboxes_layout)
-        task_layout.addLayout(reviewers_layout, 2)  # Stretch factor 2 para hacerla más ancha
+        task_layout.addWidget(reviewers_widget, 2)  # Stretch factor 2 para hacerla más ancha
         
         self.task_widgets[task_name]["reviewer_lega"] = reviewer_lega_cb
         self.task_widgets[task_name]["reviewer_sebas"] = reviewer_sebas_cb
         self.task_widgets[task_name]["reviewer_javi"] = reviewer_javi_cb
         self.task_widgets[task_name]["reviewers_label"] = reviewers_label
+        self.task_widgets[task_name]["reviewers_widget"] = reviewers_widget
 
         # ===== Conectar checkbox de enable para habilitar/deshabilitar campos =====
         enabled_cb.toggled.connect(
@@ -828,7 +859,7 @@ class ShotConfigDialog(QDialog):
 
     def toggle_task_fields(self, task_name, enabled):
         """
-        Habilita o deshabilita los campos de una task según el estado del checkbox.
+        Muestra u oculta las columnas de configuración de una task según el estado del checkbox.
         
         Args:
             task_name (str): Nombre de la task
@@ -836,30 +867,33 @@ class ShotConfigDialog(QDialog):
         """
         widgets = self.task_widgets.get(task_name, {})
         
-        # Lista de widgets a habilitar/deshabilitar (excluyendo el checkbox de enable)
-        fields_to_toggle = [
-            "estimated_days", "est_days_label",
-            "task_ready", "status_label",
-            "copy_description", "desc_label",
-            "reviewer_lega", "reviewer_sebas", "reviewer_javi", "reviewers_label"
+        # Ocultar/mostrar los widgets contenedores de las columnas (2-5)
+        column_widgets = [
+            "est_days_widget",
+            "status_widget",
+            "desc_widget",
+            "reviewers_widget"
         ]
         
-        for field_key in fields_to_toggle:
-            widget = widgets.get(field_key)
+        for widget_key in column_widgets:
+            widget = widgets.get(widget_key)
             if widget:
-                widget.setEnabled(enabled)
-                
-                # Cambiar color del label según estado
-                if "label" in field_key:
-                    if enabled:
-                        widget.setStyleSheet(widget.styleSheet().replace("color: #666666", "color: #CCCCCC"))
-                        if "color: #CCCCCC" not in widget.styleSheet():
-                            # Si no estaba deshabilitado antes, agregar el color normal
-                            style = widget.styleSheet()
-                            if "color:" not in style:
-                                widget.setStyleSheet(style + " color: #CCCCCC;")
-                    else:
-                        widget.setStyleSheet(widget.styleSheet().replace("color: #CCCCCC", "color: #666666"))
+                widget.setVisible(enabled)
+        
+        # Mostrar/ocultar el separador
+        separator = widgets.get("separator")
+        if separator:
+            separator.setVisible(enabled)
+        
+        # Ajustar el tamaño de la ventana para acomodar el cambio
+        # Esperar un frame para que Qt actualice el layout
+        from PySide2.QtCore import QTimer
+        QTimer.singleShot(0, self.adjust_window_size)
+    
+    def adjust_window_size(self):
+        """Ajusta el tamaño de la ventana según el contenido visible"""
+        self.adjustSize()
+        self.updateGeometry()
 
     def accept_config(self):
         """Acepta la configuracion y guarda los valores"""

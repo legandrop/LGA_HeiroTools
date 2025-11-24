@@ -1,4 +1,4 @@
-# LGA_NKS_Flow_CreateShot v1.28
+# LGA_NKS_Flow_CreateShot v1.29.1
 
 ## Descripción General
 
@@ -10,14 +10,25 @@ Script para crear shots en ShotGrid/Flow Production Tracking basado en clips sel
 
 **Cambio importante en v1.28:** Todas las tasks del pipeline agregadas con sus colores específicos.
 
+**Cambio importante en v1.29:** UI compacta - Tasks deshabilitadas ocupan solo 1 línea sin mostrar campos ni divisores.
+
+**Cambio en v1.29.1:** Restaurados tamaños de fuente y padding originales. Ventana se ajusta automáticamente al habilitar/deshabilitar tasks.
+
 ## Funcionalidades
 
-### ✅ Sistema Modular de Tasks (NUEVO v1.27)
+### ✅ UI Compacta y Eficiente (NUEVO v1.29)
+- **Tasks deshabilitadas ocupan 1 línea:** Checkbox + nombre solamente
+- **Sin divisores ni campos cuando está deshabilitada:** Máxima optimización de espacio vertical
+- **Expansión dinámica:** Al habilitar una task, aparecen todas sus columnas y el divisor
+- **Checkbox a la izquierda:** Diseño más intuitivo y compacto
+- **12 tasks caben en pantalla:** Gracias al diseño compacto
+
+### ✅ Sistema Modular de Tasks (v1.27)
 - Código completamente refactorizado para ser DRY (Don't Repeat Yourself)
 - Agregar nuevas tasks es tan simple como agregar una línea a `AVAILABLE_TASKS`
 - UI generada dinámicamente desde configuración
 - Creación de tasks en ShotGrid completamente genérica
-- Enable/disable dinámico de campos según checkbox de cada task
+- Show/hide dinámico de columnas según checkbox de cada task
 
 ### ✅ Tasks Disponibles (v1.28)
 
@@ -170,16 +181,20 @@ AVAILABLE_TASKS = [
 
 ### Funciones Clave (Refactorizadas v1.27)
 
-#### `create_task_row(task_config)` ⭐ NUEVO
-- Genera dinámicamente una fila completa de UI para una task
-- Crea todos los widgets (enable, est. days, status, description, reviewers)
-- Conecta señales para enable/disable dinámico
+#### `create_task_row(task_config)` ⭐ REFACTORIZADO v1.29
+- Genera dinámicamente UI compacta para una task
+- **Estructura de 2 niveles:**
+  1. Línea header: checkbox + nombre (siempre visible)
+  2. Widget columns: todas las columnas (visible solo si habilitada)
+- Retorna diccionario con `separator` y `main_layout`
+- Checkbox a la izquierda del nombre
 - Totalmente genérico y reutilizable
 
-#### `toggle_task_fields(task_name, enabled)` ⭐ NUEVO
-- Habilita/deshabilita campos de una task según su checkbox
-- Cambia colores de labels (gris cuando deshabilitado)
-- Manejo centralizado del estado de UI
+#### `toggle_task_fields(task_name, enabled)` ⭐ SIMPLIFICADO v1.29
+- **Muestra/oculta** el widget de columnas completo (no solo deshabilita)
+- **Muestra/oculta** el separador
+- Diseño compacto: tasks deshabilitadas ocupan 1 línea
+- Código ultra-simple: solo 2 llamadas a `setVisible()`
 
 #### `create_task_for_shot(...)` ⭐ NUEVO
 - Crea una task para un shot de forma completamente genérica
@@ -215,42 +230,59 @@ Cada task tiene su propia fila con:
   - ☑️ Sebas
   - ☑️ Javi
 
-**Comportamiento:**
-- **Comp:** Habilitada por defecto, todos los campos activos
-- **Roto:** Deshabilitada por defecto, campos en gris hasta activar checkbox
-- Cuando se deshabilita una task, todos sus campos se ponen en gris
-- Cuando se habilita, todos los campos se activan
+**Comportamiento (v1.29 - Diseño Compacto):**
+- **Task DESHABILITADA (☐):**
+  - Solo muestra: `☐ [NOMBRE TASK]` en 1 línea
+  - No muestra separador
+  - No muestra columnas de configuración
+  - Ocupa espacio mínimo
+  
+- **Task HABILITADA (☑):**
+  - Muestra separador
+  - Muestra: `☑ [NOMBRE TASK]`
+  - Muestra todas las columnas: Est. Days, Status, Description, Reviewers
+  - Ocupa ~3 líneas
+
+- **Comp:** Habilitada por defecto (muestra columnas)
+- **Todas las demás:** Deshabilitadas por defecto (solo 1 línea cada una)
 
 **Shot Description:** Campo de texto para descripción general del shot
 
-#### Ejemplo Visual de la UI (v1.28)
+#### Ejemplo Visual de la UI (v1.29) - Diseño Compacto
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        Flow | Shot Creation                                  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  Configuración del Shot (3 columnas):                                        │
-│  [Thumbnail]  [Description]  │  [Sequence]  │  [Status + Priority]          │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  🔵 COMP ☑        │ Days [2] │ ☑ Ready │ ☑ copy │ ☑Lega ☑Sebas ☑Javi        │
-│  (HABILITADA por defecto - campos activos)                                  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  🔵 ROTO ☐        │ Days [0] │ ☐ Ready │ ☐ copy │ ☐Lega ☐Sebas ☐Javi        │
-│  🔵 CLEANUP ☐     │ Days [0] │ ☐ Ready │ ☐ copy │ ☐Lega ☐Sebas ☐Javi        │
-│  🟡 DMP ☐         │ Days [0] │ ☐ Ready │ ☐ copy │ ☐Lega ☐Sebas ☐Javi        │
-│  🟠 MODEL ☐       │ Days [0] │ ☐ Ready │ ☐ copy │ ☐Lega ☐Sebas ☐Javi        │
-│  🟠 RETOPO ☐      │ Days [0] │ ☐ Ready │ ☐ copy │ ☐Lega ☐Sebas ☐Javi        │
-│  🟢 RIGGING ☐     │ Days [0] │ ☐ Ready │ ☐ copy │ ☐Lega ☐Sebas ☐Javi        │
-│  🟢 SHADERS ☐     │ Days [0] │ ☐ Ready │ ☐ copy │ ☐Lega ☐Sebas ☐Javi        │
-│  🟣 MATCH MOVE ☐  │ Days [0] │ ☐ Ready │ ☐ copy │ ☐Lega ☐Sebas ☐Javi        │
-│  🟠 ANIMATION ☐   │ Days [0] │ ☐ Ready │ ☐ copy │ ☐Lega ☐Sebas ☐Javi        │
-│  🟣 FX ☐          │ Days [0] │ ☐ Ready │ ☐ copy │ ☐Lega ☐Sebas ☐Javi        │
-│  🟢 LIGHTING ☐    │ Days [0] │ ☐ Ready │ ☐ copy │ ☐Lega ☐Sebas ☐Javi        │
-│  (DESHABILITADAS por defecto - campos en gris hasta activar checkbox)       │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                        Flow | Shot Creation                                   │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  Configuración del Shot (3 columnas):                                         │
+│  [Thumbnail]  [Description]  │  [Sequence]  │  [Status + Priority]           │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  ☑ 🔵 COMP                                                                    │
+│      Est.Days [2] │ Status ☑Ready │ Desc ☑copy │ Rev: ☑Lega ☑Sebas ☑Javi    │
+│  (HABILITADA - muestra separador + todas las columnas)                       │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  ☐ 🔵 ROTO                                                                    │
+│  ☐ 🔵 CLEANUP                                                                 │
+│  ☐ 🟡 DMP                                                                     │
+│  ☐ 🟠 MODEL                                                                   │
+│  ☐ 🟠 RETOPO                                                                  │
+│  ☐ 🟢 RIGGING                                                                 │
+│  ☐ 🟢 SHADERS                                                                 │
+│  ☐ 🟣 MATCH MOVE                                                              │
+│  ☐ 🟠 ANIMATION                                                               │
+│  ☐ 🟣 FX                                                                      │
+│  ☐ 🟢 LIGHTING                                                                │
+│  (DESHABILITADAS - solo checkbox + nombre, sin separador ni columnas)        │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Nota:** Los colores en el nombre de cada task coinciden con los colores de pipeline steps en ShotGrid.
+**Ventajas del Diseño Compacto (v1.29):**
+- ✅ Tasks deshabilitadas ocupan **1 línea** cada una
+- ✅ Sin separadores cuando está deshabilitada = más espacio
+- ✅ Sin columnas visibles cuando está deshabilitada = UI limpia
+- ✅ Las 12 tasks caben en pantalla sin scroll
+- ✅ Checkbox a la izquierda = más intuitivo
+- ✅ Colores de pipeline steps visibles siempre
 
 ### Estados de Task
 
@@ -368,7 +400,28 @@ El script utiliza un sistema de logging seguro para entornos multi-hilo que evit
 
 ## Historial de Versiones
 
-### v1.28 - Pipeline Completo con Colores (Actual) ⭐
+### v1.29.1 - Fixes y Ajustes (Actual) ⭐⭐
+- ✅ **Restaurados tamaños de fuente originales:**
+  - Nombres de tasks: 12px (no 11px)
+  - Labels de columnas: tamaños originales
+  - Padding restaurado: 5px para checkboxes, 15px para labels
+- ✅ **Ventana se ajusta automáticamente:**
+  - Método `adjust_window_size()` agregado
+  - QTimer para ajuste después de actualización de layout
+  - Altura mínima removida para permitir crecimiento dinámico
+- ✅ **Fix:** Campos de entrada de días: 80px width (no 70px)
+
+### v1.29 - UI Compacta ⭐⭐
+- ✅ **Diseño compacto extremadamente eficiente:**
+  - Tasks deshabilitadas: solo checkbox + nombre (1 línea)
+  - Tasks habilitadas: checkbox + nombre + todas las columnas + separador
+- ✅ **Checkbox movido a la izquierda** del nombre (más intuitivo)
+- ✅ **Hide/show dinámico:** Columnas y separadores aparecen solo cuando se habilita la task
+- ✅ **Optimización de espacio:** Las 12 tasks caben en pantalla sin scroll
+- ✅ **UI limpia:** Sin campos deshabilitados visualmente "grises"
+- ✅ **Método `toggle_task_fields()` simplificado:** Solo show/hide de widgets
+
+### v1.28 - Pipeline Completo con Colores ⭐
 - ✅ **12 tasks del pipeline agregadas:** Comp, Roto, Cleanup, DMP, Model, Retopo, Rigging, Shaders, Match Move, Animation, FX, Lighting
 - ✅ **Colores específicos por task:** Cada task muestra su color de pipeline step en la UI
 - ✅ **Sistema de colores implementado:** 
@@ -485,7 +538,7 @@ Asegúrate de que el pipeline step existe en ShotGrid con el mismo código (`cod
 
 ## Conclusión
 
-**v1.28** completa el pipeline con todas las tasks disponibles y sus colores específicos:
+**v1.29** optimiza radicalmente el espacio vertical con un diseño compacto inteligente:
 
 ### Evolución del Script
 
@@ -503,12 +556,21 @@ Asegúrate de que el pipeline step existe en ShotGrid con el mismo código (`cod
 - **Todo el comportamiento es automático**
 - 2 tasks: Comp, Roto
 
-#### v1.28 ⭐⭐ (Actual)
+#### v1.28 ⭐⭐
 - **12 tasks del pipeline completo**
 - **Sistema de colores implementado**
 - **Orden y colores respetan ShotGrid exactamente**
-- **Listo para producción con cualquier tipo de shot**
 - Tasks: Comp, Roto, Cleanup, DMP, Model, Retopo, Rigging, Shaders, Match Move, Animation, FX, Lighting
+- Problema: Tasks deshabilitadas ocupaban mucho espacio vertical
+
+#### v1.29 ⭐⭐⭐ (Actual)
+- **UI compacta extremadamente eficiente**
+- **Tasks deshabilitadas: 1 línea** (checkbox + nombre)
+- **Tasks habilitadas: múltiples líneas** (checkbox + nombre + columnas + separador)
+- **Las 12 tasks caben en pantalla** sin necesidad de scroll
+- **Checkbox a la izquierda** del nombre (más intuitivo)
+- **Hide/show dinámico** de columnas y separadores
+- **Listo para producción** con interfaz optimizada
 
 ### Ventajas del Sistema Actual
 
