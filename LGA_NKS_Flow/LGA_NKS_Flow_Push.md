@@ -18,6 +18,7 @@ Su propósito principal es mantener sincronizada la información entre ShotGrid 
 *   **Notas para Versiones:** En ciertos estados específicos, abre un diálogo para introducir comentarios que se envían a ShotGrid con adjuntos visuales.
 *   **Integración con ReviewPic:** El diálogo incluye thumbnails de imágenes capturadas, adjuntándolas automáticamente a las notas en ShotGrid.
 *   **Procesamiento de Múltiples Clips:** La función `push_from_selected_clips()` permite procesar múltiples clips en una sola operación, con limitación de 4 clips con confirmación para evitar operaciones accidentales.
+*   **Aplicación de Tags en XYplorer:** Después de actualizar exitosamente un estado, aplica automáticamente el tag correspondiente en xyplorer para mantener sincronizados los colores de las carpetas. Si xyplorer no está abierto, simplemente omite esta operación sin generar errores.
 
 ## Búsqueda de Versiones en Flow:
 
@@ -102,6 +103,7 @@ Cuando se abre el diálogo para introducir notas, el script automáticamente:
 - **`handle_version_check_result()`**: Maneja confirmaciones de versión del usuario para verificaciones asíncronas con Flow
 - **`find_review_images()`**: Localiza imágenes en `LGA_NKS_Flow/ReviewPic_Cache/`
 - **`delete_single_image()`**: Borra una imagen individual del disco y la remueve de la UI y de la lista de imágenes a subir
+- **`apply_xyplorer_tag()`**: Aplica el tag correspondiente en xyplorer después de actualizar exitosamente el estado
 
 **En `LGA_NKS_Flow/LGA_NKS_Flow_Push_connector.py`:**
 - **`execute_full_push_operation()`**: Operación completa que actualiza estado, versión y comentarios en una sola llamada
@@ -111,3 +113,30 @@ Cuando se abre el diálogo para introducir notas, el script automáticamente:
 - **`attach_images_to_note()`**: Sube imágenes a ShotGrid con números de frame
 
 Esta integración permite a los usuarios revisar visualmente las imágenes capturadas previamente mientras escriben sus notas de revisión, seleccionar qué imágenes adjuntar mediante borrado individual antes del envío, adjuntarlas automáticamente a ShotGrid con información de frame, y opcionalmente limpiar el caché local después del envío exitoso.
+
+## Integración con XYplorer:
+
+Después de actualizar exitosamente un estado en ShotGrid y la base de datos local, el sistema aplica automáticamente el tag correspondiente en xyplorer para mantener sincronizados los colores de las carpetas con los estados de las tareas:
+
+1. **Cálculo de Ruta:** Calcula `shot_base_path` desde el `file_path` del clip, subiendo 4 niveles en la jerarquía de directorios.
+
+2. **Obtención del Tag:** Obtiene el tag de xyplorer correspondiente al estado desde el diccionario `task_status_dict`. Los tags disponibles son:
+   - `"Corrections"` para estado `corr`
+   - `"Rev_Sup"` para estados `rev_su` y `revjav`
+   - `"Rev_Lega"` para estado `revleg`
+   - `"Rev Hold"` para estado `revhld`
+   - `"ReviewDir"` para estado `rev_di`
+   - `"Approved"` para estados `apr`, `check`, `pubsh`, `pbshed`, `omit`, `enviad`
+
+3. **Aplicación Asíncrona:** La aplicación del tag se realiza en un hilo separado mediante `tag_shot_folder()` para no bloquear la interfaz de usuario.
+
+4. **Manejo Seguro:** Si xyplorer no está abierto o hay algún error, el sistema simplemente omite la aplicación del tag sin generar errores ni crashear el script. Solo funciona en Windows.
+
+### Funciones Clave para XYplorer:
+
+**En `LGA_NKS_Flow/LGA_NKS_Flow_Push.py`:**
+- **`apply_xyplorer_tag()`**: Método de la clase `Worker` que calcula la ruta del shot, obtiene el tag correspondiente y aplica el tag en xyplorer después de actualizar exitosamente el estado.
+- **`tag_shot_folder()`**: Inicia el tagging de xyplorer en un hilo separado para no bloquear Hiero.
+- **`_tag_shot_folder_thread()`**: Ejecuta el tagging de forma asíncrona, enviando comandos a xyplorer mediante `Send_WM_COPYDATA()`.
+- **`get_xy_hwnd()`**: Obtiene el handle de la ventana de xyplorer. Retorna `None` si no está abierto.
+- **`task_status_dict`**: Diccionario que mapea estados de ShotGrid a (nombre, color_hex, xyplorer_tag).

@@ -1,7 +1,7 @@
 """
 _____________________________________________________________
 
-  LGA_NKS_Flow_Push v3.94 | Lega
+  LGA_NKS_Flow_Push v3.95 | Lega
 
   Envia a flow nuevos estados de las tasks comps.
   En algunos estados permite enviar un mensaje a la version
@@ -12,6 +12,8 @@ _____________________________________________________________
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 
+  v3.95: Agrega aplicación de tags en xyplorer después de actualizar estados exitosamente.
+         Si xyplorer no está abierto, simplemente no aplica el tag sin dar error ni crashear el script.
   v3.94: Agrega ruta principal de Python dentro de PipeSync.app para macOS
   v3.89: Sistema de resumen con DEBUG_RESUMEN para mostrar solo información esencial
   v3.88: Fix timeout + detección correcta de shot_code con base_name sin versión
@@ -41,6 +43,9 @@ import sys
 from pathlib import Path
 import hiero.core
 import hiero.ui
+import ctypes
+import ctypes.wintypes
+import threading
 
 # Importar el módulo de configuración segura
 sys.path.append(str(Path(__file__).parent))
@@ -96,6 +101,31 @@ status_translation = {
     "Rev Dir Den": "rev_di",
     "Rev Hold": "revhld",
 }
+
+# Diccionario de estados con tags de xyplorer (igual que en Pull)
+task_status_dict = {
+    "noread": ("Not Ready To Start", "#000000", None),
+    "wts": ("Waiting to start", "#000000", None),
+    "ready": ("Ready To Start", "#8a8a8a", None),
+    "progre": ("In Progress", "#7d4cff", None),
+    "corr": ("Corrections", "#2e77d4", "Corrections"),
+    "rev_su": ("Review Sup", "#bd7f9f", "Rev_Sup"),
+    "revjav": ("Review Javi", "#9c3e5e", "Rev_Sup"),
+    "revleg": ("Review Lega", "#69135e", "Rev_Lega"),
+    "revhld": ("Review Hold", "#933100", "Rev Hold"),
+    "rev_di": ("Review Dir", "#98c054", "ReviewDir"),
+    "pubsh": ("Publish", "#244c19", "Approved"),
+    "pbshed": ("Published", "#244c19", "Approved"),
+    "apr": ("Approved", "#244c19", "Approved"),
+    "check": ("Delivery Checked", "#52c233", "Approved"),
+    "omit": ("Omitted", "#244c19", "Approved"),
+    "enviad": ("Enviado", "#000000", "Approved"),
+    "rev": ("Pending Review", "#000000", None),
+    "vwd": ("Viewed", "#000000", None),
+}
+
+# Variable global para activar/desactivar tags de XYplorer
+XYPlorer_Tags = True
 
 # Variable global para activar o desactivar los prints // En esta version el Debug se imprime al final del script
 DEBUG = True
@@ -1174,6 +1204,133 @@ class ShotGridManager:
         return None
 
 
+##### Funciones para comunicación con XYplorer (copiadas de Pull)
+##### Estas funciones aplican tags en xyplorer de forma segura sin crashear si xyplorer no está abierto
+
+def get_xy_hwnd(xy_class="ThunderRT6FormDC"):
+    """Obtiene el handle de la ventana de XYplorer. Retorna None si no está abierto."""
+    try:
+        if platform.system() != "Windows":
+            return None  # Solo funciona en Windows
+        
+        user32 = ctypes.windll.user32
+        EnumWindows = user32.EnumWindows
+        EnumWindowsProc = ctypes.WINFUNCTYPE(
+            ctypes.wintypes.BOOL, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM
+        )
+        GetClassName = user32.GetClassNameW
+        EnumChildWindows = user32.EnumChildWindows
+        found_hwnd = None
+
+        def enum_windows_callback(hwnd, lParam):
+            nonlocal found_hwnd
+            class_name = ctypes.create_unicode_buffer(256)
+            GetClassName(hwnd, class_name, 256)
+            if class_name.value == xy_class:
+                child_count = [0]
+
+                def enum_child_windows_callback(hwnd_child, lParam_child):
+                    child_count[0] += 1
+                    return True
+
+                EnumChildWindows(hwnd, EnumWindowsProc(enum_child_windows_callback), 0)
+                if child_count[0] >= 10:
+                    found_hwnd = hwnd
+                    return False
+            return True
+
+        EnumWindows(EnumWindowsProc(enum_windows_callback), 0)
+        return found_hwnd
+    except Exception as e:
+        debug_print(f"Error obteniendo handle de XYplorer: {e}")
+        return None
+
+
+# Determina la arquitectura del sistema y define COPYDATASTRUCT
+# Solo se usa en Windows, pero la definimos siempre para evitar errores
+if platform.system() == "Windows":
+    if platform.architecture()[0] == "32bit":
+        ULONG_PTR = ctypes.wintypes.ULONG
+    else:
+        ULONG_PTR = ctypes.c_uint64
+else:
+    # Valores por defecto para sistemas no-Windows (no se usarán)
+    ULONG_PTR = ctypes.c_uint64
+
+# Define la estructura COPYDATASTRUCT (siempre definida, pero solo usada en Windows)
+class COPYDATASTRUCT(ctypes.Structure):
+    _fields_ = [
+        ("dwData", ULONG_PTR),
+        ("cbData", ctypes.wintypes.DWORD),
+        ("lpData", ctypes.c_void_p),
+    ]
+
+
+def Send_WM_COPYDATA(xyHwnd, message):
+    """Envía un mensaje WM_COPYDATA a XYplorer. Retorna None si falla."""
+    try:
+        if not xyHwnd or platform.system() != "Windows":
+            return None
+        
+        cds = COPYDATASTRUCT()
+        cds.dwData = 4194305
+        cds.cbData = len(message.encode("utf-16-le"))
+        cds_data = ctypes.create_unicode_buffer(message)
+        cds.lpData = ctypes.cast(ctypes.addressof(cds_data), ctypes.c_void_p)
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        result = user32.SendMessageW(xyHwnd, 0x004A, 0, ctypes.byref(cds))  # 0x004A = WM_COPYDATA
+        return result
+    except Exception as e:
+        debug_print(f"Error enviando mensaje a XYplorer: {e}")
+        return None
+
+
+def _tag_shot_folder_thread(shot_base_path, tag):
+    """Función que ejecuta el tagging de XYplorer en un thread separado para no bloquear Hiero."""
+    try:
+        debug_print(f"tag_shot_folder_thread started with shot_base_path='{shot_base_path}', tag='{tag}'")
+        if tag is None:
+            debug_print("Tag is None, returning without action")
+            return
+        
+        debug_print("Getting XYplorer window handle...")
+        hwnd = get_xy_hwnd()
+        debug_print(f"XYplorer hwnd: {hwnd}")
+        
+        if hwnd:
+            tag_command = f"::tag '{tag}', '{shot_base_path}';"
+            debug_print(f"Sending command to XYplorer: {tag_command}")
+            result = Send_WM_COPYDATA(hwnd, tag_command)
+            debug_print(f"Send_WM_COPYDATA result: {result}")
+            if result:
+                debug_print(f"Tag '{tag}' applied to {shot_base_path}")
+            else:
+                debug_print(f"Failed to apply tag '{tag}' to {shot_base_path}")
+        else:
+            debug_print("XYplorer window not found - tag no aplicado (esto es normal si xyplorer no está abierto)")
+    except Exception as e:
+        debug_print(f"Error applying tag in XYplorer: {e}")
+        # No re-lanzar la excepción para evitar crashear el script
+
+
+def tag_shot_folder(shot_base_path, tag):
+    """Inicia el tagging de XYplorer en un thread separado para no bloquear Hiero."""
+    try:
+        debug_print(f"tag_shot_folder called with shot_base_path='{shot_base_path}', tag='{tag}' - starting thread")
+        xyplorer_thread = threading.Thread(
+            target=_tag_shot_folder_thread,
+            args=(shot_base_path, tag),
+            daemon=True  # Thread daemon para que termine cuando termine el programa principal
+        )
+        xyplorer_thread.start()
+        debug_print("XYplorer tagging thread started successfully")
+    except Exception as e:
+        debug_print(f"Error starting XYplorer tagging thread: {e}")
+        # No re-lanzar la excepción para evitar crashear el script
+
+##### Fin de funciones para XYplorer
+
+
 class WorkerSignals(QObject):
     result_ready = Signal(str, int, int)
     task_finished = Signal(bool)  # Ahora incluye el estado de exito
@@ -1261,6 +1418,9 @@ class Worker(QRunnable):
 
                 # Si fue exitoso, actualizar también la base de datos local
                 self.update_local_database(db_manager)
+                
+                # Aplicar tag en xyplorer después de actualizar exitosamente
+                self.apply_xyplorer_tag()
             else:
                 error_message = result.get("error", "Unknown error")
                 debug_print(f"Worker: Error en operación de red: {error_message}")
@@ -1414,6 +1574,85 @@ class Worker(QRunnable):
 
         except Exception as e:
             debug_print(f"Worker: Error actualizando base de datos local: {e}")
+
+    def apply_xyplorer_tag(self):
+        """Aplica el tag correspondiente en xyplorer basándose en el estado.
+        Si xyplorer no está abierto, simplemente no aplica el tag sin dar error."""
+        try:
+            # Obtener el tag de xyplorer del diccionario de estados
+            sg_status = status_translation.get(self.button_name, None)
+            if not sg_status:
+                debug_print("Worker: No se encontró estado válido para aplicar tag")
+                return
+            
+            # Buscar el tag en el diccionario
+            task_status_name, new_color_hex, xyplorer_tag = task_status_dict.get(
+                sg_status,
+                ("Estado desconocido", "#000000", None),
+            )
+            
+            if not xyplorer_tag:
+                debug_print(f"Worker: No hay tag de xyplorer para el estado '{sg_status}'")
+                return
+            
+            # Obtener el file_path del clip para calcular shot_base_path
+            if not hasattr(self, 'original_file_name') or not self.original_file_name:
+                debug_print("Worker: No se tiene original_file_name para calcular shot_base_path")
+                return
+            
+            # Buscar el clip en el timeline para obtener su file_path completo
+            seq = hiero.ui.activeSequence()
+            if not seq:
+                debug_print("Worker: No hay secuencia activa")
+                return
+            
+            # Buscar el clip que coincida con original_file_name
+            file_path = None
+            for track in seq.videoTracks():
+                for clip in track.items():
+                    if isinstance(clip, hiero.core.EffectTrackItem):
+                        continue
+                    try:
+                        if not clip.source().mediaSource().isMediaPresent():
+                            continue
+                        clip_file_path = clip.source().mediaSource().fileinfos()[0].filename()
+                        if self.original_file_name in clip_file_path or os.path.basename(clip_file_path) == self.original_file_name:
+                            file_path = clip_file_path
+                            break
+                    except Exception:
+                        continue
+                if file_path:
+                    break
+            
+            if not file_path:
+                debug_print(f"Worker: No se pudo encontrar el file_path para {self.original_file_name}")
+                return
+            
+            # Calcular shot_base_path (igual que en Pull)
+            normalized_path = os.path.normpath(file_path)
+            path_parts = normalized_path.split(os.sep)
+            
+            if os.path.isabs(file_path) and len(path_parts) >= 5:
+                shot_base_path = os.path.dirname(
+                    os.path.dirname(os.path.dirname(os.path.dirname(file_path)))
+                )
+                debug_print(f"Worker: shot_base_path calculado: {shot_base_path}")
+            else:
+                debug_print("Worker: No se puede calcular shot_base_path (ruta inválida)")
+                return
+            
+            # Aplicar el tag en xyplorer (solo si está habilitado y tenemos los datos necesarios)
+            if XYPlorer_Tags and shot_base_path and xyplorer_tag:
+                debug_print(f"Worker: Aplicando tag '{xyplorer_tag}' a '{shot_base_path}'")
+                tag_shot_folder(shot_base_path, xyplorer_tag)
+            else:
+                debug_print(f"Worker: No se aplicará tag - XYPlorer_Tags: {XYPlorer_Tags}, shot_base_path: {shot_base_path}, xyplorer_tag: {xyplorer_tag}")
+        
+        except Exception as e:
+            debug_print(f"Worker: Error aplicando tag en xyplorer: {e}")
+            import traceback
+            debug_print(traceback.format_exc())
+            # No re-lanzar la excepción para evitar crashear el script
 
     def generate_resumen(self, success, images_total, images_attached, error_message):
         """Genera un resumen del proceso de push"""
