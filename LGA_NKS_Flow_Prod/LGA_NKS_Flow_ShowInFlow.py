@@ -86,7 +86,7 @@ import shotgun_api3
 
 # --- INICIO: Importar el módulo de configuración segura ---
 from pathlib import Path
-sys.path.append(str(Path(__file__).parent))
+sys.path.append(str(Path(__file__).parent.parent / "LGA_NKS_Flow"))
 from SecureConfig_Reader import get_flow_credentials
 # --- FIN: Importar el módulo de configuración segura ---
 

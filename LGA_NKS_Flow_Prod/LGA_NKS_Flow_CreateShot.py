@@ -71,7 +71,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "LGA_ToolPac
 import shotgun_api3
 
 # Importar el modulo de configuracion segura
-sys.path.append(str(Path(__file__).parent))
+sys.path.append(str(Path(__file__).parent.parent / "LGA_NKS_Flow"))
 from SecureConfig_Reader import get_flow_credentials
 
 # Importar utilidades de naming

@@ -153,7 +153,7 @@ class FlowProdPanel(QWidget):
     def show_in_flow_for_selected_clip(self):
         """Llama al script Show in Flow para abrir la task comp en Chrome"""
         script_path = os.path.join(
-            os.path.dirname(__file__), "LGA_NKS_Flow", "LGA_NKS_Flow_ShowInFlow.py"
+            os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_Flow_ShowInFlow.py"
         )
         if not os.path.exists(script_path):
             QMessageBox.warning(
@@ -182,7 +182,7 @@ class FlowProdPanel(QWidget):
     def create_thumbnail_for_selected_clip(self):
         """Llama al script Thumbnail para crear un thumbnail del clip seleccionado"""
         script_path = os.path.join(
-            os.path.dirname(__file__), "LGA_NKS_Flow", "LGA_NKS_Flow_Thumbs.py"
+            os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_Flow_Thumbs.py"
         )
         if not os.path.exists(script_path):
             QMessageBox.warning(
@@ -209,7 +209,7 @@ class FlowProdPanel(QWidget):
     def create_shot_for_selected_clip(self):
         """Llama al script Create Shot para crear shots basado en el clip seleccionado"""
         script_path = os.path.join(
-            os.path.dirname(__file__), "LGA_NKS_Flow", "LGA_NKS_Flow_CreateShot.py"
+            os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_Flow_CreateShot.py"
         )
         if not os.path.exists(script_path):
             QMessageBox.warning(

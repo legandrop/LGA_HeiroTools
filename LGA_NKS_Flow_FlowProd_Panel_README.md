@@ -9,17 +9,17 @@ El panel LGA_NKS_Flow_FlowProd_Panel proporciona herramientas esenciales para op
 - **Shortcut**: `Ctrl+Shift+F`
 - **Función**: Abre la task comp del clip seleccionado en Chrome
 - **Tooltip**: Se muestra el shortcut al hacer hover sobre el botón
-- **Script utilizado**: `LGA_NKS_Flow/LGA_NKS_Flow_ShowInFlow.py`
+- **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ShowInFlow.py`
 - **Comportamiento**: Busca el shot y task correspondiente al clip seleccionado y abre la URL en el navegador predeterminado
 
 ### 2. Thumbnail
 - **Función**: Crea un thumbnail del clip seleccionado y lo sube a Flow Production Tracking
-- **Script utilizado**: `LGA_NKS_Flow/LGA_NKS_Flow_Thumbs.py`
+- **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_Flow_Thumbs.py`
 - **Comportamiento**: Genera una imagen thumbnail del frame actual del clip y la asocia con el shot en Flow
 
 ### 3. Create Shot
 - **Función**: Crea shots automáticamente en Flow Production Tracking basándose en los clips seleccionados
-- **Script utilizado**: `LGA_NKS_Flow/LGA_NKS_Flow_CreateShot.py`
+- **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py`
 - **Comportamiento**: Analiza los clips seleccionados, extrae información del shotname y crea los shots correspondientes en Flow si no existen
 
 ## Compatibilidad de Nomenclatura
@@ -69,8 +69,8 @@ El sistema detecta automáticamente el formato utilizado sin necesidad de config
 
 ## Scripts Relacionados
 
-- `LGA_NKS_Flow/LGA_NKS_Flow_ShowInFlow.py` - Funcionalidad de Reveal in Flow
-- `LGA_NKS_Flow/LGA_NKS_Flow_Thumbs.py` - Funcionalidad de Thumbnails
-- `LGA_NKS_Flow/LGA_NKS_Flow_CreateShot.py` - Funcionalidad de Create Shot
-- `LGA_NKS_Flow/LGA_NKS_Flow_NamingUtils.py` - Utilidades compartidas de nomenclatura
+- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ShowInFlow.py` - Funcionalidad de Reveal in Flow
+- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_Thumbs.py` - Funcionalidad de Thumbnails
+- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py` - Funcionalidad de Create Shot
+- `LGA_NKS_Flow/LGA_NKS_Flow_NamingUtils.py` - Utilidades compartidas de nomenclatura (usado por los scripts de producción)
 

@@ -23,7 +23,7 @@ from PySide2.QtWidgets import QApplication
 from PySide2.QtCore import QRect, QTimer
 
 # Importar utilidades de naming
-sys.path.append(str(Path(__file__).parent))
+sys.path.append(str(Path(__file__).parent.parent / "LGA_NKS_Flow"))
 from LGA_NKS_Flow_NamingUtils import (
     extract_shot_code,
     extract_project_name,
