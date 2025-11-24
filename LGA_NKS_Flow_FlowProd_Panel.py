@@ -1,11 +1,12 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_FlowProd_Panel v1.06 | Lega
+  LGA_NKS_Flow_FlowProd_Panel v1.08 | Lega
   Panel para operaciones de producción con Flow:
   - Revelar clips en Flow
   - Crear shots automáticamente
   - Crear thumbnails
+  - Cambiar prioridad de shots
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
@@ -75,6 +76,13 @@ class FlowProdPanel(QWidget):
                 "#2a4d3a",
                 None,
                 "Crear shot en Flow basado en el clip seleccionado",
+            ),
+            (
+                "Shot Priority",
+                self.toggle_shot_priority_for_selected_clip,
+                "#8B0000",
+                None,
+                "Cambiar prioridad del shot (alta ↔ normal)",
             ),
         ]
 
@@ -232,6 +240,35 @@ class FlowProdPanel(QWidget):
             spec.loader.exec_module(module)
             # Llamar a la función principal
             module.main()
+        except Exception as e:
+            QMessageBox.warning(self, "Error al ejecutar", str(e))
+
+    def toggle_shot_priority_for_selected_clip(self):
+        """Llama al script Shot Priority para cambiar la prioridad del shot seleccionado"""
+        script_path = os.path.join(
+            os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_Flow_ShotPriority.py"
+        )
+        if not os.path.exists(script_path):
+            QMessageBox.warning(
+                self,
+                "Script no encontrado",
+                f"No se encontró el script en la ruta: {script_path}",
+            )
+            return
+        try:
+            import importlib.util
+
+            spec = importlib.util.spec_from_file_location(
+                "LGA_NKS_Flow_ShotPriority", script_path
+            )
+            if spec is None or spec.loader is None:
+                raise ImportError(
+                    "No se pudo cargar el módulo LGA_NKS_Flow_ShotPriority.py"
+                )
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            # Llamar a la función principal
+            module.toggle_shot_priority_from_selected_clip()
         except Exception as e:
             QMessageBox.warning(self, "Error al ejecutar", str(e))
 
