@@ -1,9 +1,16 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_CreateShot v1.29 | Lega
+  LGA_NKS_Flow_CreateShot v1.31 | Lega
   Script para crear shots en ShotGrid basado en el nombre del clip seleccionado en Hiero
   SIN usar templates predefinidos - crea tasks manualmente para mayor control
+
+  v1.31: Migración al método híbrido centralizado de selección de clips
+         Soporte para selección múltiple usando módulo LGA_NKS_GetClip
+         Respeta TRACK_comp_EXR del módulo (actualmente "_comp_")
+
+  v1.30: Reducción automática del 30% en tiempo estimado antes de subir a Flow
+           (ej: 1 día ingresado → 0.7 días en Flow)
 
   v1.29: UI compacta - Tasks deshabilitadas ocupan 1 línea sin campos ni divisores
          Checkbox a la izquierda del nombre, columnas aparecen solo cuando se habilita
@@ -27,7 +34,7 @@ ________________________________________________________________________________
 
   v1.21: Asigna reviewers a la task usando el campo task_reviewers
 
-  v1.20: Creación sin Templates (actual)
+  v1.20: Creación sin Templates
 
   v1.10: Sistema Dual de Nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
@@ -73,6 +80,15 @@ from LGA_NKS_Flow_NamingUtils import (
     extract_project_name,
     clean_base_name,
 )
+
+# Importar módulo centralizado para obtener clips
+from pathlib import Path
+utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
+if utils_path.exists():
+    sys.path.insert(0, str(utils_path))
+    from LGA_NKS_GetClip import get_clips_to_process, get_clip_to_process
+    import LGA_NKS_GetClip as clip_utils
+    # La sincronización de DEBUG se hace después de su definición (ver más abajo)
 
 
 # ==================================================================================
@@ -164,6 +180,10 @@ AVAILABLE_TASKS = [
 DEBUG = True  # IMPORTANTE!!!! NO ACTIVAR DEBUG PORQUE CRASHEA HIERO!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 debug_messages = []
 
+# Sincronizar debug con el módulo centralizado de clips (después de definir DEBUG)
+if 'clip_utils' in globals():
+    clip_utils.DEBUG = DEBUG
+
 
 def debug_print(message):
     """Imprime un mensaje de debug si la variable DEBUG es True."""
@@ -239,23 +259,22 @@ def crop_to_aspect_ratio(qimage, target_aspect):
 
 
 def get_shot_name_from_selected_clip():
-    """Obtiene el nombre del shot desde el clip seleccionado o desde el path del archivo."""
+    """Obtiene el nombre del shot desde el clip seleccionado o desde el path del archivo.
+    Usa el método híbrido centralizado (playhead primero, luego selección como fallback)."""
     sequence = hiero.ui.activeSequence()
     if not sequence:
         debug_print("No se encontró una secuencia activa.")
         return None
 
-    timeline_editor = hiero.ui.getTimelineEditor(sequence)
-    selected_clips = timeline_editor.selection()
+    # Usar módulo centralizado para obtener clip (método híbrido)
+    # track_name=None para respetar TRACK_comp_EXR del módulo
+    clip = get_clip_to_process(track_name=None, prioritize_multiple_selection=False)
 
-    if not selected_clips:
-        debug_print("No hay clips seleccionados en el timeline.")
+    if not clip:
+        debug_print("No se encontró clip en playhead ni clips seleccionados.")
         sequence_name = sequence.name()
         debug_print(f"Usando nombre de secuencia: {sequence_name}")
         return sequence_name
-
-    # Tomar el primer clip seleccionado
-    clip = selected_clips[0]
 
     try:
         # Intentar obtener el shot name del clip
@@ -1482,9 +1501,13 @@ class ShotGridManager:
                 task_data["sg_description"] = shot_description
             
             # Agregar tiempo estimado si es mayor que 0
+            # Aplicar reducción del 30% antes de subir a Flow
             estimated_days = task_config.get("estimated_days", 0)
             if estimated_days > 0:
-                task_data["sg_estdias"] = estimated_days
+                # Reducir 30%: multiplicar por 0.7 (ej: 1 día -> 0.7 días)
+                estimated_days_reduced = estimated_days * 0.7
+                task_data["sg_estdias"] = estimated_days_reduced
+                debug_print(f"Tiempo estimado: {estimated_days} días -> {estimated_days_reduced:.2f} días (reducción 30%)")
             
             # Crear la task
             new_task = self.sg.create("Task", task_data)
@@ -1545,37 +1568,46 @@ class HieroOperations:
         return base_name, version_number
 
     def get_selected_clips_info(self):
-        """Obtiene informacion de los clips seleccionados en el timeline de Hiero."""
+        """Obtiene informacion de los clips usando el método híbrido centralizado.
+        Permite selección múltiple: si hay múltiples clips seleccionados en el track,
+        procesa todos ellos. Si no, usa el clip del playhead."""
         seq = hiero.ui.activeSequence()
-        if seq:
-            te = hiero.ui.getTimelineEditor(seq)
-            selected_clips = te.selection()
-            if selected_clips:
-                clips_info = []
-                for clip in selected_clips:
-                    file_path = clip.source().mediaSource().fileinfos()[0].filename()
-                    exr_name = os.path.basename(file_path)
-                    base_name, version_number = self.parse_exr_name(exr_name)
-
-                    # Usar funciones de naming utils para extraer información
-                    project_name = extract_project_name(base_name)
-                    shot_code = extract_shot_code(base_name)
-
-                    clips_info.append(
-                        {
-                            "base_name": base_name,
-                            "project_name": project_name,
-                            "shot_code": shot_code,
-                            "version_number": version_number,
-                        }
-                    )
-                return clips_info
-            else:
-                debug_print("No se han seleccionado clips en el timeline.")
-                return []
-        else:
+        if not seq:
             debug_print("No se encontro una secuencia activa en Hiero.")
             return []
+        
+        # Usar módulo centralizado con selección múltiple habilitada
+        # track_name=None para respetar TRACK_comp_EXR del módulo
+        clips = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
+        
+        if not clips:
+            debug_print("No se encontraron clips para procesar (ni en playhead ni seleccionados).")
+            return []
+        
+        clips_info = []
+        for clip in clips:
+            try:
+                file_path = clip.source().mediaSource().fileinfos()[0].filename()
+                exr_name = os.path.basename(file_path)
+                base_name, version_number = self.parse_exr_name(exr_name)
+
+                # Usar funciones de naming utils para extraer información
+                project_name = extract_project_name(base_name)
+                shot_code = extract_shot_code(base_name)
+
+                clips_info.append(
+                    {
+                        "base_name": base_name,
+                        "project_name": project_name,
+                        "shot_code": shot_code,
+                        "version_number": version_number,
+                    }
+                )
+            except Exception as e:
+                debug_print(f"Error procesando clip {clip.name()}: {e}")
+                continue
+        
+        return clips_info
 
     def process_selected_clips(self, shot_config, thumbnail_path=None):
         """Procesa los clips seleccionados en el timeline de Hiero."""
@@ -1634,10 +1666,11 @@ class WorkerSignals(QObject):
 
 
 class CreateShotWorker(QRunnable):
-    def __init__(self, status_window, shot_config, thumbnail_path=None):
+    def __init__(self, status_window, shot_config, clips_info, thumbnail_path=None):
         super(CreateShotWorker, self).__init__()
         self.status_window = status_window
         self.shot_config = shot_config
+        self.clips_info = clips_info  # Clips obtenidos en el hilo principal
         self.thumbnail_path = thumbnail_path
         self.signals = WorkerSignals()
 
@@ -1666,16 +1699,14 @@ class CreateShotWorker(QRunnable):
                 )
                 return
 
-            # Crear operador de Hiero
-            self.signals.step_update.emit("Obteniendo clips seleccionados...")
-            hiero_ops = HieroOperations(sg_manager)
-
-            # Obtener informacion de clips
-            clips_info = hiero_ops.get_selected_clips_info()
+            # Usar clips_info que ya se obtuvieron en el hilo principal
+            # NO obtenerlos de nuevo aquí porque las funciones del módulo centralizado
+            # necesitan ejecutarse en el hilo principal (acceden al viewer de Hiero)
+            clips_info = self.clips_info
             if not clips_info:
                 self.signals.debug_output.emit()
                 self.signals.error.emit(
-                    "No se encontraron clips seleccionados en Hiero."
+                    "No se encontraron clips para procesar."
                 )
                 return
 
@@ -1825,7 +1856,9 @@ def create_shots_from_selected_clips():
     _status_window.show_processing_message()  # Mostrar mensaje de procesamiento
 
     # Crear worker para procesamiento en hilo separado
-    worker = CreateShotWorker(_status_window, shot_config, thumbnail_path)
+    # Pasar clips_info obtenidos en el hilo principal (las funciones del módulo centralizado
+    # necesitan ejecutarse en el hilo principal porque acceden al viewer de Hiero)
+    worker = CreateShotWorker(_status_window, shot_config, clips_info, thumbnail_path)
 
     # Conectar señales
     worker.signals.shot_info_ready.connect(
