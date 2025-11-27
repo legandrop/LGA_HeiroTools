@@ -1,14 +1,16 @@
 """
 _________________________________________
 
-  LGA_EditToolsPanel v2.92 | Lega
+  LGA_EditToolsPanel v2.93 | Lega
   Tools panel for Hiero / Nuke Studio
-  
-  v2.91: Se agregaron tooltips mejorados y descriptivos para todos los botones del panel
+
+  v2.93: Agregado botón "Compositing Log | Clip" que cambia el color transform
+         de los clips seleccionados a compositing_log
   v2.92: Invertido comportamiento del botón Reconnect Win > Mac:
          Click: Reconecta todos los clips del timeline
          Shift+Click: Reconecta solo los clips seleccionados
          Agregado método execute_external_script_with_param para pasar parámetros a scripts
+  v2.91: Se agregaron tooltips mejorados y descriptivos para todos los botones del panel
 _________________________________________
 
 """
@@ -115,6 +117,7 @@ class ReconnectMediaWidget(QWidget):
             ("Clean Project", self.clean_project, "#283548", None, "Elimina clips no usados del proyecto"),
             ("Rec709 | Clip", self.rec709_clip, "#434c41", None, "Cambia el color transform a Rec.709 en los clips seleccionados"),
             ("Default | Clip", self.default_clip, "#434c41", None, "Cambia el color transform a default en los clips seleccionados"),
+            ("Compositing Log | Clip", self.set_compositing_log, "#434c41", None, "Cambia el color transform a compositing_log en los clips seleccionados"),
             ("Fix Colorspaces", self.fix_colorspaces, "#434c41", None, "Detecta y corrige clips con colorspace rec709 o gamma2.2"),
             ("New Video Track", self.create_new_track, "#263b23", None, "Crea un nuevo track de video encima del track seleccionado"),
             ("Set Shot Name", self.set_shot_name, "#453434", None, "Establece el nombre del shot basándose en la ruta del archivo"),
@@ -253,6 +256,54 @@ class ReconnectMediaWidget(QWidget):
                     debug_print("Error changing color transform:", e)
         else:
             debug_print("No active sequence found.")
+
+    ###### Compositing Log en clips seleccionados
+    def set_compositing_log(self):
+        """Ejecuta el script LGA_NKS_SetCompositingLog.py para cambiar clips a compositing_log."""
+        debug_print_b("\n>>> Ejecutando Set Compositing Log script...")
+
+        try:
+            # Ejecutamos el script desde la carpeta LGA_NKS_Edit (como los scripts de compare)
+            script_path = os.path.join(
+                os.path.dirname(__file__),
+                "LGA_NKS_Edit",
+                "LGA_NKS_SetCompositingLog.py",
+            )
+            if os.path.exists(script_path):
+                try:
+                    spec = importlib.util.spec_from_file_location(
+                        "LGA_NKS_SetCompositingLog", script_path
+                    )
+                    if spec is not None and isinstance(
+                        spec.loader,
+                        importlib.machinery.SourceFileLoader,
+                    ):
+                        module = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(module)
+
+                        # Llamar a la función principal
+                        if hasattr(module, "set_compositing_log"):
+                            module.set_compositing_log()
+                        else:
+                            debug_print_b("El script LGA_NKS_SetCompositingLog.py no tiene función 'set_compositing_log'")
+
+                        debug_print_b(">>> Set Compositing Log script completado")
+                        return True
+                    else:
+                        debug_print_b(
+                            "No se pudo crear el spec o loader para el script: LGA_NKS_SetCompositingLog.py"
+                        )
+                        return False
+                except Exception as e:
+                    debug_print_b(f"Error al ejecutar el script Set Compositing Log: {e}")
+                    return False
+            else:
+                debug_print_b(f"Script no encontrado en la ruta: {script_path}")
+                return False
+        except Exception as e:
+            debug_print_b(f"Error durante la ejecución de Set Compositing Log: {e}")
+            import traceback
+            debug_print_b(traceback.format_exc())
 
     ###### Default space color en clips seleccionados
     def default_clip(self):
