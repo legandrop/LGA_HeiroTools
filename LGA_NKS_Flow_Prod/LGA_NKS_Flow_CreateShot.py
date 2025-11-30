@@ -187,7 +187,7 @@ AVAILABLE_TASKS = [
 ]
 
 
-DEBUG = True  # IMPORTANTE!!!! NO ACTIVAR DEBUG PORQUE CRASHEA HIERO!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+DEBUG = False
 debug_messages = []
 
 # Sincronizar debug con el módulo centralizado de clips (después de definir DEBUG)
@@ -2159,12 +2159,7 @@ def handle_shot_existence_result(existing_shots, clips_info, sequence_name):
             if _status_window:
                 _status_window.close()
                 _status_window = None
-            QMessageBox.information(
-                None,
-                "Shot ya existente",
-                f"El shot '{shot_names[0]}' ya existe en Flow.\n"
-                "Se abrirá automáticamente Modify Shot para editarlo.",
-            )
+            # Shot único ya existente: abrir Modify Shot directamente
             launch_modify_shot_script()
             return
         else:
