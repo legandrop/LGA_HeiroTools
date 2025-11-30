@@ -1,17 +1,22 @@
 """
 ________________________________________________________________
 
-  LGA_NKS_Flow_Clear_Assignees v1.2 | Lega
+  LGA_NKS_Flow_Clear_Assignees v1.23 | Lega
   Elimina los asignados de una tarea en ShotGrid (Flow) a partir del base_name
-  Actualizado para ser compatible con ambos sistemas de nomenclatura:
-  - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
-  - PROYECTO_SEQ_SHOT (3 bloques simplificado)
+
+  v1.23: Actualiza la base de datos local pipesync.db con la eliminación de asignados
+
+  v1.22: Actualizado para ser compatible con ambos sistemas de nomenclatura:
+        - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+        - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 ________________________________________________________________
 """
 
 import os
 import sys
 import json
+import sqlite3
+import platform
 import shotgun_api3
 from PySide2.QtCore import QRunnable, Slot, QThreadPool, Signal, QObject, Qt
 from PySide2.QtWidgets import (
@@ -37,9 +42,106 @@ from LGA_NKS_Flow_NamingUtils import (
 )
 
 # Variable global para debug
-DEBUG = False
+DEBUG = True
 
 debug_messages = []
+
+
+class DBManager:
+    """Clase simplificada para manejar operaciones con la base de datos SQLite local."""
+
+    def __init__(self):
+        # Selecciona la ruta de la base de datos según el sistema operativo
+        if platform.system() == "Windows":
+            self.db_path = r"C:/Portable/LGA/PipeSync/cache/pipesync.db"
+        elif platform.system() == "Darwin":
+            self.db_path = "/Users/leg4/Library/Caches/LGA/PipeSync/pipesync.db"
+        else:
+            debug_print(f"Sistema operativo no soportado: {platform.system()}")
+            self.db_path = None
+
+        if self.db_path and os.path.exists(self.db_path):
+            try:
+                self.conn = sqlite3.connect(self.db_path)
+                self.conn.row_factory = sqlite3.Row
+                debug_print(f"Conexión exitosa a la base de datos: {self.db_path}")
+            except Exception as e:
+                debug_print(f"Error al conectar a la base de datos: {e}")
+                self.conn = None
+        else:
+            debug_print(f"DB file not found at path: {self.db_path}")
+            self.conn = None
+
+    def find_shot(self, project_name, shot_code):
+        """Busca un shot por nombre y código en la base de datos."""
+        if not self.conn:
+            debug_print("No hay conexión a la base de datos")
+            return None
+
+        try:
+            cur = self.conn.cursor()
+            cur.execute(
+                """
+                SELECT s.* FROM shots s
+                JOIN projects p ON s.project_id = p.id
+                WHERE p.project_name = ? AND s.shot_name = ?
+                """,
+                (project_name, shot_code),
+            )
+            return cur.fetchone()
+        except Exception as e:
+            debug_print(
+                f"Error al buscar shot {shot_code} en proyecto {project_name}: {e}"
+            )
+            return None
+
+    def find_task(self, shot_id, task_name):
+        """Busca una tarea específica por nombre y shot_id."""
+        if not self.conn:
+            debug_print("No hay conexión a la base de datos")
+            return None
+
+        try:
+            cur = self.conn.cursor()
+            cur.execute(
+                """
+                SELECT * FROM tasks
+                WHERE shot_id = ? AND LOWER(task_type) = LOWER(?)
+                """,
+                (shot_id, task_name),
+            )
+            return cur.fetchone()
+        except Exception as e:
+            debug_print(
+                f"Error al buscar tarea {task_name} para shot_id {shot_id}: {e}"
+            )
+            return None
+
+    def clear_task_assignments(self, task_id):
+        """Elimina todos los asignados de una tarea en la base de datos local."""
+        if not self.conn:
+            debug_print("No hay conexión a la base de datos")
+            return False
+
+        try:
+            cur = self.conn.cursor()
+            cur.execute(
+                "DELETE FROM task_assignments WHERE task_id = ?", (task_id,)
+            )
+            self.conn.commit()
+            debug_print(
+                f"Asignados eliminados de la tarea local (ID: {task_id})"
+            )
+            return True
+        except Exception as e:
+            debug_print(f"Error al eliminar asignados de la tarea local: {e}")
+            return False
+
+    def close(self):
+        """Cierra la conexión a la base de datos."""
+        if self.conn:
+            self.conn.close()
+            self.conn = None
 
 
 def debug_print(message):
@@ -369,6 +471,9 @@ class ClearAssigneeWorker(QRunnable):
             success, message = sg_manager.clear_task_assignees(task_id)
 
             if success:
+                # Actualizar base de datos local
+                self.update_local_database(project_name, shot_name_found, task_name)
+
                 self.signals.finished.emit(
                     True,
                     f"Asignados eliminados exitosamente de {shot_name}/{task_name}",
@@ -379,6 +484,37 @@ class ClearAssigneeWorker(QRunnable):
         except Exception as e:
             debug_print(f"Error en ClearAssigneeWorker: {e}")
             self.signals.error.emit(f"Error: {str(e)}")
+
+    def update_local_database(self, project_name, shot_name, task_name):
+        """Actualiza la base de datos local eliminando asignados de la tarea."""
+        try:
+            db_manager = DBManager()
+            if not db_manager.conn:
+                debug_print("No se pudo conectar a la base de datos local")
+                return
+
+            # Buscar shot en base de datos local
+            db_shot = db_manager.find_shot(project_name, shot_name)
+            if not db_shot:
+                debug_print(f"No se encontró el shot {shot_name} en la base de datos local")
+                db_manager.close()
+                return
+
+            # Buscar tarea en base de datos local
+            db_task = db_manager.find_task(db_shot["id"], task_name)
+            if not db_task:
+                debug_print(f"No se encontró la tarea {task_name} en la base de datos local")
+                db_manager.close()
+                return
+
+            # Eliminar asignados de la tarea local
+            debug_print(f"Eliminando asignados de la tarea local (ID: {db_task['id']})")
+            db_manager.clear_task_assignments(db_task["id"])
+
+            db_manager.close()
+
+        except Exception as e:
+            debug_print(f"Error actualizando base de datos local: {e}")
 
 
 def get_flow_credentials_secure():

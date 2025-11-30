@@ -1,9 +1,11 @@
 """
 ________________________________________________________________
 
-  LGA_NKS_Flow_Assign_Assignee v1.22 | Lega
+  LGA_NKS_Flow_Assign_Assignee v1.23 | Lega
   Asigna un usuario a una tarea en ShotGrid (Flow) a partir del base_name y nombre de usuario
 
+  v1.23: Actualiza la base de datos local pipesync.db con la asignación
+  
   v1.22: Verifica y asigna automáticamente el proyecto al usuario si no lo tiene asignado
         antes de asignar la task comp
 
@@ -17,6 +19,8 @@ ________________________________________________________________
 import os
 import sys
 import json
+import sqlite3
+import platform
 import shotgun_api3
 from PySide2.QtCore import QRunnable, Slot, QThreadPool, Signal, QObject, Qt
 from PySide2.QtWidgets import (
@@ -43,6 +47,119 @@ from LGA_NKS_Flow_NamingUtils import (
 
 DEBUG = False
 debug_messages = []
+
+
+class DBManager:
+    """Clase simplificada para manejar operaciones con la base de datos SQLite local."""
+
+    def __init__(self):
+        # Selecciona la ruta de la base de datos según el sistema operativo
+        if platform.system() == "Windows":
+            self.db_path = r"C:/Portable/LGA/PipeSync/cache/pipesync.db"
+        elif platform.system() == "Darwin":
+            self.db_path = "/Users/leg4/Library/Caches/LGA/PipeSync/pipesync.db"
+        else:
+            debug_print(f"Sistema operativo no soportado: {platform.system()}")
+            self.db_path = None
+
+        if self.db_path and os.path.exists(self.db_path):
+            try:
+                self.conn = sqlite3.connect(self.db_path)
+                self.conn.row_factory = sqlite3.Row
+                debug_print(f"Conexión exitosa a la base de datos: {self.db_path}")
+            except Exception as e:
+                debug_print(f"Error al conectar a la base de datos: {e}")
+                self.conn = None
+        else:
+            debug_print(f"DB file not found at path: {self.db_path}")
+            self.conn = None
+
+    def find_shot(self, project_name, shot_code):
+        """Busca un shot por nombre y código en la base de datos."""
+        if not self.conn:
+            debug_print("No hay conexión a la base de datos")
+            return None
+
+        try:
+            cur = self.conn.cursor()
+            cur.execute(
+                """
+                SELECT s.* FROM shots s
+                JOIN projects p ON s.project_id = p.id
+                WHERE p.project_name = ? AND s.shot_name = ?
+                """,
+                (project_name, shot_code),
+            )
+            return cur.fetchone()
+        except Exception as e:
+            debug_print(
+                f"Error al buscar shot {shot_code} en proyecto {project_name}: {e}"
+            )
+            return None
+
+    def find_task(self, shot_id, task_name):
+        """Busca una tarea específica por nombre y shot_id."""
+        if not self.conn:
+            debug_print("No hay conexión a la base de datos")
+            return None
+
+        try:
+            cur = self.conn.cursor()
+            cur.execute(
+                """
+                SELECT * FROM tasks
+                WHERE shot_id = ? AND LOWER(task_type) = LOWER(?)
+                """,
+                (shot_id, task_name),
+            )
+            return cur.fetchone()
+        except Exception as e:
+            debug_print(
+                f"Error al buscar tarea {task_name} para shot_id {shot_id}: {e}"
+            )
+            return None
+
+    def add_task_assignment(self, task_id, assigned_to):
+        """Añade una asignación de tarea en la base de datos local."""
+        if not self.conn:
+            debug_print("No hay conexión a la base de datos")
+            return False
+
+        try:
+            cur = self.conn.cursor()
+            # Primero verificar si ya existe la asignación
+            cur.execute(
+                "SELECT id FROM task_assignments WHERE task_id = ? AND assigned_to = ?",
+                (task_id, assigned_to)
+            )
+            existing = cur.fetchone()
+
+            if existing:
+                debug_print(f"La asignación ya existe en la base de datos local")
+                return True
+
+            # Si no existe, insertar nueva asignación
+            cur.execute(
+                """
+                INSERT INTO task_assignments (task_id, assigned_to)
+                VALUES (?, ?)
+                """,
+                (task_id, assigned_to),
+            )
+            self.conn.commit()
+            debug_print(
+                f"Asignación añadida a la tarea local (ID: {task_id}) para: {assigned_to}"
+            )
+            return True
+        except Exception as e:
+            debug_print(f"Error al añadir asignación a la tarea local: {e}")
+            return False
+
+    def close(self):
+        """Cierra la conexión a la base de datos."""
+        if self.conn:
+            self.conn.close()
+            self.conn = None
 
 
 def debug_print(message):
@@ -527,6 +644,9 @@ class AssignAssigneeWorker(QRunnable):
             )
 
             if success:
+                # Actualizar base de datos local
+                self.update_local_database(project_name, shot_name_found, task_name, self.user_name)
+
                 # Construir mensaje de éxito
                 success_message = f"Usuario '{self.user_name}' asignado exitosamente a {shot_name}/{task_name}"
                 if project_assigned:
@@ -541,6 +661,37 @@ class AssignAssigneeWorker(QRunnable):
         except Exception as e:
             debug_print(f"Error en AssignAssigneeWorker: {e}")
             self.signals.error.emit(f"Error: {str(e)}")
+
+    def update_local_database(self, project_name, shot_name, task_name, user_name):
+        """Actualiza la base de datos local añadiendo el asignado a la tarea."""
+        try:
+            db_manager = DBManager()
+            if not db_manager.conn:
+                debug_print("No se pudo conectar a la base de datos local")
+                return
+
+            # Buscar shot en base de datos local
+            db_shot = db_manager.find_shot(project_name, shot_name)
+            if not db_shot:
+                debug_print(f"No se encontró el shot {shot_name} en la base de datos local")
+                db_manager.close()
+                return
+
+            # Buscar tarea en base de datos local
+            db_task = db_manager.find_task(db_shot["id"], task_name)
+            if not db_task:
+                debug_print(f"No se encontró la tarea {task_name} en la base de datos local")
+                db_manager.close()
+                return
+
+            # Añadir asignación a la tarea local
+            debug_print(f"Añadiendo asignación a la tarea local (ID: {db_task['id']}) para: {user_name}")
+            db_manager.add_task_assignment(db_task["id"], user_name)
+
+            db_manager.close()
+
+        except Exception as e:
+            debug_print(f"Error actualizando base de datos local: {e}")
 
 
 def get_flow_credentials_secure():

@@ -11,7 +11,7 @@ El panel LGA_NKS_Flow_Assignee_Panel carga dinámicamente la lista de usuarios d
 - El sistema crea automáticamente el archivo de configuración si no existe
 
 ### 2. Funcionalidad Triple de Botones de Usuario
-- **Click normal**: Asigna el usuario a la task comp en Flow Production Tracking
+- **Click normal**: Asigna el usuario a la task comp en Flow Production Tracking y actualiza la base de datos local pipesync.db
 - **Shift+Click**: Crea/actualiza políticas IAM de Wasabi para el usuario seleccionado
 - **Ctrl+Shift+Click**: Abre ventana de gestión de shots asignados en policy de Wasabi
 
@@ -94,6 +94,17 @@ Al hacer Ctrl+Shift+Click en un botón de usuario, el panel llama al script de g
 
 ## Funciones Principales
 
+### Scripts de Asignación y Limpieza
+Los scripts llamados por los botones principales ahora actualizan tanto Flow Production Tracking como la base de datos local pipesync.db:
+
+#### `LGA_NKS_Flow/LGA_NKS_Flow_Assign_Assignee.py`
+- Asigna usuario a task comp en Flow y añade asignación en DB local
+- Función principal: `assign_assignee_to_task(base_name, user_name)`
+
+#### `LGA_NKS_Flow/LGA_NKS_Flow_Clear_Assignees.py`
+- Elimina todos los asignados de task comp en Flow y limpia asignaciones en DB local
+- Función principal: `clear_task_assignees_from_base_name(base_name)`
+
 ### `create_wasabi_policy_for_user(wasabi_user)`
 - Llama al script de asignación de políticas de Wasabi para usuario específico
 - Pasa el parámetro `wasabi_user` al script
@@ -140,9 +151,33 @@ El panel utiliza un **método híbrido inteligente filtrado por track** para det
 ### Botones Dinámicos (Usuarios)
 - Se generan automáticamente basándose en el archivo de configuración
 - Cada usuario tiene su propio botón con color personalizado
-- **Click normal**: Asigna el usuario a la task comp en Flow Production Tracking
+- **Click normal**: Asigna el usuario a la task comp en Flow Production Tracking y actualiza la base de datos local pipesync.db
 - **Shift+Click**: Crea/actualiza políticas IAM de Wasabi para el usuario
 - **Ctrl+Shift+Click**: Abre ventana de gestión de shots asignados en policy de Wasabi
+
+## Sincronización con Base de Datos Local
+
+El panel mantiene sincronizada la información entre Flow Production Tracking y la base de datos SQLite local `pipesync.db`:
+
+- **Get Assignees**: Consulta asignados desde Flow (fuente de verdad absoluta)
+- **Clear Assignees**: Elimina asignados en Flow y limpia tabla `task_assignments` en DB local
+- **Assign User**: Añade asignado en Flow y actualiza tabla `task_assignments` en DB local
+
+Esta sincronización bidireccional asegura consistencia entre ambas fuentes de datos.
+
+## Limitaciones Actuales y Plan Futuro
+
+### Limitación Actual
+El sistema actualmente solo maneja asignaciones para la **task comp**. No verifica la existencia de otras tasks ni permite asignar usuarios a tasks diferentes (Roto, Cleanup, DMP, etc.).
+
+### Plan Futuro
+Se planea expandir el sistema para manejar **todas las tasks del pipeline** mencionadas en `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.md`. El sistema debería:
+
+1. **Verificar existencia de tasks**: Antes de ejecutar cualquier operación, consultar Flow para verificar qué tasks existen en el shot
+2. **Permitir selección de task**: Agregar UI para elegir qué task gestionar cuando hay múltiples tasks disponibles
+3. **Soporte multi-task**: Permitir asignar/clear asignados en cualquier task del pipeline
+
+**Referencia**: Ver `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.md` sección "Tasks Disponibles" para la lista completa de tasks del pipeline.
 
 ## Notas Técnicas
 - El archivo de configuración se busca en la misma carpeta que el script del panel
