@@ -30,6 +30,11 @@ from PySide2.QtGui import QColor, QKeySequence
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Flow"))
 from LGA_NKS_Flow_NamingUtils import clean_base_name
 
+# Importar módulo utilitario para selección de clips
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Utils"))
+from LGA_NKS_GetClip import get_clips_to_process
+import LGA_NKS_GetClip as clip_utils
+
 
 # Clase de botón personalizada que maneja el Shift+Click y Ctrl+Shift+Click
 class CustomButton(QPushButton):
@@ -87,6 +92,9 @@ class AssigneePanel(QWidget):
         self.users = self.load_users_from_config()
         debug_print(f"Usuarios cargados: {self.users}")
 
+        # Sincronizar debug con el módulo de clips
+        clip_utils.DEBUG = DEBUG
+
         # Definir los botones fijos y sus colores/estilos
         self.fixed_buttons = [
             (
@@ -94,14 +102,14 @@ class AssigneePanel(QWidget):
                 self.get_assignees_for_selected_clip,
                 "#202233",
                 None,
-                "Obtiene los usuarios asignados a la task comp del clip seleccionado",
+                "Obtiene los usuarios asignados a la task comp. Si hay múltiples clips seleccionados, procesa todos; si hay uno solo, usa el playhead.",
             ),
             (
                 "Clear Assignees",
                 self.clear_assignees_for_selected_clip,
                 "#202233",
                 None,
-                "Elimina todos los asignados de la task comp del clip seleccionado",
+                "Elimina todos los asignados de la task comp. Si hay múltiples clips seleccionados, procesa todos; si hay uno solo, usa el playhead.",
             ),
         ]
 
@@ -298,14 +306,16 @@ class AssigneePanel(QWidget):
         if not seq:
             QMessageBox.warning(self, "No Sequence", "No hay una secuencia activa.")
             return
-        te = hiero.ui.getTimelineEditor(seq)
-        selected_items = te.selection()
-        if not selected_items:
+
+        # Usar método híbrido: selección múltiple prioritaria, playhead para selección simple
+        clips_to_process = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
+        if not clips_to_process:
             QMessageBox.warning(
-                self, "No Selection", "Selecciona un clip en el timeline."
+                self, "No Clips", "No se encontraron clips para procesar. Selecciona clips o posiciona el playhead sobre un clip en el track _comp_."
             )
             return
-        for item in selected_items:
+
+        for item in clips_to_process:
             if not isinstance(item, hiero.core.EffectTrackItem):
                 if item.source().mediaSource().isMediaPresent():
                     fileinfos = item.source().mediaSource().fileinfos()
@@ -358,14 +368,16 @@ class AssigneePanel(QWidget):
         if not seq:
             QMessageBox.warning(self, "No Sequence", "No hay una secuencia activa.")
             return
-        te = hiero.ui.getTimelineEditor(seq)
-        selected_items = te.selection()
-        if not selected_items:
+
+        # Usar método híbrido: selección múltiple prioritaria, playhead para selección simple
+        clips_to_process = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
+        if not clips_to_process:
             QMessageBox.warning(
-                self, "No Selection", "Selecciona un clip en el timeline."
+                self, "No Clips", "No se encontraron clips para procesar. Selecciona clips o posiciona el playhead sobre un clip en el track _comp_."
             )
             return
-        for item in selected_items:
+
+        for item in clips_to_process:
             if not isinstance(item, hiero.core.EffectTrackItem):
                 if item.source().mediaSource().isMediaPresent():
                     fileinfos = item.source().mediaSource().fileinfos()
@@ -421,16 +433,18 @@ class AssigneePanel(QWidget):
             debug_print("No hay secuencia activa")
             QMessageBox.warning(self, "No Sequence", "No hay una secuencia activa.")
             return
-        te = hiero.ui.getTimelineEditor(seq)
-        selected_items = te.selection()
-        if not selected_items:
-            debug_print("No hay items seleccionados")
+
+        # Usar método híbrido: selección múltiple prioritaria, playhead para selección simple
+        clips_to_process = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
+        if not clips_to_process:
+            debug_print("No hay clips para procesar")
             QMessageBox.warning(
-                self, "No Selection", "Selecciona un clip en el timeline."
+                self, "No Clips", "No se encontraron clips para procesar. Selecciona clips o posiciona el playhead sobre un clip en el track _comp_."
             )
             return
-        debug_print(f"Procesando {len(selected_items)} items seleccionados")
-        for item in selected_items:
+
+        debug_print(f"Procesando {len(clips_to_process)} clips")
+        for item in clips_to_process:
             if not isinstance(item, hiero.core.EffectTrackItem):
                 if item.source().mediaSource().isMediaPresent():
                     fileinfos = item.source().mediaSource().fileinfos()

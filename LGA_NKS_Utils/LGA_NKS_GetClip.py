@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_GetClip v1.2 | Lega
+  LGA_NKS_GetClip v1.4 | Lega
   Utilidades para obtener clips del timeline de Hiero/Nuke Studio
   
   Método híbrido recomendado:
@@ -12,8 +12,10 @@ ________________________________________________________________________________
   - LGA_NKS_Flow_ShowInFlow.py
   - LGA_NKS_Edit/LGA_NKS_MatchVerToEXR.py
   - LGA_NKS_Edit/LGA_NKS_CompareEXR_to_aPlate.py
+  - LGA_NKS_Flow_Assignee_Panel.py (get_clips_to_process)
   - (otros scripts que necesiten obtener clips)
 
+  v1.4 - Agrega advertencia automática cuando hay clips seleccionados en tracks que no son el objetivo
   v1.3 - Renombra variables: DEFAULT_TRACK_NAME → TRACK_comp_EXR, DEFAULT_REV_TRACK_NAME → TRACK_comp_REV
   v1.2 - Agrega DEFAULT_REV_TRACK_NAME para centralizar el nombre del track REV
   v1.1 - Agrega get_clips_to_process para obtener múltiples clips seleccionados en el track
@@ -127,9 +129,10 @@ def get_selected_clips_in_track(seq, track_name=None):
 def get_clip_to_process(track_name=None, prioritize_multiple_selection=False):
     """
     Obtiene el clip a procesar usando el método híbrido:
-    1. Si prioritize_multiple_selection=True y hay múltiples clips seleccionados en el track, devuelve lista
-    2. Si no, primero intenta obtener el clip del track especificado en la posición del playhead
-    3. Si no encuentra, usa el primer clip seleccionado como fallback
+    1. Muestra advertencia automática si hay clips seleccionados en tracks que no son el objetivo
+    2. Si prioritize_multiple_selection=True y hay múltiples clips seleccionados en el track, devuelve lista
+    3. Si no, primero intenta obtener el clip del track especificado en la posición del playhead
+    4. Si no encuentra, usa el primer clip seleccionado como fallback
     
     Debe ejecutarse en el hilo principal de Hiero.
     
@@ -149,6 +152,20 @@ def get_clip_to_process(track_name=None, prioritize_multiple_selection=False):
     if not seq:
         debug_print("No se encontro una secuencia activa en Hiero.")
         return None
+
+    # Verificar si hay clips seleccionados en otros tracks y mostrar advertencia
+    all_selected_clips = get_selected_clips()
+    selected_clips_in_track = get_selected_clips_in_track(seq, track_name=track_name)
+    
+    if len(all_selected_clips) > len(selected_clips_in_track):
+        clips_in_other_tracks = len(all_selected_clips) - len(selected_clips_in_track)
+        from PySide2.QtWidgets import QMessageBox
+        QMessageBox.information(
+            None,
+            "Selección filtrada por track",
+            f"Se detectaron {clips_in_other_tracks} clip(s) seleccionado(s) en tracks que no son '{track_name}'.\n\n"
+            f"Solo se procesarán los clips seleccionados en el track '{track_name}'."
+        )
 
     # Si prioritize_multiple_selection=True, verificar primero si hay múltiples clips seleccionados en el track
     if prioritize_multiple_selection:
@@ -237,4 +254,3 @@ def get_selected_clips():
     ]
     
     return valid_clips
-

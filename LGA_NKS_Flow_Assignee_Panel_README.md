@@ -110,6 +110,27 @@ Al hacer Ctrl+Shift+Click en un botón de usuario, el panel llama al script de g
 - Recarga la configuración sin reiniciar Hiero
 - Útil para desarrollo y pruebas
 
+## Método de Selección de Clips
+
+El panel utiliza un **método híbrido inteligente filtrado por track** para determinar qué clips procesar, consistente con el resto del sistema:
+
+### Lógica de Selección
+1. **Selección múltiple en track objetivo**: Si hay múltiples clips seleccionados en el track `_comp_` (configurable vía `TRACK_comp_EXR`), procesa TODOS esos clips
+2. **Playhead para selección simple**: Si hay solo un clip seleccionado en el track objetivo o ninguno, usa la posición del playhead para encontrar el clip en el track `_comp_`
+
+### Comportamiento Específico
+- ✅ **Múltiples clips seleccionados en `_comp_`** → Procesa todos los del track `_comp_` (prioridad máxima)
+- ✅ **Un clip seleccionado en `_comp_`** → Usa playhead para determinar cuál procesar en track `_comp_`
+- ✅ **Sin clips seleccionados en `_comp_`** → Usa playhead como fallback en track `_comp_`
+- ⚠️ **Advertencia automática**: Si hay clips seleccionados en otros tracks, muestra mensaje informativo indicando que solo se procesan los del track `_comp_`
+
+### Implementación Técnica
+- Utiliza `get_clips_to_process()` del módulo `LGA_NKS_GetClip` con `prioritize_multiple_selection=True`
+- Filtra por track igual que otros scripts del sistema
+- Muestra advertencia automática cuando hay clips seleccionados en tracks que no son el objetivo
+- Sincroniza debug con el módulo utilitario
+- Compatible con el sistema de nomenclatura dual (formatos con/sin descripción)
+
 ## Estructura del Panel
 
 ### Botones Fijos

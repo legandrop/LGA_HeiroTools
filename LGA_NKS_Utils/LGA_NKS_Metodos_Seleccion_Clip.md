@@ -30,7 +30,7 @@ Este método utiliza los clips que están actualmente seleccionados en el timeli
 - **`LGA_NKS_Flow/LGA_NKS_Flow_CreateShot.py`** (línea 136) - `selected_clips = timeline_editor.selection()`
 
 #### Paneles:
-- **`LGA_NKS_Flow_Assignee_Panel.py`** (líneas 287, 347, 410) - `selected_items = te.selection()`
+- [x] **`LGA_NKS_Flow_Assignee_Panel.py`** - Usa `get_clips_to_process()` del módulo `LGA_NKS_GetClip` con `prioritize_multiple_selection=True` (método híbrido: selección múltiple prioritaria, playhead para selección simple)
 - **`LGA_NKS_Flow_FlowProd_Panel.py`** - Llama a scripts que usan selección
 
 #### Scripts de NKS:
@@ -78,6 +78,7 @@ Este método obtiene la posición actual del playhead (`viewer.time()`) y busca 
 - [x] **`LGA_NKS_Flow/LGA_NKS_Flow_Shot_info.py`** - Usa módulo centralizado `LGA_NKS_GetClip` con `track_name=None` (NO permite selecciones múltiples)
 - [x] **`LGA_NKS_Flow/LGA_NKS_Flow_Push.py`** - Usa módulo centralizado `LGA_NKS_GetClip` con `track_name=None` en función `push_from_selected_clips()` (permite selecciones múltiples, con límite de 4 clips requiere confirmación)
 - [x] **`LGA_NKS_Flow/LGA_NKS_Flow_ShowInFlow.py`** - Usa módulo centralizado `LGA_NKS_GetClip` con `track_name=None` (permite selecciones múltiples)
+- [x] **`LGA_NKS_Flow_Assignee_Panel.py`** - Usa `get_clips_to_process()` del módulo `LGA_NKS_GetClip` con `prioritize_multiple_selection=True` (método híbrido: selección múltiple prioritaria, playhead para selección simple)
 - [x] **`LGA_NKS_Flow/LGA_NKS_ReviewPic.py`** - Usa módulo centralizado `LGA_NKS_GetClip` con `track_name=None` (NO permite selecciones múltiples)
 - [x] **`LGA_NKS/LGA_NKS_Clip_DisableEXR.py`** - Usa módulo centralizado `LGA_NKS_GetClip` (NO permite selecciones múltiples)
 - [x] **`LGA_NKS_Edit/LGA_NKS_CompareEXR_to_aPlate.py`** - Usa módulo centralizado `LGA_NKS_GetClip` (permite selecciones múltiples)
@@ -172,9 +173,10 @@ clip = get_clip_to_process()  # None es el valor por defecto
 
 #### `get_clip_to_process(track_name=None, prioritize_multiple_selection=False)`
 **Función principal recomendada** - Implementa el método híbrido:
-1. Si `prioritize_multiple_selection=True` y hay múltiples clips seleccionados en el track, devuelve lista de esos clips
-2. Si no, intenta obtener el clip del track especificado en la posición del playhead
-3. Si no encuentra, usa el primer clip seleccionado como fallback
+1. **Advertencia automática**: Si hay clips seleccionados en tracks que no son el objetivo, muestra mensaje informativo
+2. Si `prioritize_multiple_selection=True` y hay múltiples clips seleccionados en el track, devuelve lista de esos clips
+3. Si no, intenta obtener el clip del track especificado en la posición del playhead
+4. Si no encuentra, usa el primer clip seleccionado como fallback
 
 **Parámetros:**
 - `track_name` (str, optional): Nombre del track a buscar. Si es `None`, usa `TRACK_comp_EXR` (actualmente `"_comp_"`)
@@ -231,6 +233,10 @@ Obtiene los clips a procesar usando el método híbrido. **Siempre devuelve una 
 
 **Recomendado para scripts que procesan múltiples clips.** Usa esta función cuando necesites iterar sobre los clips.
 
+**Características:**
+- Muestra advertencia automática cuando hay clips seleccionados en tracks que no son el objetivo
+- Filtra por track igual que `get_clip_to_process()`
+
 **Parámetros:**
 - `track_name` (str, optional): Nombre del track a buscar. Si es `None`, usa `TRACK_comp_EXR`
 - `prioritize_multiple_selection` (bool): Si `True` y hay múltiples clips seleccionados en el track, devuelve lista de esos clips (permite selecciones múltiples)
@@ -267,6 +273,7 @@ Obtiene todos los clips seleccionados que pertenecen al track especificado.
 
 **Retorna:**
 - Lista de clips seleccionados en el track especificado (excluyendo efectos) o lista vacía
+
 
 ### Configuración
 
