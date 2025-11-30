@@ -1,9 +1,14 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_CreateShot v1.32 | Lega
+  LGA_NKS_Flow_CreateShot v1.33 | Lega
   Script para crear shots en ShotGrid basado en el nombre del clip seleccionado en Hiero
   SIN usar templates predefinidos - crea tasks manualmente para mayor control
+
+  v1.33: Pre-chequeo inteligente de existencia antes de mostrar la UI
+         Muestra ventana "Comprobando existencia de los shots en Flow"
+         Bloquea la creación si alguno ya existe (multi selección)
+         Lanza automáticamente Modify Shot cuando el shot único ya existe
 
   v1.32: Agregado modo de modificación de shots existentes
          Reutiliza la misma UI compacta de creación
@@ -1376,6 +1381,31 @@ class ShotGridManager:
         debug_print(f"No se encontro el proyecto en ShotGrid: {project_name}")
         return None
 
+    def shot_exists(self, project_name, shot_code):
+        """Verifica si un shot existe en Flow."""
+        if not self.sg:
+            return False, None
+        project_id = self.get_project_id(project_name)
+        if not project_id:
+            return False, None
+        filters = [
+            ["project", "is", {"type": "Project", "id": project_id}],
+            ["code", "is", shot_code],
+        ]
+        fields = [
+            "id",
+            "code",
+            "description",
+            "sg_status_list",
+            "sg_prioridad",
+            "sg_sequence",
+            "project",
+        ]
+        shots = self.sg.find("Shot", filters, fields)
+        if shots:
+            return True, shots[0]
+        return False, None
+
     def find_shot_and_tasks(
         self,
         project_name,
@@ -1837,6 +1867,12 @@ class WorkerSignals(QObject):
     debug_output = Signal()  # Señal para imprimir logs al final
 
 
+class ShotExistenceSignals(QObject):
+    finished = Signal(list)  # Lista de dicts con clip_info y shot existente
+    error = Signal(str)
+    debug_output = Signal()
+
+
 class CreateShotWorker(QRunnable):
     def __init__(self, status_window, shot_config, clips_info, thumbnail_path=None):
         super(CreateShotWorker, self).__init__()
@@ -1946,6 +1982,55 @@ class CreateShotWorker(QRunnable):
             self.signals.error.emit(f"Error: {str(e)}")
 
 
+class ShotExistenceCheckWorker(QRunnable):
+    def __init__(self, clips_info):
+        super(ShotExistenceCheckWorker, self).__init__()
+        self.clips_info = clips_info
+        self.signals = ShotExistenceSignals()
+
+    @Slot()
+    def run(self):
+        try:
+            sg_url, sg_login, sg_password = get_flow_credentials_secure()
+            if not all([sg_url, sg_login, sg_password]):
+                self.signals.debug_output.emit()
+                self.signals.error.emit(
+                    "No se pudieron obtener las credenciales de Flow desde SecureConfig."
+                )
+                return
+
+            sg_manager = ShotGridManager(sg_url, sg_login, sg_password)
+            if not sg_manager.sg:
+                self.signals.debug_output.emit()
+                self.signals.error.emit(
+                    "No se pudo inicializar la conexión a ShotGrid."
+                )
+                return
+
+            existing = []
+            for clip_info in self.clips_info:
+                project_name = clip_info.get("project_name")
+                shot_code = clip_info.get("shot_code")
+                if not project_name or not shot_code:
+                    continue
+                exists, shot_data = sg_manager.shot_exists(project_name, shot_code)
+                if exists:
+                    debug_print(f"Shot '{shot_code}' ya existe en Flow.")
+                    existing.append(
+                        {
+                            "clip_info": clip_info,
+                            "shot": shot_data,
+                        }
+                    )
+
+            self.signals.debug_output.emit()
+            self.signals.finished.emit(existing)
+        except Exception as e:
+            debug_print(f"Error en ShotExistenceCheckWorker: {e}")
+            self.signals.debug_output.emit()
+            self.signals.error.emit(str(e))
+
+
 def get_flow_credentials_secure():
     sg_url, sg_login, sg_password = get_flow_credentials()
     if not sg_url or not sg_login or not sg_password:
@@ -1970,6 +2055,31 @@ def cleanup_thumbnail_file(thumbnail_path):
             debug_print(f"✅ Archivo temporal eliminado: {thumbnail_path}")
         except Exception as e:
             debug_print(f"❌ Error eliminando archivo temporal: {e}")
+
+
+def launch_modify_shot_script():
+    """Carga el script de Modify Shot y ejecuta su flujo principal."""
+    script_path = Path(__file__).with_name("LGA_NKS_Flow_ModifyShot.py")
+    if not script_path.exists():
+        QMessageBox.warning(
+            None,
+            "Flow | Modify Shot",
+            f"No se encontró el script Modify Shot en: {script_path}",
+        )
+        return
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "LGA_NKS_Flow_ModifyShot_runtime", str(script_path)
+        )
+        if spec is None or spec.loader is None:
+            raise ImportError("No se pudo cargar el módulo Modify Shot.")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        module.main()
+    except Exception as e:
+        QMessageBox.warning(None, "Flow | Modify Shot", str(e))
 
 
 def create_shots_from_selected_clips():
@@ -2005,34 +2115,102 @@ def create_shots_from_selected_clips():
         )
         return
 
-    # Mostrar dialogo de configuracion
+    # Iniciar pre-chequeo de existencia
+    start_shot_existence_check(clips_info, sequence_name)
+
+
+def start_shot_existence_check(clips_info, sequence_name):
+    """Abre ventana de estado y lanza worker para verificar existencia previa."""
+    global _status_window
+
+    _status_window = FlowStatusWindow("crear shot")
+    _status_window.show()
+    _status_window.show_step_message("Comprobando existencia de los shots en Flow...")
+
+    worker = ShotExistenceCheckWorker(clips_info)
+
+    worker.signals.finished.connect(
+        lambda existing: handle_shot_existence_result(
+            existing, clips_info, sequence_name
+        )
+    )
+    worker.signals.error.connect(handle_shot_existence_error)
+    worker.signals.debug_output.connect(lambda: print_debug_messages())
+
+    QThreadPool.globalInstance().start(worker)
+
+
+def handle_shot_existence_error(message):
+    global _status_window
+    if _status_window:
+        _status_window.show_error(message)
+    else:
+        QMessageBox.warning(None, "Flow | Create Shot", message)
+
+
+def handle_shot_existence_result(existing_shots, clips_info, sequence_name):
+    global _status_window
+
+    if existing_shots:
+        shot_names = [item["clip_info"]["shot_code"] for item in existing_shots]
+        formatted_list = "<br>".join(sorted(shot_names))
+
+        if len(clips_info) == 1:
+            if _status_window:
+                _status_window.close()
+                _status_window = None
+            QMessageBox.information(
+                None,
+                "Shot ya existente",
+                f"El shot '{shot_names[0]}' ya existe en Flow.\n"
+                "Se abrirá automáticamente Modify Shot para editarlo.",
+            )
+            launch_modify_shot_script()
+            return
+        else:
+            message = (
+                "No se pueden crear los shots seleccionados porque ya existen:<br>"
+                f"{formatted_list}"
+            )
+            if _status_window:
+                _status_window.show_error(message)
+            else:
+                QMessageBox.warning(
+                    None,
+                    "Shots ya existentes",
+                    "Ya existen en Flow:\n" + "\n".join(sorted(shot_names)),
+                )
+            return
+
+    # Ningún shot existe: cerrar ventana y continuar con el flujo normal
+    if _status_window:
+        _status_window.close()
+        _status_window = None
+
+    show_shot_config_dialog(clips_info, sequence_name)
+
+
+def show_shot_config_dialog(clips_info, sequence_name):
+    """Muestra el dialogo de configuración y lanza la creación."""
     config_dialog = ShotConfigDialog(clips_info, sequence_name)
     if config_dialog.exec_() != QDialog.Accepted:
-        # Limpiar thumbnail si el usuario cancela
         config_dialog.cleanup_thumbnail()
-        return  # Usuario cancelo
+        return
 
     shot_config = config_dialog.get_config()
     if not shot_config:
         config_dialog.cleanup_thumbnail()
         return
 
-        # Obtener la ruta del thumbnail antes de limpiar
     thumbnail_path = config_dialog.thumbnail_path
 
-    # NO limpiar thumbnail hasta después del worker
-
-    # Crear y mostrar ventana de estado
+    global _status_window
     _status_window = FlowStatusWindow("crear shot")
     _status_window.show()
-    _status_window.show_processing_message()  # Mostrar mensaje de procesamiento
+    _status_window.show_processing_message()
 
-    # Crear worker para procesamiento en hilo separado
-    # Pasar clips_info obtenidos en el hilo principal (las funciones del módulo centralizado
-    # necesitan ejecutarse en el hilo principal porque acceden al viewer de Hiero)
     worker = CreateShotWorker(_status_window, shot_config, clips_info, thumbnail_path)
 
-    # Conectar señales
     worker.signals.shot_info_ready.connect(
         lambda shot_name, project_name, window=_status_window: window.update_shot_info(
             shot_name, project_name
@@ -2055,9 +2233,7 @@ def create_shots_from_selected_clips():
     )
     worker.signals.debug_output.connect(lambda: print_debug_messages())
 
-    # Ejecutar en hilo separado
     QThreadPool.globalInstance().start(worker)
-
     debug_print("=== Worker iniciado en hilo separado ===")
 
 

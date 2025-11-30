@@ -21,6 +21,7 @@ El panel LGA_NKS_Flow_FlowProd_Panel proporciona herramientas esenciales para op
 - **Función**: Crea shots automáticamente en Flow Production Tracking basándose en los clips seleccionados
 - **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py`
 - **Comportamiento**: Analiza los clips seleccionados, extrae información del shotname y crea los shots correspondientes en Flow si no existen
+- **Pre-chequeo v1.33**: Antes de mostrar la UI verifica si ya existen; si hay múltiples y alguno existe se cancela mostrando la lista, si es un único shot existente lanza Modify Shot automáticamente
 
 ### 4. Modify Shot
 - **Función**: Modifica un shot ya existente en Flow (agregar o quitar tasks, actualizar descripciones) sin tocar estados actuales

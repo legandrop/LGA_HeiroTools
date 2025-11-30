@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_ModifyShot v1.32 | Lega
+  LGA_NKS_Flow_ModifyShot v1.33 | Lega
 
   Script para modificar shots existentes en ShotGrid sin afectar estados.
   - Carga información actual del shot (descripcion, tasks) desde Flow.
@@ -9,6 +9,7 @@ ________________________________________________________________________________
   - Permite agregar o eliminar tasks y actualizar la descripción de forma segura.
 
   El número de versión siempre coincide con el de Create Shot para trackear la compatibilidad entre ambos scripts.
+  Desde v1.33, Create Shot dispara este flujo automáticamente cuando detecta un shot único que ya existe.
 ____________________________________________________________________________________
 """
 

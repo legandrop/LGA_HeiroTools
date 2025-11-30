@@ -1,4 +1,5 @@
-# LGA_NKS_Flow_CreateShot v1.32
+# LGA_NKS_Flow_CreateShot v1.33
+**Cambio importante en v1.33:** Pre-chequeo automático de existencia antes de mostrar la UI. Si algún shot ya existe se informa inmediatamente; para selección simple se lanza Modify Shot; para selecciones múltiples se bloquea la creación mostrando qué shots ya existen.
 
 ## Descripción General
 
@@ -107,6 +108,7 @@ Para cada clip seleccionado:
 - Se actualizan estados según configuración
 - Tasks deshabilitadas no se crean
 - Si el shot ya existía en Flow, **no se realizan modificaciones** y se muestra un mensaje informativo para que utilices Modify Shot
+- Con v1.33 el script chequea primero si los shots ya existen: si hay múltiples y alguno existe se cancela mostrando la lista; si es uno solo existente se lanza automáticamente Modify Shot
 
 ## Modify Shot (Nuevo)
 
@@ -377,6 +379,12 @@ El script utiliza un sistema de logging seguro para entornos multi-hilo que evit
 - Detección automática de formato
 
 ## Historial de Versiones
+
+### v1.33 - Pre-chequeo Inteligente Antes de Crear ⭐
+- ✅ Ventana "Comprobando existencia de los shots en Flow" antes de mostrar la UI
+- ✅ Selecciones múltiples: se cancela la creación si alguno ya existe y se listan los códigos detectados
+- ✅ Selección única: si el shot ya existe se dispara automáticamente Modify Shot con el mismo clip
+- ✅ Garantiza que Create Shot solo cree entidades nuevas y evita sorpresas antes de configurar las tasks
 
 ### v1.31 - Método Híbrido Centralizado con Selección Múltiple (Actual) ⭐
 - ✅ **Migración al módulo centralizado `LGA_NKS_GetClip`:**
