@@ -22,6 +22,12 @@ El panel LGA_NKS_Flow_FlowProd_Panel proporciona herramientas esenciales para op
 - **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py`
 - **Comportamiento**: Analiza los clips seleccionados, extrae información del shotname y crea los shots correspondientes en Flow si no existen
 
+### 4. Modify Shot
+- **Función**: Modifica un shot ya existente en Flow (agregar o quitar tasks, actualizar descripciones) sin tocar estados actuales
+- **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ModifyShot.py`
+- **Restricción**: Solo admite un clip seleccionado a la vez
+- **Comportamiento**: Lee la configuración real del shot en Flow, precarga la misma UI compacta y aplica únicamente las diferencias solicitadas
+
 ## Compatibilidad de Nomenclatura
 
 El panel es compatible con ambos sistemas de nomenclatura utilizados en la empresa:

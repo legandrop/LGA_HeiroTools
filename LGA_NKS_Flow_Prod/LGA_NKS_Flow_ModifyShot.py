@@ -1,0 +1,347 @@
+"""
+____________________________________________________________________________________
+
+  LGA_NKS_Flow_ModifyShot v1.32 | Lega
+
+  Script para modificar shots existentes en ShotGrid sin afectar estados.
+  - Carga información actual del shot (descripcion, tasks) desde Flow.
+  - Reutiliza la UI compacta del script de creación para garantizar consistencia.
+  - Permite agregar o eliminar tasks y actualizar la descripción de forma segura.
+
+  El número de versión siempre coincide con el de Create Shot para trackear la compatibilidad entre ambos scripts.
+____________________________________________________________________________________
+"""
+
+from PySide2.QtCore import QObject, QRunnable, QThreadPool, Signal, Slot
+from PySide2.QtWidgets import QApplication, QMessageBox, QDialog
+
+from LGA_NKS_Flow_Prod.LGA_NKS_Flow_CreateShot import (
+    FlowStatusWindow,
+    HieroOperations,
+    ShotConfigDialog,
+    ShotGridManager,
+    WorkerSignals,
+    debug_print,
+    get_active_sequence_name,
+    get_flow_credentials_secure,
+    print_debug_messages,
+)
+
+
+class ShotDataSignals(QObject):
+    loaded = Signal(object, object, int)  # shot, tasks, project_id
+    error = Signal(str)
+    debug_output = Signal()
+
+
+class LoadShotInfoWorker(QRunnable):
+    def __init__(self, project_name, shot_code):
+        super(LoadShotInfoWorker, self).__init__()
+        self.project_name = project_name
+        self.shot_code = shot_code
+        self.signals = ShotDataSignals()
+
+    @Slot()
+    def run(self):
+        try:
+            sg_url, sg_login, sg_password = get_flow_credentials_secure()
+            if not all([sg_url, sg_login, sg_password]):
+                self.signals.debug_output.emit()
+                self.signals.error.emit(
+                    "No se pudieron obtener las credenciales de Flow desde SecureConfig."
+                )
+                return
+
+            sg_manager = ShotGridManager(sg_url, sg_login, sg_password)
+            if not sg_manager.sg:
+                self.signals.debug_output.emit()
+                self.signals.error.emit("No se pudo inicializar la conexión a ShotGrid.")
+                return
+
+            project_id = sg_manager.get_project_id(self.project_name)
+            if not project_id:
+                self.signals.debug_output.emit()
+                self.signals.error.emit(
+                    f"No se encontró el proyecto '{self.project_name}' en Flow."
+                )
+                return
+
+            shot, tasks, _ = sg_manager.find_shot_and_tasks(
+                self.project_name,
+                self.shot_code,
+                shot_config=None,
+                thumbnail_path=None,
+                create_if_missing=False,
+            )
+
+            if not shot:
+                self.signals.debug_output.emit()
+                self.signals.error.emit(
+                    f"El shot '{self.shot_code}' no existe en Flow (usa Create Shot)."
+                )
+                return
+
+            self.signals.loaded.emit(shot, tasks or [], project_id)
+            self.signals.debug_output.emit()
+        except Exception as e:
+            debug_print(f"Error cargando informacion del shot: {e}")
+            self.signals.debug_output.emit()
+            self.signals.error.emit(str(e))
+
+
+class ModifyShotWorker(QRunnable):
+    def __init__(
+        self,
+        shot_config,
+        clip_info,
+        shot_data,
+        existing_tasks,
+        project_id,
+        original_description,
+    ):
+        super(ModifyShotWorker, self).__init__()
+        self.shot_config = shot_config
+        self.clip_info = clip_info
+        self.shot_data = shot_data
+        self.existing_tasks = existing_tasks or []
+        self.project_id = project_id
+        self.original_description = original_description or ""
+        self.signals = WorkerSignals()
+
+    @Slot()
+    def run(self):
+        try:
+            self.signals.shot_info_ready.emit(
+                self.clip_info["shot_code"], self.clip_info["project_name"]
+            )
+            self.signals.step_update.emit("Preparando modificación del shot...")
+
+            sg_url, sg_login, sg_password = get_flow_credentials_secure()
+            if not all([sg_url, sg_login, sg_password]):
+                self.signals.debug_output.emit()
+                self.signals.error.emit(
+                    "No se pudieron obtener las credenciales de Flow desde SecureConfig."
+                )
+                return
+
+            sg_manager = ShotGridManager(sg_url, sg_login, sg_password)
+            if not sg_manager.sg:
+                self.signals.debug_output.emit()
+                self.signals.error.emit("No se pudo inicializar la conexión a ShotGrid.")
+                return
+
+            shot_id = self.shot_data["id"]
+            existing_task_map = {task["content"]: task for task in self.existing_tasks}
+            tasks_config = self.shot_config.get("tasks", {})
+
+            tasks_to_create = []
+            tasks_to_delete = []
+
+            for task_name, task_cfg in tasks_config.items():
+                enabled_now = task_cfg.get("enabled", False)
+                existed = task_name in existing_task_map
+
+                if existed and not enabled_now:
+                    tasks_to_delete.append(existing_task_map[task_name])
+                elif not existed and enabled_now:
+                    tasks_to_create.append((task_name, task_cfg))
+
+            created_count = 0
+            deleted_count = 0
+
+            for task in tasks_to_delete:
+                task_name = task["content"]
+                self.signals.step_update.emit(f"Eliminando task '{task_name}'...")
+                if sg_manager.delete_task(task["id"]):
+                    deleted_count += 1
+                else:
+                    self.signals.step_update.emit(
+                        f"ERROR eliminando task '{task_name}'."
+                    )
+
+            for task_name, task_cfg in tasks_to_create:
+                self.signals.step_update.emit(f"Creando task '{task_name}'...")
+                success = sg_manager.create_task_for_shot(
+                    project_id=self.project_id,
+                    shot_id=shot_id,
+                    task_name=task_name,
+                    task_config=task_cfg,
+                    shot_description=self.shot_config["description"],
+                )
+                if success:
+                    created_count += 1
+                else:
+                    self.signals.step_update.emit(
+                        f"ERROR creando task '{task_name}'. Revisa los logs."
+                    )
+
+            updated_tasks = sg_manager.find_tasks_for_shot(shot_id)
+            new_description = self.shot_config["description"] or ""
+            description_changed = (
+                new_description.strip() != self.original_description.strip()
+            )
+
+            if description_changed:
+                self.signals.step_update.emit(
+                    "Actualizando descripcion del shot y sus tasks..."
+                )
+                sg_manager.update_shot_description(shot_id, new_description)
+                for task in updated_tasks:
+                    sg_manager.update_task_description(task["id"], new_description)
+
+            self.signals.debug_output.emit()
+
+            if any([created_count, deleted_count, description_changed]):
+                summary_parts = []
+                if created_count:
+                    summary_parts.append(f"{created_count} task(s) nueva(s)")
+                if deleted_count:
+                    summary_parts.append(f"{deleted_count} task(s) eliminada(s)")
+                if description_changed:
+                    summary_parts.append("descripcion actualizada")
+                summary = ", ".join(summary_parts)
+                self.signals.finished.emit(
+                    True, f"Shot modificado correctamente ({summary})."
+                )
+            else:
+                self.signals.finished.emit(
+                    True, "No se detectaron cambios para aplicar en el shot."
+                )
+        except Exception as e:
+            debug_print(f"Error en ModifyShotWorker: {e}")
+            self.signals.debug_output.emit()
+            self.signals.error.emit(f"Error modificando shot: {str(e)}")
+
+
+_loader_window = None
+_status_window = None
+
+
+def _show_error(message):
+    QMessageBox.warning(None, "Modify Shot", message)
+
+
+def _launch_config_dialog(
+    clip_info, sequence_name, shot_data, tasks, project_id, loader_window
+):
+    if loader_window:
+        loader_window.hide()
+
+    dialog = ShotConfigDialog(
+        clips_info=[clip_info],
+        sequence_name=sequence_name,
+        dialog_mode="modify",
+        action_button_label="Modify Shot",
+        allow_thumbnail_creation=False,
+    )
+
+    existing_tasks_map = {task["content"]: task for task in tasks}
+    dialog.prefill_from_existing_shot(
+        shot_data, existing_tasks_map, lock_existing_task_fields=True
+    )
+
+    if dialog.exec_() != QDialog.Accepted:
+        dialog.cleanup_thumbnail()
+        return
+
+    shot_config = dialog.get_config()
+    dialog.cleanup_thumbnail()
+
+    global _status_window
+    _status_window = FlowStatusWindow("modificar shot")
+    _status_window.show()
+    _status_window.show_processing_message()
+
+    worker = ModifyShotWorker(
+        shot_config=shot_config,
+        clip_info=clip_info,
+        shot_data=shot_data,
+        existing_tasks=tasks,
+        project_id=project_id,
+        original_description=shot_data.get("description", "") or "",
+    )
+
+    worker.signals.shot_info_ready.connect(
+        lambda shot_name, project_name, window=_status_window: window.update_shot_info(
+            shot_name, project_name
+        )
+    )
+    worker.signals.step_update.connect(
+        lambda message, window=_status_window: window.show_step_message(message)
+    )
+    worker.signals.finished.connect(
+        lambda success, message, window=_status_window: (
+            window.show_success(message) if window else None
+        )
+    )
+    worker.signals.error.connect(
+        lambda error_msg, window=_status_window: (
+            window.show_error(error_msg) if window else None
+        )
+    )
+    worker.signals.debug_output.connect(lambda: print_debug_messages())
+
+    QThreadPool.globalInstance().start(worker)
+
+
+def modify_shot_from_selected_clip():
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication([])
+
+    hiero_ops_temp = HieroOperations(None)
+    clips_info = hiero_ops_temp.get_selected_clips_info()
+
+    if not clips_info:
+        _show_error("No se encontraron clips seleccionados en Hiero.")
+        return
+
+    if len(clips_info) != 1:
+        _show_error("Modify Shot solo admite un clip seleccionado a la vez.")
+        return
+
+    clip_info = clips_info[0]
+
+    if not clip_info.get("project_name") or not clip_info.get("shot_code"):
+        _show_error("No se pudo extraer el proyecto o shot del clip seleccionado.")
+        return
+
+    sequence_name = get_active_sequence_name()
+    if not sequence_name:
+        _show_error(
+            "No se pudo obtener el nombre de la secuencia activa en Hiero."
+        )
+        return
+
+    global _loader_window
+    _loader_window = FlowStatusWindow("modificar shot")
+    _loader_window.show()
+    _loader_window.show_step_message("Cargando informacion del shot desde Flow...")
+
+    loader = LoadShotInfoWorker(
+        clip_info["project_name"],
+        clip_info["shot_code"],
+    )
+
+    loader.signals.loaded.connect(
+        lambda shot, tasks, project_id: _launch_config_dialog(
+            clip_info, sequence_name, shot, tasks, project_id, _loader_window
+        )
+    )
+    loader.signals.error.connect(
+        lambda message: (
+            _loader_window.show_error(message) if _loader_window else None
+        )
+    )
+    loader.signals.debug_output.connect(lambda: print_debug_messages())
+
+    QThreadPool.globalInstance().start(loader)
+
+
+def main():
+    modify_shot_from_selected_clip()
+
+
+if __name__ == "__main__":
+    main()
+

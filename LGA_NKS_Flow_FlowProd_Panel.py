@@ -1,15 +1,21 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_FlowProd_Panel v1.08 | Lega
+  LGA_NKS_Flow_FlowProd_Panel v1.09 | Lega
   Panel para operaciones de producción con Flow:
   - Revelar clips en Flow
   - Crear shots automáticamente
   - Crear thumbnails
   - Cambiar prioridad de shots
-  Actualizado para ser compatible con ambos sistemas de nomenclatura:
-  - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
-  - PROYECTO_SEQ_SHOT (3 bloques simplificado)
+  
+  v1.09: Agregado modo de modificación de shots existentes
+         Reutiliza la misma UI compacta de creación
+         Permite agregar/eliminar tasks y actualizar la descripción
+         No afecta estados ni tiempos de las tasks existentes
+  
+  v1.08: Actualizado para ser compatible con ambos sistemas de nomenclatura:
+        - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+        - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 ____________________________________________________________________________________
 """
 
@@ -76,6 +82,13 @@ class FlowProdPanel(QWidget):
                 "#2a4d3a",
                 None,
                 "Crear shot en Flow basado en el clip seleccionado",
+            ),
+            (
+                "Modify Shot",
+                self.modify_shot_for_selected_clip,
+                "#2a4d3a",
+                None,
+                "Modificar shot existente en Flow (1 clip a la vez)",
             ),
             (
                 "Shot Priority",
@@ -239,6 +252,34 @@ class FlowProdPanel(QWidget):
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             # Llamar a la función principal
+            module.main()
+        except Exception as e:
+            QMessageBox.warning(self, "Error al ejecutar", str(e))
+
+    def modify_shot_for_selected_clip(self):
+        """Llama al script Modify Shot para ajustar shots existentes"""
+        script_path = os.path.join(
+            os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_Flow_ModifyShot.py"
+        )
+        if not os.path.exists(script_path):
+            QMessageBox.warning(
+                self,
+                "Script no encontrado",
+                f"No se encontró el script en la ruta: {script_path}",
+            )
+            return
+        try:
+            import importlib.util
+
+            spec = importlib.util.spec_from_file_location(
+                "LGA_NKS_Flow_ModifyShot", script_path
+            )
+            if spec is None or spec.loader is None:
+                raise ImportError(
+                    "No se pudo cargar el módulo LGA_NKS_Flow_ModifyShot.py"
+                )
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
             module.main()
         except Exception as e:
             QMessageBox.warning(self, "Error al ejecutar", str(e))

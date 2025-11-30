@@ -1,9 +1,14 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_CreateShot v1.31 | Lega
+  LGA_NKS_Flow_CreateShot v1.32 | Lega
   Script para crear shots en ShotGrid basado en el nombre del clip seleccionado en Hiero
   SIN usar templates predefinidos - crea tasks manualmente para mayor control
+
+  v1.32: Agregado modo de modificación de shots existentes
+         Reutiliza la misma UI compacta de creación
+         Permite agregar/eliminar tasks y actualizar la descripción
+         No afecta estados ni tiempos de las tasks existentes
 
   v1.31: Migración al método híbrido centralizado de selección de clips
          Soporte para selección múltiple usando módulo LGA_NKS_GetClip
@@ -390,9 +395,21 @@ def create_shot_thumbnail():
 
 # Clase de ventana de configuracion para shots
 class ShotConfigDialog(QDialog):
-    def __init__(self, clips_info, sequence_name=None, parent=None):
+    def __init__(
+        self,
+        clips_info,
+        sequence_name=None,
+        parent=None,
+        dialog_mode="create",
+        action_button_label=None,
+        allow_thumbnail_creation=True,
+    ):
         super(ShotConfigDialog, self).__init__(parent)
-        self.setWindowTitle("Flow | Shot Creation")
+        self.dialog_mode = dialog_mode
+        self.allow_thumbnail_creation = allow_thumbnail_creation
+        self.setWindowTitle(
+            "Flow | Modify Shot" if dialog_mode == "modify" else "Flow | Shot Creation"
+        )
         self.setModal(True)
         self.setMinimumWidth(600)
         self.setMinimumHeight(400)
@@ -400,6 +417,7 @@ class ShotConfigDialog(QDialog):
         self.clips_info = clips_info
         self.sequence_name = sequence_name
         self.shot_config = None
+        self.existing_tasks = set()
         
         # Diccionario para almacenar widgets de tasks dinámicamente
         # Estructura: {task_name: {widget_key: widget_object}}
@@ -410,7 +428,12 @@ class ShotConfigDialog(QDialog):
         self.setLayout(layout)
 
         # Titulo
-        title_label = QLabel("Configuracion para crear shots")
+        title_text = (
+            "Configuracion para modificar shots"
+            if dialog_mode == "modify"
+            else "Configuracion para crear shots"
+        )
+        title_label = QLabel(title_text)
         title_font = QFont()
         title_font.setPointSize(12)
         title_font.setBold(True)
@@ -636,11 +659,11 @@ class ShotConfigDialog(QDialog):
         self.thumbnail_label = None
         self.thumbnail_path = None
         debug_print(f"[INFO] Numero de clips seleccionados: {len(self.clips_info)}")
-        if len(self.clips_info) == 1:
+        if self.allow_thumbnail_creation and len(self.clips_info) == 1:
             debug_print("[INFO] Creando thumbnail para clip unico...")
             self.create_and_show_thumbnail()
         else:
-            debug_print("[INFO] No se crea thumbnail (multiples clips o ninguno)")
+            debug_print("[INFO] No se crea thumbnail (modo modify o multiples clips)")
 
         # Espaciador
         layout.addStretch()
@@ -668,7 +691,10 @@ class ShotConfigDialog(QDialog):
 
         button_layout.addSpacing(10)  # Espacio pequeño entre botones
 
-        self.create_button = QPushButton("Create Shot")
+        button_text = action_button_label
+        if not button_text:
+            button_text = "Modify Shot" if dialog_mode == "modify" else "Create Shot"
+        self.create_button = QPushButton(button_text)
         self.create_button.clicked.connect(self.accept_config)
         self.create_button.setStyleSheet(
             """
@@ -909,6 +935,78 @@ class ShotConfigDialog(QDialog):
         from PySide2.QtCore import QTimer
         QTimer.singleShot(0, self.adjust_window_size)
     
+    def set_task_fields_editable(self, task_name, editable):
+        """Habilita o deshabilita los campos editables de una task."""
+        widgets = self.task_widgets.get(task_name, {})
+        field_keys = [
+            "estimated_days",
+            "task_ready",
+            "copy_description",
+            "reviewer_lega",
+            "reviewer_sebas",
+            "reviewer_javi",
+        ]
+        for key in field_keys:
+            widget = widgets.get(key)
+            if widget:
+                widget.setEnabled(editable)
+
+    def set_shot_fields_editable(self, editable):
+        """Habilita o deshabilita los campos generales del shot."""
+        if hasattr(self, "shot_ready_cb"):
+            self.shot_ready_cb.setEnabled(editable)
+        if hasattr(self, "high_priority_cb"):
+            self.high_priority_cb.setEnabled(editable)
+
+    def prefill_from_existing_shot(
+        self,
+        shot_data,
+        existing_tasks_map,
+        lock_existing_task_fields=True,
+    ):
+        """Prefill de la UI con datos existentes (modo Modify)."""
+        if not shot_data:
+            return
+
+        description = shot_data.get("description") or ""
+        self.description_text.setPlainText(description)
+
+        # Secuencia desde el shot si está disponible
+        seq_entity = shot_data.get("sg_sequence") or {}
+        sequence_value = (
+            seq_entity.get("name")
+            or seq_entity.get("code")
+            or self.sequence_line_edit.text()
+        )
+        if sequence_value:
+            self.sequence_line_edit.setText(sequence_value)
+
+        # Estados actuales (solo informativos en modo modify)
+        self.shot_ready_cb.setChecked(shot_data.get("sg_status_list") == "ready")
+        self.high_priority_cb.setChecked(
+            (shot_data.get("sg_prioridad") or "").lower() == "high"
+        )
+
+        if lock_existing_task_fields:
+            self.set_shot_fields_editable(False)
+
+        for task_name, task_info in existing_tasks_map.items():
+            widgets = self.task_widgets.get(task_name)
+            if not widgets:
+                continue
+
+            self.existing_tasks.add(task_name)
+
+            widgets["enabled"].blockSignals(True)
+            widgets["enabled"].setChecked(True)
+            widgets["enabled"].blockSignals(False)
+
+            self.toggle_task_fields(task_name, True)
+            widgets["enabled"].setProperty("existing_task", True)
+
+            if lock_existing_task_fields:
+                self.set_task_fields_editable(task_name, False)
+    
     def adjust_window_size(self):
         """Ajusta el tamaño de la ventana según el contenido visible"""
         self.adjustSize()
@@ -1074,7 +1172,13 @@ class ShotConfigDialog(QDialog):
 class FlowStatusWindow(QDialog):
     def __init__(self, task_type="crear shot", parent=None):
         super(FlowStatusWindow, self).__init__(parent)
-        self.setWindowTitle("Flow | Create Shot")
+        self.task_type = task_type
+        if task_type == "crear shot":
+            self.setWindowTitle("Flow | Create Shot")
+        elif task_type == "modificar shot":
+            self.setWindowTitle("Flow | Modify Shot")
+        else:
+            self.setWindowTitle("Flow | Flow")
         self.setModal(False)  # Cambiar a no modal para evitar problemas
         self.setMinimumWidth(500)
         self.setMinimumHeight(150)  # Establecer una altura minima
@@ -1095,10 +1199,11 @@ class FlowStatusWindow(QDialog):
         self.status_label.setTextFormat(Qt.RichText)  # Habilitar formato HTML
 
         # Mensaje inicial
-        if task_type == "crear shot":
-            task_text = "Creando shot en ShotGrid"
-        else:
-            task_text = "Procesando"
+        task_text_map = {
+            "crear shot": "Creando shot en ShotGrid",
+            "modificar shot": "Modificando shot en ShotGrid",
+        }
+        task_text = task_text_map.get(task_type, "Procesando")
 
         initial_message = (
             f"<div style='text-align: left;'>"
@@ -1214,6 +1319,7 @@ class ShotGridManager:
         except Exception as e:
             debug_print(f"Error al inicializar la conexion a ShotGrid: {e}")
             self.sg = None
+        self.project_cache = {}
 
     def upload_thumbnail(self, entity_type, entity_id, thumbnail_path):
         """Sube un thumbnail a una entidad en ShotGrid."""
@@ -1249,59 +1355,101 @@ class ShotGridManager:
             debug_print(f"Traceback completo: {traceback.format_exc()}")
             return False
 
+    def get_project_id(self, project_name):
+        """Obtiene y cachea el ID del proyecto."""
+        if not self.sg or not project_name:
+            return None
+
+        if project_name in self.project_cache:
+            return self.project_cache[project_name]
+
+        projects = self.sg.find(
+            "Project",
+            [["name", "is", project_name]],
+            ["id", "name"],
+        )
+        if projects:
+            project_id = projects[0]["id"]
+            self.project_cache[project_name] = project_id
+            return project_id
+
+        debug_print(f"No se encontro el proyecto en ShotGrid: {project_name}")
+        return None
+
     def find_shot_and_tasks(
-        self, project_name, shot_code, shot_config, thumbnail_path=None
+        self,
+        project_name,
+        shot_code,
+        shot_config=None,
+        thumbnail_path=None,
+        create_if_missing=True,
     ):
         """Encuentra el shot en ShotGrid y sus tareas asociadas. Si no existe, lo crea.
         Retorna: (shot, tasks, was_created) donde was_created es True si se creó nuevo."""
         if not self.sg:
             debug_print("Conexion a ShotGrid no esta inicializada")
             return None, None, False
+        project_id = self.get_project_id(project_name)
+        if not project_id:
+            return None, None, False
 
-        projects = self.sg.find(
-            "Project", [["name", "is", project_name]], ["id", "name"]
+        filters = [
+            ["project", "is", {"type": "Project", "id": project_id}],
+            ["code", "is", shot_code],
+        ]
+        fields = [
+            "id",
+            "code",
+            "description",
+            "sg_status_list",
+            "sg_prioridad",
+            "sg_sequence",
+            "project",
+        ]
+        shots = self.sg.find("Shot", filters, fields)
+        if shots:
+            shot_id = shots[0]["id"]
+            debug_print(
+                f"Shot existente encontrado: {shot_code}. No se realizarán modificaciones desde Create Shot."
+            )
+
+            tasks = self.find_tasks_for_shot(shot_id)
+            return shots[0], tasks, False  # False = no fue creado, ya existía
+
+        if not create_if_missing:
+            debug_print(
+                f"Shot '{shot_code}' no existe y create_if_missing=False (modo lectura)."
+            )
+            return None, None, False
+
+        if not shot_config:
+            debug_print("No se proporciono shot_config para crear el shot.")
+            return None, None, False
+
+        debug_print("No se encontro el shot. Creando shot...")
+        created_shot = self.create_shot(
+            project_id, shot_code, shot_config, thumbnail_path
         )
-        if projects:
-            project_id = projects[0]["id"]
-            filters = [
-                ["project", "is", {"type": "Project", "id": project_id}],
-                ["code", "is", shot_code],
-            ]
-            fields = ["id", "code", "description", "sg_status_list"]
-            shots = self.sg.find("Shot", filters, fields)
-            if shots:
-                shot_id = shots[0]["id"]
-                # Actualizar shot existente si es necesario
-                self.update_shot_status_if_needed(shot_id, shot_config)
-
-                # NO subir thumbnail a shots existentes para evitar crashes
-                debug_print(
-                    f"Shot existente encontrado: {shot_code}, saltando subida de thumbnail"
-                )
-
-                tasks = self.find_tasks_for_shot(shot_id, shot_config)
-                return shots[0], tasks, False  # False = no fue creado, ya existía
-            else:
-                debug_print("No se encontro el shot. Creando shot...")
-                created_shot = self.create_shot(
-                    project_id, shot_code, shot_config, thumbnail_path
-                )
-                if created_shot:
-                    tasks = self.find_tasks_for_shot(created_shot["id"], shot_config)
-                    return created_shot, tasks, True  # True = fue creado
-                return None, None, False
-        else:
-            debug_print("No se encontro el proyecto en ShotGrid.")
+        if created_shot:
+            tasks = self.find_tasks_for_shot(created_shot["id"])
+            return created_shot, tasks, True  # True = fue creado
         return None, None, False
 
-    def find_tasks_for_shot(self, shot_id, shot_config):
+    def find_tasks_for_shot(self, shot_id, shot_config=None):
         """Encuentra las tareas asociadas a un shot."""
         if not self.sg:
             return []
 
         try:
             filters = [["entity", "is", {"type": "Shot", "id": shot_id}]]
-            fields = ["id", "content", "sg_status_list", "sg_description"]
+            fields = [
+                "id",
+                "content",
+                "sg_status_list",
+                "sg_description",
+                "sg_estdias",
+                "task_reviewers",
+            ]
             tasks = self.sg.find("Task", filters, fields)
             debug_print(f"Encontradas {len(tasks)} tareas para el shot")
 
@@ -1315,6 +1463,30 @@ class ShotGridManager:
         except Exception as e:
             debug_print(f"Error en find_tasks_for_shot: {e}")
             return []
+
+    def delete_task(self, task_id):
+        """Elimina una task existente."""
+        if not self.sg:
+            return False
+        try:
+            self.sg.delete("Task", task_id)
+            debug_print(f"Task eliminada (ID: {task_id})")
+            return True
+        except Exception as e:
+            debug_print(f"Error eliminando task {task_id}: {e}")
+            return False
+
+    def update_shot_description(self, shot_id, description):
+        """Actualiza la descripción del shot."""
+        if not self.sg:
+            return False
+        try:
+            self.sg.update("Shot", shot_id, {"description": description})
+            debug_print("Descripcion del shot actualizada")
+            return True
+        except Exception as e:
+            debug_print(f"Error actualizando descripcion del shot: {e}")
+            return False
 
     def update_shot_status_if_needed(self, shot_id, shot_config):
         """Actualiza el estado del shot si es necesario."""
@@ -1740,7 +1912,7 @@ class CreateShotWorker(QRunnable):
                     # Shot ya existía
                     debug_print(f"Shot ya existe: {clip_info['shot_code']}")
                     self.signals.step_update.emit(
-                        f"ERROR: Shot '{clip_info['shot_code']}' ya existe en ShotGrid"
+                        f"Shot '{clip_info['shot_code']}' ya existía en ShotGrid. No se realizaron modificaciones."
                     )
                     # No incrementar success_count, será tratado como error
                 else:

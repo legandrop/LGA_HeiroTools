@@ -1,4 +1,4 @@
-# LGA_NKS_Flow_CreateShot v1.31
+# LGA_NKS_Flow_CreateShot v1.32
 
 ## Descripción General
 
@@ -106,6 +106,20 @@ Para cada clip seleccionado:
 - Se sube thumbnail desde Hiero
 - Se actualizan estados según configuración
 - Tasks deshabilitadas no se crean
+- Si el shot ya existía en Flow, **no se realizan modificaciones** y se muestra un mensaje informativo para que utilices Modify Shot
+
+## Modify Shot (Nuevo)
+
+El script `LGA_NKS_Flow_ModifyShot.py` complementa a Create Shot y permite ajustar un shot existente conservando sus estados actuales:
+
+1. **Carga de información en otro hilo:** abre una ventana de estado que consulta Flow para traer la descripción, secuencia y tasks reales del shot (solo admite un clip).
+2. **UI compartida:** reutiliza exactamente la misma ventana compacta; las tasks ya existentes aparecen tildadas y bloqueadas para evitar cambios accidentales, mientras que las nuevas se configuran igual que en Create Shot.
+3. **Diferencias inteligentes:** al presionar "Modify Shot" se comparan los estados iniciales vs. los actuales:
+   - Tasks que siguen tildadas → se dejan intactas (no se tocan estados, tiempos ni reviewers).
+   - Tasks que se destildaron → se eliminan del shot en Flow.
+   - Tasks nuevas tildadas → se crean con pipeline step, reviewers, descripción y estimados (con reducción del 30%).
+   - Si la descripción del shot cambió, se actualiza tanto en el shot como en todas las tasks restantes.
+4. **Estados intocables:** Modify Shot nunca cambia el estado del shot ni el de las tasks existentes; solo agrega/quita tasks y sincroniza la descripción.
 
 ## Configuración del Usuario
 
@@ -491,6 +505,7 @@ El script utiliza un sistema de logging seguro para entornos multi-hilo que evit
 - **LGA_NKS_Flow_Pull.py:** Descarga de datos
 - **LGA_NKS_Flow_NamingUtils.py:** Utilidades de naming
 - **LGA_NKS_Utils/LGA_NKS_GetClip.py:** Módulo centralizado para selección de clips (método híbrido)
+- **LGA_NKS_Flow_Prod/LGA_NKS_Flow_ModifyShot.py:** Modificación segura de shots ya existentes
 
 ## Conclusión
 
