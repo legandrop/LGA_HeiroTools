@@ -199,28 +199,17 @@ clip = get_clip_to_process()  # None es el valor por defecto
 **Retorna:**
 - Clip encontrado, lista de clips (si `prioritize_multiple_selection=True` y hay múltiples), o `None` si no se encuentra ningún clip
 
-**Ejemplo de uso:**
+**Ejemplos de uso:**
 ```python
-from LGA_NKS_GetClip import get_clip_to_process
+# Track por defecto (TRACK_comp_EXR) - selecciones múltiples NO permitidas
+clip = get_clip_to_process(track_name=None)  # o simplemente get_clip_to_process()
 
-# Usar track por defecto (TRACK_comp_EXR) - NO permite selecciones múltiples
-# ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
-clip = get_clip_to_process(track_name=None)
-# O simplemente: clip = get_clip_to_process()
-
-# Especificar otro track explícitamente (solo si realmente necesitas un track específico)
+# Otro track específico (solo si es necesario)
 clip = get_clip_to_process(track_name="REV")
 
-# Para scripts que permiten selecciones múltiples (procesa múltiples clips)
-# ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
+# Permitir selecciones múltiples
 clips = get_clip_to_process(track_name=None, prioritize_multiple_selection=True)
-if isinstance(clips, list):
-    # Procesar múltiples clips
-    for clip in clips:
-        # ... procesar cada clip
-elif clips:
-    # Procesar un solo clip
-    # ... procesar clip
+# Retorna lista si hay múltiples, clip único si uno solo, None si ninguno
 ```
 
 **Comportamiento inteligente para selección simple:**
@@ -256,16 +245,12 @@ Obtiene los clips a procesar usando el método híbrido. **Siempre devuelve una 
 
 **Ejemplo de uso:**
 ```python
-from LGA_NKS_GetClip import get_clips_to_process
-
-# Obtener clips (siempre devuelve lista)
-# ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
+# Siempre devuelve lista (vacía si no encuentra clips)
 clips = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
 
 for clip in clips:
-    # Procesar cada clip
     file_path = clip.source().mediaSource().fileinfos()[0].filename()
-    # ... resto del código
+    # Procesar clip...
 ```
 
 #### `get_selected_clips()`
@@ -297,53 +282,24 @@ Maneja errores gracefully si no hay media o el archivo no existe.
 
 ### Configuración
 
-#### Variable `TRACK_comp_EXR`
-**⚠️ IMPORTANTE:** Esta variable define el nombre del track por defecto. Actualmente está configurada como `"_comp_"`.
+#### Variables de Configuración
 
-**Contenido del track:** Este track contiene los archivos EXR con el render de COMP.
+**`TRACK_comp_EXR = "_comp_"`**
+- Track por defecto para EXR de COMP
+- **CRÍTICO:** Usar `track_name=None` para respetar este valor
+- Cambiar aquí afecta a TODOS los scripts que usan `track_name=None`
 
-**Historial de cambios:**
-- **Anteriormente:** `DEFAULT_TRACK_NAME = "EXR"` → `DEFAULT_TRACK_NAME = "_comp_"`
-- **Actualmente:** `TRACK_comp_EXR = "_comp_"`
+**`TRACK_comp_REV = "_rev_"`**
+- Track por defecto para MOV/MXF de COMP
+- Anteriormente era `"REV"` hardcodeado
 
-Puede modificarse en el módulo para cambiar el track por defecto:
-
-```python
-# En LGA_NKS_Utils/LGA_NKS_GetClip.py
-TRACK_comp_EXR = "_comp_"  # Es el track que contiene a los EXR con el render de COMP
-```
-
-**⚠️ CRÍTICO:** Al cambiar esta variable, TODOS los scripts que usen `track_name=None` automáticamente usarán el nuevo nombre. Los scripts con nombres hardcodeados seguirán usando el nombre antiguo.
-
-#### Variable `TRACK_comp_REV`
-**⚠️ IMPORTANTE:** Esta variable define el nombre del track REV por defecto. Actualmente está configurada como `"_rev_"`.
-
-**Contenido del track:** Este track contiene los archivos MOV o MXF con el render de COMP.
-
-**Historial de cambios:**
-- **Anteriormente:** Se usaba `"REV"` hardcodeado → `DEFAULT_REV_TRACK_NAME = "_rev_"`
-- **Actualmente:** `TRACK_comp_REV = "_rev_"`
-
-Puede modificarse en el módulo para cambiar el track por defecto:
-
-```python
-# En LGA_NKS_Utils/LGA_NKS_GetClip.py
-TRACK_comp_REV = "_rev_"  # Es el track que contiene a los MOV o MXF con el render de COMP
-```
-
-**⚠️ CRÍTICO:** Al cambiar esta variable, TODOS los scripts que la importen automáticamente usarán el nuevo nombre. Los scripts con nombres hardcodeados seguirán usando el nombre antiguo.
-
-#### Variable `DEBUG`
-Controla los mensajes de debug:
-
-```python
-import LGA_NKS_GetClip as clip_utils
-clip_utils.DEBUG = False  # Activar debug
-```
+**`DEBUG = False`**
+- Controla mensajes de debug
+- Modificar: `import LGA_NKS_GetClip as clip_utils; clip_utils.DEBUG = True`
 
 ### Cómo Usar en Nuevos Scripts
 
-**Paso 1:** Importar el módulo
+**Importación del módulo:**
 ```python
 from pathlib import Path
 import sys
@@ -352,134 +308,85 @@ import sys
 utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
 if utils_path.exists():
     sys.path.insert(0, str(utils_path))
-    from LGA_NKS_GetClip import get_clip_to_process
+    from LGA_NKS_GetClip import get_clip_to_process, get_clips_to_process
     import LGA_NKS_GetClip as clip_utils
     # Sincronizar debug si es necesario
     clip_utils.DEBUG = DEBUG  # Donde DEBUG es tu variable de debug
 ```
 
-**Paso 2:** Usar la función en el hilo principal
+**Uso en el hilo principal:**
 
-**Para scripts que NO permiten selecciones múltiples (procesa un solo clip):**
+**Para scripts que NO permiten selecciones múltiples:**
 ```python
-def mi_funcion():
-    # Obtener clip (debe ejecutarse en hilo principal)
-    # ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
-    clip = get_clip_to_process(track_name=None)  # prioritize_multiple_selection=False por defecto
-    # O simplemente: clip = get_clip_to_process()
-    
-    if not clip:
-        print("No se encontró clip")
-        return
-    
-    # Procesar clip
-    fileinfos = clip.source().mediaSource().fileinfos()
-    if fileinfos:
-        file_path = fileinfos[0].filename()
-        # ... resto del procesamiento
+# ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
+clip = get_clip_to_process(track_name=None)  # prioritize_multiple_selection=False por defecto
+
+if not clip:
+    print("No se encontró clip")
+    return
+
+# Procesar clip...
 ```
 
-**Para scripts que permiten selecciones múltiples (procesa múltiples clips):**
+**Para scripts que permiten selecciones múltiples:**
 ```python
-def mi_funcion():
-    # Obtener clips (debe ejecutarse en hilo principal)
-    # ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
-    # Usar get_clips_to_process() que siempre devuelve lista
-    clips = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
-    
-    if not clips:
-        print("No se encontraron clips")
-        return
-    
-    # Procesar cada clip
-    for clip in clips:
-        fileinfos = clip.source().mediaSource().fileinfos()
-        if fileinfos:
-            file_path = fileinfos[0].filename()
-            # ... resto del procesamiento
+# ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
+clips = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
+
+for clip in clips:
+    # Procesar cada clip...
 ```
 
 **⚠️ IMPORTANTE:** Las funciones de este módulo **deben ejecutarse en el hilo principal** de Hiero. Si tu script usa threading, obtén el clip ANTES de crear el hilo secundario.
 
-### Ejemplo Completo de Implementación
+---
 
-**Ejemplo 1: Script que NO permite selecciones múltiples (procesa un solo clip)**
-```python
-from pathlib import Path
-import sys
+## Scripts que usan el módulo LGA_NKS_GetClip
 
-# Importar módulo utilitario
-utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
-if utils_path.exists():
-    sys.path.insert(0, str(utils_path))
-    from LGA_NKS_GetClip import get_clip_to_process
-    import LGA_NKS_GetClip as clip_utils
-    clip_utils.DEBUG = False  # Sincronizar debug
+### Funciones principales del módulo:
 
-def procesar_clip():
-    # Obtener clip en hilo principal (NO permite selecciones múltiples)
-    # ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
-    clip = get_clip_to_process(track_name=None)
-    
-    if not clip:
-        print("No se encontró clip para procesar")
-        return
-    
-    # Verificar que tenga media
-    if not clip.source().mediaSource().isMediaPresent():
-        print("El clip no tiene media presente")
-        return
-    
-    # Obtener información del clip
-    fileinfos = clip.source().mediaSource().fileinfos()
-    if not fileinfos:
-        return
-    
-    file_path = fileinfos[0].filename()
-    print(f"Procesando: {file_path}")
-    
-    # ... resto del procesamiento
-```
+#### `get_clip_to_process(track_name=None, prioritize_multiple_selection=False)`
+**Procesamiento de un clip a la vez (método híbrido inteligente)**
 
-**Ejemplo 2: Script que permite selecciones múltiples (procesa múltiples clips)**
-```python
-from pathlib import Path
-import sys
+- **`LGA_NKS_Flow/LGA_NKS_Flow_Shot_info.py`** - `track_name=None`, `prioritize_multiple_selection=False`
+- **`LGA_NKS_Flow/LGA_NKS_ReviewPic.py`** - `track_name=None`, `prioritize_multiple_selection=False`
+- **`LGA_NKS/LGA_NKS_Clip_DisableEXR.py`** - `track_name=None`, `prioritize_multiple_selection=False`
+- **`LGA_NKS/LGA_NKS_InOut_Editref.py`** - Método híbrido con track EditRef
+- **`LGA_NKS/LGA_NKS_PrevNext_Rev.py`** - Método híbrido con track EditRef
+- **`LGA_NKS_Edit/LGA_NKS_CompareVerToEditref.py`** - Método híbrido con track REV
 
-# Importar módulo utilitario
-utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
-if utils_path.exists():
-    sys.path.insert(0, str(utils_path))
-    from LGA_NKS_GetClip import get_clips_to_process
-    import LGA_NKS_GetClip as clip_utils
-    clip_utils.DEBUG = False  # Sincronizar debug
+#### `get_clips_to_process(track_name=None, prioritize_multiple_selection=False)`
+**Procesamiento de múltiples clips (siempre devuelve lista)**
 
-def procesar_clips():
-    # Obtener clips en hilo principal (permite selecciones múltiples)
-    # ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
-    clips = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
-    
-    if not clips:
-        print("No se encontraron clips para procesar")
-        return
-    
-    # Procesar cada clip
-    for clip in clips:
-        # Verificar que tenga media
-        if not clip.source().mediaSource().isMediaPresent():
-            print(f"El clip {clip.name()} no tiene media presente")
-            continue
-        
-        # Obtener información del clip
-        fileinfos = clip.source().mediaSource().fileinfos()
-        if not fileinfos:
-            continue
-        
-        file_path = fileinfos[0].filename()
-        print(f"Procesando: {file_path}")
-        
-        # ... resto del procesamiento
-```
+- **`LGA_NKS_Flow_Assignee_Panel.py`** - `track_name=None`, `prioritize_multiple_selection=True` (método híbrido prioritario)
+- **`LGA_NKS_Flow/LGA_NKS_Flow_ShowInFlow.py`** - `track_name=None`, `prioritize_multiple_selection=True`
+- **`LGA_NKS_Flow/LGA_NKS_Flow_Push.py`** - `push_from_selected_clips()` usa `track_name=None`, `prioritize_multiple_selection=True`
+- **`LGA_NKS_Edit/LGA_NKS_CompareEXR_to_aPlate.py`** - `track_name=None`, permite selecciones múltiples
+
+### Scripts que importan TRACK_comp_EXR directamente:
+**Usan el módulo solo para la variable centralizada, no las funciones:**
+
+- **`LGA_NKS/LGA_NKS_Compare_Versions.py`** - Importa `TRACK_comp_EXR` para identificar track
+- **`LGA_NKS/LGA_NKS_EXRTrack_Difference.py`** - Importa `TRACK_comp_EXR` para alternar blend mode
+- **`LGA_NKS/LGA_NKS_Compare_Versions_OFF.py`** - Importa `TRACK_comp_EXR` para desactivar blend mode
+
+### Scripts que usan `te.selection()` directamente:
+**No usan el módulo centralizado:**
+
+- **`LGA_NKS_Flow/LGA_NKS_Flow_Pull.py`** - `selected_clips = te.selection()` + TRACK_comp_EXR
+- **`LGA_NKS_Flow/LGA_NKS_Flow_Thumbs.py`** - `selected_clips = timeline_editor.selection()`
+- **`LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py`** - `selected_clips = timeline_editor.selection()`
+- **`LGA_NKS_Flow/LGA_NKS_Flow_CreateShot_Thumbs.py`** - `selected_clips = timeline_editor.selection()`
+- **`LGA_NKS/LGA_NKS_Trim_In.py`** - `selected_clips = te.selection()`
+- **`LGA_NKS/LGA_NKS_Trim_Out.py`** - `selected_clips = te.selection()`
+- **`LGA_NKS/LGA_NKS_Compare_Versions.py`** - `selected_clips = te.selection()`
+- **`LGA_NKS/LGA_NKS_OpenInNukeX.py`** - `selected_clips = te.selection()`
+- **`LGA_NKS/LGA_NKS_RevealInExplorer.py`** - `selected_clips = te.selection()`
+- **`LGA_NKS/LGA_NKS_RevealNK_Script.py`** - `selected_clips = te.selection()`
+- **`LGA_NKS/LGA_NKS_SelfReplaceClip.py`** - `selected_clips = te.selection()`
+- **`LGA_NKS/LGA_NKS_Reconnect.py`** - `selected_clips = te.selection()`
+- **`LGA_NKS/LGA_NKS_ON_Clips_OFF_v00-Clips.py`** - Procesa clips seleccionados o todos
+- **`LGA_NKS_EditTools_Panel.py`** - Múltiples funciones usan `selected_clips = te.selection()`
 
 ---
 
@@ -497,45 +404,27 @@ def procesar_clips():
 
 ---
 
-## Notas de Implementación
+## Implementación Manual (Solo Referencia)
 
-### ⚠️ IMPORTANTE: Usa el Módulo Utilitario
+**No recomendado - usar el módulo `LGA_NKS_GetClip` en su lugar.**
 
-**Para nuevos scripts, usa el módulo `LGA_NKS_GetClip`** en lugar de implementar manualmente:
-
-```python
-from LGA_NKS_GetClip import get_clip_to_process
-clip = get_clip_to_process()
-```
-
-### Implementación Manual (Solo para Referencia)
-
-Si necesitas implementar manualmente (no recomendado), aquí están los ejemplos:
-
-#### Para obtener el playhead:
+**Obtener playhead:**
 ```python
 viewer = hiero.ui.currentViewer()
-if viewer:
-    current_time = viewer.time()
+current_time = viewer.time()
 ```
 
-#### Para buscar clip en track EXR:
+**Buscar clip en track:**
 ```python
-exr_track = None
 for track in seq.videoTracks():
-    if track.name().upper() == "EXR":
-        exr_track = track
-        break
-
-if exr_track:
-    for clip in exr_track:
-        if isinstance(clip, hiero.core.EffectTrackItem):
-            continue
-        if clip.timelineIn() <= current_time < clip.timelineOut():
-            return clip
+    if track.name() == "EXR":  # Usar TRACK_comp_EXR
+        for clip in track:
+            if not isinstance(clip, hiero.core.EffectTrackItem):
+                if clip.timelineIn() <= current_time < clip.timelineOut():
+                    return clip
 ```
 
-#### Para obtener clips seleccionados:
+**Clips seleccionados:**
 ```python
 te = hiero.ui.getTimelineEditor(seq)
 selected_clips = te.selection()

@@ -11,13 +11,6 @@ ________________________________________________________________________________
   3. Intenta obtener el clip del track especificado en la posición del playhead
   4. Si no encuentra, usa el clip seleccionado como fallback
 
-  Scripts que utilizan este módulo:
-  - LGA_NKS_Flow_ShowInFlow.py
-  - LGA_NKS_Edit/LGA_NKS_MatchVerToEXR.py
-  - LGA_NKS_Edit/LGA_NKS_CompareEXR_to_aPlate.py
-  - LGA_NKS_Flow_Assignee_Panel.py (get_clips_to_process)
-  - (otros scripts que necesiten obtener clips)
-
   v1.6 - LÓGICA INTELIGENTE MEJORADA: Ahora resuelve automáticamente selecciones erróneas
          sin mostrar mensaje informativo al usuario. La advertencia solo aparece cuando
          NO puede resolverse automáticamente. Función específica extract_shot_code_from_filename
