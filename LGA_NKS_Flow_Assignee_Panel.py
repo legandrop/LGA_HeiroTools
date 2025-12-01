@@ -4,7 +4,12 @@ ________________________________________________________________________________
   LGA_NKS_Flow_Assignee_Panel v1.51 | Lega
   Panel para obtener los asignados de la tarea del clip seleccionado en Flow,
   limpiarlos o sumar asignados a la tarea comp.
-  Actualizado para ser compatible con ambos sistemas de nomenclatura:
+
+
+  v1.51: Actualiza la UI para mostrar las tasks y los asignados en Flow. 
+         Funciona con todas las tasks disponibles en Flow.
+
+  v1.50: Actualizado para ser compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 ____________________________________________________________________________________
@@ -102,14 +107,14 @@ class AssigneePanel(QWidget):
                 self.get_assignees_for_selected_clip,
                 "#202233",
                 None,
-                "Obtiene los usuarios asignados a la task comp. Si hay múltiples clips seleccionados, procesa todos; si hay uno solo, usa el playhead.",
+                "Obtiene los usuarios asignados en Flow para las tasks seleccionadas (comp por defecto). Si hay múltiples clips seleccionados, procesa todos; si hay uno solo, usa el playhead.",
             ),
             (
                 "Clear Assignees",
                 self.clear_assignees_for_selected_clip,
                 "#202233",
                 None,
-                "Elimina todos los asignados de la task comp. Si hay múltiples clips seleccionados, procesa todos; si hay uno solo, usa el playhead.",
+                "Elimina los asignados en Flow para las tasks seleccionadas (comp por defecto). Si hay múltiples clips seleccionados, procesa todos; si hay uno solo, usa el playhead.",
             ),
         ]
 
@@ -246,7 +251,7 @@ class AssigneePanel(QWidget):
                 button.setCtrlShiftClickHandler(ctrl_shift_handler)
                 # Tooltip que explica las tres funcionalidades del botón de usuario
                 tooltip_text = (
-                    "Click: Asigna el usuario a la task comp en Flow Production Tracking\n"
+                    "Click: Asigna el usuario a las tasks seleccionadas (comp por defecto) en Flow Production Tracking\n"
                     "Shift+Click: Crea/actualiza políticas IAM de Wasabi para el usuario\n"
                     "Ctrl+Shift+Click: Abre ventana de gestión de shots asignados en policy de Wasabi"
                 )

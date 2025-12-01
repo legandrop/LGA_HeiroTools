@@ -1,10 +1,15 @@
 """
 _____________________________________________________________
 
-  LGA_NKS_Flow_Assignee v1.2 | Lega
+  LGA_NKS_Flow_Assignee v1.24 | Lega
   Imprime los asignados de una tarea en ShotGrid (Flow) a partir del base_name
   Se usa desde el panel de assignee de LGA_NKS_Flow_Assignee_Panel.py
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
+
+  v1.24: Actualiza la UI para mostrar las tasks y los asignados en Flow. 
+         Funciona con todas las tasks disponibles en Flow.
+
+  v1.23: Actualiza la base de datos local pipesync.db con la asignación
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 _____________________________________________________________
@@ -15,14 +20,17 @@ import re
 import sys
 import json
 import shotgun_api3
-from PySide2.QtCore import QRunnable, Slot, QThreadPool, Signal, QObject, Qt
+from PySide2.QtCore import QRunnable, Slot, QThreadPool, Signal, QObject, Qt, QTimer
 from PySide2.QtWidgets import (
     QApplication,
     QMessageBox,
     QDialog,
     QVBoxLayout,
+    QHBoxLayout,
     QLabel,
     QPushButton,
+    QCheckBox,
+    QWidget,
 )
 from PySide2.QtGui import QFont
 
@@ -36,9 +44,14 @@ from LGA_NKS_Flow_NamingUtils import (
     extract_project_name,
     extract_task_name,
 )
+from LGA_NKS_Flow_Task_Config import (
+    DEFAULT_TASK_NAME,
+    get_task_color,
+    sort_tasks_by_pipeline,
+)
 
 # Variable global para debug
-DEBUG = False
+DEBUG = True
 
 debug_messages = []
 
@@ -52,6 +65,19 @@ def print_debug_messages():
     if DEBUG and debug_messages:
         print("\n".join(debug_messages))
         debug_messages.clear()
+
+
+def prepare_tasks_for_selection(tasks):
+    simplified = []
+    for task in tasks or []:
+        simplified.append(
+            {
+                "id": task.get("id"),
+                "name": task.get("content", "Task"),
+                "assignees": task.get("task_assignees", []),
+            }
+        )
+    return sort_tasks_by_pipeline(simplified)
 
 
 def get_user_info_from_config(user_name=None):
@@ -86,11 +112,11 @@ def get_user_info_from_config(user_name=None):
             return user_name, "#666666"
         else:
             # Para Get Assignees, usar valores genéricos
-            return "System", "#4A90A4"
+            return "", "#4A90A4"
 
     except Exception as e:
         debug_print(f"Error leyendo configuración de usuarios: {e}")
-        return user_name or "System", "#666666"
+        return user_name or "", "#666666"
 
 
 # Clase de ventana de estado para mostrar progreso de obtener asignados en Flow
@@ -100,32 +126,62 @@ class FlowStatusWindow(QDialog):
     ):
         super(FlowStatusWindow, self).__init__(parent)
         self.setWindowTitle("Flow | Assignees")
-        self.setModal(False)  # Cambiar a no modal para evitar problemas
-        self.setMinimumWidth(500)
-
-        # Evitar que la ventana se cierre automáticamente
+        self.setModal(False)
+        self.setMinimumWidth(540)
+        self.setMinimumHeight(180)
         self.setAttribute(Qt.WA_DeleteOnClose, False)
 
-        # Layout principal
+        self._task_rows = []
+
         layout = QVBoxLayout()
         self.setLayout(layout)
 
-        # Etiqueta de estado inicial con formato HTML para múltiples colores
         self.status_label = QLabel()
         self.status_label.setAlignment(Qt.AlignCenter)
-        self.status_label.setTextFormat(Qt.RichText)  # Habilitar formato HTML
-
+        self.status_label.setTextFormat(Qt.RichText)
+        task_text = "Obteniendo asignados" if task_type == "obtener asignados" else "Procesando"
+        if user_name:
+            initial_message = (
+                f"<div style='text-align: left;'>"
+                f"<span style='color: #CCCCCC;'>{task_text} </span>"
+                f"<span style='color: #CCCCCC; background-color: {user_color};'>{user_name}</span>"
+                f"</div>"
+            )
+        else:
+            initial_message = (
+                f"<div style='text-align: left;'>"
+                f"<span style='color: #CCCCCC;'>{task_text}</span>"
+                f"</div>"
+            )
+        font = QFont()
+        font.setPointSize(10)
+        self.status_label.setFont(font)
+        self.status_label.setText(initial_message)
+        self.status_label.setStyleSheet("padding: 10px;")
         layout.addWidget(self.status_label)
 
-        # Etiqueta para mostrar el shot que se está procesando
         self.shot_label = QLabel("")
         self.shot_label.setAlignment(Qt.AlignLeft)
         self.shot_label.setWordWrap(True)
         self.shot_label.setTextFormat(Qt.RichText)
-        self.shot_label.setStyleSheet("padding-left: 10px; padding-right: 10px;")
+        self.shot_label.setStyleSheet("padding: 10px;")
         layout.addWidget(self.shot_label)
 
-        # Etiqueta para mostrar los asignados encontrados
+        self.validation_label = QLabel("")
+        self.validation_label.setAlignment(Qt.AlignLeft)
+        self.validation_label.setWordWrap(True)
+        self.validation_label.setTextFormat(Qt.RichText)
+        self.validation_label.setStyleSheet("padding: 10px; color: #CCCCCC;")
+        layout.addWidget(self.validation_label)
+
+        self.task_widget = QWidget()
+        self.task_widget_layout = QVBoxLayout()
+        self.task_widget_layout.setContentsMargins(10, 0, 10, 0)
+        self.task_widget_layout.setSpacing(4)
+        self.task_widget.setLayout(self.task_widget_layout)
+        self.task_widget.setVisible(False)
+        layout.addWidget(self.task_widget)
+
         self.assignees_label = QLabel("")
         self.assignees_label.setAlignment(Qt.AlignLeft)
         self.assignees_label.setWordWrap(True)
@@ -135,116 +191,172 @@ class FlowStatusWindow(QDialog):
         )
         layout.addWidget(self.assignees_label)
 
-        # Etiqueta para mensajes de resultado
         self.result_label = QLabel("")
         self.result_label.setAlignment(Qt.AlignCenter)
         self.result_label.setWordWrap(True)
         self.result_label.setTextFormat(Qt.RichText)
         layout.addWidget(self.result_label)
 
-        # Espaciador
-        # layout.addStretch()
-
-        # Botón de Close
         self.close_button = QPushButton("Close")
         self.close_button.clicked.connect(self.close)
-        self.close_button.setEnabled(
-            False
-        )  # Deshabilitado hasta que termine el procesamiento
         layout.addWidget(self.close_button)
+        self.set_close_enabled(False)
 
     def update_shot_info(self, shot_name, task_name=None):
-        """Actualiza la ventana con el shot que se está procesando"""
         shot_html = "<div style='text-align: left;'>"
-        shot_html += f"<span style='color: #CCCCCC; '>Shot: </span><span style='color: #6AB5CA; '>{shot_name}</span>"
+        shot_html += f"<span style='color: #CCCCCC;'>Shot:</span> <span style='color: #6AB5CA;'>{shot_name}</span>"
         if task_name:
-            shot_html += f"<br><span style='color: #CCCCCC; '>Task: </span><span style='color: #B56AB5; '>{task_name}</span>"
+            shot_html += f"<br><span style='color: #CCCCCC;'>Task:</span> <span style='color: #B56AB5;'>{task_name}</span>"
         shot_html += "</div>"
         self.shot_label.setText(shot_html)
         self._adjust_window_size()
 
-    def update_assignees_info(self, assignees):
-        """Actualiza la ventana con los asignados encontrados usando sus colores"""
-        if assignees:
-            assignees_html = "<div style='text-align: left;'>"
-            assignees_html += (
-                "<span style='color: #CCCCCC; '>Asignados encontrados:</span><br>"
-            )
-            for user in assignees:
-                user_name = user.get("name", "Sin nombre")
-                user_color = self._get_user_color(user_name)
-                assignees_html += f"<span style='color: #CCCCCC; background-color: {user_color}; padding: 2px 4px; margin: 1px; border-radius: 3px;'>{user_name}</span><br>"
-            assignees_html += "</div>"
-        else:
-            assignees_html = "<span style='color: #C0C0C0; '>No se encontraron asignados para esta tarea</span>"
-
-        self.assignees_label.setText(assignees_html)
+    def show_validation_message(self, shot_name):
+        message = (
+            f"Verificando en Flow que el shot <span style='color:#6AB5CA;'>{shot_name}</span> exista "
+            "y recuperando sus tasks disponibles..."
+        )
+        self.validation_label.setText(message)
         self._adjust_window_size()
 
+    def show_shot_not_found(self, shot_name):
+        self.validation_label.setText(
+            f"<span style='color:#C05050;'>El shot '{shot_name}' no existe en Flow Production Tracking.</span>"
+        )
+        self.show_error("No hay tareas para consultar.")
+
+    def show_processing_message(self, custom_text=None):
+        processing_html = custom_text or "<span style='color: #CCCCCC;'>Conectando a Flow Production Tracking...</span>"
+        self.result_label.setText(processing_html)
+        self.result_label.setStyleSheet("padding: 10px;")
+        self.clear_validation_message()
+        self._adjust_window_size()
+
+    def _clear_task_rows(self):
+        while self.task_widget_layout.count():
+            child = self.task_widget_layout.takeAt(0)
+            widget = child.widget()
+            if widget:
+                widget.deleteLater()
+        self._task_rows = []
+
+    def _create_task_row(self, task):
+        row_widget = QWidget()
+        row_layout = QHBoxLayout()
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(8)
+        row_widget.setLayout(row_layout)
+
+        checkbox = QCheckBox()
+        checkbox.setChecked(True)
+        checkbox.setEnabled(False)
+        row_layout.addWidget(checkbox)
+
+        name_label = QLabel(
+            f"<span style='color:{get_task_color(task['name'])}; font-weight:bold;'>{task['name']}</span>"
+        )
+        name_label.setTextFormat(Qt.RichText)
+        row_layout.addWidget(name_label)
+
+        assignees_label = QLabel(self._format_assignees(task.get("assignees")))
+        assignees_label.setTextFormat(Qt.RichText)
+        assignees_label.setWordWrap(True)
+        row_layout.addWidget(assignees_label, 1)
+
+        return row_widget
+
+    def _format_assignees(self, assignees):
+        if not assignees:
+            return "<span style='color:#888888;'>Sin asignados</span>"
+        chips = []
+        for user in assignees:
+            user_name = user.get("name", "Sin nombre")
+            chips.append(
+                f"<span style='color:#CCCCCC; background-color:#2E2E2E; padding:2px 6px; border-radius:4px;'>{user_name}</span>"
+            )
+        return " ".join(chips)
+
+    def display_tasks(self, tasks):
+        self._clear_task_rows()
+        if tasks:
+            instruction = QLabel(
+                "<span style='color:#CCCCCC;'>Tasks y asignados en Flow:</span>"
+            )
+            instruction.setWordWrap(True)
+            self.task_widget_layout.addWidget(instruction)
+
+        for task in tasks:
+            row_widget = self._create_task_row(task)
+            self.task_widget_layout.addWidget(row_widget)
+            self._task_rows.append(row_widget)
+
+        self.task_widget.setVisible(bool(tasks))
+        self.assignees_label.setText("")
+        self.set_close_enabled(True)
+        self._adjust_window_size()
+
+    def clear_status_message(self):
+        self.status_label.clear()
+        self._adjust_window_size()
+
+    def clear_validation_message(self):
+        self.validation_label.clear()
+        self._adjust_window_size()
+
+    def set_close_enabled(self, enabled):
+        self.close_button.setEnabled(enabled)
+
+    def update_assignees_info(self, tasks_with_assignees):
+        if not tasks_with_assignees:
+            self.assignees_label.setText(
+                "<span style='color: #C0C0C0;'>No se encontraron asignados.</span>"
+            )
+            self.task_widget.setVisible(False)
+            self.set_close_enabled(True)
+            self._adjust_window_size()
+            return
+
+        self.display_tasks(tasks_with_assignees)
+
     def _get_user_color(self, user_name):
-        """Obtiene el color del usuario desde la configuración"""
         try:
             config_path = os.path.join(
                 os.path.dirname(os.path.dirname(__file__)), "LGA_NKS_Flow_Users.json"
             )
-
             if os.path.exists(config_path):
                 with open(config_path, "r", encoding="utf-8") as f:
                     config = json.load(f)
                     users = config.get("users", [])
-
                     for user in users:
                         if user.get("name") == user_name:
                             return user.get("color", "#666666")
-
-            # Si no se encuentra, usar color por defecto
             return "#666666"
-
         except Exception as e:
             debug_print(f"Error leyendo configuración de usuarios: {e}")
             return "#666666"
 
-    def show_processing_message(self):
-        """Muestra el mensaje de procesamiento"""
-        processing_html = f"<span style='color: #CCCCCC; '>Conectando a Flow Production Tracking...</span>"
-        self.result_label.setText(processing_html)
-        self.result_label.setStyleSheet("padding: 10px;")
-        self._adjust_window_size()
-
     def show_success(self, message):
-        """Limpia el mensaje de resultado en caso de éxito y habilita el botón de cierre"""
-        self.result_label.setText("")  # Borrar el mensaje
-        self.result_label.setStyleSheet(
-            ""
-        )  # Borrar el estilo para que no quede el padding
-        self.status_label.setText("")  # Borrar el mensaje de procesamiento
-        self.close_button.setEnabled(True)  # Habilitar botón de Close
+        self.result_label.setText(f"<span style='color: #00ff00;'>{message}</span>")
+        self.result_label.setStyleSheet("padding: 10px;")
+        self.set_close_enabled(True)
+        self.clear_status_message()
+        self.clear_validation_message()
         self._adjust_window_size()
 
     def show_error(self, message):
-        """Muestra mensaje de error en rojo"""
-        error_html = f"<span style='color: #C05050; '>{message}</span>"
-        self.result_label.setText(error_html)
+        self.result_label.setText(f"<span style='color: #C05050;'>{message}</span>")
         self.result_label.setStyleSheet("padding: 10px;")
-        self.close_button.setEnabled(True)  # Habilitar botón de Close
+        self.set_close_enabled(True)
         self._adjust_window_size()
 
     def _adjust_window_size(self):
-        """Ajusta el tamaño de la ventana basándose en el contenido"""
         self.adjustSize()
         self.updateGeometry()
 
     def closeEvent(self, event):
-        """
-        Manejar el evento de cierre para evitar que se cierre automáticamente.
-        Solo se cierra cuando el usuario hace clic en el botón Close o cuando ya terminó el procesamiento.
-        """
         if not self.close_button.isEnabled():
-            # Si el botón Close está deshabilitado, significa que aún está procesando
-            # No permitir cerrar la ventana
             event.ignore()
         else:
-            # Si el botón está habilitado, permitir cerrar
             event.accept()
 
 
@@ -295,7 +407,7 @@ class ShotGridManager:
             debug_print("Conexion a ShotGrid no esta inicializada")
             return []
         filters = [["entity", "is", {"type": "Shot", "id": shot_id}]]
-        fields = ["id", "content", "sg_status_list"]
+        fields = ["id", "content", "task_assignees"]
         return self.sg.find("Task", filters, fields)
 
     def get_task_assignees(self, task_id):
@@ -314,26 +426,20 @@ class ShotGridManager:
             return []
 
 
-class WorkerSignals(QObject):
-    shot_info_ready = Signal(str, str)  # shot_name, task_name
-    assignees_ready = Signal(list)  # assignees list
-    finished = Signal(bool, str)  # success, message
+class TaskFetchSignals(QObject):
+    ready = Signal(dict)
     error = Signal(str)
 
 
-class AssigneeWorker(QRunnable):
-    def __init__(self, base_name, status_window):
-        super(AssigneeWorker, self).__init__()
+class ShotTaskDiscoveryWorker(QRunnable):
+    def __init__(self, base_name):
+        super(ShotTaskDiscoveryWorker, self).__init__()
         self.base_name = base_name
-        self.status_window = status_window
-        self.signals = WorkerSignals()
+        self.signals = TaskFetchSignals()
 
     @Slot()
     def run(self):
         try:
-            debug_print("=== Iniciando obtención de asignados ===")
-
-            # Obtener credenciales de Flow DENTRO del worker
             sg_url, sg_login, sg_password = get_flow_credentials_secure()
             if not all([sg_url, sg_login, sg_password]):
                 self.signals.error.emit(
@@ -341,67 +447,50 @@ class AssigneeWorker(QRunnable):
                 )
                 return
 
-            # Crear manager ShotGrid DENTRO del worker
-            sg_manager = ShotGridManager(sg_url, sg_login, sg_password)
-            if not sg_manager.sg:
-                self.signals.error.emit(
-                    "No se pudo inicializar la conexión a ShotGrid."
-                )
-                return
-
-            # Extraer datos usando funciones compartidas de NamingUtils
             project_name = extract_project_name(self.base_name)
             shot_code = extract_shot_code(self.base_name)
-            task_name_extracted = extract_task_name(self.base_name)
-            
-            if not task_name_extracted:
-                self.signals.error.emit(
-                    "Error: No se encontro un nombre de tarea valido en el nombre base."
-                )
+            default_task = extract_task_name(self.base_name) or DEFAULT_TASK_NAME
+
+            sg_manager = ShotGridManager(sg_url, sg_login, sg_password)
+            if not sg_manager.sg:
+                self.signals.error.emit("No se pudo inicializar la conexión a ShotGrid.")
                 return
-            
-            task_name = task_name_extracted.lower()
 
-            # Emitir información del shot y task
-            self.signals.shot_info_ready.emit(shot_code, task_name)
-
-            debug_print(
-                f"Buscando shot y tareas para el proyecto: {project_name}, Shot: {shot_code}"
-            )
             project, shot, tasks = sg_manager.find_shot_and_tasks(
                 project_name, shot_code
             )
-            if not tasks:
-                self.signals.error.emit("No se encontraron tareas para el shot.")
-                return
-            # Buscar el task_id correcto
-            task_id = None
-            for task in tasks:
-                if task["content"].lower() == task_name:
-                    task_id = task["id"]
-                    break
-            if not task_id:
+            if not project:
                 self.signals.error.emit(
-                    f"No se encontro la tarea '{task_name}' para el shot."
+                    f"No se encontró el proyecto '{project_name}' en Flow."
                 )
                 return
-            debug_print(f"Task ID encontrado: {task_id}")
-            # Obtener los asignados
-            assignees = sg_manager.get_task_assignees(task_id)
-            shot_name = shot.get("code", "-") if shot else shot_code
 
-            # Emitir los asignados encontrados
-            self.signals.assignees_ready.emit(assignees)
+            if not shot:
+                payload = {
+                    "project_name": project_name,
+                    "shot_code": shot_code,
+                    "shot_name": shot_code,
+                    "shot_exists": False,
+                    "tasks": [],
+                    "default_task": default_task,
+                }
+                self.signals.ready.emit(payload)
+                return
 
-            # Emitir mensaje de finalización exitosa
-            count = len(assignees) if assignees else 0
-            self.signals.finished.emit(
-                True, f"Se encontraron {count} asignado(s) para {shot_name}/{task_name}"
-            )
+            payload = {
+                "project_name": project_name,
+                "shot_code": shot_code,
+                "shot_name": shot.get("code", shot_code),
+                "shot_exists": True,
+                "tasks": prepare_tasks_for_selection(tasks),
+                "default_task": default_task,
+            }
+            self.signals.ready.emit(payload)
+        except Exception as exc:
+            debug_print(f"Error en ShotTaskDiscoveryWorker: {exc}")
+            self.signals.error.emit(f"Error verificando shot en Flow: {exc}")
 
-        except Exception as e:
-            debug_print(f"Error en AssigneeWorker: {e}")
-            self.signals.error.emit(f"Error: {str(e)}")
+
 
 
 def get_flow_credentials_secure():
@@ -439,36 +528,44 @@ def show_task_assignees_from_base_name(base_name):
     if app is None:
         app = QApplication([])
 
-    # Crear y mostrar ventana de estado
+    shot_preview = extract_shot_code(base_name) or "-"
+
     _status_window = FlowStatusWindow(
         user_display_name, user_color, "obtener asignados"
     )
     _status_window.show()
-    _status_window.show_processing_message()  # Mostrar mensaje de procesamiento
+    _status_window.show_validation_message(shot_preview)
 
-    # Crear worker para procesamiento en hilo separado
-    worker = AssigneeWorker(base_name, _status_window)
+    def handle_task_selection(payload):
+        shot_name = payload.get("shot_name", shot_preview)
+        _status_window.update_shot_info(shot_name)
+        if not payload.get("shot_exists"):
+            _status_window.show_shot_not_found(shot_name)
+            return
 
-    # Conectar señales
-    worker.signals.shot_info_ready.connect(
-        lambda shot_name, task_name, window=_status_window: window.update_shot_info(
-            shot_name, task_name
+        tasks = payload.get("tasks", [])
+        _status_window.clear_status_message()
+        _status_window.clear_validation_message()
+        if not tasks:
+            _status_window.show_error(
+                "El shot existe pero no tiene tasks configuradas en Flow."
+            )
+            return
+
+        _status_window.update_assignees_info(tasks)
+        names = ", ".join(task["name"] for task in tasks)
+        _status_window.show_success(
+            f"Se listaron los asignados de {shot_name}/{names}"
         )
-    )
-    worker.signals.assignees_ready.connect(
-        lambda assignees, window=_status_window: window.update_assignees_info(assignees)
-    )
-    worker.signals.finished.connect(
-        lambda success, message, window=_status_window: window.show_success(message)
-    )
-    worker.signals.error.connect(
+
+    discovery_worker = ShotTaskDiscoveryWorker(base_name)
+    discovery_worker.signals.ready.connect(handle_task_selection)
+    discovery_worker.signals.error.connect(
         lambda error_msg, window=_status_window: window.show_error(error_msg)
     )
 
-    # Ejecutar en hilo separado
-    QThreadPool.globalInstance().start(worker)
-
-    debug_print("=== Worker iniciado en hilo separado ===")
+    QThreadPool.globalInstance().start(discovery_worker)
+    debug_print("=== Worker de descubrimiento iniciado ===")
 
 
 if __name__ == "__main__":

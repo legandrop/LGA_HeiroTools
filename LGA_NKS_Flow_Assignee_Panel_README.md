@@ -167,17 +167,19 @@ Esta sincronización bidireccional asegura consistencia entre ambas fuentes de d
 
 ## Limitaciones Actuales y Plan Futuro
 
-### Limitación Actual
-El sistema actualmente solo maneja asignaciones para la **task comp**. No verifica la existencia de otras tasks ni permite asignar usuarios a tasks diferentes (Roto, Cleanup, DMP, etc.).
+### Estado Actual
+- El sistema valida en Flow que el shot exista antes de ejecutar cualquier acción y recupera la lista real de tasks asignadas al shot.
+- Si solo existe la task **Comp**, se procesa automáticamente como antes (comp sigue siendo la task por defecto).
+- Para **Assign** y **Clear** se muestran checkboxes con los mismos colores que `Create/Modify Shot` a fin de elegir en qué tasks aplicar el cambio cuando existen múltiples tasks (Roto, Cleanup, DMP, etc.).
+- **Get Assignees** lista en forma automática los asignados de cada task existente (sin pedir selección), de modo que siempre se ve el panorama completo.
+- Las selecciones se respetan tanto para una sola toma como para selecciones múltiples (cada shot abre su propia ventana).
 
-### Plan Futuro
-Se planea expandir el sistema para manejar **todas las tasks del pipeline** mencionadas en `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.md`. El sistema debería:
+### Próximos Pasos
+1. Consolidar la configuración de tasks desde un único módulo (`LGA_NKS_Flow_Task_Config.py`) para que todos los paneles compartan colores y orden.
+2. Evaluar caching de consultas cuando se procesan muchos shots consecutivos para reducir llamadas repetidas a Flow.
+3. Extender la UI para recordar la última selección de tasks por sesión si el flujo de trabajo lo requiere.
 
-1. **Verificar existencia de tasks**: Antes de ejecutar cualquier operación, consultar Flow para verificar qué tasks existen en el shot
-2. **Permitir selección de task**: Agregar UI para elegir qué task gestionar cuando hay múltiples tasks disponibles
-3. **Soporte multi-task**: Permitir asignar/clear asignados en cualquier task del pipeline
-
-**Referencia**: Ver `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.md` sección "Tasks Disponibles" para la lista completa de tasks del pipeline.
+**Referencia**: Lista completa de tasks en `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.md` sección "Tasks Disponibles".
 
 ## Notas Técnicas
 - El archivo de configuración se busca en la misma carpeta que el script del panel
