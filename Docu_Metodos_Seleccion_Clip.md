@@ -50,20 +50,24 @@ Este método utiliza los clips que están actualmente seleccionados en el timeli
 
 ---
 
-## Método 2: Clip del Track que coincide con el Playhead (Método Híbrido)
+## Método 2: Clip del Track que coincide con el Playhead (Método Híbrido Inteligente)
 
 ### Descripción
 Este método obtiene la posición actual del playhead (`viewer.time()`) y busca el clip en el track especificado (por defecto `_comp_`, definido en `TRACK_comp_EXR`) que coincide con esa posición temporal. El clip se encuentra cuando `clip.timelineIn() <= current_time < clip.timelineOut()`.
 
 **⚠️ IMPORTANTE:** El track por defecto ahora se llama `_comp_` (definido en `TRACK_comp_EXR`), anteriormente se llamaba `EXR`.
 
-**Método Híbrido Recomendado:**
-1. **Primero intenta**: Obtener el clip del track especificado (por defecto `_comp_`) en la posición del playhead
-2. **Fallback**: Si no encuentra clip en playhead, usa los clips seleccionados
+**Método Híbrido Inteligente Recomendado:**
+1. **Advertencia automática**: Si hay clips seleccionados en tracks que no son el objetivo, muestra mensaje informativo
+2. **Lógica inteligente para selección simple**: Si hay un solo clip seleccionado fuera del track objetivo pero del mismo shot, automáticamente usa el clip del track correcto (con mensaje informativo)
+3. **Primero intenta**: Obtener el clip del track especificado (por defecto `_comp_`) en la posición del playhead
+4. **Fallback**: Si no encuentra clip en playhead, usa los clips seleccionados
 
 ### Ventajas
-- Más intuitivo: trabaja con el clip que está visible en el viewer
-- No requiere selección manual (aunque tiene fallback)
+- **Más intuitivo**: trabaja con el clip visible en el viewer
+- **Lógica inteligente**: corrige automáticamente selecciones erróneas del mismo shot
+- **Feedback informativo**: muestra mensajes claros cuando hay discrepancias entre shots
+- No requiere selección manual (aunque tiene fallback inteligente)
 - Permite trabajar rápidamente mientras se navega por el timeline
 - Ideal para workflows donde siempre se trabaja con el mismo track (configurable mediante `TRACK_comp_EXR`)
 - **Soporta selecciones múltiples**: Si el script está configurado con `prioritize_multiple_selection=True` o usa `get_clips_to_process()`, puede procesar múltiples clips cuando hay múltiples clips seleccionados en el track
@@ -172,11 +176,12 @@ clip = get_clip_to_process()  # None es el valor por defecto
 ### Funciones Disponibles
 
 #### `get_clip_to_process(track_name=None, prioritize_multiple_selection=False)`
-**Función principal recomendada** - Implementa el método híbrido:
+**Función principal recomendada** - Implementa el método híbrido inteligente:
 1. **Advertencia automática**: Si hay clips seleccionados en tracks que no son el objetivo, muestra mensaje informativo
-2. Si `prioritize_multiple_selection=True` y hay múltiples clips seleccionados en el track, devuelve lista de esos clips
-3. Si no, intenta obtener el clip del track especificado en la posición del playhead
-4. Si no encuentra, usa el primer clip seleccionado como fallback
+2. **Lógica inteligente para selección simple**: Si hay un solo clip seleccionado fuera del track objetivo pero del mismo shot, automáticamente usa el clip del track correcto (con mensaje informativo)
+3. Si `prioritize_multiple_selection=True` y hay múltiples clips seleccionados en el track, devuelve lista de esos clips
+4. Si no, intenta obtener el clip del track especificado en la posición del playhead
+5. Si no encuentra, usa el primer clip seleccionado como fallback
 
 **Parámetros:**
 - `track_name` (str, optional): Nombre del track a buscar. Si es `None`, usa `TRACK_comp_EXR` (actualmente `"_comp_"`)
@@ -217,6 +222,11 @@ elif clips:
     # Procesar un solo clip
     # ... procesar clip
 ```
+
+**Comportamiento inteligente para selección simple:**
+- Si seleccionás un clip de otro track pero del mismo shot que el clip visible en `_comp_`, automáticamente usa el clip de `_comp_` (con mensaje informativo)
+- Si los shots no coinciden, muestra advertencia y usa el clip de `_comp_` (playhead)
+- Si no hay clip en `_comp_`, usa el clip seleccionado como fallback
 
 #### `find_clip_at_playhead_in_track(seq, track_name=None)`
 Busca el clip en un track específico que coincide con la posición del playhead.
@@ -274,6 +284,16 @@ Obtiene todos los clips seleccionados que pertenecen al track especificado.
 **Retorna:**
 - Lista de clips seleccionados en el track especificado (excluyendo efectos) o lista vacía
 
+#### `extract_shot_code_from_clip(clip)`
+Extrae el shot code de un clip usando las utilidades de naming compatibles con ambos formatos de nomenclatura.
+Maneja errores gracefully si no hay media o el archivo no existe.
+
+**Parámetros:**
+- `clip`: Clip de Hiero del cual extraer el shot code
+
+**Retorna:**
+- `str`: Shot code extraído o cadena vacía si hay error
+
 
 ### Configuración
 
@@ -318,7 +338,7 @@ Controla los mensajes de debug:
 
 ```python
 import LGA_NKS_GetClip as clip_utils
-clip_utils.DEBUG = True  # Activar debug
+clip_utils.DEBUG = False  # Activar debug
 ```
 
 ### Cómo Usar en Nuevos Scripts

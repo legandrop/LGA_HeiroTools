@@ -53,7 +53,7 @@ from LGA_NKS_Flow_Task_Config import (
 )
 
 # Variable global para debug
-DEBUG = True
+DEBUG = False
 
 debug_messages = []
 

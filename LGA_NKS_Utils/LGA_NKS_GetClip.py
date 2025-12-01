@@ -1,13 +1,16 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_GetClip v1.4 | Lega
+  LGA_NKS_GetClip v1.5 | Lega
   Utilidades para obtener clips del timeline de Hiero/Nuke Studio
-  
-  Método híbrido recomendado:
-  1. Intenta obtener el clip del track especificado en la posición del playhead
-  2. Si no encuentra, usa el clip seleccionado como fallback
-  
+
+  Método híbrido inteligente recomendado:
+  1. Muestra advertencia automática si hay clips seleccionados en tracks que no son el objetivo
+  2. Para selección simple: Si hay un clip seleccionado fuera del track objetivo pero del mismo shot,
+     automáticamente usa el clip del track correcto
+  3. Intenta obtener el clip del track especificado en la posición del playhead
+  4. Si no encuentra, usa el clip seleccionado como fallback
+
   Scripts que utilizan este módulo:
   - LGA_NKS_Flow_ShowInFlow.py
   - LGA_NKS_Edit/LGA_NKS_MatchVerToEXR.py
@@ -15,6 +18,9 @@ ________________________________________________________________________________
   - LGA_NKS_Flow_Assignee_Panel.py (get_clips_to_process)
   - (otros scripts que necesiten obtener clips)
 
+  v1.5 - LÓGICA INTELIGENTE: Comparación automática de shots para selecciones simples.
+         Si hay un clip seleccionado fuera del track objetivo pero del mismo shot,
+         automáticamente usa el clip del track correcto
   v1.4 - Agrega advertencia automática cuando hay clips seleccionados en tracks que no son el objetivo
   v1.3 - Renombra variables: DEFAULT_TRACK_NAME → TRACK_comp_EXR, DEFAULT_REV_TRACK_NAME → TRACK_comp_REV
   v1.2 - Agrega DEFAULT_REV_TRACK_NAME para centralizar el nombre del track REV
@@ -25,8 +31,15 @@ ________________________________________________________________________________
 import hiero.core
 import hiero.ui
 
-# Variable global para controlar el debug
-DEBUG = False  # Poner en True para activar los mensajes de debug
+# Control interno del debug para este módulo (no se puede sobrescribir desde fuera)
+_GETCLIP_DEBUG_ENABLED = True
+
+
+def debug_print(*message):
+    """Función para imprimir mensajes de debug del módulo GetClip."""
+    if _GETCLIP_DEBUG_ENABLED:
+        print("[GetClip]", *message)
+
 
 # Variable configurable para el nombre del track por defecto
 TRACK_comp_EXR = "_comp_"  # Es el track que contiene a los EXR con el render de COMP
@@ -34,11 +47,61 @@ TRACK_comp_EXR = "_comp_"  # Es el track que contiene a los EXR con el render de
 # Variable configurable para el nombre del track REV por defecto
 TRACK_comp_REV = "_rev_"  # Es el track que contiene a los MOV o MXF con el render de COMP
 
+# Intentar importar funciones de naming para comparación inteligente de shots
+try:
+    from LGA_NKS_Flow_NamingUtils import extract_shot_code, clean_base_name
+    NAMING_UTILS_AVAILABLE = True
+    debug_print("NamingUtils importado correctamente")
+except ImportError as e:
+    NAMING_UTILS_AVAILABLE = False
+    debug_print(f"NamingUtils NO importado, usando fallback: {e}")
+    def extract_shot_code(base_name):
+        """Fallback básico si no hay módulo naming"""
+        parts = base_name.split("_")
+        return "_".join(parts[:3]) if len(parts) >= 3 else base_name
 
-def debug_print(*message):
-    """Función para imprimir mensajes de debug."""
-    if DEBUG:
-        print(*message)
+    def clean_base_name(file_name):
+        """Fallback básico si no hay módulo naming"""
+        import os
+        return os.path.splitext(file_name)[0]
+
+
+def extract_shot_code_from_clip(clip):
+    """
+    Extrae el shot code de un clip usando las utilidades de naming.
+    Maneja errores gracefully si no hay media o el archivo no existe.
+
+    Args:
+        clip: Clip de Hiero
+
+    Returns:
+        str: Shot code extraído o cadena vacía si hay error
+    """
+    try:
+        if not clip or not clip.source() or not clip.source().mediaSource():
+            debug_print(f"Clip '{clip.name() if clip else 'None'}' no tiene source o mediaSource")
+            return ""
+
+        fileinfos = clip.source().mediaSource().fileinfos()
+        if not fileinfos:
+            debug_print(f"Clip '{clip.name()}' no tiene fileinfos")
+            return ""
+
+        filename = fileinfos[0].filename()
+        debug_print(f"Filename original: {filename}")
+        debug_print(f"NamingUtils disponible: {NAMING_UTILS_AVAILABLE}")
+
+        base_name = clean_base_name(filename)
+        debug_print(f"Base name limpio: {base_name}")
+
+        shot_code = extract_shot_code(base_name)
+        debug_print(f"Shot code final: {shot_code}")
+
+        return shot_code
+
+    except Exception as e:
+        debug_print(f"Error extrayendo shot code del clip '{clip.name() if clip else 'None'}': {e}")
+        return ""
 
 
 def find_clip_at_playhead_in_track(seq, track_name=None):
@@ -128,19 +191,21 @@ def get_selected_clips_in_track(seq, track_name=None):
 
 def get_clip_to_process(track_name=None, prioritize_multiple_selection=False):
     """
-    Obtiene el clip a procesar usando el método híbrido:
+    Obtiene el clip a procesar usando el método híbrido inteligente:
     1. Muestra advertencia automática si hay clips seleccionados en tracks que no son el objetivo
-    2. Si prioritize_multiple_selection=True y hay múltiples clips seleccionados en el track, devuelve lista
-    3. Si no, primero intenta obtener el clip del track especificado en la posición del playhead
-    4. Si no encuentra, usa el primer clip seleccionado como fallback
-    
+    2. LÓGICA INTELIGENTE para selección simple: Si hay un clip seleccionado fuera del track objetivo
+       pero del mismo shot, automáticamente usa el clip del track correcto (con mensaje informativo)
+    3. Si prioritize_multiple_selection=True y hay múltiples clips seleccionados en el track, devuelve lista
+    4. Si no, primero intenta obtener el clip del track especificado en la posición del playhead
+    5. Si no encuentra, usa el primer clip seleccionado como fallback
+
     Debe ejecutarse en el hilo principal de Hiero.
-    
+
     Args:
         track_name (str, optional): Nombre del track a buscar. Si es None, usa TRACK_comp_EXR.
         prioritize_multiple_selection (bool): Si True y hay múltiples clips seleccionados en el track,
             devuelve lista de esos clips en lugar de usar playhead. Si False, usa playhead primero.
-    
+
     Returns:
         Clip encontrado, lista de clips, o None si no se encuentra ningún clip.
         Si prioritize_multiple_selection=True y hay múltiples clips, siempre devuelve lista.
@@ -167,6 +232,60 @@ def get_clip_to_process(track_name=None, prioritize_multiple_selection=False):
             f"Solo se procesarán los clips seleccionados en el track '{track_name}'."
         )
 
+    # LÓGICA INTELIGENTE PARA SELECCIONES:
+    # Si hay un solo clip seleccionado que NO es del track objetivo, verificar si es del mismo shot
+    # (se aplica tanto para prioritize_multiple_selection=True como False)
+    if len(selected_clips_in_track) == 0 and len(all_selected_clips) == 1:
+        debug_print("Activando lógica inteligente: un clip seleccionado fuera del track objetivo")
+        selected_clip = all_selected_clips[0]
+
+        # Obtener clip del playhead en el track objetivo
+        playhead_clip = find_clip_at_playhead_in_track(seq, track_name=track_name)
+
+        if playhead_clip:
+            # Comparar shot codes
+            selected_shot = extract_shot_code_from_clip(selected_clip)
+            playhead_shot = extract_shot_code_from_clip(playhead_clip)
+
+            debug_print(f"Comparando shots - seleccionado: '{selected_shot}', playhead: '{playhead_shot}'")
+
+            if selected_shot and playhead_shot and selected_shot == playhead_shot:
+                # 2a: Los shots coinciden, usar el clip del track correcto automáticamente
+                debug_print(f"Shots coinciden ({selected_shot}). Usando clip del track '{track_name}' automáticamente.")
+                from PySide2.QtWidgets import QMessageBox
+                QMessageBox.information(
+                    None,
+                    "Selección inteligente",
+                    f"Se detectó que el clip seleccionado pertenece al mismo shot que el clip visible en el track '{track_name}'.\n\n"
+                    f"Usando automáticamente el clip del track '{track_name}' para asegurar consistencia."
+                )
+                if prioritize_multiple_selection:
+                    return [playhead_clip]  # Devolver como lista
+                else:
+                    return playhead_clip
+            else:
+                # 2c: Los shots no coinciden, mostrar mensaje informativo
+                debug_print(f"Shots diferentes - seleccionado: {selected_shot}, playhead: {playhead_shot}")
+                from PySide2.QtWidgets import QMessageBox
+                QMessageBox.warning(
+                    None,
+                    "Shots diferentes",
+                    f"El clip seleccionado pertenece al shot '{selected_shot}',\n"
+                    f"pero el playhead está posicionado sobre el shot '{playhead_shot}' en el track '{track_name}'.\n\n"
+                    f"Se usará el clip del track '{track_name}' (playhead)."
+                )
+                if prioritize_multiple_selection:
+                    return [playhead_clip]  # Devolver como lista
+                else:
+                    return playhead_clip
+
+        # 2b: No hay clip en playhead del track objetivo, usar el seleccionado como fallback
+        debug_print(f"No hay clip en playhead del track '{track_name}', usando clip seleccionado como fallback.")
+        if prioritize_multiple_selection:
+            return [selected_clip]  # Devolver como lista
+        else:
+            return selected_clip
+
     # Si prioritize_multiple_selection=True, verificar primero si hay múltiples clips seleccionados en el track
     if prioritize_multiple_selection:
         selected_clips_in_track = get_selected_clips_in_track(seq, track_name=track_name)
@@ -180,8 +299,46 @@ def get_clip_to_process(track_name=None, prioritize_multiple_selection=False):
                 f">>> Un solo clip seleccionado en track '{track_name}'. Usando playhead primero."
             )
         # Si no hay clips seleccionados en el track, continuar con lógica normal
+        selected_clip = all_selected_clips[0]
+        debug_print(f"Solo un clip seleccionado fuera del track '{track_name}': {selected_clip.name()}")
 
-    # Intentar obtener clip por playhead en el track especificado
+        # Obtener clip del playhead en el track objetivo
+        playhead_clip = find_clip_at_playhead_in_track(seq, track_name=track_name)
+
+        if playhead_clip:
+            # Comparar shot codes
+            selected_shot = extract_shot_code_from_clip(selected_clip)
+            playhead_shot = extract_shot_code_from_clip(playhead_clip)
+
+            if selected_shot and playhead_shot and selected_shot == playhead_shot:
+                # 2a: Los shots coinciden, usar el clip del track correcto automáticamente
+                debug_print(f"Shots coinciden ({selected_shot}). Usando clip del track '{track_name}' en lugar del seleccionado.")
+                from PySide2.QtWidgets import QMessageBox
+                QMessageBox.information(
+                    None,
+                    "Selección inteligente",
+                    f"Se detectó que el clip seleccionado pertenece al mismo shot que el clip visible en el track '{track_name}'.\n\n"
+                    f"Usando automáticamente el clip del track '{track_name}' para asegurar consistencia."
+                )
+                return playhead_clip
+            else:
+                # 2c: Los shots no coinciden, mostrar mensaje informativo
+                debug_print(f"Shots diferentes - seleccionado: {selected_shot}, playhead: {playhead_shot}")
+                from PySide2.QtWidgets import QMessageBox
+                QMessageBox.warning(
+                    None,
+                    "Shots diferentes",
+                    f"El clip seleccionado pertenece al shot '{selected_shot}',\n"
+                    f"pero el playhead está posicionado sobre el shot '{playhead_shot}' en el track '{track_name}'.\n\n"
+                    f"Se usará el clip del track '{track_name}' (playhead)."
+                )
+                return playhead_clip
+
+        # 2b: No hay clip en playhead del track objetivo, usar el seleccionado como fallback
+        debug_print(f"No hay clip en playhead del track '{track_name}', usando clip seleccionado como fallback.")
+        return selected_clip
+
+    # Intentar obtener clip por playhead en el track especificado (lógica normal)
     playhead_clip = find_clip_at_playhead_in_track(seq, track_name=track_name)
 
     # Fallback a seleccion
@@ -207,28 +364,32 @@ def get_clip_to_process(track_name=None, prioritize_multiple_selection=False):
 
 def get_clips_to_process(track_name=None, prioritize_multiple_selection=False):
     """
-    Obtiene los clips a procesar usando el método híbrido.
+    Obtiene los clips a procesar usando el método híbrido inteligente.
     Siempre devuelve una lista (puede contener 0, 1 o más clips).
-    
+
     Args:
         track_name (str, optional): Nombre del track a buscar. Si es None, usa TRACK_comp_EXR.
         prioritize_multiple_selection (bool): Si True y hay múltiples clips seleccionados en el track,
             prioriza esos clips sobre el playhead.
-    
+
     Returns:
         Lista de clips encontrados (puede estar vacía).
     """
+    debug_print(f"get_clips_to_process llamado con track_name={track_name}, prioritize_multiple_selection={prioritize_multiple_selection}")
     result = get_clip_to_process(track_name=track_name, prioritize_multiple_selection=prioritize_multiple_selection)
-    
+
     # Si el resultado es una lista, devolverla directamente
     if isinstance(result, list):
+        debug_print(f"Resultado es lista con {len(result)} clips")
         return result
-    
+
     # Si es un clip único, devolverlo en una lista
     if result is not None:
+        debug_print(f"Resultado es un clip único: {result.name() if hasattr(result, 'name') else result}")
         return [result]
-    
+
     # Si es None, devolver lista vacía
+    debug_print("Resultado es None, devolviendo lista vacía")
     return []
 
 

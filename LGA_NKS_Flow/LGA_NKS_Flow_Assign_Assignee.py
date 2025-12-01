@@ -56,7 +56,7 @@ from LGA_NKS_Flow_Task_Config import (
     sort_tasks_by_pipeline,
 )
 
-DEBUG = True
+DEBUG = False
 debug_messages = []
 
 

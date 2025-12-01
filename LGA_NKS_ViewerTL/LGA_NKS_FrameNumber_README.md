@@ -41,7 +41,7 @@ Al inicio del script hay dos flags principales:
 ```python
 TRACK_NAME = "BurnIn"
 CLIP_NAME = "Frame_Only"
-DEBUG = True  # Activar para ver información de depuración
+DEBUG = False  # Activar para ver información de depuración
 
 # Modo de posicionamiento:
 # True = Absoluto: posición basada en las dimensiones completas de la imagen (sin importar zoom/pan)

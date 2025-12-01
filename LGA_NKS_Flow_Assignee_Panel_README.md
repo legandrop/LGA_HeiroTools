@@ -184,7 +184,7 @@ Esta sincronización bidireccional asegura consistencia entre ambas fuentes de d
 ## Notas Técnicas
 - El archivo de configuración se busca en la misma carpeta que el script del panel
 - Si el archivo no existe, se crea automáticamente con la configuración por defecto
-- Los errores se muestran en la consola de debug (activar DEBUG = True en el script)
+- Los errores se muestran en la consola de debug (activar DEBUG = False en el script)
 - El sistema es compatible con caracteres Unicode (nombres con acentos, etc.)
 - Las funcionalidades de Flow y Wasabi utilizan credenciales seguras desde PipeSync (SecureConfig_Reader)
 - Los botones de usuario utilizan `CustomButton` para manejar Shift+Click y Ctrl+Shift+Click

@@ -129,7 +129,7 @@ task_status_dict = {
 XYPlorer_Tags = True
 
 # Variable global para activar o desactivar los prints // En esta version el Debug se imprime al final del script
-DEBUG = True
+DEBUG = False
 DEBUG_RESUMEN = True
 debug_messages = []
 resumen_messages = []
