@@ -260,7 +260,7 @@ Sino:
    - Compatibilidad 100% hacia atrás con formato con descripción
 
 8. ✅ **Actualizado** `LGA_NKS_Flow_Push_connector.py`
-   - Importadas funciones de `LGA_NKS_Flow_NamingUtils.py` con fallback
+   - Importadas funciones de `LGA_NKS_Flow_NamingUtils.py` con fallback completo del sistema dual
    - Actualizado `execute_full_push_operation()` para usar funciones compartidas
    - Actualizado `check_version()` para usar funciones compartidas
    - Compatibilidad 100% hacia atrás con formato con descripción
@@ -451,22 +451,23 @@ else:
 
 ### LGA_NKS_Flow_Push_connector.py
 ```python
-# ✅ IMPLEMENTADO - Uso de funciones compartidas
+# ✅ IMPLEMENTADO - Uso de funciones compartidas con fallback completo
 
 from LGA_NKS_Flow_NamingUtils import (
     extract_shot_code,
     extract_project_name,
     extract_task_name,
 )
+# Si el import falla, usa fallback con lógica completa del sistema dual
 
 # En execute_full_push_operation():
 project_name = extract_project_name(base_name)
-shot_code = extract_shot_code(base_name)
+shot_code = extract_shot_code(base_name)  # Detecta formato automáticamente
 task_name_extracted = extract_task_name(base_name)
 
 # En check_version():
 project_name = extract_project_name(base_name)
-shot_code = extract_shot_code(base_name)
+shot_code = extract_shot_code(base_name)  # Detecta formato automáticamente
 ```
 
 ### LGA_NKS_Flow_Panel.py

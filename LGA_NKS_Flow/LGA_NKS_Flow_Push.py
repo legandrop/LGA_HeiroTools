@@ -1,7 +1,7 @@
 """
 _____________________________________________________________
 
-  LGA_NKS_Flow_Push v3.95 | Lega
+  LGA_NKS_Flow_Push v3.96 | Lega
 
   Envia a flow nuevos estados de las tasks comps.
   En algunos estados permite enviar un mensaje a la version
@@ -12,6 +12,7 @@ _____________________________________________________________
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 
+  v3.96: Actualiza el módulo LGA_NKS_Flow_Push_connector.py para que funcione con el sistema de nombres sin descripción.
   v3.95: Agrega aplicación de tags en xyplorer después de actualizar estados exitosamente.
          Si xyplorer no está abierto, simplemente no aplica el tag sin dar error ni crashear el script.
   v3.94: Agrega ruta principal de Python dentro de PipeSync.app para macOS

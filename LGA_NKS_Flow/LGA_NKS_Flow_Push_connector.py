@@ -30,6 +30,20 @@ else:
 
 import shotgun_api3
 
+
+# Variable global para activar o desactivar los prints
+DEBUG = False
+
+
+def debug_print(message):
+    """
+    Imprime mensajes de debug a stderr para no interferir con el JSON de respuesta
+    que se envía por stdout
+    """
+    if DEBUG:
+        print(message, file=sys.stderr)
+
+
 # Importar utilidades de naming
 sys.path.insert(0, script_dir)
 try:
@@ -38,21 +52,94 @@ try:
         extract_project_name,
         extract_task_name,
     )
+    debug_print("✅ Usando funciones del módulo LGA_NKS_Flow_NamingUtils")
+except ImportError as e:
+    debug_print(f"⚠️ ImportError: {e} - Usando funciones fallback")
+    # Fallback si no se puede importar (por si acaso)
+    # Implementa la misma lógica que LGA_NKS_Flow_NamingUtils.py
 except ImportError:
     # Fallback si no se puede importar (por si acaso)
-    def extract_shot_code(base_name):
+    # Implementa la misma lógica que LGA_NKS_Flow_NamingUtils.py
+
+    def detect_shotname_format(base_name):
+        """
+        Detecta el formato del shotname basado en el nombre base del archivo.
+        Técnica de detección por Campo 5.
+        """
+        if not base_name:
+            return False  # Por defecto, formato simplificado
+
         parts = base_name.split("_")
-        return "_".join(parts[:5]) if len(parts) >= 5 else "_".join(parts)
+
+        # Verificar si el campo 5 (índice 4) es una versión
+        if len(parts) >= 5:
+            field_5 = parts[4]
+            # Si campo 5 empieza con 'v' seguido de números, es formato simplificado
+            if field_5.startswith('v') and len(field_5) > 1 and field_5[1:].isdigit():
+                return False  # Formato simplificado (3 bloques)
+            else:
+                return True  # Formato con descripción (5 bloques)
+        else:
+            # Menos de 5 campos → formato simplificado
+            return False
+
+    def extract_shot_code(base_name):
+        """
+        Extrae el shot_code de un nombre base de archivo.
+        Detecta automáticamente el formato y extrae el shot_code correcto.
+        """
+        if not base_name:
+            return ""
+
+        parts = base_name.split("_")
+
+        # Detectar formato
+        has_description = detect_shotname_format(base_name)
+
+        if has_description:
+            # Formato con descripción: tomar primeros 5 campos
+            if len(parts) >= 5:
+                shot_code = "_".join(parts[:5])
+            else:
+                # Fallback: usar todos los campos disponibles
+                shot_code = "_".join(parts)
+        else:
+            # Formato simplificado: tomar primeros 3 campos
+            if len(parts) >= 3:
+                shot_code = "_".join(parts[:3])
+            else:
+                # Fallback: usar todos los campos disponibles
+                shot_code = "_".join(parts)
+
+        return shot_code
 
     def extract_project_name(base_name):
         return base_name.split("_")[0] if base_name else ""
 
     def extract_task_name(base_name):
+        """
+        Extrae el nombre de la tarea del nombre base del archivo.
+        """
+        if not base_name:
+            return None
+
         parts = base_name.split("_")
-        if len(parts) >= 6:
-            return parts[5]
-        elif len(parts) >= 4:
-            return parts[3]
+
+        # Detectar formato
+        has_description = detect_shotname_format(base_name)
+
+        if has_description:
+            # Formato con descripción: task está en el campo 6 (índice 5)
+            # Estructura: PROYECTO_SEQ_SHOT_DESC1_DESC2_TASK_vVERSION
+            if len(parts) >= 6:
+                return parts[5]
+        else:
+            # Formato simplificado: task está en el campo 4 (índice 3)
+            # Estructura: PROYECTO_SEQ_SHOT_TASK_vVERSION
+            if len(parts) >= 4:
+                return parts[3]
+
+        return None
         return None
 
 
@@ -69,18 +156,6 @@ status_translation = {
     "Rev Dir Den": "rev_di",
     "Rev Hold": "revhld",
 }
-
-# Variable global para activar o desactivar los prints
-DEBUG = False
-
-
-def debug_print(message):
-    """
-    Imprime mensajes de debug a stderr para no interferir con el JSON de respuesta
-    que se envía por stdout
-    """
-    if DEBUG:
-        print(message, file=sys.stderr)
 
 
 class ShotGridManager:
@@ -109,6 +184,7 @@ class ShotGridManager:
             project = projects[0]
             project_id = project["id"]
             debug_print(f"Proyecto encontrado: {project['name']} (ID: {project_id})")
+            debug_print(f"DEBUG: Buscando shot con código exacto: '{shot_code}'")
             filters = [
                 ["project", "is", {"type": "Project", "id": project_id}],
                 ["code", "is", shot_code],
@@ -116,6 +192,9 @@ class ShotGridManager:
             fields = ["id", "code", "description"]
             try:
                 shots = self.sg.find("Shot", filters, fields)
+                debug_print(f"DEBUG: Consulta ShotGrid devolvió {len(shots)} resultados")
+                for i, shot in enumerate(shots):
+                    debug_print(f"DEBUG: Shot encontrado [{i}]: '{shot['code']}' (ID: {shot['id']})")
             except Exception as e:
                 debug_print(f"Error buscando shot: {e}")
                 return project, None, None
@@ -132,7 +211,7 @@ class ShotGridManager:
                 tasks = self.find_tasks_for_shot(shot_id)
                 return project, shot, tasks
             else:
-                debug_print("No se encontro el Shot con el codigo especificado.")
+                debug_print(f"DEBUG: No se encontró ningún shot con el código: '{shot_code}'")
                 return project, None, None
         else:
             debug_print("No se encontro el proyecto con el nombre especificado.")
@@ -525,7 +604,8 @@ def execute_full_push_operation(
                     for part in base_name.split("_")
                 ):
                     # Construir base_name_for_detection con la versión
-                    base_name_for_detection = f"{base_name}_{version_match.group(0)}"
+                    version_str = version_match.group(0)  # Ya incluye el "_vXXX"
+                    base_name_for_detection = base_name + version_str
                     debug_print(
                         f"execute_full_push: Usando base_name con versión para detección: {base_name_for_detection}"
                     )
@@ -534,6 +614,9 @@ def execute_full_push_operation(
         project_name = extract_project_name(base_name_for_detection)
         shot_code = extract_shot_code(base_name_for_detection)
 
+        debug_print(
+            f"execute_full_push: base_name_for_detection='{base_name_for_detection}'"
+        )
         debug_print(
             f"execute_full_push: project_name={project_name}, shot_code={shot_code}"
         )
