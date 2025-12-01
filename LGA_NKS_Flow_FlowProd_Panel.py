@@ -1,13 +1,15 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_FlowProd_Panel v1.09 | Lega
+  LGA_NKS_Flow_FlowProd_Panel v1.10 | Lega
   Panel para operaciones de producción con Flow:
   - Revelar clips en Flow
   - Crear shots automáticamente
   - Crear thumbnails
   - Cambiar prioridad de shots
   
+  v1.10: Actualizado para usar shift+click para abrir el shot completo en Flow
+
   v1.09: Agregado modo de modificación de shots existentes
          Reutiliza la misma UI compacta de creación
          Permite agregar/eliminar tasks y actualizar la descripción
@@ -33,6 +35,35 @@ from PySide2.QtWidgets import (
 )
 from PySide2.QtCore import Qt
 from PySide2.QtGui import QColor, QKeySequence
+from PySide2.QtWidgets import QApplication
+
+
+# Clase de botón personalizada que maneja el Shift+Click
+class CustomButton(QPushButton):
+    def __init__(self, text):
+        super(CustomButton, self).__init__(text)
+        self._custom_click_handler = None
+        self._shift_click_handler = None
+        # Conectar la señal clicked para manejar tanto clicks normales como shortcuts
+        self.clicked.connect(self._handle_click)
+
+    def setCustomClickHandler(self, handler):
+        self._custom_click_handler = handler
+
+    def setShiftClickHandler(self, handler):
+        self._shift_click_handler = handler
+
+    def _handle_click(self):
+        """Maneja los clicks del botón, verificando si es Shift+Click"""
+        if self._custom_click_handler and self._shift_click_handler:
+            modifiers = QApplication.keyboardModifiers()
+            if modifiers & Qt.ShiftModifier:
+                self._shift_click_handler()
+            else:
+                self._custom_click_handler()
+        else:
+            # Si no hay handlers personalizados, comportamiento normal
+            pass
 
 # Importar función de limpieza de nombres desde NamingUtils
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Flow"))
@@ -40,7 +71,7 @@ from LGA_NKS_Flow_NamingUtils import clean_base_name
 
 
 # Variable global para activar o desactivar los prints
-DEBUG = False
+DEBUG = True
 
 
 def debug_print(*message):
@@ -67,7 +98,7 @@ class FlowProdPanel(QWidget):
                 self.show_in_flow_for_selected_clip,
                 "#1f1f1f",
                 "Ctrl+Shift+F",
-                "Ctrl+Shift+F - Abrir task comp en Flow",
+                "Click: Abrir task comp en Flow\nShift+Click: Abrir Shot completo en Flow (Ctrl+Shift+F)",
             ),
             (
                 "Thumbnail",
@@ -126,14 +157,26 @@ class FlowProdPanel(QWidget):
             shortcut = button_info[3] if len(button_info) > 3 else None
             tooltip = button_info[4] if len(button_info) > 4 else None
 
-            button = QPushButton(name)
-            button.clicked.connect(handler)
-
-            # Agregar shortcut y tooltip si existen
-            if shortcut:
-                button.setShortcut(QKeySequence(shortcut))
-            if tooltip:
-                button.setToolTip(tooltip)
+            # Usar CustomButton para el botón "Reveal in Flow" para soportar Shift+Click
+            if name == "Reveal in Flow":
+                button = CustomButton(name)
+                button.setStyleSheet(f"background-color: {style}")
+                button.setCustomClickHandler(handler)
+                button.setShiftClickHandler(self.show_shot_in_flow_for_selected_clip)
+                # Agregar shortcut y tooltip si existen
+                if shortcut:
+                    button.setShortcut(QKeySequence(shortcut))
+                if tooltip:
+                    button.setToolTip(tooltip)
+            else:
+                button = QPushButton(name)
+                button.setStyleSheet(f"background-color: {style}")
+                button.clicked.connect(handler)
+                # Agregar shortcut y tooltip si existen
+                if shortcut:
+                    button.setShortcut(QKeySequence(shortcut))
+                if tooltip:
+                    button.setToolTip(tooltip)
 
             # Aplicar solo el color de fondo, sin negrita ni color de texto blanco
             button.setStyleSheet(f"background-color: {style}")
@@ -173,6 +216,7 @@ class FlowProdPanel(QWidget):
 
     def show_in_flow_for_selected_clip(self):
         """Llama al script Show in Flow para abrir la task comp en Chrome"""
+        debug_print("=== CLICK NORMAL: Show in Flow (Task Comp) ===")
         script_path = os.path.join(
             os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_Flow_ShowInFlow.py"
         )
@@ -196,8 +240,42 @@ class FlowProdPanel(QWidget):
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             # Llamar a la función principal
+            debug_print("Llamando a show_in_flow_from_selected_clip()")
             module.show_in_flow_from_selected_clip()
         except Exception as e:
+            debug_print(f"Error al ejecutar show_in_flow_from_selected_clip: {e}")
+            QMessageBox.warning(self, "Error al ejecutar", str(e))
+
+    def show_shot_in_flow_for_selected_clip(self):
+        """Llama al script Show in Flow para abrir el Shot completo en Chrome (Shift+Click)"""
+        debug_print("=== SHIFT+CLICK: Show Shot in Flow (Shot completo) ===")
+        script_path = os.path.join(
+            os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_Flow_ShowInFlow.py"
+        )
+        if not os.path.exists(script_path):
+            QMessageBox.warning(
+                self,
+                "Script no encontrado",
+                f"No se encontró el script en la ruta: {script_path}",
+            )
+            return
+        try:
+            import importlib.util
+
+            spec = importlib.util.spec_from_file_location(
+                "LGA_NKS_Flow_ShowInFlow", script_path
+            )
+            if spec is None or spec.loader is None:
+                raise ImportError(
+                    "No se pudo cargar el módulo LGA_NKS_Flow_ShowInFlow.py"
+                )
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            # Llamar a la función para abrir el Shot (no la task comp)
+            debug_print("Llamando a show_shot_in_flow_from_selected_clip()")
+            module.show_shot_in_flow_from_selected_clip()
+        except Exception as e:
+            debug_print(f"Error al ejecutar show_shot_in_flow_from_selected_clip: {e}")
             QMessageBox.warning(self, "Error al ejecutar", str(e))
 
     def create_thumbnail_for_selected_clip(self):
