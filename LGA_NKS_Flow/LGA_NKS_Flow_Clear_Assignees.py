@@ -590,6 +590,25 @@ class ShotGridManager:
             debug_print(f"Error obteniendo tasks para shot {shot_id}: {e}")
             return []
 
+    def clear_task_assignees(self, task_id):
+        if not self.sg:
+            debug_print("Conexion a ShotGrid no esta inicializada")
+            return False, "Conexion a ShotGrid no inicializada"
+        try:
+            debug_print(f"Eliminando asignados de la tarea ID: {task_id}")
+            result = self.sg.update("Task", task_id, {"task_assignees": []})
+            if result:
+                debug_print(
+                    f"Asignados eliminados exitosamente para la tarea {task_id}"
+                )
+                return True, f"Asignados eliminados para la tarea ID {task_id}"
+            else:
+                debug_print(f"Fallo al eliminar asignados para la tarea {task_id}")
+                return False, f"Fallo al actualizar la tarea ID {task_id}"
+        except Exception as e:
+            debug_print(f"Error al eliminar los asignados de la tarea: {e}")
+            return False, f"Error al eliminar asignados: {e}"
+
 
 
 class TaskFetchSignals(QObject):
@@ -655,25 +674,6 @@ class ShotTaskDiscoveryWorker(QRunnable):
         except Exception as exc:
             debug_print(f"Error en ShotTaskDiscoveryWorker: {exc}")
             self.signals.error.emit(f"Error verificando shot en Flow: {exc}")
-
-    def clear_task_assignees(self, task_id):
-        if not self.sg:
-            debug_print("Conexion a ShotGrid no esta inicializada")
-            return False, "Conexion a ShotGrid no inicializada"
-        try:
-            debug_print(f"Eliminando asignados de la tarea ID: {task_id}")
-            result = self.sg.update("Task", task_id, {"task_assignees": []})
-            if result:
-                debug_print(
-                    f"Asignados eliminados exitosamente para la tarea {task_id}"
-                )
-                return True, f"Asignados eliminados para la tarea ID {task_id}"
-            else:
-                debug_print(f"Fallo al eliminar asignados para la tarea {task_id}")
-                return False, f"Fallo al actualizar la tarea ID {task_id}"
-        except Exception as e:
-            debug_print(f"Error al eliminar los asignados de la tarea: {e}")
-            return False, f"Error al eliminar asignados: {e}"
 
 
 class ClearSignals(QObject):
