@@ -1,16 +1,21 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_GetClip v1.6 | Lega
+  LGA_NKS_GetClip v1.7 | Lega
   Utilidades para obtener clips del timeline de Hiero/Nuke Studio
 
-  Método híbrido inteligente recomendado:
-  1. LÓGICA INTELIGENTE: Si hay un clip seleccionado fuera del track objetivo pero del mismo shot,
+  Método híbrido inteligente completo:
+  1. LÓGICA INTELIGENTE SIMPLE: Si hay un clip seleccionado fuera del track objetivo pero del mismo shot,
      automáticamente usa el clip del track correcto (sin mostrar mensaje al usuario)
-  2. Muestra advertencia solo cuando la lógica inteligente NO puede resolver automáticamente
-  3. Intenta obtener el clip del track especificado en la posición del playhead
-  4. Si no encuentra, usa el clip seleccionado como fallback
+  2. LÓGICA INTELIGENTE MÚLTIPLE: Analiza selecciones múltiples y devuelve exactamente un clip por shot único,
+     priorizando clips del track objetivo pero incluyendo shots de otros tracks
+  3. Muestra advertencia solo cuando la lógica inteligente NO puede resolver automáticamente
+  4. Intenta obtener el clip del track especificado en la posición del playhead
+  5. Si no encuentra, usa el clip seleccionado como fallback
 
+  v1.7 - LÓGICA INTELIGENTE COMPLETA: Nueva función analyze_multiple_shots_selection()
+         implementa selección múltiple inteligente. Devuelve exactamente un clip por shot único,
+         priorizando clips del track objetivo pero incluyendo shots sin correspondencia.
   v1.6 - LÓGICA INTELIGENTE MEJORADA: Ahora resuelve automáticamente selecciones erróneas
          sin mostrar mensaje informativo al usuario. La advertencia solo aparece cuando
          NO puede resolverse automáticamente. Función específica extract_shot_code_from_filename
@@ -29,7 +34,7 @@ import hiero.core
 import hiero.ui
 
 # Control interno del debug para este módulo (no se puede sobrescribir desde fuera)
-_GETCLIP_DEBUG_ENABLED = True
+_GETCLIP_DEBUG_ENABLED = False
 
 
 def debug_print(*message):
@@ -108,6 +113,87 @@ def extract_shot_code_from_filename(file_path):
     except Exception as e:
         debug_print(f"[GetClip] Error extrayendo shot code de {file_path}: {e}")
         return ""
+
+
+def analyze_multiple_shots_selection(all_selected_clips, track_name=None):
+    """
+    Analiza selección múltiple inteligente: devuelve exactamente un clip por shot único.
+    Prioriza clips del track objetivo, pero incluye shots de otros tracks si no hay correspondencia.
+
+    Args:
+        all_selected_clips: Lista de todos los clips seleccionados
+        track_name: Nombre del track objetivo (usa TRACK_comp_EXR si None)
+
+    Returns:
+        Lista de clips óptimos (uno por shot único)
+    """
+    if not track_name:
+        track_name = TRACK_comp_EXR
+
+    if not all_selected_clips:
+        debug_print(f"[GetClip] No hay clips seleccionados para analizar")
+        return []
+
+    debug_print(f"[GetClip] === INICIANDO ANÁLISIS MÚLTIPLE ===")
+    debug_print(f"[GetClip] Analizando {len(all_selected_clips)} clips seleccionados")
+    debug_print(f"[GetClip] Track objetivo: '{track_name}'")
+
+    # Agrupar clips por shot
+    shots_dict = {}  # shot_code -> lista de clips para ese shot
+
+    for clip in all_selected_clips:
+        if isinstance(clip, hiero.core.EffectTrackItem):
+            continue
+
+        shot_code = extract_shot_code_from_clip(clip)
+        track_name_clip = clip.parentTrack().name() if clip.parentTrack() else "Unknown"
+
+        if shot_code:
+            if shot_code not in shots_dict:
+                shots_dict[shot_code] = []
+            shots_dict[shot_code].append(clip)
+            debug_print(f"[GetClip] Clip '{clip.name()}' -> Shot '{shot_code}' (track: '{track_name_clip}')")
+        else:
+            debug_print(f"[GetClip] Clip '{clip.name()}' -> Shot NO IDENTIFICADO (track: '{track_name_clip}')")
+
+    debug_print(f"[GetClip] === RESULTADO AGRUPACIÓN ===")
+    debug_print(f"[GetClip] Shots únicos encontrados: {len(shots_dict)}")
+    for shot_code, clips in shots_dict.items():
+        debug_print(f"[GetClip] Shot '{shot_code}': {len(clips)} clips disponibles")
+
+    # Para cada shot, seleccionar el mejor clip
+    result_clips = []
+
+    for shot_code, clips_for_shot in shots_dict.items():
+        debug_print(f"[GetClip] --- Procesando shot '{shot_code}' ---")
+
+        # Buscar si hay clips de este shot en el track objetivo
+        clips_in_target_track = [
+            clip for clip in clips_for_shot
+            if clip.parentTrack() and clip.parentTrack().name().upper() == track_name.upper()
+        ]
+
+        if clips_in_target_track:
+            # Usar el primer clip encontrado en el track objetivo (debería ser solo uno)
+            selected_clip = clips_in_target_track[0]
+            debug_print(f"[GetClip] ✅ Shot '{shot_code}': USANDO clip del track '{track_name}': '{selected_clip.name()}'")
+        else:
+            # Usar el primer clip disponible para este shot
+            selected_clip = clips_for_shot[0]
+            track_origen = selected_clip.parentTrack().name() if selected_clip.parentTrack() else "Unknown"
+            debug_print(f"[GetClip] 🔄 Shot '{shot_code}': USANDO clip de track '{track_origen}': '{selected_clip.name()}' (sin correspondencia en '{track_name}')")
+
+        result_clips.append(selected_clip)
+
+    debug_print(f"[GetClip] === RESULTADO FINAL ===")
+    debug_print(f"[GetClip] Selección múltiple inteligente: {len(result_clips)} clips finales de {len(shots_dict)} shots únicos")
+
+    for i, clip in enumerate(result_clips):
+        track_name_clip = clip.parentTrack().name() if clip.parentTrack() else "Unknown"
+        shot_code = extract_shot_code_from_clip(clip)
+        debug_print(f"[GetClip] Resultado {i+1}: '{clip.name()}' (shot: '{shot_code}', track: '{track_name_clip}')")
+
+    return result_clips
 
 
 def extract_shot_code_from_clip(clip):
@@ -312,19 +398,22 @@ def get_clip_to_process(track_name=None, prioritize_multiple_selection=False):
         else:
             return selected_clip
 
-    # Si prioritize_multiple_selection=True, verificar primero si hay múltiples clips seleccionados en el track
+    # Si prioritize_multiple_selection=True, aplicar lógica inteligente múltiple
     if prioritize_multiple_selection:
         selected_clips_in_track = get_selected_clips_in_track(seq, track_name=track_name)
-        if len(selected_clips_in_track) > 1:
-            debug_print(
-                f">>> Múltiples clips seleccionados en track '{track_name}' ({len(selected_clips_in_track)} clips). Priorizando selección sobre playhead."
-            )
-            return selected_clips_in_track
-        elif len(selected_clips_in_track) == 1:
-            debug_print(
-                f">>> Un solo clip seleccionado en track '{track_name}'. Usando playhead primero."
-            )
-        # Si no hay clips seleccionados en el track, continuar con lógica normal
+        if len(selected_clips_in_track) > 0:
+            # Hay al menos un clip seleccionado en el track objetivo
+            # Aplicar lógica inteligente múltiple: analizar todos los clips seleccionados
+            debug_print(f">>> {len(selected_clips_in_track)} clips seleccionados en track '{track_name}'. Aplicando lógica inteligente múltiple.")
+            intelligent_clips = analyze_multiple_shots_selection(all_selected_clips, track_name=track_name)
+            return intelligent_clips
+        elif len(selected_clips_in_track) == 0 and len(all_selected_clips) > 1:
+            # No hay clips en el track objetivo pero hay múltiples clips seleccionados
+            # Aplicar lógica inteligente múltiple para clips fuera del track objetivo
+            debug_print(f">>> Múltiples clips ({len(all_selected_clips)}) seleccionados fuera del track '{track_name}'. Aplicando lógica inteligente múltiple.")
+            intelligent_clips = analyze_multiple_shots_selection(all_selected_clips, track_name=track_name)
+            return intelligent_clips
+        # Si no hay múltiples clips seleccionados, continuar con lógica normal
         selected_clip = all_selected_clips[0]
         debug_print(f"Solo un clip seleccionado fuera del track '{track_name}': {selected_clip.name()}")
 

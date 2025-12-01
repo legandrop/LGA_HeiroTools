@@ -57,20 +57,22 @@ Este método obtiene la posición actual del playhead (`viewer.time()`) y busca 
 
 **⚠️ IMPORTANTE:** El track por defecto ahora se llama `_comp_` (definido en `TRACK_comp_EXR`), anteriormente se llamaba `EXR`.
 
-**Método Híbrido Inteligente Recomendado:**
-1. **Lógica inteligente automática**: Si hay un solo clip seleccionado fuera del track objetivo pero del mismo shot, automáticamente usa el clip del track correcto (SIN mostrar mensaje al usuario)
-2. **Advertencia selectiva**: Solo muestra advertencia cuando la lógica inteligente NO puede resolver automáticamente el problema
-3. **Primero intenta**: Obtener el clip del track especificado (por defecto `_comp_`) en la posición del playhead
-4. **Fallback**: Si no encuentra clip en playhead, usa los clips seleccionados
+**Método Híbrido Inteligente Completo:**
+1. **Lógica inteligente simple**: Si hay un solo clip seleccionado fuera del track objetivo pero del mismo shot, automáticamente usa el clip del track correcto (SIN mostrar mensaje al usuario)
+2. **Lógica inteligente múltiple**: Analiza selecciones múltiples y devuelve exactamente un clip por shot único, priorizando clips del track objetivo
+3. **Advertencia selectiva**: Solo muestra advertencia cuando la lógica inteligente NO puede resolver automáticamente el problema
+4. **Primero intenta**: Obtener el clip del track especificado (por defecto `_comp_`) en la posición del playhead
+5. **Fallback**: Si no encuentra clip en playhead, usa los clips seleccionados
 
 ### Ventajas
 - **Más intuitivo**: trabaja con el clip visible en el viewer
 - **Lógica inteligente silenciosa**: corrige automáticamente selecciones erróneas del mismo shot SIN molestar al usuario con mensajes innecesarios
+- **Selección múltiple inteligente**: devuelve exactamente un clip por shot único, eliminando confusión cuando el usuario selecciona múltiples clips del mismo shot
 - **Feedback inteligente**: solo muestra advertencias cuando REALMENTE hay un problema que no puede resolverse automáticamente
 - No requiere selección manual (aunque tiene fallback inteligente)
 - Permite trabajar rápidamente mientras se navega por el timeline
 - Ideal para workflows donde siempre se trabaja con el mismo track (configurable mediante `TRACK_comp_EXR`)
-- **Soporta selecciones múltiples**: Si el script está configurado con `prioritize_multiple_selection=True` o usa `get_clips_to_process()`, puede procesar múltiples clips cuando hay múltiples clips seleccionados en el track
+- **Soporta selecciones múltiples avanzadas**: Si el script está configurado con `prioritize_multiple_selection=True` o usa `get_clips_to_process()`, aplica lógica inteligente para procesar múltiples shots correctamente
 
 ### Desventajas
 - **En modo playhead por defecto**: Funciona con un clip a la vez (el clip visible en el viewer)
@@ -207,15 +209,23 @@ clip = get_clip_to_process(track_name=None)  # o simplemente get_clip_to_process
 # Otro track específico (solo si es necesario)
 clip = get_clip_to_process(track_name="REV")
 
-# Permitir selecciones múltiples
+# Permitir selecciones múltiples inteligentes
 clips = get_clip_to_process(track_name=None, prioritize_multiple_selection=True)
-# Retorna lista si hay múltiples, clip único si uno solo, None si ninguno
+# Lógica inteligente automática: devuelve exactamente un clip por shot único
+# Ej: si seleccionás 5 clips de 3 shots diferentes → devuelve 3 clips óptimos
 ```
 
-**Comportamiento inteligente para selección simple:**
-- ✅ Si seleccionás un clip de otro track pero del mismo shot que el clip visible en `_comp_`, automáticamente usa el clip de `_comp_` (**SIN mensaje**, solo en logs)
-- ⚠️ Si los shots NO coinciden, muestra advertencia explicativa y usa el clip de `_comp_` (playhead)
-- 🔄 Si no hay clip en `_comp_`, usa el clip seleccionado como fallback inteligente
+**Comportamiento inteligente:**
+- **Selección simple:**
+  - ✅ Si seleccionás un clip de otro track pero del mismo shot que el clip visible en `_comp_`, automáticamente usa el clip de `_comp_` (**SIN mensaje**, solo en logs)
+  - ⚠️ Si los shots NO coinciden, muestra advertencia explicativa y usa el clip de `_comp_` (playhead)
+  - 🔄 Si no hay clip en `_comp_`, usa el clip seleccionado como fallback inteligente
+
+- **Selección múltiple:**
+  - 🎯 **Análisis automático**: Se activa cuando hay múltiples clips seleccionados (independientemente del track)
+  - ✅ **Un clip por shot**: Devuelve exactamente un clip por shot único (el mejor disponible)
+  - 🔄 **Inclusión inteligente**: Incluye shots de otros tracks si no hay correspondencia en `_comp_`
+  - 📝 **Logs detallados**: Muestra agrupación por shots y selección final
 
 #### `find_clip_at_playhead_in_track(seq, track_name=None)`
 Busca el clip en un track específico que coincide con la posición del playhead.
@@ -245,12 +255,13 @@ Obtiene los clips a procesar usando el método híbrido. **Siempre devuelve una 
 
 **Ejemplo de uso:**
 ```python
-# Siempre devuelve lista (vacía si no encuentra clips)
+# Siempre devuelve lista con lógica inteligente aplicada automáticamente
 clips = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
+# Aplica analyze_multiple_shots_selection() cuando hay múltiples clips seleccionados
 
 for clip in clips:
     file_path = clip.source().mediaSource().fileinfos()[0].filename()
-    # Procesar clip...
+    # Procesar clip (uno por shot único)...
 ```
 
 #### `get_selected_clips()`
@@ -278,6 +289,17 @@ Maneja errores gracefully si no hay media o el archivo no existe.
 
 **Retorna:**
 - `str`: Shot code extraído o cadena vacía si hay error
+
+#### `analyze_multiple_shots_selection(all_selected_clips, track_name=None)`
+Analiza selección múltiple inteligente: devuelve exactamente un clip por shot único.
+Prioriza clips del track objetivo, pero incluye shots de otros tracks si no hay correspondencia.
+
+**Parámetros:**
+- `all_selected_clips`: Lista de todos los clips seleccionados
+- `track_name` (str, optional): Nombre del track objetivo. Si es `None`, usa `TRACK_comp_EXR`
+
+**Retorna:**
+- Lista de clips óptimos (uno por shot único)
 
 
 ### Configuración
