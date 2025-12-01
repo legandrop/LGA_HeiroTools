@@ -58,15 +58,15 @@ Este método obtiene la posición actual del playhead (`viewer.time()`) y busca 
 **⚠️ IMPORTANTE:** El track por defecto ahora se llama `_comp_` (definido en `TRACK_comp_EXR`), anteriormente se llamaba `EXR`.
 
 **Método Híbrido Inteligente Recomendado:**
-1. **Advertencia automática**: Si hay clips seleccionados en tracks que no son el objetivo, muestra mensaje informativo
-2. **Lógica inteligente para selección simple**: Si hay un solo clip seleccionado fuera del track objetivo pero del mismo shot, automáticamente usa el clip del track correcto (con mensaje informativo)
+1. **Lógica inteligente automática**: Si hay un solo clip seleccionado fuera del track objetivo pero del mismo shot, automáticamente usa el clip del track correcto (SIN mostrar mensaje al usuario)
+2. **Advertencia selectiva**: Solo muestra advertencia cuando la lógica inteligente NO puede resolver automáticamente el problema
 3. **Primero intenta**: Obtener el clip del track especificado (por defecto `_comp_`) en la posición del playhead
 4. **Fallback**: Si no encuentra clip en playhead, usa los clips seleccionados
 
 ### Ventajas
 - **Más intuitivo**: trabaja con el clip visible en el viewer
-- **Lógica inteligente**: corrige automáticamente selecciones erróneas del mismo shot
-- **Feedback informativo**: muestra mensajes claros cuando hay discrepancias entre shots
+- **Lógica inteligente silenciosa**: corrige automáticamente selecciones erróneas del mismo shot SIN molestar al usuario con mensajes innecesarios
+- **Feedback inteligente**: solo muestra advertencias cuando REALMENTE hay un problema que no puede resolverse automáticamente
 - No requiere selección manual (aunque tiene fallback inteligente)
 - Permite trabajar rápidamente mientras se navega por el timeline
 - Ideal para workflows donde siempre se trabaja con el mismo track (configurable mediante `TRACK_comp_EXR`)
@@ -224,9 +224,9 @@ elif clips:
 ```
 
 **Comportamiento inteligente para selección simple:**
-- Si seleccionás un clip de otro track pero del mismo shot que el clip visible en `_comp_`, automáticamente usa el clip de `_comp_` (con mensaje informativo)
-- Si los shots no coinciden, muestra advertencia y usa el clip de `_comp_` (playhead)
-- Si no hay clip en `_comp_`, usa el clip seleccionado como fallback
+- ✅ Si seleccionás un clip de otro track pero del mismo shot que el clip visible en `_comp_`, automáticamente usa el clip de `_comp_` (**SIN mensaje**, solo en logs)
+- ⚠️ Si los shots NO coinciden, muestra advertencia explicativa y usa el clip de `_comp_` (playhead)
+- 🔄 Si no hay clip en `_comp_`, usa el clip seleccionado como fallback inteligente
 
 #### `find_clip_at_playhead_in_track(seq, track_name=None)`
 Busca el clip en un track específico que coincide con la posición del playhead.
