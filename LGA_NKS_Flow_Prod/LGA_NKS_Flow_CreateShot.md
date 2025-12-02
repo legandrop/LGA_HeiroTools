@@ -1,5 +1,8 @@
-# LGA_NKS_Flow_CreateShot v1.33
-**Cambio importante en v1.33:** Pre-chequeo automático de existencia antes de mostrar la UI. Si algún shot ya existe se informa inmediatamente; para selección simple se lanza Modify Shot; para selecciones múltiples se bloquea la creación mostrando qué shots ya existen.
+# LGA_NKS_Flow_CreateShot v1.34
+
+Script para crear shots en ShotGrid/Flow Production Tracking basado en clips seleccionados en Hiero/Nuke Studio.
+
+**v1.34:** Creación automática de estructura de carpetas por task. Integración con módulo `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot_Folders.py` que crea automáticamente todas las subcarpetas necesarias para cada task habilitada (2D y 3D) siguiendo la jerarquía definida del pipeline.
 
 ## Descripción General
 
@@ -73,6 +76,14 @@ Todas las tasks del pipeline están disponibles con sus colores específicos:
 - Interfaz gráfica intuitiva
 - Procesamiento en segundo plano
 
+### ✅ Creación Automática de Carpetas (v1.33) 🚀
+- **Estructura jerárquica completa:** Crea automáticamente todas las subcarpetas necesarias por task
+- **Tasks 2D y 3D:** Soporte completo para ambas jerarquías (comp, roto, cleanup, DMP directamente en SHOTNAME/, tasks 3D bajo SHOTNAME/3D/)
+- **Detección inteligente:** Verifica existencia de carpetas antes de crearlas
+- **Logging detallado:** Muestra exactamente qué carpetas se crean y cuáles ya existían
+- **Normalización de paths:** Manejo consistente de rutas para evitar conflictos
+- **Integración completa:** Funciona tanto en creación como en modificación de shots
+
 ## Uso del Script
 
 ### En Hiero/Nuke Studio
@@ -106,22 +117,25 @@ Para cada clip seleccionado:
 - Se aplica reducción del 30% al tiempo estimado antes de subirlo
 - Se sube thumbnail desde Hiero
 - Se actualizan estados según configuración
-- Tasks deshabilitadas no se crean
-- Si el shot ya existía en Flow, **no se realizan modificaciones** y se muestra un mensaje informativo para que utilices Modify Shot
-- Con v1.33 el script chequea primero si los shots ya existen: si hay múltiples y alguno existe se cancela mostrando la lista; si es uno solo existente se lanza automáticamente Modify Shot
+- **Se crea automáticamente la estructura de carpetas** para cada task habilitada (ver sección "Estructura de Carpetas Automática")
+- Tasks deshabilitadas no se crean (ni en ShotGrid ni carpetas)
+- Si el shot ya existía en Flow, se muestra un mensaje informativo y se lanza automáticamente Modify Shot (selección única) o se cancela mostrando la lista de shots existentes (selección múltiple)
 
-## Modify Shot (Nuevo)
+## Modify Shot
 
-El script `LGA_NKS_Flow_ModifyShot.py` complementa a Create Shot y permite ajustar un shot existente conservando sus estados actuales:
+**Archivo:** `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ModifyShot.py`
 
-1. **Carga de información en otro hilo:** abre una ventana de estado que consulta Flow para traer la descripción, secuencia y tasks reales del shot (solo admite un clip).
-2. **UI compartida:** reutiliza exactamente la misma ventana compacta; las tasks ya existentes aparecen tildadas y bloqueadas para evitar cambios accidentales, mientras que las nuevas se configuran igual que en Create Shot.
-3. **Diferencias inteligentes:** al presionar "Modify Shot" se comparan los estados iniciales vs. los actuales:
-   - Tasks que siguen tildadas → se dejan intactas (no se tocan estados, tiempos ni reviewers).
-   - Tasks que se destildaron → se eliminan del shot en Flow.
-   - Tasks nuevas tildadas → se crean con pipeline step, reviewers, descripción y estimados (con reducción del 30%).
-   - Si la descripción del shot cambió, se actualiza tanto en el shot como en todas las tasks restantes.
-4. **Estados intocables:** Modify Shot nunca cambia el estado del shot ni el de las tasks existentes; solo agrega/quita tasks y sincroniza la descripción.
+Complementa a Create Shot y permite ajustar un shot existente conservando sus estados actuales:
+
+1. **Carga de información:** Consulta Flow para traer la descripción, secuencia y tasks reales del shot (solo admite un clip).
+2. **UI compartida:** Reutiliza la misma ventana compacta de Create Shot; las tasks existentes aparecen tildadas y bloqueadas, las nuevas se configuran igual que en Create Shot.
+3. **Modificaciones inteligentes:**
+   - Tasks que siguen tildadas → se dejan intactas (no se tocan estados, tiempos ni reviewers)
+   - Tasks que se destildaron → se eliminan del shot en Flow
+   - Tasks nuevas tildadas → se crean con pipeline step, reviewers, descripción y estimados (con reducción del 30%)
+   - **Se crea automáticamente la estructura de carpetas** para las nuevas tasks agregadas
+   - Si la descripción del shot cambió, se actualiza tanto en el shot como en todas las tasks restantes
+4. **Estados intocables:** Nunca cambia el estado del shot ni el de las tasks existentes; solo agrega/quita tasks y sincroniza la descripción.
 
 ## Configuración del Usuario
 
@@ -209,9 +223,128 @@ Cada task tiene su propia fila con:
 | `rev` | En revisión |
 | `apr` | Aprobado |
 
+## Estructura de Carpetas Automática
+
+### Jerarquía por Task
+
+El script crea automáticamente la siguiente estructura de carpetas cuando se habilita cada task:
+
+#### Tasks 2D (Directorio del Shot)
+```
+SHOTNAME/
+├── comp/
+│   ├── 0_assets/            # Assets compartidos
+│   ├── 1_projects/           # Scripts de Nuke (comp_v001.nk, comp_v002.nk, ...)
+│   ├── 2_prerenders/        # Prerenders intermedios
+│   ├── 3_review/            # Videos de review (comp_v001.mov, comp_v002.mov, ...)
+│   └── 4_publish/           # Publicaciones EXR (subcarpetas: comp_v001/, comp_v002/, ...)
+├── roto/
+│   ├── 0_assets/            # Assets compartidos
+│   ├── 1_projects/           # Scripts de Nuke (roto_v001.nk, roto_v002.nk, ...)
+│   ├── 2_prerenders/        # Prerenders intermedios
+│   ├── 3_review/            # Videos de review (roto_v001.mov, roto_v002.mov, ...)
+│   └── 4_publish/           # Publicaciones EXR (subcarpetas: roto_v001/, roto_v002/, ...)
+├── cleanup/
+│   ├── 0_assets/            # Assets compartidos
+│   ├── 1_projects/           # Scripts de Nuke (cleanup_v001.nk, cleanup_v002.nk, ...)
+│   ├── 2_prerenders/        # Prerenders intermedios
+│   ├── 3_review/            # Videos de review (cleanup_v001.mov, cleanup_v002.mov, ...)
+│   └── 4_publish/           # Publicaciones EXR (subcarpetas: cleanup_v001/, cleanup_v002/, ...)
+└── DMP/
+    ├── 0_assets/            # Assets compartidos
+    ├── 1_projects/           # Proyectos DMP (DMP_v001.mb, DMP_v002.mb, ...)
+    ├── 2_prerenders/        # Prerenders intermedios
+    ├── 3_review/            # Videos de review (DMP_v001.mov, DMP_v002.mov, ...)
+    └── 4_publish/           # Publicaciones (archivos: DMP_v001.mb, DMP_v002.mb, ...)
+```
+
+#### Tasks 3D (Subdirectorio 3D/)
+```
+SHOTNAME/
+└── 3D/
+    ├── 1_matchMove/
+    │   ├── 0_assets/        # Assets compartidos
+    │   ├── 1_projects/       # Proyectos Match Move (matchmove_v001.mb, matchmove_v002.mb, ...)
+    │   ├── 2_prerenders/    # Prerenders intermedios
+    │   ├── 3_review/        # Videos de review (matchmove_v001.mov, matchmove_v002.mov, ...)
+    │   └── 4_publish/       # Publicaciones (archivos: matchmove_v001.mb, matchmove_v002.mb, ...)
+    ├── 2_model/
+    │   ├── 0_assets/        # Assets compartidos
+    │   ├── 1_projects/       # Proyectos Modelado (model_v001.mb, model_v002.mb, ...)
+    │   ├── 2_prerenders/    # Prerenders intermedios
+    │   ├── 3_review/        # Videos de review (model_v001.mov, model_v002.mov, ...)
+    │   └── 4_publish/       # Publicaciones (archivos: model_v001.mb, model_v002.mb, ...)
+    ├── 3_retopo/
+    │   ├── 0_assets/        # Assets compartidos
+    │   ├── 1_projects/       # Proyectos Retopo (retopo_v001.mb, retopo_v002.mb, ...)
+    │   ├── 2_prerenders/    # Prerenders intermedios
+    │   ├── 3_review/        # Videos de review (retopo_v001.mov, retopo_v002.mov, ...)
+    │   └── 4_publish/       # Publicaciones (archivos: retopo_v001.mb, retopo_v002.mb, ...)
+    ├── 4_rigging/
+    │   ├── 0_assets/        # Assets compartidos
+    │   ├── 1_projects/       # Proyectos Rigging (rigging_v001.mb, rigging_v002.mb, ...)
+    │   ├── 2_prerenders/    # Prerenders intermedios
+    │   ├── 3_review/        # Videos de review (rigging_v001.mov, rigging_v002.mov, ...)
+    │   └── 4_publish/       # Publicaciones (archivos: rigging_v001.mb, rigging_v002.mb, ...)
+    ├── 5_shaders/
+    │   ├── 0_assets/        # Assets compartidos
+    │   ├── 1_projects/       # Proyectos Shaders (shaders_v001.mb, shaders_v002.mb, ...)
+    │   ├── 2_prerenders/    # Prerenders intermedios
+    │   ├── 3_review/        # Videos de review (shaders_v001.mov, shaders_v002.mov, ...)
+    │   └── 4_publish/       # Publicaciones (archivos: shaders_v001.mb, shaders_v002.mb, ...)
+    ├── 6_animation/
+    │   ├── 0_assets/        # Assets compartidos
+    │   ├── 1_projects/       # Proyectos Animación (animation_v001.mb, animation_v002.mb, ...)
+    │   ├── 2_prerenders/    # Prerenders intermedios
+    │   ├── 3_review/        # Videos de review (animation_v001.mov, animation_v002.mov, ...)
+    │   └── 4_publish/       # Publicaciones (archivos: animation_v001.mb, animation_v002.mb, ...)
+    ├── 7_fx/
+    │   ├── 0_assets/        # Assets compartidos
+    │   ├── 1_projects/       # Proyectos FX (fx_v001.mb, fx_v002.mb, ...)
+    │   ├── 2_prerenders/    # Prerenders intermedios
+    │   ├── 3_review/        # Videos de review (fx_v001.mov, fx_v002.mov, ...)
+    │   └── 4_publish/       # Publicaciones (archivos: fx_v001.mb, fx_v002.mb, ...)
+    └── 8_lighting/
+        ├── 0_assets/        # Assets compartidos
+        ├── 1_projects/       # Proyectos Lighting (lighting_v001.mb, lighting_v002.mb, ...)
+        ├── 2_prerenders/    # Prerenders intermedios
+        ├── 3_review/        # Videos de review (lighting_v001.mov, lighting_v002.mov, ...)
+        └── 4_publish/       # Publicaciones EXR (subcarpetas: lighting_v001/, lighting_v002/, ...)
+
+```
+
+### Comportamiento del Sistema
+
+- **Verificación previa:** Antes de crear carpetas, verifica si ya existen (no duplica)
+- **Logging detallado:** Muestra exactamente qué carpetas se crean y cuáles ya existían usando `debug_print()`
+- **Normalización de paths:** Maneja rutas de forma consistente (Windows/Unix compatible)
+- **Creación recursiva:** Crea automáticamente todos los directorios padre necesarios con `os.makedirs(exist_ok=True)`
+- **Integración automática:** 
+  - En `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py`: Se ejecuta después de crear el shot y las tasks
+  - En `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ModifyShot.py`: Se ejecuta cuando se agregan nuevas tasks a shots existentes
+- **Cálculo de path base:** El `shot_base_path` se calcula como 4 niveles arriba del archivo EXR del clip usando `HieroOperations.calculate_shot_base_path()`
+
+### Ejemplo de Output en Logs
+
+```
+🏗️  Creando estructura de carpetas para shot: /project/seq/shot_001
+📋 Tasks a procesar: Comp, Model, Lighting
+🔧 Procesando task: Comp
+✅ Carpeta creada: /project/seq/shot_001/comp/0_assets
+✅ Carpeta creada: /project/seq/shot_001/comp/1_projects
+📁 Carpeta ya existe: /project/seq/shot_001/comp/2_prerenders
+✅ Carpeta creada: /project/seq/shot_001/comp/3_review
+✅ Carpeta creada: /project/seq/shot_001/comp/4_publish
+🎯 Resumen de carpetas:
+   ✅ Creadas: 4
+   📁 Existentes: 1
+```
+
 ## Arquitectura del Código
 
 ### Estructura Principal
+
+**Archivo principal:** `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py`
 
 ```
 LGA_NKS_Flow_CreateShot.py
@@ -220,9 +353,38 @@ LGA_NKS_Flow_CreateShot.py
 ├── Funciones de Thumbnail
 ├── Clases de UI (ShotConfigDialog, FlowStatusWindow)
 ├── ShotGridManager (lógica de negocio)
+│   └── create_shot() - Crea shot y llama a creación de carpetas
 ├── HieroOperations (operaciones en Hiero)
-└── Worker (procesamiento en background)
+│   └── calculate_shot_base_path() - Calcula path base del shot (4 niveles arriba del archivo)
+├── Worker (procesamiento en background)
+└── Integración con LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot_Folders.py
+    └── create_folders_for_shot_tasks() - Crea estructura de carpetas automáticamente
 ```
+
+**Integración:** Después de crear el shot y las tasks en ShotGrid, el script calcula el `shot_base_path` desde el archivo EXR del clip y llama automáticamente a `create_folders_for_shot_tasks()` para crear todas las carpetas necesarias.
+
+### Módulo de Carpetas
+
+**Archivo:** `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot_Folders.py`
+
+Módulo dedicado a la creación automática de estructura de carpetas. Se integra automáticamente con `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py` y `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ModifyShot.py`.
+
+**Funciones principales:**
+- `create_folders_for_shot_tasks(shot_path, enabled_tasks)` - Función principal de integración, devuelve `(dict, list)` con resumen y logs
+- `create_task_folders(shot_base_path, task_names)` - Crea estructura completa para múltiples tasks
+- `ensure_folder_exists(folder_path)` - Crea carpeta individual si no existe
+- `validate_shot_base_path(shot_base_path)` - Valida permisos y existencia del path base
+- `normalize_path(path)` - Normaliza rutas para comparación consistente
+
+**Estructura de datos:**
+- `TASK_FOLDER_STRUCTURE` - Diccionario que mapea nombre de task a lista de subcarpetas relativas
+
+**Características:**
+- Estructura definida en diccionario para fácil mantenimiento
+- Logging integrado compatible con `debug_print()` del sistema
+- Validación de permisos y existencia antes de crear
+- Normalización automática de rutas (Windows/Unix compatible)
+- Verificación previa: solo crea carpetas que no existen
 
 ### Cómo Agregar una Nueva Task
 
@@ -380,13 +542,27 @@ El script utiliza un sistema de logging seguro para entornos multi-hilo que evit
 
 ## Historial de Versiones
 
-### v1.33 - Pre-chequeo Inteligente Antes de Crear ⭐
-- ✅ Ventana "Comprobando existencia de los shots en Flow" antes de mostrar la UI
-- ✅ Selecciones múltiples: se cancela la creación si alguno ya existe y se listan los códigos detectados
-- ✅ Selección única: si el shot ya existe se dispara automáticamente Modify Shot con el mismo clip
-- ✅ Garantiza que Create Shot solo cree entidades nuevas y evita sorpresas antes de configurar las tasks
+### v1.34 - Creación Automática de Carpetas Implementada ⭐
+- ✅ **Módulo de carpetas:** `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot_Folders.py` implementado
+- ✅ **Integración completa:** Creación automática de estructura de carpetas en CreateShot y ModifyShot
+- ✅ **Soporte completo:** Todas las tasks 2D y 3D con sus subcarpetas (0_assets, 1_projects, 2_prerenders, 3_review, 4_publish)
+- ✅ **Logging detallado:** Muestra carpetas creadas vs existentes usando sistema de debug_print
 
-### v1.31 - Método Híbrido Centralizado con Selección Múltiple (Actual) ⭐
+### v1.33 - Pre-chequeo Inteligente + Creación Automática de Carpetas ⭐⭐
+- ✅ **Pre-chequeo inteligente antes de mostrar UI:**
+  - Ventana "Comprobando existencia de los shots en Flow"
+  - Selecciones múltiples: se cancela la creación si alguno ya existe y se listan los códigos detectados
+  - Selección única: si el shot ya existe se dispara automáticamente Modify Shot
+  - Garantiza que Create Shot solo cree entidades nuevas
+- ✅ **Creación automática de carpetas por task:**
+  - Estructura jerárquica completa para todas las tasks (2D y 3D)
+  - Verificación inteligente de existencia antes de crear
+  - Logging detallado de carpetas creadas/existentes
+  - Normalización automática de paths
+  - Integración completa con Create Shot y Modify Shot
+- ✅ **Módulo modular:** `LGA_NKS_Flow_CreateShot_Folders.py` para mantenibilidad
+
+### v1.31 - Método Híbrido Centralizado con Selección Múltiple ⭐
 - ✅ **Migración al módulo centralizado `LGA_NKS_GetClip`:**
   - Usa `get_clips_to_process()` con `prioritize_multiple_selection=True` para permitir selección múltiple
   - Respeta `TRACK_comp_EXR` del módulo (actualmente `"_comp_"`) usando `track_name=None`
@@ -556,21 +732,29 @@ El script utiliza un sistema de logging seguro para entornos multi-hilo que evit
 - **Mejora la precisión de estimaciones en Flow**
 - **Transparente para el usuario** (ingresa valor original, se reduce automáticamente)
 
-#### v1.31 ⭐⭐⭐⭐⭐ (Actual)
+#### v1.31 ⭐⭐⭐⭐⭐
 - **Método híbrido centralizado** para selección de clips
 - **Soporte para selección múltiple** en el track `_comp_`
 - **Código más mantenible** usando módulo utilitario compartido
 - **Más intuitivo** para workflows de producción
 
+#### v1.34 ⭐⭐⭐⭐⭐⭐
+- **Creación automática de carpetas** por task
+- **Módulo modular** `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot_Folders.py`
+- **Integración completa** con CreateShot y ModifyShot
+- **Estructura completa** para todas las tasks 2D y 3D
+
 ### Ventajas del Sistema Actual
 
-✅ **Modularidad:** Agregar/modificar tasks es trivial  
-✅ **Consistencia:** Colores y nombres coinciden con ShotGrid  
-✅ **Escalabilidad:** 12 tasks funcionan igual que 2  
-✅ **Mantenibilidad:** Código limpio y DRY  
-✅ **Flexibilidad:** Habilitar solo las tasks necesarias por shot  
-✅ **Sin templates:** Funciona en cualquier proyecto  
+✅ **Modularidad:** Agregar/modificar tasks es trivial
+✅ **Consistencia:** Colores y nombres coinciden con ShotGrid
+✅ **Escalabilidad:** 12 tasks funcionan igual que 2
+✅ **Mantenibilidad:** Código limpio y DRY
+✅ **Flexibilidad:** Habilitar solo las tasks necesarias por shot
+✅ **Sin templates:** Funciona en cualquier proyecto
 ✅ **Precisión:** Reducción automática del 30% mejora estimaciones
+✅ **Automatización completa:** Creación automática de carpetas por task
+✅ **Estructura organizada:** Jerarquía clara 2D/3D con subcarpetas estandarizadas
 
 Esta versión del script representa una mejora significativa al eliminar dependencias de templates específicos, permitiendo que funcione de manera consistente en cualquier proyecto ShotGrid mientras mantiene toda la funcionalidad original.
 

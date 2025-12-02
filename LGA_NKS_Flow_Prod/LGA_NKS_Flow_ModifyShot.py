@@ -1,12 +1,15 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_ModifyShot v1.33 | Lega
+  LGA_NKS_Flow_ModifyShot v1.34 | Lega
 
   Script para modificar shots existentes en ShotGrid sin afectar estados.
   - Carga información actual del shot (descripcion, tasks) desde Flow.
   - Reutiliza la UI compacta del script de creación para garantizar consistencia.
   - Permite agregar o eliminar tasks y actualizar la descripción de forma segura.
+
+  v1.34: Creación automática de carpetas para nuevas tasks agregadas
+         Integración con módulo LGA_NKS_Flow_CreateShot_Folders
 
   El número de versión siempre coincide con el de Create Shot para trackear la compatibilidad entre ambos scripts.
   Desde v1.33, Create Shot dispara este flujo automáticamente cuando detecta un shot único que ya existe.
@@ -15,6 +18,13 @@ ________________________________________________________________________________
 
 from PySide2.QtCore import QObject, QRunnable, QThreadPool, Signal, Slot
 from PySide2.QtWidgets import QApplication, QMessageBox, QDialog
+
+# Agregar el directorio actual al sys.path para importar módulos locales
+import sys
+from pathlib import Path
+current_dir = Path(__file__).parent
+if str(current_dir) not in sys.path:
+    sys.path.insert(0, str(current_dir))
 
 from LGA_NKS_Flow_Prod.LGA_NKS_Flow_CreateShot import (
     FlowStatusWindow,
@@ -27,6 +37,9 @@ from LGA_NKS_Flow_Prod.LGA_NKS_Flow_CreateShot import (
     get_flow_credentials_secure,
     print_debug_messages,
 )
+
+# Importar módulo de creación de carpetas
+from LGA_NKS_Flow_CreateShot_Folders import create_folders_for_shot_tasks
 
 
 class ShotDataSignals(QObject):
@@ -175,6 +188,51 @@ class ModifyShotWorker(QRunnable):
                     self.signals.step_update.emit(
                         f"ERROR creando task '{task_name}'. Revisa los logs."
                     )
+
+            # ==================================================================================
+            # CREAR CARPETAS PARA LAS NUEVAS TASKS
+            # ==================================================================================
+            if tasks_to_create and self.clip_info.get("file_path"):
+                debug_print(f"Creando carpetas - tasks_to_create: {len(tasks_to_create)}, file_path: {self.clip_info.get('file_path')}")
+
+                # Calcular shot_base_path
+                hiero_ops = HieroOperations(None)
+                shot_base_path = hiero_ops.calculate_shot_base_path(self.clip_info["file_path"])
+                debug_print(f"shot_base_path calculado: {shot_base_path}")
+
+                if shot_base_path:
+                    # Obtener lista de nuevas tasks creadas exitosamente
+                    new_task_names = [task_name for task_name, _ in tasks_to_create]
+                    debug_print(f"new_task_names: {new_task_names}")
+
+                    if new_task_names:
+                        self.signals.step_update.emit(f"Creando carpetas para {len(new_task_names)} task(s) nueva(s)...")
+                        try:
+                            folder_result, folder_logs = create_folders_for_shot_tasks(
+                                shot_base_path, new_task_names
+                            )
+                            
+                            # Loguear todos los mensajes del proceso de carpetas
+                            for log_msg in folder_logs:
+                                debug_print(log_msg)
+
+                            # Validar que folder_result sea un diccionario antes de acceder
+                            if isinstance(folder_result, dict) and 'created' in folder_result and 'existing' in folder_result:
+                                created_folders = len(folder_result['created'])
+                                existing_folders = len(folder_result['existing'])
+                                self.signals.step_update.emit(
+                                    f"Carpetas procesadas: {created_folders} creadas, {existing_folders} ya existían"
+                                )
+                            else:
+                                debug_print(f"ERROR: folder_result no tiene el formato esperado: {type(folder_result)}")
+                                debug_print(f"folder_result contenido: {folder_result}")
+                                self.signals.step_update.emit("ERROR: Resultado de creación de carpetas inválido")
+                        except Exception as e:
+                            debug_print(f"ERROR creando carpetas: {e}")
+                            self.signals.step_update.emit(f"ERROR creando carpetas: {e}")
+                else:
+                    debug_print("No se pudo calcular shot_base_path")
+                    self.signals.step_update.emit("No se pudo calcular la ruta base para crear carpetas")
 
             updated_tasks = sg_manager.find_tasks_for_shot(shot_id)
             new_description = self.shot_config["description"] or ""

@@ -41,7 +41,7 @@ from pathlib import Path
 
 # Variable global para activar o desactivar los prints
 DEBUG = False
-DEBUG_BASIC = True
+DEBUG_BASIC = False
 
 
 def debug_print(*message):
