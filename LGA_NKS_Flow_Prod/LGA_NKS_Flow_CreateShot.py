@@ -107,6 +107,8 @@ if utils_path.exists():
 from LGA_NKS_Flow_Task_Config import AVAILABLE_TASKS
 
 # Importar módulo de creación de carpetas
+folders_path = Path(__file__).parent
+sys.path.insert(0, str(folders_path))
 from LGA_NKS_Flow_CreateShot_Folders import create_folders_for_shot_tasks
 
 
