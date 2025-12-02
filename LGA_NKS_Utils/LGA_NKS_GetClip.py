@@ -1,18 +1,23 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_GetClip v1.7 | Lega
+  LGA_NKS_GetClip v1.8 | Lega
   Utilidades para obtener clips del timeline de Hiero/Nuke Studio
 
   Método híbrido inteligente completo:
   1. LÓGICA INTELIGENTE SIMPLE: Si hay un clip seleccionado fuera del track objetivo pero del mismo shot,
      automáticamente usa el clip del track correcto (sin mostrar mensaje al usuario)
-  2. LÓGICA INTELIGENTE MÚLTIPLE: Analiza selecciones múltiples y devuelve exactamente un clip por shot único,
+  2. EXCEPCIÓN PLAYHEAD: Si el clip seleccionado está bajo el playhead, no muestra advertencia pero mantiene
+     la selección del track objetivo
+  3. LÓGICA INTELIGENTE MÚLTIPLE: Analiza selecciones múltiples y devuelve exactamente un clip por shot único,
      priorizando clips del track objetivo pero incluyendo shots de otros tracks
-  3. Muestra advertencia solo cuando la lógica inteligente NO puede resolver automáticamente
-  4. Intenta obtener el clip del track especificado en la posición del playhead
-  5. Si no encuentra, usa el clip seleccionado como fallback
+  4. Muestra advertencia solo cuando la lógica inteligente NO puede resolver automáticamente
+  5. Intenta obtener el clip del track especificado en la posición del playhead
+  6. Si no encuentra, usa el clip seleccionado como fallback
 
+  v1.8 - EXCEPCIÓN PLAYHEAD: Nueva función is_clip_at_playhead() detecta cuando un clip seleccionado
+         está bajo el playhead. En este caso, no muestra advertencia pero mantiene la selección del track
+         objetivo. Mensajes de advertencia usan color cyan #6AB5CA (consistente con Create Shot).
   v1.7 - LÓGICA INTELIGENTE COMPLETA: Nueva función analyze_multiple_shots_selection()
          implementa selección múltiple inteligente. Devuelve exactamente un clip por shot único,
          priorizando clips del track objetivo pero incluyendo shots sin correspondencia.
@@ -34,7 +39,7 @@ import hiero.core
 import hiero.ui
 
 # Control interno del debug para este módulo (no se puede sobrescribir desde fuera)
-_GETCLIP_DEBUG_ENABLED = False
+_GETCLIP_DEBUG_ENABLED = True
 
 
 def debug_print(*message):
@@ -230,15 +235,44 @@ def extract_shot_code_from_clip(clip):
         return ""
 
 
+def is_clip_at_playhead(clip):
+    """
+    Verifica si un clip específico está posicionado bajo el playhead actual.
+
+    Args:
+        clip: Clip de Hiero a verificar
+
+    Returns:
+        bool: True si el clip está bajo el playhead, False en caso contrario
+    """
+    try:
+        viewer = hiero.ui.currentViewer()
+        if not viewer:
+            debug_print("No se encontró un viewer activo.")
+            return False
+
+        current_time = viewer.time()
+        if clip.timelineIn() <= current_time < clip.timelineOut():
+            debug_print(f"Clip '{clip.name()}' SÍ está bajo el playhead en posición {current_time}")
+            return True
+        else:
+            debug_print(f"Clip '{clip.name()}' NO está bajo el playhead (playhead: {current_time}, clip: {clip.timelineIn()}-{clip.timelineOut()})")
+            return False
+
+    except Exception as e:
+        debug_print(f"Error verificando si clip está bajo playhead: {e}")
+        return False
+
+
 def find_clip_at_playhead_in_track(seq, track_name=None):
     """
     Busca el clip en un track dado que coincide con la posicion del playhead.
     Evita efectos y devuelve el primer clip que cumpla la condicion o None.
-    
+
     Args:
         seq: Secuencia activa de Hiero
         track_name (str, optional): Nombre del track a buscar. Si es None, usa TRACK_comp_EXR.
-    
+
     Returns:
         Clip encontrado o None si no se encuentra.
     """
@@ -375,20 +409,37 @@ def get_clip_to_process(track_name=None, prioritize_multiple_selection=False):
                 else:
                     return playhead_clip
             else:
-                # 2c: Los shots no coinciden, mostrar mensaje informativo
-                debug_print(f"Shots diferentes - seleccionado: {selected_shot}, playhead: {playhead_shot}")
-                from PySide2.QtWidgets import QMessageBox
-                QMessageBox.warning(
-                    None,
-                    "Shots diferentes",
-                    f"El clip seleccionado pertenece al shot '{selected_shot}',\n"
-                    f"pero el playhead está posicionado sobre el shot '{playhead_shot}' en el track '{track_name}'.\n\n"
-                    f"Se usará el clip del track '{track_name}' (playhead)."
-                )
-                if prioritize_multiple_selection:
-                    return [playhead_clip]  # Devolver como lista
+                # EXCEPCIÓN: Si el clip seleccionado está bajo el playhead, no mostrar advertencia
+                # pero aún usar el clip del track objetivo
+                if is_clip_at_playhead(selected_clip):
+                    debug_print("EXCEPCIÓN: Clip seleccionado está bajo el playhead, usando clip del track objetivo sin advertencia")
+                    intelligent_selection_applied = True
+                    if prioritize_multiple_selection:
+                        return [playhead_clip]  # Devolver como lista
+                    else:
+                        return playhead_clip
                 else:
-                    return playhead_clip
+                    # 2c: Los shots no coinciden y el clip seleccionado no está bajo playhead, mostrar mensaje informativo
+                    debug_print(f"Shots diferentes - seleccionado: {selected_shot}, playhead: {playhead_shot}")
+                    from PySide2.QtWidgets import QMessageBox
+                    from PySide2.QtCore import Qt
+
+                    msg_box = QMessageBox()
+                    msg_box.setIcon(QMessageBox.Warning)
+                    msg_box.setWindowTitle("Shots diferentes")
+                    msg_box.setTextFormat(Qt.RichText)
+                    msg_box.setText(
+                        f"El clip seleccionado pertenece al shot<br>"
+                        f"<font color=\"#6AB5CA\">{selected_shot}</font>,<br>"
+                        f"pero el playhead está posicionado sobre el shot<br>"
+                        f"<font color=\"#6AB5CA\">{playhead_shot}</font> (del track '{track_name}')<br><br>"
+                        f"Se usará el clip del track '{track_name}' (playhead)."
+                    )
+                    msg_box.exec_()
+                    if prioritize_multiple_selection:
+                        return [playhead_clip]  # Devolver como lista
+                    else:
+                        return playhead_clip
 
         # 2b: No hay clip en playhead del track objetivo, usar el seleccionado como fallback
         debug_print(f"No hay clip en playhead del track '{track_name}', usando clip seleccionado como fallback.")
