@@ -1,6 +1,6 @@
 """
 ____________________________________________________________________________
-  LGA_NKS_Flow_Pull v3.30 | Lega
+  LGA_NKS_Flow_Pull v3.31 | Lega
   Compara los estados de las task Comp de los shots del timeline de Hiero
   con los estados registrados en un archivo JSON basado en Flow PT
   Tambien aplica tags con los colores de los estados en xyplorer
@@ -8,6 +8,7 @@ ____________________________________________________________________________
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 
+  v3.31: Se permite cambiar la versión de un clip offline incluso si no hay media presente.
   v3.30: Centralización del nombre del track usando TRACK_comp_EXR del módulo LGA_NKS_GetClip
   v3.29: Soporta versiones de 2 y 3 dígitos
 ____________________________________________________________________________
@@ -73,7 +74,7 @@ def delete_tags_from_clip(clip):
 
 
 # Variable global para activar o desactivar los prints
-DEBUG = False
+DEBUG = True
 XYPlorer_Tags = True
 
 
@@ -842,13 +843,13 @@ class HieroOperations:
             return None
 
     def change_to_highest_version(self, clip):
-        """Cambia el clip a la version mas alta disponible."""
+        """Cambia el clip a la versión mas alta disponible incluso si está offline."""
         debug_print(f"Cambiando a la version mas alta para el clip: {clip.name()}")
         try:
-            # Verificar si el clip tiene media presente
+            # Si el clip está offline seguimos adelante igual: Hiero permite cambiar la
+            # versión aunque no haya media presente, por lo que solo lo registramos.
             if not clip.source().mediaSource().isMediaPresent():
-                debug_print(f"No se puede cambiar version del clip offline: {clip.name()}")
-                return None
+                debug_print(f"Clip offline, intentando igual cambiar version: {clip.name()}")
 
             binItem = clip.source().binItem()
             if not binItem:
