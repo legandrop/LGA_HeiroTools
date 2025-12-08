@@ -1,9 +1,10 @@
 """
 _________________________________________
 
-  LGA_EditToolsPanel v2.93 | Lega
+  LGA_EditToolsPanel v2.94 | Lega
   Tools panel for Hiero / Nuke Studio
 
+  v2.94: Clean Project mejora borrado de clips con múltiples BinItems y logs numerados
   v2.93: Agregado botón "Compositing Log | Clip" que cambia el color transform
          de los clips seleccionados a compositing_log
   v2.92: Invertido comportamiento del botón Reconnect Win > Mac:
@@ -684,15 +685,16 @@ class ReconnectMediaWidget(QWidget):
 
     ###### Clean Project
     def clean_project(self):
+        """Ejecuta el script externo de limpieza de clips no usados."""
+        debug_print_b("\n>>> Ejecutando Clean Project script...")
         try:
-            project = get_active_project()
-            if not project:  # Comprobacion de proyecto activo
-                debug_print("No active project found for Clean Project.")
-                return
-            clean_action = CleanUnusedAction()
-            clean_action.CleanUnused()
+            result = self.execute_external_script("LGA_NKS_CleanProject.py")
+            if result:
+                debug_print_b(">>> Clean Project script completado")
+            else:
+                debug_print_b(">>> Error al ejecutar Clean Project script")
         except Exception as e:
-            debug_print(f"Error during project cleaning: {e}")
+            debug_print_b(f"Error durante la ejecución de Clean Project: {e}")
 
     # Metodo para ejecutar scripts externos con parametros
     def execute_external_script_with_param(self, script_name, force_all_clips=False):
@@ -704,6 +706,14 @@ class ReconnectMediaWidget(QWidget):
             os.path.join(
                 os.path.dirname(os.path.abspath(__file__)), "LGA_NKS", script_name
             ),  # Ruta absoluta
+            os.path.join(
+                os.path.dirname(__file__), "LGA_NKS_Edit", script_name
+            ),  # Scripts en la carpeta Edit
+            os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "LGA_NKS_Edit",
+                script_name,
+            ),  # Scripts en la carpeta Edit (absoluta)
             os.path.join(
                 os.path.dirname(__file__), script_name
             ),  # Directamente en la carpeta del panel
@@ -763,6 +773,14 @@ class ReconnectMediaWidget(QWidget):
             os.path.join(
                 os.path.dirname(os.path.abspath(__file__)), "LGA_NKS", script_name
             ),  # Ruta absoluta
+            os.path.join(
+                os.path.dirname(__file__), "LGA_NKS_Edit", script_name
+            ),  # Scripts en la carpeta Edit
+            os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "LGA_NKS_Edit",
+                script_name,
+            ),  # Scripts en la carpeta Edit (absoluta)
             os.path.join(
                 os.path.dirname(__file__), script_name
             ),  # Directamente en la carpeta del panel
@@ -1016,134 +1034,6 @@ class ReconnectMediaWidget(QWidget):
                 debug_print_b(f"Script no encontrado en la ruta: {script_path}")
         except Exception as e:
             debug_print_b(f"Error general en _execute_compare_exr_aplate: {e}")
-
-
-class CleanUnusedAction(QtWidgets.QAction):
-
-    def __init__(self):
-        super(CleanUnusedAction, self).__init__("Clean Unused Clips")
-        self.triggered.connect(self.CleanUnused)
-
-    # Method to return whether a Bin is empty...
-    def binIsEmpty(self, b):
-        numBinItems = 0
-        bItems = b.items()
-        empty = False
-
-        if len(bItems) == 0:
-            empty = True
-            return empty
-        else:
-            for b in bItems:
-                if isinstance(b, hiero.core.BinItem) or isinstance(b, hiero.core.Bin):
-                    numBinItems += 1
-            if numBinItems == 0:
-                empty = True
-
-        return empty
-
-    def CleanUnused(self):
-
-        # Get the active project
-        project = get_active_project()
-
-        if project:
-            # Build a list of Projects
-            SEQS = hiero.core.findItems(project, "Sequences")
-
-            # Build a list of Clips
-            CLIPSTOREMOVE = hiero.core.findItems(project, "Clips")
-
-            if len(SEQS) == 0:
-                # Present Dialog Asking if User wants to remove Clips
-                msgBox = QtWidgets.QMessageBox()
-                msgBox.setText("Clean Unused Clips")
-                msgBox.setInformativeText(
-                    "You have no Sequences in this Project. Do you want to remove all Clips (%i) from Project: %s?"
-                    % (len(CLIPSTOREMOVE), project.name())
-                )
-                msgBox.setStandardButtons(
-                    QtWidgets.QMessageBox.Ok | QtWidgets.QMessageBox.Cancel
-                )
-                msgBox.setDefaultButton(QtWidgets.QMessageBox.Ok)
-                ret = msgBox.exec_()
-                if ret == QtWidgets.QMessageBox.Cancel:
-                    debug_print("Not purging anything.")
-                elif ret == QtWidgets.QMessageBox.Ok:
-                    with project.beginUndo("Clean Unused Clips"):
-                        BINS = []
-                        for clip in CLIPSTOREMOVE:
-                            BI = clip.binItem()
-                            B = BI.parentBin()
-                            BINS += [B]
-                            debug_print("Removing:", BI)
-                            try:
-                                B.removeItem(BI)
-                            except:
-                                debug_print("Unable to remove:", BI)
-                return
-
-            # For each sequence, iterate through each track Item, see if the Clip is in the CLIPS list.
-            # Remaining items in CLIPS will be removed
-
-            for seq in SEQS:
-
-                # Loop through selected and make folders
-                for track in seq:
-                    for trackitem in track:
-
-                        if trackitem.source() in CLIPSTOREMOVE:
-                            CLIPSTOREMOVE.remove(trackitem.source())
-
-            # Present Dialog Asking if User wants to remove Clips
-            msgBox = QtWidgets.QMessageBox()
-            msgBox.setText("Clean Unused Clips")
-            msgBox.setInformativeText(
-                "Remove %i unused Clips from Project %s?"
-                % (len(CLIPSTOREMOVE), project.name())
-            )
-            msgBox.setStandardButtons(
-                QtWidgets.QMessageBox.Ok | QtWidgets.QMessageBox.Cancel
-            )
-            msgBox.setDefaultButton(QtWidgets.QMessageBox.Ok)
-            ret = msgBox.exec_()
-
-            if ret == QtWidgets.QMessageBox.Cancel:
-                debug_print("Cancel")
-                return
-            elif ret == QtWidgets.QMessageBox.Ok:
-                BINS = []
-                with project.beginUndo("Clean Unused Clips"):
-                    # Delete the rest of the Clips
-                    for clip in CLIPSTOREMOVE:
-                        BI = clip.binItem()
-                        B = BI.parentBin()
-                        BINS += [B]
-                        debug_print("Removing:", BI)
-                        try:
-                            B.removeItem(BI)
-                        except:
-                            debug_print("Unable to remove:", BI)
-        else:
-            debug_print("No active project found for cleaning.")
-
-    def eventHandler(self, event):
-        if not hasattr(event.sender, "selection"):
-            # Something has gone wrong, we shouldn't only be here if raised
-            # by the Bin view which will give a selection.
-            return
-
-        self.selectedItem = None
-        s = event.sender.selection()
-
-        if len(s) >= 1:
-            self.selectedItem = s[0]
-            title = "Clean Unused Clips"
-            event.menu.addAction(self)
-
-        return
-
-
 def get_active_project():
     """
     Obtiene el proyecto activo en Hiero.
