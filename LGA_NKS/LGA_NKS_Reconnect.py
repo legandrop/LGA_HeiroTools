@@ -1,11 +1,13 @@
 """
 ______________________________________________________________________
 
-  LGA_NKS_Reconnect v1.11 | Lega
+  LGA_NKS_Reconnect v1.12 | Lega
   Reconecta clips seleccionados a diferentes rutas, manteniendo el color original.
   
-  v1.11: Agregado parámetro force_all_clips para procesar todos los clips del timeline
-         o solo los seleccionados. Compatible con el botón Reconnect Win > Mac del Edit Panel.
+  v1.12: Elige siempre la versión más alta disponible con media al relinkear
+         de T: (Win) a /Volumes/T Viaja/T (Mac), preservando color y trims.
+  v1.11: Agregado par?metro force_all_clips para procesar todos los clips del timeline
+         o solo los seleccionados. Compatible con el bot?n Reconnect Win > Mac del Edit Panel.
 ______________________________________________________________________
 
 """
@@ -13,12 +15,14 @@ ______________________________________________________________________
 import hiero.core
 import hiero.ui
 import os
+import re
 from PySide2.QtGui import QColor
 
-# Eliminamos la importación del SelfReplace
+# Eliminamos la importaci?n del SelfReplace
 # import LGA_NKS_SelfReplaceClip as self_replace
 
-DEBUG = False
+DEBUG = True
+MAX_VERSION_BUMPS = 8  # cantidad maxima de versiones a probar hacia arriba
 
 def debug_print(*message):
     if DEBUG:
@@ -26,12 +30,12 @@ def debug_print(*message):
 
 def print_clip_info(shot, prefix=""):
     """
-    Imprime la información detallada del clip
+    Imprime la informaci?n detallada del clip
     """
     debug_print(f"\n{prefix} Clip Info:")
     debug_print(f"Clip Name: {shot.name()}")
     
-    # Información del clip en la timeline
+    # Informaci?n del clip en la timeline
     debug_print("\nTimeline Info:")
     debug_print(f"Source In: {shot.sourceIn()}")
     debug_print(f"Source Out: {shot.sourceOut()}")
@@ -40,7 +44,7 @@ def print_clip_info(shot, prefix=""):
     debug_print(f"Timeline Out: {shot.timelineOut()}")
     debug_print(f"Timeline Duration: {shot.duration()}")
     
-    # Información del Source
+    # Informaci?n del Source
     source = shot.source()
     media_source = source.mediaSource()
     debug_print("\nSource Info:")
@@ -48,12 +52,12 @@ def print_clip_info(shot, prefix=""):
     debug_print(f"Source Out: {source.sourceOut()}")
     debug_print(f"Frame Rate: {source.framerate()}")
     
-    # Información adicional del clip
+    # Informaci?n adicional del clip
     debug_print("\nAdditional Clip Info:")
     debug_print(f"Original Frame Rate: {shot.playbackSpeed()}")
     debug_print(f"Media Source Path: {media_source.fileinfos()[0].filename()}")
     
-    # Información del formato
+    # Informaci?n del formato
     format_obj = source.format()
     if format_obj:
         debug_print("\nFormat Info:")
@@ -82,6 +86,65 @@ def set_clip_color(clip, color):
             debug_print(f"Color restaurado para el clip: {clip.name()}")
     except Exception as e:
         debug_print(f"No se pudo asignar el color al clip: {e}")
+
+
+def find_existing_frame(path_template):
+    """
+    Dado un path con %0Nd, devuelve el primer archivo existente que matchee.
+    Si no encuentra coincidencias, retorna None.
+    """
+    directory = os.path.dirname(path_template)
+    filename_tpl = os.path.basename(path_template)
+    match = re.search(r"%0(\d+)d", filename_tpl, re.IGNORECASE)
+    if not match or not os.path.exists(directory):
+        return None
+
+    digits = int(match.group(1))
+    digits_tag = f"%0{digits}d"
+    regex_str = re.escape(filename_tpl).replace(re.escape(digits_tag), rf"\\d{{{digits}}}")
+    regex = re.compile(f"^{regex_str}$")
+
+    try:
+        for fname in os.listdir(directory):
+            if regex.match(fname):
+                return os.path.join(directory, fname)
+    except Exception as e:
+        debug_print(f"No se pudo listar {directory}: {e}")
+    return None
+
+
+def find_any_frame(directory, base_stub=None, exts=(".exr", ".dpx")):
+    """
+    Devuelve el primer archivo que coincida con el stub y extension.
+    base_stub: si se provee, el archivo debe comenzar con ese stub.
+    """
+    if not os.path.exists(directory):
+        return None
+    try:
+        for fname in os.listdir(directory):
+            if base_stub and not fname.startswith(base_stub):
+                continue
+            if exts and not fname.lower().endswith(exts):
+                continue
+            return os.path.join(directory, fname)
+    except Exception as e:
+        debug_print(f"No se pudo listar {directory}: {e}")
+    return None
+
+
+def extract_frame_number(path):
+    """
+    Intenta extraer el número de frame desde el nombre de archivo.
+    Retorna int o None.
+    """
+    fname = os.path.basename(path)
+    m = re.search(r"(\d+)(?:\.[^.]+)?$", fname)
+    if m:
+        try:
+            return int(m.group(1))
+        except ValueError:
+            return None
+    return None
 
 def main(force_all_clips=False):
     debug_print("\n==== INICIANDO SCRIPT DE RECONNECT ====")
@@ -114,14 +177,14 @@ def main(force_all_clips=False):
                 valid_clips = [clip for clip in selected_clips if not isinstance(clip, hiero.core.EffectTrackItem)]
                 skipped_clips = [clip.name() for clip in selected_clips if isinstance(clip, hiero.core.EffectTrackItem)]
                 
-                debug_print(f"Procesando {len(valid_clips)} clips válidos...")
+                debug_print(f"Procesando {len(valid_clips)} clips v?lidos...")
                 if skipped_clips:
                     debug_print(f"Salteando {len(skipped_clips)} efectos: {', '.join(skipped_clips)}")
                 
                 for shot in valid_clips:
                     # Leer color original antes de reconectar
                     original_color = get_clip_color(shot)
-                    # Imprimir información del clip antes del reemplazo
+                    # Imprimir informaci?n del clip antes del reemplazo
                     print_clip_info(shot, "BEFORE")
 
                     # Guardar los valores originales antes de reconectar
@@ -140,7 +203,7 @@ def main(force_all_clips=False):
                     # Primero intentar reemplazar "T:" si existe
                     if "T:" in file_path:
                         new_file_path = file_path.replace("T:", "/Volumes/T Viaja/T")
-                    # Si no encontró T:, buscar si comienza con /VFX-
+                    # Si no encontr? T:, buscar si comienza con /VFX-
                     elif file_path.upper().startswith("/VFX-"):
                         new_file_path = "/Volumes/T Viaja/T" + file_path
 
@@ -150,19 +213,125 @@ def main(force_all_clips=False):
 
                     # Obtener solo la ruta del directorio sin el nombre del archivo
                     directory_path = os.path.dirname(new_file_path)
+                    debug_print(f"Directorio objetivo: {directory_path}")
+                    debug_print(f"Existe directorio? {os.path.exists(directory_path)}")
+                    filename_tpl = os.path.basename(new_file_path)
+                    base_stub = filename_tpl.split("%")[0].rstrip("_")
 
-                    # Reconectar el clip con la nueva ruta
-                    try:
-                        # Reconectar el clip
-                        shot.reconnectMedia(directory_path)
-                        debug_print("\nClip reconnected successfully.")
-                        # Restaurar el color original
-                        set_clip_color(shot, original_color)
-                        # Imprimir información del clip después del reemplazo
-                        print_clip_info(shot, "AFTER RECONNECT")
-                    except Exception as e:
-                        debug_print(f"\nError reconnecting clip: {e}")
+                    # Armar lista de candidatos de versión (base y hasta MAX_VERSION_BUMPS hacia arriba)
+                    version_match = re.search(r"_v(\d+)", new_file_path, re.IGNORECASE)
+                    if version_match:
+                        digits_len = len(version_match.group(1))
+                        base_version = int(version_match.group(1))
+                        candidates = []
+                        for bump in range(0, MAX_VERSION_BUMPS + 1):
+                            bumped_version = base_version + bump
+                            bumped_tag = f"_v{bumped_version:0{digits_len}d}"
+                            bumped_file_path = re.sub(r"_v\d+", bumped_tag, new_file_path)
+                            bumped_dir = os.path.dirname(bumped_file_path)
+                            candidates.append((bumped_tag, bumped_file_path, bumped_dir))
+                    else:
+                        debug_print("No se pudo detectar versión en el path; se omite el reconnect.")
                         continue
+
+                    def try_reconnect(path_for_frame, path_for_dir):
+                        """
+                        Intenta reconectar por archivo y luego por carpeta.
+                        Retorna (reconnected_bool, current_path_after).
+                        """
+                        # Por archivo
+                        if path_for_frame:
+                            debug_print(f"Intentando reconnect con frame: {path_for_frame}")
+                            try:
+                                shot.reconnectMedia(path_for_frame)
+                                current = shot.source().mediaSource().fileinfos()[0].filename()
+                                return True, current
+                            except Exception as e:
+                                debug_print(f"Error reconnecting clip (archivo): {e}")
+                        # Por carpeta
+                        try:
+                            shot.reconnectMedia(path_for_dir)
+                            current = shot.source().mediaSource().fileinfos()[0].filename()
+                            debug_print("\nClip reconnected successfully (por carpeta).")
+                            return True, current
+                        except Exception as e:
+                            debug_print(f"\nError reconnecting clip (carpeta): {e}")
+                        return False, shot.source().mediaSource().fileinfos()[0].filename()
+
+                    # Seleccionar la versión más alta disponible con media
+                    available_versions = []
+                    for tag, candidate_file, candidate_dir in candidates:
+                        if not os.path.exists(candidate_dir):
+                            debug_print(f"  Versión {tag}: carpeta no existe, se salta.")
+                            continue
+                        candidate_stub = os.path.basename(candidate_file).split('%')[0].rstrip('_')
+                        frame_path = find_existing_frame(candidate_file) or find_any_frame(candidate_dir, base_stub=candidate_stub)
+                        if not frame_path:
+                            debug_print(f"  Versión {tag}: no hay frames en carpeta.")
+                            continue
+                        available_versions.append((tag, candidate_file, candidate_dir, frame_path))
+
+                    if not available_versions:
+                        debug_print("No se encontró ninguna versión con media; se omite el reconnect.")
+                        continue
+
+                    # Tomar la versión más alta (última de la lista)
+                    tag, candidate_file, candidate_dir, frame_path = available_versions[-1]
+                    debug_print(f"Usando versión más alta disponible: {tag} con frame {frame_path}")
+
+                    # Si ya estamos en esa versión y la ruta es Mac, no tocar nada
+                    is_mac_path = file_path.startswith("/Volumes/T Viaja/T")
+                    if is_mac_path and candidate_file == file_path:
+                        debug_print("Path ya en Mac y en versión más alta; no se realiza reconnect.")
+                        continue
+
+                    # Intento A: replaceClips con frame específico (manteniendo source in/out)
+                    reconnected = False
+                    current_path = file_path
+                    try:
+                        shot.replaceClips(frame_path)
+                        shot.setSourceIn(original_source_in)
+                        shot.setSourceOut(original_source_out)
+                        current_path = shot.source().mediaSource().fileinfos()[0].filename()
+                        reconnected = True
+                        debug_print(f"replaceClips aplicado con {frame_path}")
+                    except Exception as e:
+                        debug_print(f"Error en replaceClips ({tag}): {e}")
+
+                    # Intento B: reconnect por archivo/carpeta si aún no cambió
+                    if not reconnected or current_path == file_path:
+                        reconnected, current_path = try_reconnect(frame_path, candidate_dir)
+
+                    # Intento C: ruta completa si sigue igual
+                    if not reconnected or current_path == file_path:
+                        try:
+                            shot.reconnectMedia(candidate_file)
+                            current_path = shot.source().mediaSource().fileinfos()[0].filename()
+                            reconnected = True
+                            debug_print("Intento con ruta completa en versión más alta.")
+                        except Exception as e:
+                            debug_print(f"Error en reconnect con ruta completa ({tag}): {e}")
+
+                    # Validar final
+                    if current_path == file_path:
+                        debug_print(f"Path final sin cambios (old/new): {file_path} -> {current_path}")
+                        debug_print("El path no cambió; probable falta de media en destino.")
+                        # Restaurar color si se perdió
+                        set_clip_color(shot, original_color)
+                        continue
+                    else:
+                        debug_print(f"Versión aplicada: {tag}")
+
+                    # Validar final
+                    if current_path == file_path:
+                        debug_print(f"Path final sin cambios (old/new): {file_path} -> {current_path}")
+                        debug_print("El path no cambió; probable falta de media en destino.")
+                        continue
+
+                    # Restaurar el color original
+                    set_clip_color(shot, original_color)
+                    # Imprimir informaci?n del clip despu?s del reemplazo
+                    print_clip_info(shot, "AFTER RECONNECT")
 
                 debug_print("\n==== SCRIPT DE RECONNECT COMPLETADO ====")
 
