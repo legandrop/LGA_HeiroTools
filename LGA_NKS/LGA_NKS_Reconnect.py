@@ -1,9 +1,11 @@
 """
 ______________________________________________________________________
 
-  LGA_NKS_Reconnect v1.14 | Lega
+  LGA_NKS_Reconnect v1.15 | Lega
   Reconecta clips seleccionados a diferentes rutas, manteniendo el color original.
   
+  v1.15: Escanea el publish para hallar la versión más alta con media,
+         incluso si la base no existe (ej. salta de v00 a v005).
   v1.14: Maneja media de archivo único (mov, etc.) y sigue eligiendo
          la versión más alta con media; evita relinks si ya está en Mac.
   v1.13: Si el clip está offline y no se lee color,
@@ -245,13 +247,39 @@ def main(force_all_clips=False):
                     if version_match:
                         digits_len = len(version_match.group(1))
                         base_version = int(version_match.group(1))
+                        base_dir = os.path.dirname(new_file_path)
+                        base_name = os.path.basename(new_file_path)
+                        prefix = base_name.split("_v")[0] + "_v"
+
+                        # Escanear todas las carpetas del publish para hallar versiones superiores
+                        parent_dir = os.path.dirname(base_dir)
                         candidates = []
-                        for bump in range(0, MAX_VERSION_BUMPS + 1):
-                            bumped_version = base_version + bump
-                            bumped_tag = f"_v{bumped_version:0{digits_len}d}"
-                            bumped_file_path = re.sub(r"_v\d+", bumped_tag, new_file_path)
-                            bumped_dir = os.path.dirname(bumped_file_path)
-                            candidates.append((bumped_tag, bumped_file_path, bumped_dir))
+                        try:
+                            if os.path.exists(parent_dir):
+                                for entry in os.listdir(parent_dir):
+                                    if entry.startswith(prefix) and os.path.isdir(os.path.join(parent_dir, entry)):
+                                        v_match = re.search(r"_v(\d+)", entry, re.IGNORECASE)
+                                        if v_match:
+                                            ver_num = int(v_match.group(1))
+                                            candidates.append((ver_num, entry))
+                        except Exception as e:
+                            debug_print(f"No se pudo listar {parent_dir}: {e}")
+
+                        # Ordenar por número de versión y respetar MAX_VERSION_BUMPS hacia arriba desde base
+                        candidates = sorted(candidates, key=lambda x: x[0])
+                        candidates = [(f"_v{ver:0{digits_len}d}",
+                                       os.path.join(parent_dir, entry, base_name),
+                                       os.path.join(parent_dir, entry))
+                                      for ver, entry in candidates
+                                      if ver >= base_version and ver <= base_version + MAX_VERSION_BUMPS]
+                        # Si no se encontró nada por escaneo, caer al rango base+bumps
+                        if not candidates:
+                            for bump in range(0, MAX_VERSION_BUMPS + 1):
+                                bumped_version = base_version + bump
+                                bumped_tag = f"_v{bumped_version:0{digits_len}d}"
+                                bumped_file_path = re.sub(r"_v\d+", bumped_tag, new_file_path)
+                                bumped_dir = os.path.dirname(bumped_file_path)
+                                candidates.append((bumped_tag, bumped_file_path, bumped_dir))
                     else:
                         debug_print("No se pudo detectar versión en el path; se omite el reconnect.")
                         continue
