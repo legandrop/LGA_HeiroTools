@@ -1,13 +1,17 @@
 """
 ______________________________________________________________________
 
-  LGA_NKS_Reconnect v1.12 | Lega
+  LGA_NKS_Reconnect v1.14 | Lega
   Reconecta clips seleccionados a diferentes rutas, manteniendo el color original.
   
+  v1.14: Maneja media de archivo único (mov, etc.) y sigue eligiendo
+         la versión más alta con media; evita relinks si ya está en Mac.
+  v1.13: Si el clip está offline y no se lee color,
+         colorea por nombre de pista: "*plate*" -> 42616d, "*ref*" -> aa9e54.
   v1.12: Elige siempre la versión más alta disponible con media al relinkear
          de T: (Win) a /Volumes/T Viaja/T (Mac), preservando color y trims.
-  v1.11: Agregado par?metro force_all_clips para procesar todos los clips del timeline
-         o solo los seleccionados. Compatible con el bot?n Reconnect Win > Mac del Edit Panel.
+  v1.11: Agregado parámetro force_all_clips para procesar todos los clips del timeline
+         o solo los seleccionados. Compatible con el botón Reconnect Win > Mac del Edit Panel.
 ______________________________________________________________________
 
 """
@@ -86,6 +90,22 @@ def set_clip_color(clip, color):
             debug_print(f"Color restaurado para el clip: {clip.name()}")
     except Exception as e:
         debug_print(f"No se pudo asignar el color al clip: {e}")
+
+
+def fallback_color_from_track(clip):
+    """
+    Si no se pudo leer el color (clip offline), asigna color según nombre de pista.
+    """
+    try:
+        track_name = clip.parentTrack().name().lower()
+    except Exception:
+        return None
+
+    if "plate" in track_name:
+        return QColor("#42616d")
+    if "ref" in track_name:
+        return QColor("#aa9e54")
+    return None
 
 
 def find_existing_frame(path_template):
@@ -184,6 +204,8 @@ def main(force_all_clips=False):
                 for shot in valid_clips:
                     # Leer color original antes de reconectar
                     original_color = get_clip_color(shot)
+                    if original_color is None:
+                        original_color = fallback_color_from_track(shot)
                     # Imprimir informaci?n del clip antes del reemplazo
                     print_clip_info(shot, "BEFORE")
 
@@ -261,14 +283,26 @@ def main(force_all_clips=False):
                     # Seleccionar la versión más alta disponible con media
                     available_versions = []
                     for tag, candidate_file, candidate_dir in candidates:
+                        # Caso secuencias (%0Nd)
+                        candidate_stub = os.path.basename(candidate_file).split('%')[0].rstrip('_')
+                        has_sequence_token = "%" in os.path.basename(candidate_file)
+
                         if not os.path.exists(candidate_dir):
                             debug_print(f"  Versión {tag}: carpeta no existe, se salta.")
                             continue
-                        candidate_stub = os.path.basename(candidate_file).split('%')[0].rstrip('_')
-                        frame_path = find_existing_frame(candidate_file) or find_any_frame(candidate_dir, base_stub=candidate_stub)
+
+                        frame_path = None
+                        if has_sequence_token:
+                            frame_path = find_existing_frame(candidate_file) or find_any_frame(candidate_dir, base_stub=candidate_stub)
+                        else:
+                            # Archivo único (mov, etc.)
+                            if os.path.exists(candidate_file):
+                                frame_path = candidate_file
+
                         if not frame_path:
-                            debug_print(f"  Versión {tag}: no hay frames en carpeta.")
+                            debug_print(f"  Versión {tag}: no hay media en carpeta/archivo.")
                             continue
+
                         available_versions.append((tag, candidate_file, candidate_dir, frame_path))
 
                     if not available_versions:
@@ -321,12 +355,6 @@ def main(force_all_clips=False):
                         continue
                     else:
                         debug_print(f"Versión aplicada: {tag}")
-
-                    # Validar final
-                    if current_path == file_path:
-                        debug_print(f"Path final sin cambios (old/new): {file_path} -> {current_path}")
-                        debug_print("El path no cambió; probable falta de media en destino.")
-                        continue
 
                     # Restaurar el color original
                     set_clip_color(shot, original_color)
