@@ -1,9 +1,12 @@
 """
 ______________________________________________________________________
 
-  LGA_NKS_Reconnect v1.16 | Lega
+  LGA_NKS_Reconnect v1.17 | Lega
   Reconecta clips seleccionados a diferentes rutas, manteniendo el color original.
 
+  v1.17: Fix en búsqueda de versiones superiores - corrige cálculo de prefijo
+         (eliminaba doble guion bajo) y elimina completamente el límite de versiones
+         para permitir detección de versiones con saltos grandes (ej. v16 -> v037).
   v1.16: Detecta media en versiones superiores buscando cualquier archivo *.exr
          en la carpeta, sin importar el nombre exacto (fix para versiones con
          nombres ajustados).
@@ -31,7 +34,6 @@ from PySide2.QtGui import QColor
 # import LGA_NKS_SelfReplaceClip as self_replace
 
 DEBUG = True
-MAX_VERSION_BUMPS = 15  # cantidad maxima de versiones a probar hacia arriba
 
 def debug_print(*message):
     if DEBUG:
@@ -245,14 +247,15 @@ def main(force_all_clips=False):
                     filename_tpl = os.path.basename(new_file_path)
                     base_stub = filename_tpl.split("%")[0].rstrip("_")
 
-                    # Armar lista de candidatos de versión (base y hasta MAX_VERSION_BUMPS hacia arriba)
+                    # Armar lista de candidatos de versión (base hacia arriba, sin límite)
                     version_match = re.search(r"_v(\d+)", new_file_path, re.IGNORECASE)
                     if version_match:
                         digits_len = len(version_match.group(1))
                         base_version = int(version_match.group(1))
                         base_dir = os.path.dirname(new_file_path)
                         base_name = os.path.basename(new_file_path)
-                        prefix = base_name.split("_v")[0] + "_v"
+                        # Calcular prefijo correctamente - evitar doble guion bajo
+                        prefix = re.sub(r'_v\d+.*', '_v', base_name)
 
                         # Escanear todas las carpetas del publish para hallar versiones superiores
                         parent_dir = os.path.dirname(base_dir)
@@ -268,21 +271,14 @@ def main(force_all_clips=False):
                         except Exception as e:
                             debug_print(f"No se pudo listar {parent_dir}: {e}")
 
-                        # Ordenar por número de versión y respetar MAX_VERSION_BUMPS hacia arriba desde base
+                        # Ordenar por número de versión
                         candidates = sorted(candidates, key=lambda x: x[0])
                         candidates = [(f"_v{ver:0{digits_len}d}",
                                        os.path.join(parent_dir, entry, base_name),
                                        os.path.join(parent_dir, entry))
                                       for ver, entry in candidates
-                                      if ver >= base_version and ver <= base_version + MAX_VERSION_BUMPS]
-                        # Si no se encontró nada por escaneo, caer al rango base+bumps
-                        if not candidates:
-                            for bump in range(0, MAX_VERSION_BUMPS + 1):
-                                bumped_version = base_version + bump
-                                bumped_tag = f"_v{bumped_version:0{digits_len}d}"
-                                bumped_file_path = re.sub(r"_v\d+", bumped_tag, new_file_path)
-                                bumped_dir = os.path.dirname(bumped_file_path)
-                                candidates.append((bumped_tag, bumped_file_path, bumped_dir))
+                                      if ver >= base_version]  # Solo mantener ver >= base_version, sin límite superior
+                        # Ya no necesitamos fallback - el escaneo debería encontrar todas las versiones
                     else:
                         debug_print("No se pudo detectar versión en el path; se omite el reconnect.")
                         continue
