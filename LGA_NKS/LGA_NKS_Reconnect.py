@@ -1,9 +1,12 @@
 """
 ______________________________________________________________________
 
-  LGA_NKS_Reconnect v1.15 | Lega
+  LGA_NKS_Reconnect v1.16 | Lega
   Reconecta clips seleccionados a diferentes rutas, manteniendo el color original.
-  
+
+  v1.16: Detecta media en versiones superiores buscando cualquier archivo *.exr
+         en la carpeta, sin importar el nombre exacto (fix para versiones con
+         nombres ajustados).
   v1.15: Escanea el publish para hallar la versión más alta con media,
          incluso si la base no existe (ej. salta de v00 a v005).
   v1.14: Maneja media de archivo único (mov, etc.) y sigue eligiendo
@@ -28,7 +31,7 @@ from PySide2.QtGui import QColor
 # import LGA_NKS_SelfReplaceClip as self_replace
 
 DEBUG = True
-MAX_VERSION_BUMPS = 8  # cantidad maxima de versiones a probar hacia arriba
+MAX_VERSION_BUMPS = 15  # cantidad maxima de versiones a probar hacia arriba
 
 def debug_print(*message):
     if DEBUG:
@@ -321,7 +324,8 @@ def main(force_all_clips=False):
 
                         frame_path = None
                         if has_sequence_token:
-                            frame_path = find_existing_frame(candidate_file) or find_any_frame(candidate_dir, base_stub=candidate_stub)
+                            # Para secuencias, buscar cualquier archivo *.exr en la carpeta
+                            frame_path = find_any_frame(candidate_dir)
                         else:
                             # Archivo único (mov, etc.)
                             if os.path.exists(candidate_file):
