@@ -128,6 +128,27 @@ class FlowProdPanel(QWidget):
                 None,
                 "Cambiar prioridad del shot (alta ↔ normal)",
             ),
+            (
+                "Open in FileManager",
+                self.open_shot_in_filemanager,
+                "#4a90e2",
+                None,
+                "Abrir carpeta del shot en FileManager",
+            ),
+            (
+                "Download Shot",
+                self.download_shot_from_filemanager,
+                "#2e8b57",
+                None,
+                "Descargar shot desde Wasabi S3",
+            ),
+            (
+                "Upload Shot",
+                self.upload_shot_to_filemanager,
+                "#daa520",
+                None,
+                "Subir shot a Wasabi S3",
+            ),
         ]
 
         # Solo botones fijos para este panel
@@ -388,6 +409,93 @@ class FlowProdPanel(QWidget):
             spec.loader.exec_module(module)
             # Llamar a la función principal
             module.toggle_shot_priority_from_selected_clip()
+        except Exception as e:
+            QMessageBox.warning(self, "Error al ejecutar", str(e))
+
+    def open_shot_in_filemanager(self):
+        """Llama al script FileManager para abrir la carpeta del shot seleccionado"""
+        script_path = os.path.join(
+            os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_FileManager_OpenPath.py"
+        )
+        if not os.path.exists(script_path):
+            QMessageBox.warning(
+                self,
+                "Script no encontrado",
+                f"No se encontró el script en la ruta: {script_path}",
+            )
+            return
+        try:
+            import importlib.util
+
+            spec = importlib.util.spec_from_file_location(
+                "LGA_NKS_FileManager_OpenPath", script_path
+            )
+            if spec is None or spec.loader is None:
+                raise ImportError(
+                    "No se pudo cargar el módulo LGA_NKS_FileManager_OpenPath.py"
+                )
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            # Llamar a la función principal
+            module.main()
+        except Exception as e:
+            QMessageBox.warning(self, "Error al ejecutar", str(e))
+
+    def download_shot_from_filemanager(self):
+        """Llama al script FileManager para descargar el shot seleccionado"""
+        script_path = os.path.join(
+            os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_FileManager_Download.py"
+        )
+        if not os.path.exists(script_path):
+            QMessageBox.warning(
+                self,
+                "Script no encontrado",
+                f"No se encontró el script en la ruta: {script_path}",
+            )
+            return
+        try:
+            import importlib.util
+
+            spec = importlib.util.spec_from_file_location(
+                "LGA_NKS_FileManager_Download", script_path
+            )
+            if spec is None or spec.loader is None:
+                raise ImportError(
+                    "No se pudo cargar el módulo LGA_NKS_FileManager_Download.py"
+                )
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            # Llamar a la función principal
+            module.main()
+        except Exception as e:
+            QMessageBox.warning(self, "Error al ejecutar", str(e))
+
+    def upload_shot_to_filemanager(self):
+        """Llama al script FileManager para subir el shot seleccionado"""
+        script_path = os.path.join(
+            os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_FileManager_Upload.py"
+        )
+        if not os.path.exists(script_path):
+            QMessageBox.warning(
+                self,
+                "Script no encontrado",
+                f"No se encontró el script en la ruta: {script_path}",
+            )
+            return
+        try:
+            import importlib.util
+
+            spec = importlib.util.spec_from_file_location(
+                "LGA_NKS_FileManager_Upload", script_path
+            )
+            if spec is None or spec.loader is None:
+                raise ImportError(
+                    "No se pudo cargar el módulo LGA_NKS_FileManager_Upload.py"
+                )
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            # Llamar a la función principal
+            module.main()
         except Exception as e:
             QMessageBox.warning(self, "Error al ejecutar", str(e))
 

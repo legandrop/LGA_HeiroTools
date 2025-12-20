@@ -41,7 +41,7 @@ import hiero.core
 import hiero.ui
 
 # Control interno del debug para este módulo (no se puede sobrescribir desde fuera)
-_GETCLIP_DEBUG_ENABLED = True
+_GETCLIP_DEBUG_ENABLED = False
 
 # Control de advertencias del módulo (False = nunca mostrar advertencias)
 _SHOW_WARNINGS = False
