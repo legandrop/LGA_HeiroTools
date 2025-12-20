@@ -93,25 +93,66 @@ FileManager.exe --upload "T:\VFX-TOC\From_Wanka\20250909\Probando"
 
 ---
 
-**¿Necesitas más detalles?** Consulta `Docs/FM/Doc_FiMa_CLI.md` para documentación técnica completa.</contents>
-</xai:function_call">**He creado una guía simple y clara para el CLI de FileManager:** `Docs/FM/GUIA_CLI_SIMPLE.md`
+## 🤖 Integración con Panel FlowProd
 
-Esta guía incluye:
+### Botones FileManager en Hiero/Nuke Studio
 
-## ✅ **Lo esencial:**
-- **¿Qué hace FileManager?** - Explicación breve
-- **3 comandos principales** - `--path`, `--download`, `--upload`
-- **Ejemplos concretos** - Copiar y pegar directo
-- **Reglas de rutas** - Qué rutas funcionan y cuáles no
-- **Estados visuales** - Significado de colores en la UI
-- **Solución de problemas** - Errores comunes
+Los siguientes botones están disponibles en el panel **Flow Production** de Hiero:
 
-## 🎯 **Características de la guía:**
-- **Simple y directa** - Sin jerga técnica innecesaria
-- **Ejemplos ejecutables** - Código listo para usar
-- **Visual clara** - Emojis y formato fácil de seguir
-- **Enfoque práctico** - Lo que alguien necesita saber para usar el CLI
+#### 🎯 **Open in FileManager**
+- **Función**: Abre la carpeta del shot seleccionado en FileManager
+- **Comando**: `FileManager.exe --path "ruta_del_shot"`
+- **Uso**: Explorar y gestionar archivos del shot local vs Wasabi S3
+- **Color**: Azul (#4a90e2)
 
-La guía está basada en la documentación técnica existente pero adaptada para usuarios que solo quieren usar el CLI sin entender los detalles internos.
+#### ⬇️ **Download Shot**
+- **Función**: Descarga el shot completo desde Wasabi S3
+- **Comando**: `FileManager.exe --download "ruta_del_shot"`
+- **Uso**: Sincronizar archivos remotos hacia local
+- **Color**: Verde (#2e8b57)
 
-¿Quieres que agregue algún ejemplo específico o sección adicional? 🔧
+#### ⬆️ **Upload Shot**
+- **Función**: Sube el shot completo a Wasabi S3
+- **Comando**: `FileManager.exe --upload "ruta_del_shot"`
+- **Uso**: Sincronizar archivos locales hacia remoto
+- **Color**: Dorado (#daa520)
+
+### 📂 Estructura de Rutas
+
+Los botones operan sobre la **ruta del shot**, no del archivo individual:
+```
+Unidad:/VFX-PROJECTO/GRUPO/SHOT_NAME
+Ejemplo: T:/VFX-LC/101/LC_1010_010_Beauty_Senora
+```
+
+**Nota**: La ruta se extrae automáticamente del clip seleccionado usando lógica inteligente (playhead primero, selección como fallback).
+
+### 🔧 Implementación Técnica
+
+Los scripts ejecutan comandos CLI reales de FileManager:
+- **OpenPath**: `FileManager.exe --path "ruta_del_shot"`
+- **Download**: `FileManager.exe --download "ruta_del_shot"`
+- **Upload**: `FileManager.exe --upload "ruta_del_shot"`
+
+**Cálculo de ruta del shot**: Los scripts extraen la carpeta del shot tomando las primeras 4 partes de la ruta:
+
+**Estructura**: `unidad/proyecto/grupo/shot/...`
+
+**Algoritmo**:
+1. Normaliza la ruta para manejar separadores mixtos (`/` y `\`)
+2. Divide la ruta en partes usando `/` como separador universal
+3. Toma las primeras 4 partes: `[unidad, proyecto, grupo, shot]`
+4. Une las partes para formar la ruta del shot
+
+**Ejemplo**:
+- Ruta completa: `T:/VFX-LC/101/LC_1021_050_Beauty_Senora/Comp/4_publish/LC_1021_050_Beauty_Senora_comp_v014/LC_1021_050_Beauty_Senora_comp_v014_%04d.exr`
+- Partes: `['T:', 'VFX-LC', '101', 'LC_1021_050_Beauty_Senora', 'Comp', '4_publish', 'LC_1021_050_Beauty_Senora_comp_v014', 'LC_1021_050_Beauty_Senora_comp_v014_%04d.exr']`
+- Toma primeras 4: `['T:', 'VFX-LC', '101', 'LC_1021_050_Beauty_Senora']`
+- Extrae: `T:/VFX-LC/101/LC_1021_050_Beauty_Senora` ← **Esta es la carpeta del shot**
+
+**Ruta del ejecutable**: `C:\Portable\LGA\FileManager\FileManager.exe`
+
+Los comandos se ejecutan de forma asíncrona (subprocess.Popen) para no bloquear la interfaz de Hiero/Nuke Studio.
+
+---
+

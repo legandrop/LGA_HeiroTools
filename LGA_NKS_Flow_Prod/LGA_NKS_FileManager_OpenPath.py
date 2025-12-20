@@ -3,12 +3,14 @@ ________________________________________________________________________________
 
   LGA_NKS_FileManager_OpenPath v1.0 | Lega
   Abre la carpeta del shot seleccionado en FileManager usando CLI
+  Extrae la ruta del shot tomando las primeras 4 partes: unidad/proyecto/grupo/shot
 ____________________________________________________________________________________
 """
 
 from pathlib import Path
 import sys
 import os
+import subprocess
 
 # Agregar ruta del módulo utilitario
 utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
@@ -25,7 +27,7 @@ def debug_print(*message):
         print(*message)
 
 def main():
-    """Función principal que obtiene la ruta del clip seleccionado y la imprime para debug"""
+    """Función principal que abre FileManager con la ruta del shot seleccionado"""
     debug_print("=== FILEMANAGER OPEN PATH ===")
 
     try:
@@ -40,13 +42,46 @@ def main():
         file_path = clip.source().mediaSource().fileinfos()[0].filename() if clip.source().mediaSource().fileinfos() else None
 
         if file_path:
-            debug_print(f"Ruta del clip seleccionado: {file_path}")
-            debug_print(f"Carpeta del clip: {os.path.dirname(file_path)}")
+            # La estructura es: unidad:/proyecto/grupo/shot/_input/version/archivo
+            # Necesitamos llegar a: unidad:/proyecto/grupo/shot
+            # Partimos desde el archivo y subimos hasta encontrar la carpeta del shot
+
+            # Normalizar la ruta y dividir por ambos separadores (/ y \)
+            normalized_path = os.path.normpath(file_path)
+            path_parts = normalized_path.replace('\\', '/').split('/')
+            debug_print(f"Partes de la ruta: {path_parts}")
+
+            # La estructura siempre es: unidad/proyecto/grupo/shot/...
+            # Tomar las primeras 4 partes para la carpeta del shot
+            if len(path_parts) >= 4:
+                shot_path = '/'.join(path_parts[:4])
+            else:
+                # Fallback si no hay suficientes partes
+                debug_print("Ruta no tiene suficientes partes, usando fallback")
+                clip_folder = os.path.dirname(file_path)
+                input_folder = os.path.dirname(clip_folder)
+                shot_path = os.path.dirname(input_folder)
+
+            debug_print(f"Ruta del archivo: {file_path}")
+            debug_print(f"Ruta del shot: {shot_path}")
+
+            # Ejecutar FileManager con --path
+            filemanager_exe = r"C:\Portable\LGA\FileManager\FileManager.exe"
+            cmd = [filemanager_exe, "--path", shot_path]
+
+            debug_print(f"Ejecutando: {' '.join(cmd)}")
+
+            try:
+                # Ejecutar el comando (no esperamos que termine, FileManager abre la GUI)
+                subprocess.Popen(cmd, shell=False)
+                debug_print("FileManager abierto correctamente")
+            except Exception as cmd_error:
+                debug_print(f"Error al ejecutar FileManager: {cmd_error}")
         else:
             debug_print("No se pudo obtener la ruta del archivo del clip")
 
     except Exception as e:
-        debug_print(f"Error al obtener la ruta del clip: {e}")
+        debug_print(f"Error al procesar el clip: {e}")
 
 if __name__ == "__main__":
     main()

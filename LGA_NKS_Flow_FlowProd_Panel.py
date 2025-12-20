@@ -1,20 +1,27 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_FlowProd_Panel v1.10 | Lega
+  LGA_NKS_Flow_FlowProd_Panel v1.20 | Lega
   Panel para operaciones de producción con Flow:
   - Revelar clips en Flow
   - Crear shots automáticamente
   - Crear thumbnails
   - Cambiar prioridad de shots
-  
+  - Integración con FileManager (Open, Download, Upload)
+
+  v1.20: Agregados botones de integración con FileManager CLI
+         - Open in FileManager: Abre carpeta del shot en FileManager
+         - Download Shot: Descarga shot desde Wasabi S3
+         - Upload Shot: Sube shot a Wasabi S3
+         Funcionan sobre la ruta del shot (unidad/proyecto/grupo/shot)
+
   v1.10: Actualizado para usar shift+click para abrir el shot completo en Flow
 
   v1.09: Agregado modo de modificación de shots existentes
          Reutiliza la misma UI compacta de creación
          Permite agregar/eliminar tasks y actualizar la descripción
          No afecta estados ni tiempos de las tasks existentes
-  
+
   v1.08: Actualizado para ser compatible con ambos sistemas de nomenclatura:
         - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
         - PROYECTO_SEQ_SHOT (3 bloques simplificado)
@@ -131,21 +138,21 @@ class FlowProdPanel(QWidget):
             (
                 "Open in FileManager",
                 self.open_shot_in_filemanager,
-                "#4a90e2",
+                "#8e6c17",
                 None,
                 "Abrir carpeta del shot en FileManager",
             ),
             (
                 "Download Shot",
                 self.download_shot_from_filemanager,
-                "#2e8b57",
+                "#8e6c17",
                 None,
                 "Descargar shot desde Wasabi S3",
             ),
             (
                 "Upload Shot",
                 self.upload_shot_to_filemanager,
-                "#daa520",
+                "#8e6c17",
                 None,
                 "Subir shot a Wasabi S3",
             ),
