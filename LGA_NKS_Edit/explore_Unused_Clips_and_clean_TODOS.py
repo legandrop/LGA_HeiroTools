@@ -1,12 +1,11 @@
-# Unused Clips Cleaner - OBJETIVO 1
-# Detects and removes clips that are NOT used in any sequences
+# All Unused Clips Cleaner - OBJETIVO 1
+# Detects and removes ALL clips in project that are NOT used in any sequences
 
 import hiero
 import hiero.core.find_items
 import os
 
-# CONFIGURATION - Change this variable to process different clips
-TARGET_CLIP_NAME = "PHLDA_013_050_Chroma_AutoDia_comp"  # Change this to any clip name
+# No configuration needed - processes ALL clips in project
 
 
 def get_all_sequences(project):
@@ -85,8 +84,8 @@ def is_bin_item_used_in_sequences(bin_item, sequences):
     return False
 
 
-def cleanUnusedClips():
-    """OBJETIVO 1: Elimina clips que NO se usan en secuencias"""
+def cleanAllUnusedClips():
+    """OBJETIVO 1: Elimina TODOS los clips del proyecto que NO se usan en secuencias"""
 
     projects = hiero.core.projects()
     if not projects:
@@ -94,36 +93,42 @@ def cleanUnusedClips():
         return
 
     proj = projects[0]
-    print(f"🧹 ELIMINANDO CLIPS NO UTILIZADOS - OBJETIVO 1")
+    print(f"🧹 ELIMINANDO TODOS LOS CLIPS NO UTILIZADOS - OBJETIVO 1")
     print(f"📂 Proyecto: {proj.name()}")
-    print(f"🎯 Clip objetivo: {TARGET_CLIP_NAME}")
+    print(f"🎯 Procesando TODOS los clips del proyecto")
     print(f"📋 Buscando BinItems y verificando uso en secuencias...")
     print()
 
     # Obtener todas las secuencias para verificación de uso
     sequences = get_all_sequences(proj)
 
-    # Crear lista negra de secuencias conocidas
+    # DEBUG: Mostrar nombres de secuencias y crear lista negra
     known_sequences = set()
-    for seq in sequences:
-        if hasattr(seq, 'name'):
-            known_sequences.add(seq.name())
+    if sequences:
+        print("📋 Nombres de secuencias encontradas (lista negra):")
+        for seq in sequences:
+            if hasattr(seq, 'name'):
+                seq_name = seq.name()
+                known_sequences.add(seq_name)
+                print(f"   • '{seq_name}' → EN LISTA NEGRA")
+        print()
 
-    # Find ALL bin items for the target clip (there might be multiple with same name)
-    target_bin_items = []
+    # Find ALL bin items in the project (SOLO BinItems, no Sequences)
+    all_bin_items = []
 
-    for bin_item in hiero.core.findItems(proj, "BinItems"):
-        if bin_item and hasattr(bin_item, "name") and bin_item.name() == TARGET_CLIP_NAME:
-            bin_name = bin_item.name()
-            # Excluir si es una secuencia conocida
-            if bin_name not in known_sequences:
-                target_bin_items.append(bin_item)
+    for item in hiero.core.findItems(proj, "BinItems"):
+        if item and hasattr(item, "name"):
+            item_name = item.name()
+            # Excluir secuencias conocidas Y items con videoTracks
+            if item_name not in known_sequences and not hasattr(item, 'videoTracks'):
+                # Es un BinItem real
+                all_bin_items.append(item)
 
-    if not target_bin_items:
-        print(f"❌ No se encontraron BinItems con nombre '{TARGET_CLIP_NAME}'")
+    if not all_bin_items:
+        print(f"❌ No se encontraron BinItems en el proyecto")
         return
 
-    print(f"📋 Encontrados {len(target_bin_items)} BinItem(s) con nombre '{TARGET_CLIP_NAME}':")
+    print(f"📋 Encontrados {len(all_bin_items)} BinItem(s) reales en el proyecto (excluyendo {len(known_sequences)} secuencias):")
     print()
 
     # Process each BinItem found - DETECTAR Y ELIMINAR SI NO SE USA
@@ -131,7 +136,7 @@ def cleanUnusedClips():
     used_clips = 0
     deleted_clips = 0
 
-    for bin_item_index, bin_item in enumerate(target_bin_items):
+    for bin_item_index, bin_item in enumerate(all_bin_items):
         try:
             bin_name = bin_item.name()
 
@@ -198,4 +203,4 @@ def cleanUnusedClips():
 
 # Execute the cleaning
 if __name__ == "__main__":
-    cleanUnusedClips()
+    cleanAllUnusedClips()

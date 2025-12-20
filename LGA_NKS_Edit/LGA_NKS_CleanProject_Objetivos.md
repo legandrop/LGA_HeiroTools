@@ -2,11 +2,13 @@
 
 ## 📋 **OBJETIVOS PRINCIPALES**
 
-### **1. Limpieza de Clips No Utilizados**
+### **1. Limpieza de Clips No Utilizados** ✅ **COMPLETADO**
 Eliminar automáticamente todos los clips que **NO estén siendo usados en ninguna secuencia**, incluyendo:
 - ✅ Clips de cualquier formato (.exr, .mov, .nk, etc.)
-- ✅ Clips .nk (composiciones de Nuke) - **detectarlos por separado**
+- ✅ Clips .nk (composiciones de Nuke) - **detectados por separado**
 - ✅ Eliminación completa del BinItem (no solo versiones)
+- ✅ **Scripts de producción:** `explore_Unused_Clips_and_clean_UNCLIP.py` y `explore_Unused_Clips_and_clean_TODOS.py`
+- ✅ **Protección anti-secuencias:** Lista negra de secuencias conocidas implementada
 
 ### **2. Limpieza de Versiones Offline** ✅ **COMPLETADO**
 Eliminar las versiones offline de clips que cumplan estas condiciones:
