@@ -1,9 +1,11 @@
 """
 ________________________________________________________________
 
-  LGA_ViewerPanel v1.62 | Lega
+  LGA_ViewerPanel v1.63 | Lega
   Panel con herramientas para el viewer y el timeline de Hiero
-  
+
+  v1.63: Reorganización de scripts - Todos los scripts del viewer movidos
+         a LGA_NKS_ViewerTL/ para mejor organización
   v1.62: Se agregó el botón Frame Number
   v1.61: Se agregaron tooltips
 ________________________________________________________________
@@ -207,7 +209,7 @@ class ViewerPanel(QWidget):
     def viewer_235(self):
         try:
             script_path = os.path.join(
-                os.path.dirname(__file__), "LGA_NKS", "LGA_NKS_Viewer_235.py"
+                os.path.dirname(__file__), "LGA_NKS_ViewerTL", "LGA_NKS_Viewer_235.py"
             )
             if os.path.exists(script_path):
                 import importlib.util
@@ -230,7 +232,7 @@ class ViewerPanel(QWidget):
     def refresh_timeline(self):
         try:
             script_path = os.path.join(
-                os.path.dirname(__file__), "LGA_NKS", "LGA_NKS_Timeline_Refresh_Wrap.py"
+                os.path.dirname(__file__), "LGA_NKS_ViewerTL", "LGA_NKS_Timeline_Refresh_Wrap.py"
             )
             if os.path.exists(script_path):
                 import importlib.util
@@ -253,7 +255,7 @@ class ViewerPanel(QWidget):
     def top_track(self):
         # Ruta al script dentro de la subcarpeta LGA_NKS
         script_path = os.path.join(
-            os.path.dirname(__file__), "LGA_NKS", "LGA_NKS_ScrollTo_TopTrack.py"
+            os.path.dirname(__file__), "LGA_NKS_ViewerTL", "LGA_NKS_ScrollTo_TopTrack.py"
         )
         if os.path.exists(script_path):
             import importlib.util
@@ -273,7 +275,7 @@ class ViewerPanel(QWidget):
     def in_out_editref(self):
         try:
             script_path = os.path.join(
-                os.path.dirname(__file__), "LGA_NKS", "LGA_NKS_InOut_Editref.py"
+                os.path.dirname(__file__), "LGA_NKS_ViewerTL", "LGA_NKS_InOut_Editref.py"
             )
             if os.path.exists(script_path):
                 import importlib.util
@@ -313,7 +315,7 @@ class ViewerPanel(QWidget):
     def execute_prevnext_rev(self, direction, rev_type):
         try:
             script_path = os.path.join(
-                os.path.dirname(__file__), "LGA_NKS", "LGA_NKS_PrevNext_Rev.py"
+                os.path.dirname(__file__), "LGA_NKS_ViewerTL", "LGA_NKS_PrevNext_Rev.py"
             )
             if os.path.exists(script_path):
                 import importlib.util
@@ -336,7 +338,7 @@ class ViewerPanel(QWidget):
     def snapshot(self):
         try:
             script_path = os.path.join(
-                os.path.dirname(__file__), "LGA_NKS", "LGA_NKS_SnapShot.py"
+                os.path.dirname(__file__), "LGA_NKS_ViewerTL", "LGA_NKS_SnapShot.py"
             )
             if os.path.exists(script_path):
                 import importlib.util
