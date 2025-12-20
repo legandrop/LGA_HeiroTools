@@ -1,12 +1,17 @@
 """
 ______________________________________________________________________
 
-  LGA_NKS_CleanProject v2.0 | Sistema de Limpieza Segura de Hiero
+  LGA_NKS_CleanProject v2.01 | Sistema de Limpieza Segura de Hiero
 
   Script principal de limpieza automática que combina ambos objetivos:
   1. Eliminación de clips no utilizados en secuencias
   2. Limpieza de versiones offline en clips con múltiples versiones
 
+  v2.01: Agregado mensaje final al usuario con resumen de limpieza
+         Script principal que integra ambas funcionalidades de limpieza
+         Implementa protección anti-secuencias con lista negra
+         Compatible con todos los formatos (.exr, .mov, .nk)
+         Logging detallado con debug_print para control de salida
   v2.0: Script principal que integra ambas funcionalidades de limpieza
         Implementa protección anti-secuencias con lista negra
         Compatible con todos los formatos (.exr, .mov, .nk)
@@ -17,9 +22,10 @@ ______________________________________________________________________
 
 import hiero
 import hiero.core.find_items
+import nuke
 import os
 
-DEBUG = True
+DEBUG = False
 
 def debug_print(*message):
     if DEBUG:
@@ -118,7 +124,7 @@ def cleanAllUnusedClips():
     projects = hiero.core.projects()
     if not projects:
         debug_print("❌ ERROR: No hay proyecto activo")
-        return
+        return 0, 0, 0
 
     proj = projects[0]
     debug_print(f"🧹 ELIMINANDO TODOS LOS CLIPS NO UTILIZADOS - OBJETIVO 1")
@@ -154,7 +160,7 @@ def cleanAllUnusedClips():
 
     if not all_bin_items:
         debug_print(f"❌ No se encontraron BinItems en el proyecto")
-        return
+        return 0, 0, 0
 
     debug_print(
         f"📋 Encontrados {len(all_bin_items)} BinItem(s) reales en el proyecto (excluyendo {len(known_sequences)} secuencias):"
@@ -241,10 +247,7 @@ def cleanAllUnusedClips():
     debug_print(f"   • Clips eliminados: {deleted_clips}")
     debug_print(f"\n✅ Proyecto optimizado - Clips no utilizados eliminados")
 
-
-# Execute the cleaning
-if __name__ == "__main__":
-    cleanAllUnusedClips()
+    return total_processed, used_clips, deleted_clips
 
 
 # Version Cleaner - Process ALL clips in project
@@ -261,7 +264,7 @@ def cleanOfflineVersions():
     projects = hiero.core.projects()
     if not projects:
         debug_print("ERROR: No active project found.")
-        return
+        return 0, 0
 
     proj = projects[0]
     debug_print(f"🧽 LIMPIANDO VERSIONES OFFLINE - TODO EL PROYECTO")
@@ -285,7 +288,7 @@ def cleanOfflineVersions():
 
     if not all_bin_items:
         debug_print(f"⚠️ No se encontraron BinItems con versiones en el proyecto")
-        return
+        return 0, 0
 
     debug_print(f"📋 Encontrados {len(all_bin_items)} BinItem(s) para procesar:")
     debug_print()
@@ -424,7 +427,50 @@ def cleanOfflineVersions():
     debug_print(f"   • Versiones offline eliminadas: {total_versions_removed}")
     debug_print(f"   • Proyecto optimizado ✅")
 
+    return total_processed, total_versions_removed
+
+
+def cleanProjectComplete():
+    """Ejecuta la limpieza completa del proyecto: clips no utilizados + versiones offline"""
+
+    debug_print("🚀 INICIANDO LIMPIEZA COMPLETA DEL PROYECTO")
+    debug_print("=" * 60)
+
+    # Ejecutar limpieza de clips no utilizados
+    processed_clips, used_clips, deleted_clips = cleanAllUnusedClips()
+
+    debug_print()
+    debug_print("-" * 60)
+    debug_print()
+
+    # Ejecutar limpieza de versiones offline
+    processed_versions, deleted_versions = cleanOfflineVersions()
+
+    debug_print()
+    debug_print("=" * 60)
+    debug_print("🎉 LIMPIEZA COMPLETA FINALIZADA")
+    debug_print()
+
+    # Mostrar mensaje al usuario con resultados
+    message = f"""🧹 LIMPIEZA COMPLETA DEL PROYECTO FINALIZADA
+
+📊 RESULTADOS:
+
+• Clips procesados: {processed_clips}
+• Clips eliminados (no utilizados): {deleted_clips}
+
+• BinItems procesados (versiones): {processed_versions}
+• Versiones offline eliminadas: {deleted_versions}
+
+✅ Proyecto optimizado exitosamente"""
+
+    try:
+        nuke.message(message)
+    except:
+        # Fallback si nuke.message no está disponible
+        print(message)
+
 
 # Execute the cleaning
 if __name__ == "__main__":
-    cleanOfflineVersions()
+    cleanProjectComplete()
