@@ -1,9 +1,11 @@
 """
 _________________________________________
 
-  LGA_EditToolsPanel v2.95 | Lega
+  LGA_EditToolsPanel v2.96 | Lega
   Tools panel for Hiero / Nuke Studio
 
+  v2.96: Extracción de funcionalidades embebidas - Creados LGA_NKS_SetShotName.py
+         y LGA_NKS_OrganizeProject.py como scripts independientes
   v2.95: Reorganización de scripts - Movidos 7 scripts de edición desde LGA_NKS/
          a LGA_NKS_Edit/ para mejor organización: FixColorspaces, CreateNewTrack,
          Trim_In, Trim_Out, Reconnect, SelfReplaceClip, mediaMissingFrames
@@ -112,12 +114,10 @@ class ReconnectMediaWidget(QWidget):
         self.layout = QGridLayout(self)  # Usamos QGridLayout en lugar de QVBoxLayout
         self.setLayout(self.layout)
 
-        # Crear el organizador
-        self.organizer = OrganizeProject()
 
         # Crear botones y agregarlos al layout
         self.buttons = [
-            ("Organize Project", self.organizer.organize_project, "#283548", None, "Organiza los clips en bins basándose en su ruta de archivo"),
+            ("Organize Project", self.organize_project, "#283548", None, "Organiza los clips en bins basándose en su ruta de archivo"),
             ("Clean Project", self.clean_project, "#283548", None, "Elimina clips no usados del proyecto"),
             ("Rec709 | Clip", self.rec709_clip, "#434c41", None, "Cambia el color transform a Rec.709 en los clips seleccionados"),
             ("Default | Clip", self.default_clip, "#434c41", None, "Cambia el color transform a default en los clips seleccionados"),
@@ -376,90 +376,46 @@ class ReconnectMediaWidget(QWidget):
 
             debug_print_b(traceback.format_exc())
 
+    ###### Organize Project
+    def organize_project(self):
+        """Ejecuta el script LGA_NKS_OrganizeProject.py para organizar clips en bins."""
+        debug_print_b("\n>>> Ejecutando Organize Project script...")
+
+        try:
+            # Ejecutamos el script externo
+            result = self.execute_external_script("LGA_NKS_OrganizeProject.py")
+            if result:
+                debug_print_b(">>> Organize Project script completado")
+            else:
+                debug_print_b(">>> Error al ejecutar Organize Project script")
+        except Exception as e:
+            debug_print_b(f"Error durante la ejecución de Organize Project: {e}")
+            import traceback
+            debug_print_b(traceback.format_exc())
+
     ###### Shot name
     def set_shot_name(self):
-        """
-        Establece el nombre del shot basándose en la ruta del archivo.
-        Usa el módulo centralizado LGA_NKS_Flow_NamingUtils para detectar
-        automáticamente el formato de nomenclatura (con o sin descripción).
-        Compatible con ambos sistemas:
-        - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
-        - PROYECTO_SEQ_SHOT (3 bloques simplificado)
-        """
+        """Ejecuta el script LGA_NKS_SetShotName.py para establecer nombres de shots."""
+        debug_print_b("\n>>> Ejecutando Set Shot Name script...")
+
         try:
+            # Obtenemos el proyecto activo y comenzamos un bloque de undo
             project = get_active_project()
             if not project:  # Comprobacion de proyecto activo
-                debug_print("No active project found for Set Shot Name.")
+                debug_print_b("No active project found for Set Shot Name.")
                 return
 
             with project.beginUndo("Set Shot Name"):
-                seq = hiero.ui.activeSequence()
-                if not seq:
-                    debug_print("No active sequence found.")
-                    return
-
-                te = hiero.ui.getTimelineEditor(seq)
-                selected_clips = te.selection()
-
-                if len(selected_clips) == 0:
-                    debug_print("*** No clips selected on the track ***")
+                # Ejecutamos el script dentro del bloque de undo
+                result = self.execute_external_script("LGA_NKS_SetShotName.py")
+                if result:
+                    debug_print_b(">>> Set Shot Name script completado")
                 else:
-                    for shot in selected_clips:
-                        try:
-                            # Obtener el file path del clip seleccionado
-                            file_path = (
-                                shot.source().mediaSource().fileinfos()[0].filename()
-                            )
-                            debug_print("Original file path:", file_path)
-
-                            # Extraer el nombre del archivo del path completo
-                            file_name = os.path.basename(file_path)
-                            debug_print("File name:", file_name)
-
-                            # Usar el módulo centralizado si está disponible
-                            if HAS_NAMING_UTILS:
-                                # Limpiar el nombre del archivo (remover extensión y versión)
-                                base_name = clean_base_name(file_name)
-                                debug_print("Base name (cleaned):", base_name)
-
-                                # Extraer el shot code usando detección automática de formato
-                                shot_name = extract_shot_code(base_name)
-                                debug_print("Shot name (extracted):", shot_name)
-                            else:
-                                # Fallback al método anterior si no hay módulo centralizado
-                                debug_print("Warning: Usando método fallback para extraer shot name")
-                                shot_name = self.get_shot_name_fallback(file_path)
-
-                            # Cambiar el nombre del plano al clip seleccionado
-                            if shot_name:
-                                shot.setName(shot_name)
-                                debug_print("Shot name changed successfully.")
-                            else:
-                                debug_print("Warning: No se pudo extraer el shot name")
-                        except Exception as e:
-                            debug_print(f"Error procesando clip {shot.name()}: {e}")
+                    debug_print_b(">>> Error al ejecutar Set Shot Name script")
         except Exception as e:
-            debug_print(f"Error: {e}")
-
-    def get_shot_name_fallback(self, file_path):
-        """
-        Método fallback para extraer el shot name cuando no está disponible
-        el módulo centralizado. Usa el método anterior basado en la posición
-        del path (tercera parte).
-        """
-        try:
-            # Dividir el path en partes usando '/' como separador
-            path_parts = file_path.split("/")
-            # El shot name seria la tercera parte del path (índice 3)
-            if len(path_parts) > 3:
-                shot_name = path_parts[3]
-                return shot_name
-            else:
-                debug_print(f"Warning: Path no tiene suficientes partes: {file_path}")
-                return None
-        except Exception as e:
-            debug_print(f"Error en get_shot_name_fallback: {e}")
-            return None
+            debug_print_b(f"Error durante la ejecución de Set Shot Name: {e}")
+            import traceback
+            debug_print_b(traceback.format_exc())
 
     ###### Extend edit
     def extend_edit_to_playhead(self):
@@ -1049,74 +1005,6 @@ def get_active_project():
         return projects[0]  # Devuelve el primer proyecto en la lista
     else:
         return None
-
-
-##### Organize Project
-class OrganizeProject:
-    def find_or_create_bin(self, root_bin, bin_name):
-        for item in root_bin.items():
-            if isinstance(item, hiero.core.Bin) and item.name() == bin_name:
-                return item
-        new_bin = hiero.core.Bin(bin_name)
-        root_bin.addItem(new_bin)
-        return new_bin
-
-    def move_clips_from_bin(self, bin_item):
-        if (
-            bin_item.name() == "Published"
-        ):  # Ignorar el bin 'Published' y sus subcarpetas
-            return
-        for item in bin_item.items():
-            if isinstance(item, hiero.core.BinItem) and isinstance(
-                item.activeItem(), hiero.core.Clip
-            ):
-                clip = item.activeItem()
-                media_source = clip.mediaSource()
-                if media_source and media_source.fileinfos():
-                    file_path = media_source.fileinfos()[0].filename()
-                    parts = file_path.split("/")
-                    if len(parts) > 3:
-                        folder_name = f"F {parts[2]}"
-                        shot_name = parts[3]
-                        folder_bin = self.find_or_create_bin(
-                            self.project.clipsBin(), folder_name
-                        )
-                        shot_bin = self.find_or_create_bin(folder_bin, shot_name)
-                        clip_item = clip.binItem()
-                        if clip_item.parentBin() != shot_bin:
-                            clip_item.parentBin().removeItem(clip_item)
-                            shot_bin.addItem(clip_item)
-            elif isinstance(item, hiero.core.Bin):
-                self.move_clips_from_bin(item)
-
-    def clean_empty_bins(self, bin_item):
-        if bin_item.name() == "Published":
-            return
-        items_to_check = list(bin_item.items())
-        for item in items_to_check:
-            if isinstance(item, hiero.core.Bin):
-                self.clean_empty_bins(item)
-        if not bin_item.items() and bin_item.parentBin():
-            bin_item.parentBin().removeItem(bin_item)
-
-    def move_clips_based_on_path(self, project):
-        self.project = project
-        with project.beginUndo("Reorganize Clips Based on Path"):
-            for bin_item in project.clipsBin().items():
-                if isinstance(bin_item, hiero.core.Bin):
-                    self.move_clips_from_bin(bin_item)
-
-            for bin_item in list(project.clipsBin().items()):
-                if isinstance(bin_item, hiero.core.Bin):
-                    self.clean_empty_bins(bin_item)
-
-    def organize_project(self):
-        project = get_active_project()
-        if project:
-            self.move_clips_based_on_path(project)
-        else:
-            debug_print("No se encontro un proyecto abierto en Hiero.")
-
 
 # Crear la instancia del widget y anadirlo al gestor de ventanas de Hiero
 reconnectWidget = ReconnectMediaWidget()
