@@ -1,364 +1,430 @@
-# LGA_NKS_CleanProject.py - Limpieza Segura de Clips en Hiero/Nuke
-# Script principal de producción para limpiar clips no utilizados y versiones offline
+"""
+______________________________________________________________________
+
+  LGA_NKS_CleanProject v2.0 | Sistema de Limpieza Segura de Hiero
+
+  Script principal de limpieza automática que combina ambos objetivos:
+  1. Eliminación de clips no utilizados en secuencias
+  2. Limpieza de versiones offline en clips con múltiples versiones
+
+  v2.0: Script principal que integra ambas funcionalidades de limpieza
+        Implementa protección anti-secuencias con lista negra
+        Compatible con todos los formatos (.exr, .mov, .nk)
+        Logging detallado con debug_print para control de salida
+______________________________________________________________________
+
+"""
 
 import hiero
 import hiero.core.find_items
 import os
+
+DEBUG = True
+
+def debug_print(*message):
+    if DEBUG:
+        print(*message)
+
 
 def get_all_sequences(project):
     """Obtiene todas las secuencias del proyecto para verificar uso de clips"""
     sequences = []
     try:
         sequences = hiero.core.findItems(project, "Sequences")
-        print(f"📋 Encontradas {len(sequences)} secuencias en el proyecto")
+        debug_print(f"📋 Encontradas {len(sequences)} secuencias para verificar uso")
     except Exception as e:
-        print(f"⚠️ Error obteniendo secuencias: {e}")
+        debug_print(f"⚠️ Error obteniendo secuencias: {e}")
     return sequences
 
-def is_clip_used_in_sequences(clip_item, sequences):
+
+def is_bin_item_used_in_sequences(bin_item, sequences):
     """
-    Verifica si un clip está siendo usado en alguna secuencia
+    Verifica si un BinItem está siendo usado en alguna secuencia
     Retorna True si se usa, False si no se usa
     """
     if not sequences:
         return False
 
     try:
-        # Para clips normales, verificar si aparecen en timelines
+        bin_name = bin_item.name() if hasattr(bin_item, "name") else ""
+
+        # Verificar si el BinItem completo se usa en secuencias
         for sequence in sequences:
-            if hasattr(sequence, 'videoTracks'):
+            if hasattr(sequence, "videoTracks"):
                 for track in sequence.videoTracks():
                     for track_item in track.items():
-                        if hasattr(track_item, 'source'):
-                            source_clip = track_item.source()
-                            if source_clip and source_clip == clip_item:
-                                return True
+                        if hasattr(track_item, "source"):
+                            source = track_item.source()
+                            if source:
+                                # Comparar por nombre del BinItem (más confiable)
+                                if (
+                                    hasattr(source, "name")
+                                    and source.name() == bin_name
+                                ):
+                                    return True
 
-        # Para clips .nk (composiciones), verificar referencias adicionales
-        clip_name = clip_item.name() if hasattr(clip_item, 'name') else ""
-        if clip_name.endswith('.nk'):
-            # Verificar si el archivo .nk existe y es referenciado
+                                # También verificar si es el mismo objeto
+                                if source == bin_item:
+                                    return True
+
+        # Para BinItems con versiones, verificar si alguna versión se usa
+        if hasattr(bin_item, "items"):
+            versions = bin_item.items()
+            for version in versions:
+                if hasattr(version, "name"):
+                    version_name = version.name()
+
+                    # Verificar si esta versión aparece en secuencias
+                    for sequence in sequences:
+                        if hasattr(sequence, "videoTracks"):
+                            for track in sequence.videoTracks():
+                                for track_item in track.items():
+                                    if hasattr(track_item, "source"):
+                                        source = track_item.source()
+                                        if (
+                                            source
+                                            and hasattr(source, "name")
+                                            and source.name() == version_name
+                                        ):
+                                            return True
+
+        # Para clips .nk (composiciones), ser más conservador
+        if bin_name.endswith(".nk"):
+            # Si el archivo existe, asumir que podría estar en uso
             try:
-                if hasattr(clip_item, 'mediaSource') and clip_item.mediaSource():
-                    media_source = clip_item.mediaSource()
-                    if hasattr(media_source, 'isMediaPresent') and media_source.isMediaPresent():
-                        # Si el archivo .nk existe, asumir que puede estar siendo usado
-                        # (más conservador para composiciones)
+                if hasattr(bin_item, "mediaSource") and bin_item.mediaSource():
+                    media_source = bin_item.mediaSource()
+                    if (
+                        hasattr(media_source, "isMediaPresent")
+                        and media_source.isMediaPresent()
+                    ):
+                        # Ser conservador con .nk - si existe, no eliminar
                         return True
             except:
                 pass
 
     except Exception as e:
-        print(f"⚠️ Error verificando uso del clip: {e}")
+        bin_name = bin_item.name() if hasattr(bin_item, "name") else "unknown"
+        debug_print(f"⚠️ Error verificando uso del BinItem {bin_name}: {e}")
+        # En caso de error, ser conservador y asumir que se usa
+        return True
 
     return False
 
-def is_version_used_in_sequences(version, sequences):
-    """
-    Verifica si una versión específica está siendo usada en secuencias
-    """
-    if not sequences:
-        return False
 
-    try:
-        # Obtener el clip real de la versión
-        if hasattr(version, 'item'):
-            clip_item = version.item()
-            return is_clip_used_in_sequences(clip_item, sequences)
-    except Exception as e:
-        print(f"⚠️ Error verificando uso de versión: {e}")
+def cleanAllUnusedClips():
+    """OBJETIVO 1: Elimina TODOS los clips del proyecto que NO se usan en secuencias"""
 
-    return False
+    projects = hiero.core.projects()
+    if not projects:
+        debug_print("❌ ERROR: No hay proyecto activo")
+        return
 
-def check_version_status(version):
-    """
-    Verifica el estado online/offline de una versión usando la API nativa de Hiero
-    Retorna: (status, details)
-    """
-    status = "UNKNOWN"
-    details = ""
+    proj = projects[0]
+    debug_print(f"🧹 ELIMINANDO TODOS LOS CLIPS NO UTILIZADOS - OBJETIVO 1")
+    debug_print(f"📂 Proyecto: {proj.name()}")
+    debug_print(f"🎯 Procesando TODOS los clips del proyecto")
+    debug_print(f"📋 Buscando BinItems y verificando uso en secuencias...")
+    debug_print()
 
-    try:
-        # Usar API nativa de Hiero: version.item().mediaSource().isMediaPresent()
-        if hasattr(version, "item"):
-            clip_item = version.item()
-            if clip_item and hasattr(clip_item, "mediaSource"):
-                media_source = clip_item.mediaSource()
-                if media_source and hasattr(media_source, "isMediaPresent"):
-                    if media_source.isMediaPresent():
-                        status = "ONLINE"
-                        details = "Media present (Hiero API)"
-                    else:
-                        status = "OFFLINE"
-                        details = "Media not present (Hiero API)"
+    # Obtener todas las secuencias para verificación de uso
+    sequences = get_all_sequences(proj)
 
-                    # Información adicional
-                    if hasattr(media_source, "isOffline"):
-                        is_offline = media_source.isOffline()
-                        details += f" | isOffline: {is_offline}"
+    # DEBUG: Mostrar nombres de secuencias y crear lista negra
+    known_sequences = set()
+    if sequences:
+        debug_print("📋 Nombres de secuencias encontradas (lista negra):")
+        for seq in sequences:
+            if hasattr(seq, "name"):
+                seq_name = seq.name()
+                known_sequences.add(seq_name)
+                debug_print(f"   • '{seq_name}' → EN LISTA NEGRA")
+        debug_print()
 
-                    # Intentar obtener path del archivo
-                    if hasattr(media_source, "fileinfos") and media_source.fileinfos():
-                        try:
-                            file_info = media_source.fileinfos()[0]
-                            if hasattr(file_info, "filename"):
-                                file_path = file_info.filename()
-                                details += f" | Path: {file_path}"
-                        except:
-                            pass
-                else:
-                    status = "OFFLINE"
-                    details = "No MediaSource disponible"
-            else:
-                status = "OFFLINE"
-                details = "No clip item disponible"
-        else:
-            status = "OFFLINE"
-            details = "No item() method disponible"
+    # Find ALL bin items in the project (SOLO BinItems, no Sequences)
+    all_bin_items = []
 
-    except Exception as e:
-        status = "ERROR"
-        details = f"Exception: {e}"
+    for item in hiero.core.findItems(proj, "BinItems"):
+        if item and hasattr(item, "name"):
+            item_name = item.name()
+            # Excluir secuencias conocidas Y items con videoTracks
+            if item_name not in known_sequences and not hasattr(item, "videoTracks"):
+                # Es un BinItem real
+                all_bin_items.append(item)
 
-    return status, details
+    if not all_bin_items:
+        debug_print(f"❌ No se encontraron BinItems en el proyecto")
+        return
 
-def clean_unused_clips(project):
-    """
-    OBJETIVO 1: Eliminar todos los clips que NO estén siendo usados en ninguna secuencia
-    Incluyendo clips .nk (composiciones) - detectados por separado
-    """
-    print("🧹 OBJETIVO 1: LIMPIANDO CLIPS NO UTILIZADOS")
-    print("=" * 60)
+    debug_print(
+        f"📋 Encontrados {len(all_bin_items)} BinItem(s) reales en el proyecto (excluyendo {len(known_sequences)} secuencias):"
+    )
+    debug_print()
 
-    sequences = get_all_sequences(project)
-    removed_clips = 0
-    processed_clips = 0
+    # Process each BinItem found - DETECTAR Y ELIMINAR SI NO SE USA
+    total_processed = 0
+    used_clips = 0
+    deleted_clips = 0
 
-    # Procesar todos los BinItems del proyecto
-    for bin_item in hiero.core.findItems(project, "BinItems"):
-        if not bin_item or not hasattr(bin_item, "name"):
-            continue
-
-        bin_name = bin_item.name()
-        processed_clips += 1
-
-        print(f"\n🔍 Verificando clip: {bin_name}")
-
-        # Verificar si es una composición .nk
-        is_nuke_comp = bin_name.endswith('.nk')
-
-        # Verificar si el clip está siendo usado
-        is_used = False
-
-        # Para BinItems con versiones, verificar si alguna versión se usa
-        if hasattr(bin_item, 'items'):
-            try:
-                versions = bin_item.items()
-                if versions:
-                    # Verificar si alguna versión del clip se usa en secuencias
-                    for version in versions:
-                        if is_version_used_in_sequences(version, sequences):
-                            is_used = True
-                            break
-                else:
-                    # BinItem sin versiones, verificar directamente
-                    is_used = is_clip_used_in_sequences(bin_item, sequences)
-            except:
-                is_used = is_clip_used_in_sequences(bin_item, sequences)
-        else:
-            # BinItem sin método items
-            is_used = is_clip_used_in_sequences(bin_item, sequences)
-
-        # Reporte del resultado
-        if is_used:
-            if is_nuke_comp:
-                print(f"  ✅ Conservando composición .nk (en uso): {bin_name}")
-            else:
-                print(f"  ✅ Conservando clip (en uso): {bin_name}")
-        else:
-            # ELIMINAR CLIP NO UTILIZADO
-            try:
-                # Obtener el bin contenedor para eliminar el item
-                parent_bin = None
-                for bin_container in hiero.core.findItems(project, "Bins"):
-                    if hasattr(bin_container, 'items') and bin_item in bin_container.items():
-                        parent_bin = bin_container
-                        break
-
-                if parent_bin:
-                    parent_bin.removeItem(bin_item)
-                    removed_clips += 1
-                    if is_nuke_comp:
-                        print(f"  🗑️ Eliminada composición .nk no utilizada: {bin_name}")
-                    else:
-                        print(f"  🗑️ Eliminado clip no utilizado: {bin_name}")
-                else:
-                    print(f"  ⚠️ No se pudo encontrar contenedor para eliminar: {bin_name}")
-
-            except Exception as e:
-                print(f"  ❌ Error eliminando clip {bin_name}: {e}")
-
-    print(f"\n📊 RESULTADO OBJETIVO 1:")
-    print(f"  • Clips procesados: {processed_clips}")
-    print(f"  • Clips eliminados: {removed_clips}")
-    print(f"  • Clips conservados: {processed_clips - removed_clips}")
-
-    return removed_clips
-
-def clean_offline_versions(project):
-    """
-    OBJETIVO 2: Eliminar versiones offline de clips que tengan múltiples versiones
-    Solo si tienen al menos una versión online. Si todas están offline, no eliminar ninguna.
-    """
-    print("\n🧽 OBJETIVO 2: LIMPIANDO VERSIONES OFFLINE")
-    print("=" * 60)
-
-    sequences = get_all_sequences(project)
-    total_versions_removed = 0
-    processed_bin_items = 0
-
-    # Procesar todos los BinItems que tienen versiones
-    for bin_item in hiero.core.findItems(project, "BinItems"):
-        if not bin_item or not hasattr(bin_item, "name"):
-            continue
-
-        if not hasattr(bin_item, 'items'):
-            continue
-
-        bin_name = bin_item.name()
-        processed_bin_items += 1
-
-        print(f"\n🔍 Analizando versiones del clip: {bin_name}")
-
+    for bin_item_index, bin_item in enumerate(all_bin_items):
         try:
-            versions = bin_item.items()
-            if len(versions) <= 1:
-                print(f"  ⏭️ Saltando (solo {len(versions)} versión)")
-                continue
+            bin_name = bin_item.name()
 
-            # Obtener versión activa
-            active_version = None
+            # Determinar tipo de archivo
+            file_type = "unknown"
             try:
-                active_version = bin_item.activeVersion()
+                if hasattr(bin_item, "items"):
+                    versions = bin_item.items()
+                    if versions and hasattr(versions[0], "item"):
+                        clip_item = versions[0].item()
+                        if hasattr(clip_item, "mediaSource"):
+                            media_source = clip_item.mediaSource()
+                            if (
+                                hasattr(media_source, "fileinfos")
+                                and media_source.fileinfos()
+                            ):
+                                file_info = media_source.fileinfos()[0]
+                                if hasattr(file_info, "filename"):
+                                    path = file_info.filename()
+                                    if path.endswith(".nk"):
+                                        file_type = ".nk"
+                                    elif path.endswith(".exr"):
+                                        file_type = ".exr"
+                                    elif path.endswith(".mov"):
+                                        file_type = ".mov"
             except:
                 pass
 
-            # Analizar estado de todas las versiones
-            online_versions = []
-            offline_versions = []
-            versions_to_remove = []
+            # VERIFICAR SI EL CLIP SE USA EN SECUENCIAS
+            is_used = is_bin_item_used_in_sequences(bin_item, sequences)
 
-            print(f"  📋 Analizando {len(versions)} versiones:")
-
-            for version in versions:
-                if not hasattr(version, "name"):
-                    continue
-
-                version_name = version.name()
-                is_active = (active_version and version == active_version)
-                is_used = is_version_used_in_sequences(version, sequences)
-
-                # Verificar estado online/offline
-                status, details = check_version_status(version)
-
-                # Categorizar versión
-                if status == "ONLINE":
-                    online_versions.append(version)
-                    print(f"    🟢 {version_name}: ONLINE - {details}")
-                elif status == "OFFLINE":
-                    offline_versions.append(version)
-                    print(f"    🔴 {version_name}: OFFLINE - {details}")
-
-                    # Candidata para eliminación si cumple criterios
-                    if not is_active and not is_used:
-                        versions_to_remove.append((version_name, version, details))
-                else:
-                    print(f"    ❓ {version_name}: {status} - {details}")
-
-            # VALIDACIÓN DE SEGURIDAD: Solo eliminar si hay al menos una versión online
-            if len(online_versions) == 0:
-                print(f"  ⚠️ NO SE ELIMINA NADA: Todas las versiones están offline")
-                continue
-
-            # Eliminar versiones offline candidatas
-            if versions_to_remove:
-                print(f"  🗑️ Eliminando {len(versions_to_remove)} versiones offline:")
-
-                removed_count = 0
-                for version_name, version, details in versions_to_remove:
-                    try:
-                        bin_item.removeVersion(version)
-                        print(f"    ✓ Eliminada: {version_name}")
-                        removed_count += 1
-                    except Exception as e:
-                        print(f"    ✗ Error eliminando {version_name}: {e}")
-
-                total_versions_removed += removed_count
-
-                # Verificar versiones restantes
-                try:
-                    remaining_versions = bin_item.items()
-                    print(f"  📊 Versiones restantes: {len(remaining_versions)}")
-                except:
-                    print(f"  📊 Versiones restantes: desconocido")
+            if is_used:
+                debug_print(f"✅ {bin_name} ({file_type}): CONSERVADO (usado en secuencias)")
+                used_clips += 1
             else:
-                print(f"  ✅ No hay versiones offline para eliminar")
+                # ELIMINAR CLIP NO UTILIZADO
+                try:
+                    # Obtener el bin contenedor para eliminar el item
+                    parent_bin = None
+                    for bin_container in hiero.core.findItems(proj, "Bins"):
+                        if (
+                            hasattr(bin_container, "items")
+                            and bin_item in bin_container.items()
+                        ):
+                            parent_bin = bin_container
+                            break
+
+                    if parent_bin:
+                        parent_bin.removeItem(bin_item)
+                        debug_print(
+                            f"🗑️  {bin_name} ({file_type}): ELIMINADO (no usado en secuencias)"
+                        )
+                        deleted_clips += 1
+                    else:
+                        debug_print(
+                            f"⚠️  {bin_name} ({file_type}): No se pudo eliminar (contenedor no encontrado)"
+                        )
+
+                except Exception as e:
+                    debug_print(f"❌ {bin_name} ({file_type}): Error eliminando - {e}")
+
+            total_processed += 1
 
         except Exception as e:
-            print(f"  ❌ Error procesando {bin_name}: {e}")
+            debug_print(f"❌ Error procesando {bin_item.name()}: {e}")
+            total_processed += 1
 
-    print(f"\n📊 RESULTADO OBJETIVO 2:")
-    print(f"  • BinItems procesados: {processed_bin_items}")
-    print(f"  • Versiones eliminadas: {total_versions_removed}")
+    # Final summary
+    debug_print(f"\n📊 LIMPIEZA COMPLETADA - OBJETIVO 1:")
+    debug_print(f"   • BinItems procesados: {total_processed}")
+    debug_print(f"   • Clips conservados: {used_clips}")
+    debug_print(f"   • Clips eliminados: {deleted_clips}")
+    debug_print(f"\n✅ Proyecto optimizado - Clips no utilizados eliminados")
 
-    return total_versions_removed
 
-def main():
-    """
-    Función principal: Ejecuta la limpieza completa del proyecto
-    """
-    print("🚀 LGA_NKS_CleanProject.py - Limpieza Segura de Clips en Hiero/Nuke")
-    print("=" * 80)
+# Execute the cleaning
+if __name__ == "__main__":
+    cleanAllUnusedClips()
 
-    # Verificar proyecto activo
+
+# Version Cleaner - Process ALL clips in project
+# Detects online/offline versions and safely removes offline ones from ALL BinItems
+
+import hiero
+import hiero.core.find_items
+import os
+
+
+def cleanOfflineVersions():
+    """Detect online/offline versions and remove offline ones safely"""
+
     projects = hiero.core.projects()
     if not projects:
-        print("❌ ERROR: No hay proyecto activo en Hiero")
+        debug_print("ERROR: No active project found.")
         return
 
-    project = projects[0]
-    print(f"📂 Proyecto: {project.name()}")
-    print(f"🎯 Ejecutando limpieza completa...")
-    print()
+    proj = projects[0]
+    debug_print(f"🧽 LIMPIANDO VERSIONES OFFLINE - TODO EL PROYECTO")
+    debug_print(f"📂 Proyecto: {proj.name()}")
+    debug_print(f"🎯 Procesando TODOS los clips del proyecto")
+    debug_print(f"🔍 Buscando BinItems...")
+    debug_print()
 
-    total_clips_removed = 0
+    # Find ALL bin items in the project
+    all_bin_items = []
+
+    for bin_item in hiero.core.findItems(proj, "BinItems"):
+        if bin_item and hasattr(bin_item, "name"):
+            if hasattr(bin_item, "items"):
+                try:
+                    versions = bin_item.items()
+                    if len(versions) >= 1:  # Only process BinItems that have versions
+                        all_bin_items.append(bin_item)
+                except:
+                    pass
+
+    if not all_bin_items:
+        debug_print(f"⚠️ No se encontraron BinItems con versiones en el proyecto")
+        return
+
+    debug_print(f"📋 Encontrados {len(all_bin_items)} BinItem(s) para procesar:")
+    debug_print()
+
+    # Process each BinItem found
+    total_processed = 0
     total_versions_removed = 0
 
-    try:
-        # OBJETIVO 1: Eliminar clips no utilizados
-        total_clips_removed = clean_unused_clips(project)
+    for bin_item_index, main_bin_item in enumerate(all_bin_items):
+        try:
+            versions = main_bin_item.items()
+            total_versions = len(versions)
 
-        # OBJETIVO 2: Eliminar versiones offline
-        total_versions_removed = clean_offline_versions(project)
+            # Quick analysis without verbose logging
+            online_count = 0
+            offline_count = 0
+            offline_to_remove = 0
 
-        # RESUMEN FINAL
-        print("\n" + "=" * 80)
-        print("🎉 LIMPIEZA COMPLETA FINALIZADA")
-        print("=" * 80)
-        print(f"📊 RESUMEN:")
-        print(f"  • Clips eliminados (no utilizados): {total_clips_removed}")
-        print(f"  • Versiones offline eliminadas: {total_versions_removed}")
-        print(f"  • Total elementos limpiados: {total_clips_removed + total_versions_removed}")
+            # Get active version
+            active_version = None
+            try:
+                active_version = main_bin_item.activeVersion()
+            except:
+                pass
 
-        if total_clips_removed + total_versions_removed > 0:
-            print("\n✅ Limpieza exitosa - Proyecto optimizado")
-        else:
-            print("\nℹ️ No se encontraron elementos para limpiar")
+            bin_item_name = main_bin_item.name()
 
-    except Exception as e:
-        print(f"\n❌ ERROR durante la limpieza: {e}")
-        print("🔄 Se recomienda verificar el estado del proyecto")
+            for version in versions:
+                if hasattr(version, "name") and version.name().startswith(
+                    bin_item_name
+                ):
+                    # Check if this version is active
+                    is_active = active_version and version == active_version
 
-# Ejecutar la limpieza
+                    # Check online/offline status
+                    try:
+                        if hasattr(version, "item"):
+                            clip_item = version.item()
+                            if clip_item and hasattr(clip_item, "mediaSource"):
+                                media_source = clip_item.mediaSource()
+                                if media_source and hasattr(
+                                    media_source, "isMediaPresent"
+                                ):
+                                    if media_source.isMediaPresent():
+                                        online_count += 1
+                                    else:
+                                        offline_count += 1
+                                        if not is_active:
+                                            offline_to_remove += 1
+                    except:
+                        offline_count += 1
+
+            # Determine file type from first version path
+            file_type = "unknown"
+            try:
+                if versions and hasattr(versions[0], "item"):
+                    clip_item = versions[0].item()
+                    if hasattr(clip_item, "mediaSource"):
+                        media_source = clip_item.mediaSource()
+                        if (
+                            hasattr(media_source, "fileinfos")
+                            and media_source.fileinfos()
+                        ):
+                            file_info = media_source.fileinfos()[0]
+                            if hasattr(file_info, "filename"):
+                                path = file_info.filename()
+                                if path.endswith(".nk"):
+                                    file_type = ".nk"
+                                elif path.endswith(".exr"):
+                                    file_type = ".exr"
+                                elif path.endswith(".mov"):
+                                    file_type = ".mov"
+            except:
+                pass
+
+            # Process based on conditions
+            if total_versions <= 1:
+                debug_print(
+                    f"⏭️  {main_bin_item.name()} ({file_type}): 1 versión - No procesado"
+                )
+            elif online_count == 0:
+                debug_print(
+                    f"⚠️  {main_bin_item.name()} ({file_type}): {total_versions} versiones offline - No procesado (todas offline)"
+                )
+            else:
+                # Safe to remove offline versions
+                versions_to_remove = []
+                for version in versions:
+                    if hasattr(version, "name") and version.name().startswith(
+                        bin_item_name
+                    ):
+                        is_active = active_version and version == active_version
+                        if not is_active:
+                            try:
+                                clip_item = version.item()
+                                if clip_item and hasattr(clip_item, "mediaSource"):
+                                    media_source = clip_item.mediaSource()
+                                    if (
+                                        media_source
+                                        and hasattr(media_source, "isMediaPresent")
+                                        and not media_source.isMediaPresent()
+                                    ):
+                                        versions_to_remove.append(version)
+                            except:
+                                pass
+
+                if versions_to_remove:
+                    # Remove offline versions
+                    removed_count = 0
+                    for version in versions_to_remove:
+                        try:
+                            main_bin_item.removeVersion(version)
+                            removed_count += 1
+                        except:
+                            pass
+
+                    remaining = total_versions - removed_count
+                    debug_print(
+                        f"🗑️  {main_bin_item.name()} ({file_type}): Eliminadas {removed_count} offline, conservadas {remaining} online"
+                    )
+                    total_versions_removed += removed_count
+                else:
+                    debug_print(
+                        f"✅ {main_bin_item.name()} ({file_type}): {total_versions} versiones - No hay offline para eliminar"
+                    )
+
+            total_processed += 1
+
+        except Exception as e:
+            debug_print(f"❌ Error procesando {main_bin_item.name()}: {e}")
+            total_processed += 1
+
+    # Final summary
+    debug_print(f"\n📊 LIMPIEZA COMPLETADA - TODO EL PROYECTO:")
+    debug_print(f"   • BinItems procesados: {total_processed}")
+    debug_print(f"   • Versiones offline eliminadas: {total_versions_removed}")
+    debug_print(f"   • Proyecto optimizado ✅")
+
+
+# Execute the cleaning
 if __name__ == "__main__":
-    main()
+    cleanOfflineVersions()

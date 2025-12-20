@@ -470,11 +470,14 @@ def purge_unused_clips():
 
 ### **SCRIPTS DE PRODUCCIÓN DISPONIBLES:**
 
-**Para limpiar versiones offline:**
+**Script Principal Integrado:**
+- `LGA_NKS_CleanProject.py` - **Script completo v2.0** que ejecuta ambos objetivos automáticamente
+
+**Scripts Individuales - Limpieza de Versiones Offline:**
 - `explore_versions_and_clean_UNCLIP.py` - Clip específico
 - `explore_versions_and_clean_Todos.py` - Todo el proyecto
 
-**Para eliminar clips no utilizados:**
+**Scripts Individuales - Eliminación de Clips No Utilizados:**
 - `explore_Unused_Clips_and_clean_UNCLIP.py` - Clip específico
 - `explore_Unused_Clips_and_clean_TODOS.py` - Todo el proyecto
 

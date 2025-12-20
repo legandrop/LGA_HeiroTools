@@ -7,7 +7,8 @@ Eliminar automáticamente todos los clips que **NO estén siendo usados en ningu
 - ✅ Clips de cualquier formato (.exr, .mov, .nk, etc.)
 - ✅ Clips .nk (composiciones de Nuke) - **detectados por separado**
 - ✅ Eliminación completa del BinItem (no solo versiones)
-- ✅ **Scripts de producción:** `explore_Unused_Clips_and_clean_UNCLIP.py` y `explore_Unused_Clips_and_clean_TODOS.py`
+- ✅ **Script principal integrado:** `LGA_NKS_CleanProject.py` (v2.0)
+- ✅ **Scripts individuales:** `explore_Unused_Clips_and_clean_UNCLIP.py` y `_TODOS.py`
 - ✅ **Protección anti-secuencias:** Lista negra de secuencias conocidas implementada
 
 ### **2. Limpieza de Versiones Offline** ✅ **COMPLETADO**
