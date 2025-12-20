@@ -1,9 +1,12 @@
 """
 _________________________________________
 
-  LGA_EditToolsPanel v2.94 | Lega
+  LGA_EditToolsPanel v2.95 | Lega
   Tools panel for Hiero / Nuke Studio
 
+  v2.95: Reorganización de scripts - Movidos 7 scripts de edición desde LGA_NKS/
+         a LGA_NKS_Edit/ para mejor organización: FixColorspaces, CreateNewTrack,
+         Trim_In, Trim_Out, Reconnect, SelfReplaceClip, mediaMissingFrames
   v2.94: Clean Project mejora borrado de clips con múltiples BinItems y logs numerados
   v2.93: Agregado botón "Compositing Log | Clip" que cambia el color transform
          de los clips seleccionados a compositing_log
