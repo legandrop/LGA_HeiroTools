@@ -1,12 +1,9 @@
-# Version Cleaner - Dynamic clip processing
-# Detects online/offline versions and safely removes offline ones
+# Version Cleaner - Process ALL clips in project
+# Detects online/offline versions and safely removes offline ones from ALL BinItems
 
 import hiero
 import hiero.core.find_items
 import os
-
-# CONFIGURATION - Change this variable to process different clips
-TARGET_CLIP_NAME = "PHLDA_013_050_Chroma_AutoDia_comp"  # Change this to any clip name
 
 
 def cleanOfflineVersions():
@@ -18,197 +15,162 @@ def cleanOfflineVersions():
         return
 
     proj = projects[0]
-    print(f"CLEANING OFFLINE VERSIONS in project: {proj.name()}")
-    print(f"Target clip: {TARGET_CLIP_NAME}")
-    print("=" * 80)
+    print(f"🧽 LIMPIANDO VERSIONES OFFLINE - TODO EL PROYECTO")
+    print(f"📂 Proyecto: {proj.name()}")
+    print(f"🎯 Procesando TODOS los clips del proyecto")
+    print(f"🔍 Buscando BinItems...")
+    print()
 
-
-    # Find ALL bin items for the target clip (there might be multiple with same name)
-    target_bin_items = []
+    # Find ALL bin items in the project
+    all_bin_items = []
 
     for bin_item in hiero.core.findItems(proj, "BinItems"):
-        if bin_item and hasattr(bin_item, "name") and bin_item.name() == TARGET_CLIP_NAME:
+        if bin_item and hasattr(bin_item, "name"):
             if hasattr(bin_item, "items"):
                 try:
                     versions = bin_item.items()
-                    if len(versions) >= 1:  # Allow single versions too
-                        target_bin_items.append(bin_item)
+                    if len(versions) >= 1:  # Only process BinItems that have versions
+                        all_bin_items.append(bin_item)
                 except:
                     pass
 
-    if not target_bin_items:
-        print(f"ERROR: No BinItems '{TARGET_CLIP_NAME}' found or have no versions")
+    if not all_bin_items:
+        print(f"⚠️ No se encontraron BinItems con versiones en el proyecto")
         return
 
-    print(f"Found {len(target_bin_items)} BinItem(s) with name '{TARGET_CLIP_NAME}'")
+    print(f"📋 Encontrados {len(all_bin_items)} BinItem(s) para procesar:")
     print()
 
     # Process each BinItem found
     total_processed = 0
     total_versions_removed = 0
 
-    for bin_item_index, main_bin_item in enumerate(target_bin_items):
-        print(f"{'='*60}")
-        print(f"PROCESSING BINITEM {bin_item_index + 1}/{len(target_bin_items)}")
-        print(f"{'='*60}")
-
-        print(f"BinItem: {main_bin_item.name()}")
-        try:
-            total_versions = len(main_bin_item.items())
-            print(f"Total versions: {total_versions}")
-        except:
-            print("Total versions: Unknown")
-
-        # Get active version
-        active_version = None
-        try:
-            active_version = main_bin_item.activeVersion()
-        except:
-            pass
-
-        active_name = active_version.name() if active_version and hasattr(active_version, 'name') else 'unknown'
-        print(f"Active version: {active_name}")
-        print()
-
-        # Check each version's file existence and categorize
+    for bin_item_index, main_bin_item in enumerate(all_bin_items):
         try:
             versions = main_bin_item.items()
-            online_versions = []
-            offline_versions = []
-            versions_to_remove = []
+            total_versions = len(versions)
 
-            print("DETECTING VERSION STATUS:")
-            print("-" * 40)
+            # Quick analysis without verbose logging
+            online_count = 0
+            offline_count = 0
+            offline_to_remove = 0
+
+            # Get active version
+            active_version = None
+            try:
+                active_version = main_bin_item.activeVersion()
+            except:
+                pass
+
+            bin_item_name = main_bin_item.name()
 
             for version in versions:
-                if hasattr(version, "name"):
-                    version_name = version.name()
-
-                    # Skip if not matching our target clip pattern
-                    if not version_name.startswith(TARGET_CLIP_NAME):
-                        continue
-
+                if hasattr(version, "name") and version.name().startswith(bin_item_name):
                     # Check if this version is active
-                    is_active = (active_version and version == active_version)
+                    is_active = active_version and version == active_version
 
-                    # USE HIERO'S NATIVE API: Check mediaSource for each version
-                    status = "UNKNOWN"
-                    details = ""
-
+                    # Check online/offline status
                     try:
-                        # METHOD 1: Access mediaSource through version.item()
                         if hasattr(version, "item"):
                             clip_item = version.item()
                             if clip_item and hasattr(clip_item, "mediaSource"):
                                 media_source = clip_item.mediaSource()
-                                if media_source and hasattr(media_source, "isMediaPresent"):
-                                    # Check if media is present using Hiero's native API
+                                if media_source and hasattr(
+                                    media_source, "isMediaPresent"
+                                ):
                                     if media_source.isMediaPresent():
-                                        status = "ONLINE"
-                                        details = "Media present (Hiero API)"
+                                        online_count += 1
                                     else:
-                                        status = "OFFLINE"
-                                        details = "Media not present (Hiero API)"
+                                        offline_count += 1
+                                        if not is_active:
+                                            offline_to_remove += 1
+                    except:
+                        offline_count += 1
 
-                                    # Additional info from Hiero
-                                    if hasattr(media_source, "isOffline"):
-                                        is_offline = media_source.isOffline()
-                                        details += f" | isOffline: {is_offline}"
+            # Determine file type from first version path
+            file_type = "unknown"
+            try:
+                if versions and hasattr(versions[0], "item"):
+                    clip_item = versions[0].item()
+                    if hasattr(clip_item, "mediaSource"):
+                        media_source = clip_item.mediaSource()
+                        if (
+                            hasattr(media_source, "fileinfos")
+                            and media_source.fileinfos()
+                        ):
+                            file_info = media_source.fileinfos()[0]
+                            if hasattr(file_info, "filename"):
+                                path = file_info.filename()
+                                if path.endswith(".nk"):
+                                    file_type = ".nk"
+                                elif path.endswith(".exr"):
+                                    file_type = ".exr"
+                                elif path.endswith(".mov"):
+                                    file_type = ".mov"
+            except:
+                pass
 
-                                    # Try to get file path if available
-                                    if (
-                                        hasattr(media_source, "fileinfos")
-                                        and media_source.fileinfos()
-                                    ):
-                                        try:
-                                            file_info = media_source.fileinfos()[0]
-                                            if hasattr(file_info, "filename"):
-                                                details += f" | Path: {file_info.filename()}"
-                                        except:
-                                            pass
-                                else:
-                                    status = "OFFLINE"
-                                    details = "No MediaSource disponible"
-                            else:
-                                status = "OFFLINE"
-                                details = "No clip item disponible"
-                        else:
-                            status = "OFFLINE"
-                            details = "No item() method disponible"
-
-                    except Exception as e:
-                        status = f"ERROR: {e}"
-                        details = "Exception occurred"
-
-                    # Categorize versions
-                    if status == "ONLINE" or status == "ONLINE (fallback)":
-                        online_versions.append(version_name)
-                        print(f"  {version_name}: ONLINE - {details}")
-                    elif status == "OFFLINE" or status == "OFFLINE (fallback)":
-                        offline_versions.append(version_name)
-                        # Only add to removal list if not active
-                        if not is_active:
-                            versions_to_remove.append((version_name, version, details))
-                        print(f"  {version_name}: OFFLINE - {details}")
-                    else:
-                        print(f"  {version_name}: {status} - {details}")
-
-            print()
-            print(f"ONLINE versions ({len(online_versions)}): {online_versions}")
-            print(f"OFFLINE versions ({len(offline_versions)}): {offline_versions}")
-            print(f"Versions to remove ({len(versions_to_remove)}): {[v[0] for v in versions_to_remove]}")
-            print()
-
-            # Safety check - ensure we keep at least one online version
-            if len(online_versions) == 0:
-                print("ERROR: No online versions found! Aborting to prevent breaking the clip.")
-                continue
-
-            if len(online_versions) == 1 and active_version and active_version.name() in offline_versions:
-                print("ERROR: Active version is offline and it's the only online version! Aborting.")
-                continue
-
-            # Proceed with removal
-            if versions_to_remove:
-                print("REMOVING OFFLINE VERSIONS:")
-                print("-" * 40)
-
-                removed_count = 0
-                for version_name, version, details in versions_to_remove:
-                    try:
-                        main_bin_item.removeVersion(version)
-                        print(f"  ✓ Removed: {version_name}")
-                        removed_count += 1
-                    except Exception as e:
-                        print(f"  ✗ Failed to remove {version_name}: {e}")
-
-                print(f"\nREMOVAL COMPLETE: {removed_count}/{len(versions_to_remove)} versions removed")
-                total_versions_removed += removed_count
-
-                # Verify remaining versions
-                try:
-                    remaining_versions = main_bin_item.items()
-                    remaining_filtered = [v.name() for v in remaining_versions if hasattr(v, 'name') and v.name().startswith(TARGET_CLIP_NAME)]
-                    print(f"Remaining versions: {len(remaining_filtered)}")
-                    for v_name in sorted(remaining_filtered):
-                        print(f"  * {v_name}")
-                except Exception as e:
-                    print(f"Error verifying remaining versions: {e}")
+            # Process based on conditions
+            if total_versions <= 1:
+                print(
+                    f"⏭️  {main_bin_item.name()} ({file_type}): 1 versión - No procesado"
+                )
+            elif online_count == 0:
+                print(
+                    f"⚠️  {main_bin_item.name()} ({file_type}): {total_versions} versiones offline - No procesado (todas offline)"
+                )
             else:
-                print("No offline versions to remove.")
+                # Safe to remove offline versions
+                versions_to_remove = []
+                for version in versions:
+                    if hasattr(version, "name") and version.name().startswith(bin_item_name):
+                        is_active = active_version and version == active_version
+                        if not is_active:
+                            try:
+                                clip_item = version.item()
+                                if clip_item and hasattr(clip_item, "mediaSource"):
+                                    media_source = clip_item.mediaSource()
+                                    if (
+                                        media_source
+                                        and hasattr(media_source, "isMediaPresent")
+                                        and not media_source.isMediaPresent()
+                                    ):
+                                        versions_to_remove.append(version)
+                            except:
+                                pass
+
+                if versions_to_remove:
+                    # Remove offline versions
+                    removed_count = 0
+                    for version in versions_to_remove:
+                        try:
+                            main_bin_item.removeVersion(version)
+                            removed_count += 1
+                        except:
+                            pass
+
+                    remaining = total_versions - removed_count
+                    print(
+                        f"🗑️  {main_bin_item.name()} ({file_type}): Eliminadas {removed_count} offline, conservadas {remaining} online"
+                    )
+                    total_versions_removed += removed_count
+                else:
+                    print(
+                        f"✅ {main_bin_item.name()} ({file_type}): {total_versions} versiones - No hay offline para eliminar"
+                    )
 
             total_processed += 1
-            print()
 
         except Exception as e:
-            print(f"ERROR during processing: {e}")
+            print(f"❌ Error procesando {main_bin_item.name()}: {e}")
+            total_processed += 1
 
     # Final summary
-    print(f"{'='*80}")
-    print("SUMMARY - ALL BINITEMS PROCESSED")
-    print(f"{'='*80}")
-    print(f"BinItems processed: {total_processed}")
-    print(f"Total versions removed: {total_versions_removed}")
+    print(f"\n📊 LIMPIEZA COMPLETADA - TODO EL PROYECTO:")
+    print(f"   • BinItems procesados: {total_processed}")
+    print(f"   • Versiones offline eliminadas: {total_versions_removed}")
+    print(f"   • Proyecto optimizado ✅")
+
 
 # Execute the cleaning
 if __name__ == "__main__":

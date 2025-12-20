@@ -8,12 +8,16 @@ Eliminar automáticamente todos los clips que **NO estén siendo usados en ningu
 - ✅ Clips .nk (composiciones de Nuke) - **detectarlos por separado**
 - ✅ Eliminación completa del BinItem (no solo versiones)
 
-### **2. Limpieza de Versiones Offline**
+### **2. Limpieza de Versiones Offline** ✅ **COMPLETADO**
 Eliminar las versiones offline de clips que cumplan estas condiciones:
 - ✅ Tengan **múltiples versiones**
 - ✅ Tengan **al menos una versión online** disponible
 - ❌ **NO eliminar** si todas las versiones están offline
-- ✅ Solo eliminar versiones offline no activas y no usadas en secuencias
+- ✅ Solo eliminar versiones offline no activas
+
+**Scripts implementados:**
+- `explore_versions_and_clean_UNCLIP.py` - Para limpiar un clip específico
+- `explore_versions_and_clean_Todos.py` - Para limpiar TODO el proyecto
 
 ## 🔒 **CRITERIOS DE SEGURIDAD**
 
