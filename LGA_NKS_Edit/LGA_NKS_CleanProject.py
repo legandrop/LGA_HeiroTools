@@ -1,21 +1,22 @@
 """
 ______________________________________________________________________
 
-  LGA_NKS_CleanProject v2.01 | Sistema de Limpieza Segura de Hiero
+  LGA_NKS_CleanProject v2.02 | Safe Hiero Cleaning System
 
-  Script principal de limpieza automática que combina ambos objetivos:
-  1. Eliminación de clips no utilizados en secuencias
-  2. Limpieza de versiones offline en clips con múltiples versiones
+  Main automatic cleaning script that combines both objectives:
+  1. Removal of unused clips in sequences
+  2. Cleaning of offline versions in clips with multiple versions
 
-  v2.01: Agregado mensaje final al usuario con resumen de limpieza
-         Script principal que integra ambas funcionalidades de limpieza
-         Implementa protección anti-secuencias con lista negra
-         Compatible con todos los formatos (.exr, .mov, .nk)
-         Logging detallado con debug_print para control de salida
-  v2.0: Script principal que integra ambas funcionalidades de limpieza
-        Implementa protección anti-secuencias con lista negra
-        Compatible con todos los formatos (.exr, .mov, .nk)
-        Logging detallado con debug_print para control de salida
+  v2.02: Translation to English
+  v2.01: Added final user message with cleaning summary
+         Main script that integrates both cleaning functionalities
+         Implements anti-sequence protection with blacklist
+         Compatible with all formats (.exr, .mov, .nk)
+         Detailed logging with debug_print for output control
+  v2.0: Main script that integrates both cleaning functionalities
+        Implements anti-sequence protection with blacklist
+        Compatible with all formats (.exr, .mov, .nk)
+        Detailed logging with debug_print for output control
 ______________________________________________________________________
 
 """
@@ -37,9 +38,9 @@ def get_all_sequences(project):
     sequences = []
     try:
         sequences = hiero.core.findItems(project, "Sequences")
-        debug_print(f"📋 Encontradas {len(sequences)} secuencias para verificar uso")
+        debug_print(f"📋 Found {len(sequences)} sequences to verify usage")
     except Exception as e:
-        debug_print(f"⚠️ Error obteniendo secuencias: {e}")
+        debug_print(f"⚠️ Error getting sequences: {e}")
     return sequences
 
 
@@ -111,7 +112,7 @@ def is_bin_item_used_in_sequences(bin_item, sequences):
 
     except Exception as e:
         bin_name = bin_item.name() if hasattr(bin_item, "name") else "unknown"
-        debug_print(f"⚠️ Error verificando uso del BinItem {bin_name}: {e}")
+        debug_print(f"⚠️ Error checking BinItem usage {bin_name}: {e}")
         # En caso de error, ser conservador y asumir que se usa
         return True
 
@@ -123,14 +124,14 @@ def cleanAllUnusedClips():
 
     projects = hiero.core.projects()
     if not projects:
-        debug_print("❌ ERROR: No hay proyecto activo")
+        debug_print("❌ ERROR: No active project")
         return 0, 0, 0
 
     proj = projects[0]
-    debug_print(f"🧹 ELIMINANDO TODOS LOS CLIPS NO UTILIZADOS - OBJETIVO 1")
-    debug_print(f"📂 Proyecto: {proj.name()}")
-    debug_print(f"🎯 Procesando TODOS los clips del proyecto")
-    debug_print(f"📋 Buscando BinItems y verificando uso en secuencias...")
+    debug_print(f"🧹 DELETING ALL UNUSED CLIPS - PART 1")
+    debug_print(f"📂 Project: {proj.name()}")
+    debug_print(f"🎯 Processing ALL project clips")
+    debug_print(f"📋 Finding BinItems and checking usage in sequences...")
     debug_print()
 
     # Obtener todas las secuencias para verificación de uso
@@ -139,12 +140,12 @@ def cleanAllUnusedClips():
     # DEBUG: Mostrar nombres de secuencias y crear lista negra
     known_sequences = set()
     if sequences:
-        debug_print("📋 Nombres de secuencias encontradas (lista negra):")
+        debug_print("📋 Found sequence names (blacklist):")
         for seq in sequences:
             if hasattr(seq, "name"):
                 seq_name = seq.name()
                 known_sequences.add(seq_name)
-                debug_print(f"   • '{seq_name}' → EN LISTA NEGRA")
+                debug_print(f"   • '{seq_name}' → IN BLACKLIST")
         debug_print()
 
     # Find ALL bin items in the project (SOLO BinItems, no Sequences)
@@ -159,11 +160,11 @@ def cleanAllUnusedClips():
                 all_bin_items.append(item)
 
     if not all_bin_items:
-        debug_print(f"❌ No se encontraron BinItems en el proyecto")
+        debug_print(f"❌ No BinItems found in the project")
         return 0, 0, 0
 
     debug_print(
-        f"📋 Encontrados {len(all_bin_items)} BinItem(s) reales en el proyecto (excluyendo {len(known_sequences)} secuencias):"
+        f"📋 Found {len(all_bin_items)} real BinItem(s) in the project (excluding {len(known_sequences)} sequences):"
     )
     debug_print()
 
@@ -205,7 +206,7 @@ def cleanAllUnusedClips():
             is_used = is_bin_item_used_in_sequences(bin_item, sequences)
 
             if is_used:
-                debug_print(f"✅ {bin_name} ({file_type}): CONSERVADO (usado en secuencias)")
+                debug_print(f"✅ {bin_name} ({file_type}): KEPT (used in sequences)")
                 used_clips += 1
             else:
                 # ELIMINAR CLIP NO UTILIZADO
@@ -223,29 +224,29 @@ def cleanAllUnusedClips():
                     if parent_bin:
                         parent_bin.removeItem(bin_item)
                         debug_print(
-                            f"🗑️  {bin_name} ({file_type}): ELIMINADO (no usado en secuencias)"
+                            f"🗑️  {bin_name} ({file_type}): DELETED (not used in sequences)"
                         )
                         deleted_clips += 1
                     else:
                         debug_print(
-                            f"⚠️  {bin_name} ({file_type}): No se pudo eliminar (contenedor no encontrado)"
+                            f"⚠️  {bin_name} ({file_type}): Could not delete (container not found)"
                         )
 
                 except Exception as e:
-                    debug_print(f"❌ {bin_name} ({file_type}): Error eliminando - {e}")
+                    debug_print(f"❌ {bin_name} ({file_type}): Error deleting - {e}")
 
             total_processed += 1
 
         except Exception as e:
-            debug_print(f"❌ Error procesando {bin_item.name()}: {e}")
+            debug_print(f"❌ Error processing {bin_item.name()}: {e}")
             total_processed += 1
 
     # Final summary
-    debug_print(f"\n📊 LIMPIEZA COMPLETADA - OBJETIVO 1:")
-    debug_print(f"   • BinItems procesados: {total_processed}")
-    debug_print(f"   • Clips conservados: {used_clips}")
-    debug_print(f"   • Clips eliminados: {deleted_clips}")
-    debug_print(f"\n✅ Proyecto optimizado - Clips no utilizados eliminados")
+    debug_print(f"\n📊 CLEANING COMPLETED - PART 1:")
+    debug_print(f"   • BinItems processed: {total_processed}")
+    debug_print(f"   • Clips kept: {used_clips}")
+    debug_print(f"   • Clips deleted: {deleted_clips}")
+    debug_print(f"\n✅ Project optimized - Unused clips removed")
 
     return total_processed, used_clips, deleted_clips
 
@@ -267,10 +268,10 @@ def cleanOfflineVersions():
         return 0, 0
 
     proj = projects[0]
-    debug_print(f"🧽 LIMPIANDO VERSIONES OFFLINE - TODO EL PROYECTO")
-    debug_print(f"📂 Proyecto: {proj.name()}")
-    debug_print(f"🎯 Procesando TODOS los clips del proyecto")
-    debug_print(f"🔍 Buscando BinItems...")
+    debug_print(f"🧽 CLEANING OFFLINE VERSIONS - ENTIRE PROJECT")
+    debug_print(f"📂 Project: {proj.name()}")
+    debug_print(f"🎯 Processing ALL project clips")
+    debug_print(f"🔍 Finding BinItems...")
     debug_print()
 
     # Find ALL bin items in the project
@@ -287,10 +288,10 @@ def cleanOfflineVersions():
                     pass
 
     if not all_bin_items:
-        debug_print(f"⚠️ No se encontraron BinItems con versiones en el proyecto")
+        debug_print(f"⚠️ No BinItems with versions found in the project")
         return 0, 0
 
-    debug_print(f"📋 Encontrados {len(all_bin_items)} BinItem(s) para procesar:")
+    debug_print(f"📋 Found {len(all_bin_items)} BinItem(s) to process:")
     debug_print()
 
     # Process each BinItem found
@@ -367,11 +368,11 @@ def cleanOfflineVersions():
             # Process based on conditions
             if total_versions <= 1:
                 debug_print(
-                    f"⏭️  {main_bin_item.name()} ({file_type}): 1 versión - No procesado"
+                    f"⏭️  {main_bin_item.name()} ({file_type}): 1 version - Not processed"
                 )
             elif online_count == 0:
                 debug_print(
-                    f"⚠️  {main_bin_item.name()} ({file_type}): {total_versions} versiones offline - No procesado (todas offline)"
+                    f"⚠️  {main_bin_item.name()} ({file_type}): {total_versions} offline versions - Not processed (all offline)"
                 )
             else:
                 # Safe to remove offline versions
@@ -407,25 +408,25 @@ def cleanOfflineVersions():
 
                     remaining = total_versions - removed_count
                     debug_print(
-                        f"🗑️  {main_bin_item.name()} ({file_type}): Eliminadas {removed_count} offline, conservadas {remaining} online"
+                        f"🗑️  {main_bin_item.name()} ({file_type}): Removed {removed_count} offline, kept {remaining} online"
                     )
                     total_versions_removed += removed_count
                 else:
                     debug_print(
-                        f"✅ {main_bin_item.name()} ({file_type}): {total_versions} versiones - No hay offline para eliminar"
+                        f"✅ {main_bin_item.name()} ({file_type}): {total_versions} versions - No offline to remove"
                     )
 
             total_processed += 1
 
         except Exception as e:
-            debug_print(f"❌ Error procesando {main_bin_item.name()}: {e}")
+            debug_print(f"❌ Error processing {main_bin_item.name()}: {e}")
             total_processed += 1
 
     # Final summary
-    debug_print(f"\n📊 LIMPIEZA COMPLETADA - TODO EL PROYECTO:")
-    debug_print(f"   • BinItems procesados: {total_processed}")
-    debug_print(f"   • Versiones offline eliminadas: {total_versions_removed}")
-    debug_print(f"   • Proyecto optimizado ✅")
+    debug_print(f"\ CLEANING COMPLETED - ENTIRE PROJECT:")
+    debug_print(f"   • BinItems processed: {total_processed}")
+    debug_print(f"   • Offline versions removed: {total_versions_removed}")
+    debug_print(f"   • Project optimized ✅")
 
     return total_processed, total_versions_removed
 
@@ -433,7 +434,7 @@ def cleanOfflineVersions():
 def cleanProjectComplete():
     """Ejecuta la limpieza completa del proyecto: clips no utilizados + versiones offline"""
 
-    debug_print("🚀 INICIANDO LIMPIEZA COMPLETA DEL PROYECTO")
+    debug_print("🚀 STARTING COMPLETE PROJECT CLEANING")
     debug_print("=" * 60)
 
     # Ejecutar limpieza de clips no utilizados
@@ -448,21 +449,21 @@ def cleanProjectComplete():
 
     debug_print()
     debug_print("=" * 60)
-    debug_print("🎉 LIMPIEZA COMPLETA FINALIZADA")
+    debug_print("🎉 COMPLETE CLEANING FINISHED")
     debug_print()
 
-    # Mostrar mensaje al usuario con resultados
-    message = f"""🧹 LIMPIEZA COMPLETA DEL PROYECTO FINALIZADA
+    # Show results message to user
+    message = f"""COMPLETE PROJECT CLEANING FINISHED
 
-📊 RESULTADOS:
+RESULTS:
 
-• Clips procesados: {processed_clips}
-• Clips eliminados (no utilizados): {deleted_clips}
+• Clips processed: {processed_clips}
+• Clips deleted (unused): {deleted_clips}
 
-• BinItems procesados (versiones): {processed_versions}
-• Versiones offline eliminadas: {deleted_versions}
+• BinItems processed (versions): {processed_versions}
+• Offline versions removed: {deleted_versions}
 
-✅ Proyecto optimizado exitosamente"""
+✅ Project successfully optimized"""
 
     try:
         nuke.message(message)
