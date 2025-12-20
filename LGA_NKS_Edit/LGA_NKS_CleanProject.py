@@ -246,7 +246,7 @@ def cleanAllUnusedClips():
     debug_print(f"   • BinItems processed: {total_processed}")
     debug_print(f"   • Clips kept: {used_clips}")
     debug_print(f"   • Clips deleted: {deleted_clips}")
-    debug_print(f"\n✅ Project optimized - Unused clips removed")
+    debug_print(f"\n✅ Project cleaned - Unused clips removed")
 
     return total_processed, used_clips, deleted_clips
 
@@ -426,12 +426,12 @@ def cleanOfflineVersions():
     debug_print(f"\ CLEANING COMPLETED - ENTIRE PROJECT:")
     debug_print(f"   • BinItems processed: {total_processed}")
     debug_print(f"   • Offline versions removed: {total_versions_removed}")
-    debug_print(f"   • Project optimized ✅")
+    debug_print(f"   • Project cleaned ✅")
 
     return total_processed, total_versions_removed
 
 
-def cleanProjectComplete():
+def main():
     """Ejecuta la limpieza completa del proyecto: clips no utilizados + versiones offline"""
 
     debug_print("🚀 STARTING COMPLETE PROJECT CLEANING")
@@ -463,7 +463,7 @@ RESULTS:
 • BinItems processed (versions): {processed_versions}
 • Offline versions removed: {deleted_versions}
 
-✅ Project successfully optimized"""
+✅ Project successfully cleaned"""
 
     try:
         nuke.message(message)
@@ -474,4 +474,4 @@ RESULTS:
 
 # Execute the cleaning
 if __name__ == "__main__":
-    cleanProjectComplete()
+    main()
