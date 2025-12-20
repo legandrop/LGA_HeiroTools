@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_GetClip v1.8 | Lega
+  LGA_NKS_GetClip v1.81 | Lega
   Utilidades para obtener clips del timeline de Hiero/Nuke Studio
 
   Método híbrido inteligente completo:
@@ -15,6 +15,8 @@ ________________________________________________________________________________
   5. Intenta obtener el clip del track especificado en la posición del playhead
   6. Si no encuentra, usa el clip seleccionado como fallback
 
+
+  v1.81 - flag _SHOW_WARNINGS para desactivar/activar las advertencias por defecto
   v1.8 - EXCEPCIÓN PLAYHEAD: Nueva función is_clip_at_playhead() detecta cuando un clip seleccionado
          está bajo el playhead. En este caso, no muestra advertencia pero mantiene la selección del track
          objetivo. Mensajes de advertencia usan color cyan #6AB5CA (consistente con Create Shot).
@@ -40,6 +42,9 @@ import hiero.ui
 
 # Control interno del debug para este módulo (no se puede sobrescribir desde fuera)
 _GETCLIP_DEBUG_ENABLED = True
+
+# Control de advertencias del módulo (False = nunca mostrar advertencias)
+_SHOW_WARNINGS = False
 
 
 def debug_print(*message):
@@ -421,21 +426,22 @@ def get_clip_to_process(track_name=None, prioritize_multiple_selection=False):
                 else:
                     # 2c: Los shots no coinciden y el clip seleccionado no está bajo playhead, mostrar mensaje informativo
                     debug_print(f"Shots diferentes - seleccionado: {selected_shot}, playhead: {playhead_shot}")
-                    from PySide2.QtWidgets import QMessageBox
-                    from PySide2.QtCore import Qt
+                    if _SHOW_WARNINGS:
+                        from PySide2.QtWidgets import QMessageBox
+                        from PySide2.QtCore import Qt
 
-                    msg_box = QMessageBox()
-                    msg_box.setIcon(QMessageBox.Warning)
-                    msg_box.setWindowTitle("Shots diferentes")
-                    msg_box.setTextFormat(Qt.RichText)
-                    msg_box.setText(
-                        f"El clip seleccionado pertenece al shot<br>"
-                        f"<font color=\"#6AB5CA\">{selected_shot}</font>,<br>"
-                        f"pero el playhead está posicionado sobre el shot<br>"
-                        f"<font color=\"#6AB5CA\">{playhead_shot}</font> (del track '{track_name}')<br><br>"
-                        f"Se usará el clip del track '{track_name}' (playhead)."
-                    )
-                    msg_box.exec_()
+                        msg_box = QMessageBox()
+                        msg_box.setIcon(QMessageBox.Warning)
+                        msg_box.setWindowTitle("Shots diferentes")
+                        msg_box.setTextFormat(Qt.RichText)
+                        msg_box.setText(
+                            f"El clip seleccionado pertenece al shot<br>"
+                            f"<font color=\"#6AB5CA\">{selected_shot}</font>,<br>"
+                            f"pero el playhead está posicionado sobre el shot<br>"
+                            f"<font color=\"#6AB5CA\">{playhead_shot}</font> (del track '{track_name}')<br><br>"
+                            f"Se usará el clip del track '{track_name}' (playhead)."
+                        )
+                        msg_box.exec_()
                     if prioritize_multiple_selection:
                         return [playhead_clip]  # Devolver como lista
                     else:
@@ -487,14 +493,15 @@ def get_clip_to_process(track_name=None, prioritize_multiple_selection=False):
             else:
                 # 2c: Los shots no coinciden, mostrar mensaje informativo
                 debug_print(f"Shots diferentes - seleccionado: {selected_shot}, playhead: {playhead_shot}")
-                from PySide2.QtWidgets import QMessageBox
-                QMessageBox.warning(
-                    None,
-                    "Shots diferentes",
-                    f"El clip seleccionado pertenece al shot '{selected_shot}',\n"
-                    f"pero el playhead está posicionado sobre el shot '{playhead_shot}' en el track '{track_name}'.\n\n"
-                    f"Se usará el clip del track '{track_name}' (playhead)."
-                )
+                if _SHOW_WARNINGS:
+                    from PySide2.QtWidgets import QMessageBox
+                    QMessageBox.warning(
+                        None,
+                        "Shots diferentes",
+                        f"El clip seleccionado pertenece al shot '{selected_shot}',\n"
+                        f"pero el playhead está posicionado sobre el shot '{playhead_shot}' en el track '{track_name}'.\n\n"
+                        f"Se usará el clip del track '{track_name}' (playhead)."
+                    )
                 intelligent_selection_applied = True  # También resuelve automáticamente
                 if prioritize_multiple_selection:
                     return [playhead_clip]  # Devolver como lista
@@ -511,7 +518,7 @@ def get_clip_to_process(track_name=None, prioritize_multiple_selection=False):
 
     # Verificar si hay clips seleccionados en otros tracks y mostrar advertencia
     # (solo si la lógica inteligente no resolvió el problema automáticamente)
-    if not intelligent_selection_applied and len(all_selected_clips) > len(selected_clips_in_track):
+    if not intelligent_selection_applied and len(all_selected_clips) > len(selected_clips_in_track) and _SHOW_WARNINGS:
         clips_in_other_tracks = len(all_selected_clips) - len(selected_clips_in_track)
         from PySide2.QtWidgets import QMessageBox
         QMessageBox.information(
