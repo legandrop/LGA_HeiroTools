@@ -154,7 +154,12 @@ Los scripts ejecutan comandos CLI reales de FileManager:
 - **Producción**: `C:\Portable\LGA\FileManager\FileManager.exe`
 - **Desarrollo**: `C:\Portable\LGA_FileManager\build\FileManager.exe` (cuando `Desarrollo = True`)
 
-Los scripts incluyen una variable `Desarrollo = True` para alternar entre rutas.
+**Lógica de selección automática**:
+- Si `Desarrollo = True` y el archivo existe en la carpeta build → usa desarrollo
+- Si `Desarrollo = True` pero el archivo NO existe → usa producción como fallback
+- Si `Desarrollo = False` → usa producción
+
+Los scripts incluyen una variable `Desarrollo = True` para alternar entre rutas con verificación automática.
 
 Los comandos se ejecutan de forma asíncrona (subprocess.Popen) para no bloquear la interfaz de Hiero/Nuke Studio.
 

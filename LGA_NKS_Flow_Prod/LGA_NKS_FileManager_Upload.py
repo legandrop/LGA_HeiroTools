@@ -4,7 +4,7 @@ ________________________________________________________________________________
   LGA_NKS_FileManager_Upload v1.0 | Lega
   Sube el shot seleccionado a Wasabi S3 usando FileManager CLI
   Extrae la ruta del shot tomando las primeras 4 partes: unidad/proyecto/grupo/shot
-  Soporta modo desarrollo con variable Desarrollo = True
+  Soporta modo desarrollo con variable Desarrollo = True y verificación automática
 ____________________________________________________________________________________
 """
 
@@ -21,7 +21,7 @@ if utils_path.exists():
     import LGA_NKS_GetClip as clip_utils
 
 # Variable global para activar o desactivar los prints
-DEBUG = True
+DEBUG = False
 
 # Variable de desarrollo para cambiar la ruta del ejecutable
 Desarrollo = True
@@ -71,7 +71,13 @@ def main():
 
             # Ejecutar FileManager con --upload
             if Desarrollo:
-                filemanager_exe = r"C:\Portable\LGA_FileManager\build\FileManager.exe"
+                dev_exe = r"C:\Portable\LGA_FileManager\build\FileManager.exe"
+                if os.path.exists(dev_exe):
+                    filemanager_exe = dev_exe
+                    debug_print("Usando versión de desarrollo")
+                else:
+                    filemanager_exe = r"C:\Portable\LGA\FileManager\FileManager.exe"
+                    debug_print("Versión de desarrollo no encontrada, usando producción")
             else:
                 filemanager_exe = r"C:\Portable\LGA\FileManager\FileManager.exe"
             cmd = [filemanager_exe, "--upload", shot_path]
