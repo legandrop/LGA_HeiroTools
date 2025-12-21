@@ -1,15 +1,25 @@
 """
-_______________________
+_________________________
 
-  LGA_colorPanel v1.8 | Lega
-_______________________
+  LGA_colorPanel v1.9 | Lega
+  Actualizado para usar estilos dinámicos con bordes y hover
+_________________________
 """
 
 
 import hiero.ui
 import hiero.core
+import sys
+import os
 from PySide2.QtWidgets import QWidget, QPushButton, QGridLayout, QSpacerItem, QSizePolicy
 from PySide2.QtGui import QColor
+
+# Importar funciones de utilidad de estilos
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Utils"))
+from LGA_NKS_StyleUtils import (
+    calculate_dynamic_border,
+    calculate_dynamic_hover
+)
 
 class ColorChangeWidget(QWidget):
     def __init__(self):
@@ -19,6 +29,7 @@ class ColorChangeWidget(QWidget):
         self.setWindowTitle("ClipColor")
 
         self.layout = QGridLayout()  # Usamos QGridLayout
+        self.layout.setSpacing(6)  # Reducir espacio entre botones
         self.setLayout(self.layout)
 
         # Crear botones y agregarlos al layout con coordenadas especificas
@@ -27,7 +38,10 @@ class ColorChangeWidget(QWidget):
             ("Plate", QColor(66, 97, 109), "#42616d"),
             ("EditRef", QColor(170, 158, 84), "#aa9e54"),
             ("Reference", QColor(128, 83, 61), "#80533d"),
-            ("Error", QColor(194, 82, 82), "#c25252")
+            ("Error", QColor(194, 82, 82), "#c25252"),
+            ("Violet", QColor(132, 11, 212), "#840bd4"),
+            ("Magenta", QColor(209, 59, 255), "#d13bff"),
+            ("Cyan", QColor(77, 162, 202), "#4da2ca"),
         ]
         
         self.num_columns = 1  # Inicialmente una columna
@@ -39,8 +53,29 @@ class ColorChangeWidget(QWidget):
 
     def create_buttons(self):
         for index, (name, color, style) in enumerate(self.buttons):
+            # Aplicar estilos dinámicos con bordes y hover
+            border_color = calculate_dynamic_border(style)
+            hover_color = calculate_dynamic_hover(style)
+
+            button_stylesheet = f"""
+                QPushButton {{
+                    background-color: {style};
+                    border: 1px solid {border_color};
+                    border-radius: 3px;
+                    color: #d8d8d8;
+                    padding: 0px 0px;
+                    min-height: 24px;
+                }}
+                QPushButton:hover {{
+                    background-color: {hover_color};
+                }}
+                QPushButton:pressed {{
+                    background-color: {style}aa;
+                }}
+            """
+
             button = QPushButton(name)
-            button.setStyleSheet(f"background-color: {style}")
+            button.setStyleSheet(button_stylesheet)
             button.clicked.connect(self.create_button_click_handler(color))
             row = index // self.num_columns
             column = index % self.num_columns

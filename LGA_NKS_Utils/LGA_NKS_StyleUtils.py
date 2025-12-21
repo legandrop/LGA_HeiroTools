@@ -84,6 +84,22 @@ def extract_gradient_colors(gradient_css):
 
 
 # Funciones para estilos dinámicos
+def debug_color_conversion(hex_color):
+    """Función de debug para verificar conversiones de color"""
+    print(f"Input color: {hex_color}")
+    r, g, b = hex_to_rgb(hex_color)
+    print(f"RGB: ({r}, {g}, {b})")
+    h, s, v = rgb_to_hsv(r, g, b)
+    print(f"HSV: ({h:.2f}, {s:.2f}, {v:.2f})")
+
+    # Aumentar value
+    new_v = min(100, v + 20)
+    print(f"New V: {new_v:.2f}")
+    new_r, new_g, new_b = hsv_to_rgb(h, s, new_v)
+    result = rgb_to_hex((new_r, new_g, new_b))
+    print(f"Result color: {result}")
+    return result
+
 def calculate_dynamic_border(style):
     """
     Calcula un color de borde dinámico basado en el estilo del botón.

@@ -189,6 +189,9 @@ class ReviewPanel(QWidget):
                 button.setObjectName(f"button_{index}")  # Para tooltips dinámicos
                 button.setStyleSheet(button_stylesheet)
                 button.clicked.connect(handler)
+                # Asignar tooltip si existe
+                if tooltip:
+                    button.setToolTip(tooltip)
 
             if shortcut:
                 button.setShortcut(shortcut)
