@@ -119,15 +119,15 @@ Los bordes, efectos hover y tooltips se calculan automáticamente para crear jer
 
 ```python
 border_color = calculate_dynamic_border(style)    # +20% brillo
-hover_color = calculate_dynamic_hover(style)      # +35% brillo
+hover_color = calculate_dynamic_hover(style)      # +28% sólidos, +26% gradientes
 tooltip_colors = calculate_dynamic_tooltip(style) # Colores adaptados al botón
 ```
 
 **Jerarquía de brillo:**
 - **Color base**: Color original del botón
 - **Borde**: +20% más brillante que el color base
-- **Hover**: +35% más brillante que el color base (más brillante que el borde)
-- **Tooltip fondo**: -15% brillo del color base (más oscuro para contraste)
+- **Hover**: +28% más brillante que el color base para sólidos, +26% para gradientes (más brillante que el borde)
+- **Tooltip fondo**: -8% brillo del color base (ligeramente más oscuro para contraste)
 - **Pressed**: Más oscuro para efecto de presión
 
 **Tooltips dinámicos:**
@@ -179,7 +179,7 @@ from LGA_NKS_StyleUtils import (
 calculate_dynamic_border("#36166c")  # -> Borde +20% brillo
 calculate_dynamic_border("gradient_magenta_violet")  # -> Borde basado en gradiente
 
-calculate_dynamic_hover("#36166c")  # -> Hover +35% brillo
+calculate_dynamic_hover("#36166c")  # -> Hover +28% brillo
 calculate_dynamic_hover("gradient_magenta_violet")  # -> {'inicio': color, 'fin': color}
 
 calculate_dynamic_tooltip("#36166c")  # -> {'background': color, 'border': color, 'text': color}

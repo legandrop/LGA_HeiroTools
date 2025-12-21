@@ -42,8 +42,8 @@ hover_colors = calculate_dynamic_hover("gradient_magenta_violet")  # Para gradie
 
 - Los cálculos dinámicos mantienen Hue/Saturación y ajustan solo el Value (brillo)
 - Bordes: +20% brillo del color base
-- Hover: +35% brillo del color base (más brillante que bordes)
-- Tooltips: -15% brillo del color base para fondo (más oscuro para contraste)
+- Hover: +28% sólidos, +26% gradientes del color base (más brillante que bordes)
+- Tooltips: -8% brillo del color base para fondo (ligeramente más oscuro para contraste)
 - Para gradientes, usa el color más brillante como base para cálculos
 - Tooltips requieren `objectName` único por botón para estilos específicos
 

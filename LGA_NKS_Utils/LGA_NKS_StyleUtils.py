@@ -143,8 +143,8 @@ def calculate_dynamic_hover(style):
             for color in base_colors:
                 r, g, b = hex_to_rgb(color)
                 h, s, v = rgb_to_hsv(r, g, b)
-                # Aumentar brillo más que el borde (30% en lugar de 20%)
-                new_v = min(100, v + 30)
+                # Aumentar brillo más que el borde (26% en lugar de 20%)
+                new_v = min(100, v + 26)
                 new_r, new_g, new_b = hsv_to_rgb(h, s, new_v)
                 hover_colors.append(rgb_to_hex((new_r, new_g, new_b)))
 
@@ -161,8 +161,8 @@ def calculate_dynamic_hover(style):
         r, g, b = hex_to_rgb(base_color)
         h, s, v = rgb_to_hsv(r, g, b)
 
-        # El borde ya es +20%, el hover será +35% para ser más brillante
-        new_v = min(100, v + 35)
+        # El borde ya es +20%, el hover será +28% para ser más brillante pero no tanto
+        new_v = min(100, v + 28)
 
         new_r, new_g, new_b = hsv_to_rgb(h, s, new_v)
         return rgb_to_hex((new_r, new_g, new_b))
@@ -188,7 +188,7 @@ def calculate_dynamic_tooltip(style):
     h, s, v = rgb_to_hsv(r, g, b)
 
     # Fondo: ligeramente más oscuro que el botón para contraste
-    bg_v = max(10, v - 15)  # Reducir brillo para fondo
+    bg_v = max(10, v - 8)  # Reducir brillo para fondo (menos oscuro)
     bg_r, bg_g, bg_b = hsv_to_rgb(h, s, bg_v)
     background_color = rgb_to_hex((bg_r, bg_g, bg_b))
 
