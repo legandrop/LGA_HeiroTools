@@ -106,6 +106,7 @@ class FlowProdPanel(QWidget):
         self.setObjectName("com.lega.FlowProdPanel")
         self.setWindowTitle("Flow Production")
         self.layout = QGridLayout()
+        self.layout.setSpacing(6)  # Reducir espacio entre botones
         self.setLayout(self.layout)
 
         # Definir los botones fijos y sus colores/estilos
@@ -209,7 +210,8 @@ class FlowProdPanel(QWidget):
                         border: 1px solid {border_color};
                         border-radius: 3px;
                         color: #d8d8d8;
-                        padding: 2px 3px;
+                        padding: 0px 3px;
+                        min-height: 20px;
                     }}
                     QPushButton:hover {{
                         background-color: qlineargradient(
@@ -235,7 +237,8 @@ class FlowProdPanel(QWidget):
                         border: 1px solid {border_color};
                         border-radius: 3px;
                         color: #d8d8d8;
-                        padding: 2px 3px;
+                        padding: 0px 3px;
+                        min-height: 20px;
                     }}
                     QPushButton:hover {{
                         background-color: {hover_color};

@@ -95,6 +95,7 @@ class AssigneePanel(QWidget):
         self.setObjectName("com.lega.FPTAssigneePanel")
         self.setWindowTitle("Assignees")
         self.layout = QGridLayout()
+        self.layout.setSpacing(6)  # Reducir espacio entre botones
         self.setLayout(self.layout)
 
         # Cargar usuarios desde el archivo JSON
@@ -288,7 +289,8 @@ class AssigneePanel(QWidget):
                     border: 1px solid {border_color};
                     border-radius: 3px;
                     color: #d8d8d8;
-                    padding: 2px 3px;
+                    padding: 0px 3px;
+                    min-height: 20px;
                 }}
                 QPushButton:hover {{
                     background-color: {hover_color};
@@ -325,8 +327,8 @@ class AssigneePanel(QWidget):
         # Calcular el numero de filas usadas
         num_rows = (len(self.buttons) + self.num_columns - 1) // self.num_columns
 
-        # Anadir el espaciador vertical al final
-        spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        # Anadir el espaciador vertical al final (espacio reducido entre botones)
+        spacer = QSpacerItem(20, 20, QSizePolicy.Minimum, QSizePolicy.Expanding)
         self.layout.addItem(spacer, num_rows, 0, 1, self.num_columns)
 
     def adjust_columns_on_resize(self, event=None):
