@@ -16,32 +16,67 @@ self.fixed_buttons = [
 ]
 ```
 
-### 2. Sistema de Estilos Unificado
+### 2. Importar Utilidades de Estilos
+Al inicio del archivo del panel, importar las funciones de utilidad:
+
+```python
+# Importar funciones de utilidad de estilos
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Utils"))
+from LGA_NKS_StyleUtils import (
+    calculate_dynamic_border,
+    calculate_dynamic_hover
+)
+```
+
+### 3. Sistema de Estilos Unificado
 En `create_buttons()`, crea lógica condicional para diferentes tipos de estilos:
 
 ```python
 # Determinar el estilo del botón
 if style.startswith("gradient_"):
-    # Aplicar gradientes personalizados
-    button_stylesheet = crear_estilo_gradiente(style)
+    # Aplicar gradientes personalizados con bordes y hover dinámicos
+    border_color = calculate_dynamic_border(style)
+    hover_colors = calculate_dynamic_hover(style)
+    button_stylesheet = f"""
+        QPushButton {{
+            background-color: qlineargradient(
+                x1: 0, y1: 0, x2: 1, y2: 0,
+                stop: 0 #color_inicio,
+                stop: 1 #color_fin
+            );
+            border: 1px solid {border_color};
+            border-radius: 3px;
+            color: #d8d8d8;
+            padding: 5px;
+        }}
+        QPushButton:hover {{
+            background-color: qlineargradient(
+                x1: 0, y1: 0, x2: 1, y2: 0,
+                stop: 0 {hover_colors['inicio']},
+                stop: 1 {hover_colors['fin']}
+            );
+        }}
+    """
 elif style == "style_especial":
     # Estilos especiales
     button_stylesheet = crear_estilo_especial()
 else:
-    # Estilo base para colores sólidos
+    # Estilo base para colores sólidos con bordes y hover dinámicos
+    border_color = calculate_dynamic_border(style)
+    hover_color = calculate_dynamic_hover(style)
     button_stylesheet = f"""
         QPushButton {{
             background-color: {style};
-            border: 1px solid #616161;  # Borde gris para consistencia
+            border: 1px solid {border_color};
             border-radius: 3px;
-            color: #d8d8d8;  # Texto gris claro (no blanco puro)
+            color: #d8d8d8;
             padding: 5px;
         }}
         QPushButton:hover {{
-            background-color: {style}dd;  # Más claro en hover
+            background-color: {hover_color};
         }}
         QPushButton:pressed {{
-            background-color: {style}aa;  # Más oscuro al presionar
+            background-color: {style}aa;
         }}
     """
 ```
@@ -79,27 +114,37 @@ button_stylesheet = """
 - **Bordes Dinámicos**: Calculados automáticamente basados en el color del botón
 - **Estados**: Implementar `:hover` y `:pressed` siempre
 
-#### Bordes y Hover Dinámicos
-Los bordes y efectos hover se calculan automáticamente para crear jerarquía visual:
+#### Bordes, Hover y Tooltips Dinámicos
+Los bordes, efectos hover y tooltips se calculan automáticamente para crear jerarquía visual completa:
 
 ```python
 border_color = calculate_dynamic_border(style)    # +20% brillo
-hover_color = calculate_dynamic_hover(style)      # +35% brillo (gradientes) o +35% (sólidos)
+hover_color = calculate_dynamic_hover(style)      # +35% brillo
+tooltip_colors = calculate_dynamic_tooltip(style) # Colores adaptados al botón
 ```
 
 **Jerarquía de brillo:**
 - **Color base**: Color original del botón
 - **Borde**: +20% más brillante que el color base
 - **Hover**: +35% más brillante que el color base (más brillante que el borde)
+- **Tooltip fondo**: -15% brillo del color base (más oscuro para contraste)
 - **Pressed**: Más oscuro para efecto de presión
+
+**Tooltips dinámicos:**
+- **Fondo**: Basado en el color del botón, ligeramente más oscuro para legibilidad
+- **Borde**: Usa el mismo color de borde dinámico del botón
+- **Texto**: Blanco para máximo contraste
+- **Estilo**: Aplicado individualmente a cada botón
 
 **Para gradientes:**
 - Mantiene la dirección y proporción del gradiente
 - Hace todos los colores del gradiente más brillantes
 - Hover mantiene el efecto de gradiente pero más luminoso
+- Tooltips usan el color más brillante del gradiente como base
 
 **Para colores sólidos:**
 - Hover es un color uniforme más brillante que el borde
+- Tooltips usan el color del botón como base
 
 #### Rendimiento
 - Evitar demasiados gradientes complejos
@@ -110,77 +155,106 @@ hover_color = calculate_dynamic_hover(style)      # +35% brillo (gradientes) o +
 - Documentar identificadores de estilo usados
 - Reinicio de Hiero puede ser necesario para ver cambios
 
-### 5. Funciones de Ayuda Recomendadas
+### 5. Módulo de Utilidades de Estilos
 
-#### Funciones de Utilidad Incluidas
+#### Importación
 ```python
-# Conversión de colores
-hex_to_rgb("#ff0000")  # -> (255, 0, 0)
-rgb_to_hex((255, 0, 0))  # -> "#ff0000"
+# Agregar al path y importar
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Utils"))
+from LGA_NKS_StyleUtils import (
+    calculate_dynamic_border,
+    calculate_dynamic_hover,
+    hex_to_rgb,
+    rgb_to_hex,
+    rgb_to_hsv,
+    hsv_to_rgb,
+    extract_gradient_colors,
+    create_gradient_style
+)
+```
 
-# Espacio de color HSV
-rgb_to_hsv(r, g, b)  # RGB a HSV
-hsv_to_rgb(h, s, v)  # HSV a RGB
-
-# Extracción de gradientes
-extract_gradient_colors("stop: 0 #color1, stop: 1 #color2")  # -> ["#color1", "#color2"]
-
-# Cálculo de bordes y hover dinámicos
+#### Funciones Principales
+```python
+# Cálculo de bordes, hover y tooltips dinámicos
 calculate_dynamic_border("#36166c")  # -> Borde +20% brillo
 calculate_dynamic_border("gradient_magenta_violet")  # -> Borde basado en gradiente
 
 calculate_dynamic_hover("#36166c")  # -> Hover +35% brillo
 calculate_dynamic_hover("gradient_magenta_violet")  # -> {'inicio': color, 'fin': color}
+
+calculate_dynamic_tooltip("#36166c")  # -> {'background': color, 'border': color, 'text': color}
+calculate_dynamic_tooltip("gradient_magenta_violet")  # -> Colores basados en gradiente
+
+create_tooltip_stylesheet("#36166c")  # -> CSS completo para tooltip
 ```
 
-#### Ejemplo de Función de Estilos
+#### Funciones de Conversión de Color
 ```python
-def crear_estilo_gradiente(self, tipo_gradiente):
-    """Crea estilos para diferentes tipos de gradientes"""
-    gradientes = {
-        "gradient_magenta_violet": {
-            "inicio": "#5c166c", "fin": "#36166c"
-        },
-        "gradient_blue_green": {
-            "inicio": "#1e3a8a", "fin": "#065f46"
-        }
-    }
+# Conversión básica
+hex_to_rgb("#ff0000")  # -> (255, 0, 0)
+rgb_to_hex((255, 0, 0))  # -> "#ff0000"
 
-    if tipo_gradiente in gradientes:
-        config = gradientes[tipo_gradiente]
-        border_color = calculate_dynamic_border(tipo_gradiente)
-        hover_colors = calculate_dynamic_hover(tipo_gradiente)
-        return f"""
-            QPushButton {{
-                background-color: qlineargradient(
-                    x1: 0, y1: 0, x2: 1, y2: 0,
-                    stop: 0 {config['inicio']},
-                    stop: 1 {config['fin']}
-                );
-                border: 1px solid {border_color};
-                border-radius: 3px;
-                color: #d8d8d8;
-                padding: 5px;
-            }}
-            QPushButton:hover {{
-                background-color: qlineargradient(
-                    x1: 0, y1: 0, x2: 1, y2: 0,
-                    stop: 0 {hover_colors['inicio']},
-                    stop: 1 {hover_colors['fin']}
-                );
-            }}
-        """
+# Espacio de color HSV para cálculos avanzados
+rgb_to_hsv(r, g, b)  # RGB a HSV (H: 0-360, S: 0-100, V: 0-100)
+hsv_to_rgb(h, s, v)  # HSV a RGB
+
+# Utilidades para gradientes
+extract_gradient_colors("stop: 0 #color1, stop: 1 #color2")  # -> ["#color1", "#color2"]
+```
+
+#### Ejemplo Completo con Tooltips
+```python
+def crear_estilo_completo(self, tipo_estilo, button_index):
+    """Crea estilos completos incluyendo tooltips dinámicos"""
+    # Estilos base del botón
+    if tipo_estilo.startswith("gradient_"):
+        button_style = crear_estilo_gradiente(tipo_estilo)
+    else:
+        button_style = crear_estilo_solido(tipo_estilo)
+
+    # Estilos de tooltip dinámicos
+    tooltip_style = create_tooltip_stylesheet(tipo_estilo)
+    button_name = f"button_{button_index}"
+    tooltip_style = tooltip_style.replace("QToolTip", f"#{button_name} QToolTip")
+
+    # Combinar estilos
+    full_style = button_style + tooltip_style
+    return full_style, button_name
+```
+
+#### Aplicación en el Panel
+```python
+# En create_buttons()
+full_style, button_name = crear_estilo_completo(style, index)
+button = QPushButton(name)
+button.setObjectName(button_name)
+button.setStyleSheet(full_style)
+if tooltip:
+    button.setToolTip(tooltip)
+```
+
+#### Uso de create_gradient_style() (Función de Alto Nivel)
+```python
+# Para estilos predefinidos, usar la función de alto nivel
+from LGA_NKS_StyleUtils import create_gradient_style
+
+style = create_gradient_style("gradient_magenta_violet", include_hover=True)
+# Retorna CSS completo listo para usar
 ```
 
 ## Problemas Comunes
 
 - **Cambios no visibles**: Reiniciar Hiero completamente
 - **Inconsistencias**: Verificar que todos los botones usen el nuevo sistema
+- **Importación del módulo**: Asegurarse que `LGA_NKS_StyleUtils.py` esté en la carpeta `LGA_NKS_Utils` y el path sea correcto
 - **Bordes dinámicos**: Si no se ven bien, verificar que `calculate_dynamic_border()` esté funcionando correctamente
 - **Hover dinámico**: Verificar que `calculate_dynamic_hover()` retorne colores válidos
+- **Tooltips dinámicos**: Verificar que cada botón tenga `objectName` único y que `create_tooltip_stylesheet()` funcione
 - **Gradientes hover**: Asegurarse que los gradientes mantengan buena legibilidad en hover
+- **Tooltips sin estilo**: Verificar que el selector `#{button_name} QToolTip` esté funcionando correctamente
 - **Rendimiento**: Evitar gradientes muy complejos o muchos cálculos de color
 - **Colores HSV**: Verificar rangos (H: 0-360, S: 0-100, V: 0-100)
+- **Módulo no encontrado**: Verificar que `sys.path.insert(0, ...)` apunte al directorio correcto
 
 ## Referencia Qt
 [Qt Style Sheets - Linear Gradients](https://doc.qt.io/qtforpython-6.8/overviews/qtwidgets-stylesheet-reference.html)</contents>
