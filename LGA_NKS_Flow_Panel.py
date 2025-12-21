@@ -1,12 +1,16 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_Panel v2.48 | Lega
+  LGA_NKS_Flow_Panel v2.49 | Lega
   Panel con herramientas que interactuan con las tasks de Flow Production Tracking
   que fueron descargadas previamente con la app LGA_NKS_Flow_Downloader
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
+
+  v2.49: Actualizado para usar estilos dinámicos con bordes y hover para todos los botones
+         Agregado tooltip dinámico para todos los botones
+         Optimizado espaciado del layout y dimensiones de botones para mejor UX
 
   v2.48: Actualizado para usar método centralizado de selección de clips (LGA_NKS_GetClip).
          Ahora usa el Método 2 híbrido (playhead primero, luego selección como fallback)
@@ -34,6 +38,14 @@ from PySide2.QtCore import Qt
 # Importar utilidades de naming
 sys.path.append(str(Path(__file__).parent / "LGA_NKS_Flow"))
 from LGA_NKS_Flow_NamingUtils import clean_base_name
+
+# Importar funciones de utilidad de estilos
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Utils"))
+from LGA_NKS_StyleUtils import (
+    calculate_dynamic_border,
+    calculate_dynamic_hover,
+    create_tooltip_stylesheet
+)
 
 
 # Variable global para activar o desactivar los prints
@@ -75,12 +87,9 @@ class ColorChangeWidget(QWidget):
 
         self.setObjectName("com.lega.FPTPanel")
         self.setWindowTitle("Flow")
-        # Estilo para los tooltips
-        self.setStyleSheet(
-            "QToolTip { color: #ffffff; background-color: #2a2a2a; border: 1px solid white; }"
-        )
 
         self.layout = QGridLayout()  # Usamos QGridLayout
+        self.layout.setSpacing(6)  # Reducir espacio entre botones
         self.setLayout(self.layout)
 
         # Crear botones y agregarlos al layout con coordenadas especificas
@@ -177,7 +186,49 @@ class ColorChangeWidget(QWidget):
 
             # Crear un botón personalizado que maneje el Shift+Click
             button = CustomButton(name)
-            button.setStyleSheet(f"background-color: {style}")
+
+            # Aplicar estilos dinámicos con bordes, hover y tooltips
+            border_color = calculate_dynamic_border(style)
+            hover_color = calculate_dynamic_hover(style)
+
+            button_stylesheet = f"""
+                QPushButton {{
+                    background-color: {style};
+                    border: 1px solid {border_color};
+                    border-radius: 3px;
+                    color: #d8d8d8;
+                    padding: 0px 0px;
+                    min-height: 18px;
+                }}
+                QPushButton:hover {{
+                    background-color: {hover_color};
+                }}
+                QPushButton:pressed {{
+                    background-color: {style}aa;
+                }}
+            """
+
+            # Agregar estilos de tooltip dinámicos si hay tooltip
+            has_tooltip = (
+                action == "fpt_pull" or
+                action == "review_pic" or
+                action == "shot_info"
+            )
+
+            if has_tooltip:
+                # Crear un selector único para este botón usando su objectName
+                button_object_name = f"button_{index}"
+                button.setObjectName(button_object_name)
+
+                # Crear stylesheet de tooltip dinámico
+                tooltip_stylesheet = create_tooltip_stylesheet(style)
+                # Modificar el tooltip stylesheet para usar el selector del botón
+                tooltip_stylesheet = tooltip_stylesheet.replace("QToolTip", f"#{button_object_name} QToolTip")
+
+                # Combinar estilos del botón con estilos de tooltip
+                button_stylesheet += tooltip_stylesheet
+
+            button.setStyleSheet(button_stylesheet)
             if action == "color":
                 button.clicked.connect(self.handle_color_button_click(color, name))
             elif action == "fpt_pull":

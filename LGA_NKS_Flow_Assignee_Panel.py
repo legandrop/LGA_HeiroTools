@@ -289,7 +289,7 @@ class AssigneePanel(QWidget):
                     border: 1px solid {border_color};
                     border-radius: 3px;
                     color: #d8d8d8;
-                    padding: 0px 3px;
+                    padding: 0px 0px;
                     min-height: 20px;
                 }}
                 QPushButton:hover {{

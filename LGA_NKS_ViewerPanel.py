@@ -1,9 +1,12 @@
 """
 ________________________________________________________________
 
-  LGA_ViewerPanel v1.63 | Lega
+  LGA_ViewerPanel v1.64 | Lega
   Panel con herramientas para el viewer y el timeline de Hiero
 
+  v1.64: Actualizado para usar estilos dinámicos con bordes y hover para todos los botones
+         Agregado tooltip dinámico para todos los botones
+         Optimizado espaciado del layout y dimensiones de botones para mejor UX
   v1.63: Reorganización de scripts - Todos los scripts del viewer movidos
          a LGA_NKS_ViewerTL/ para mejor organización
   v1.62: Se agregó el botón Frame Number
@@ -17,10 +20,19 @@ import hiero.core
 import os
 import subprocess
 import socket
+import sys
 from PySide2.QtWidgets import *
 from PySide2.QtGui import QIcon, QKeySequence
 from PySide2.QtCore import *
 from PySide2 import QtWidgets, QtCore
+
+# Importar funciones de utilidad de estilos
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Utils"))
+from LGA_NKS_StyleUtils import (
+    calculate_dynamic_border,
+    calculate_dynamic_hover,
+    create_tooltip_stylesheet
+)
 
 # Variable global para activar o desactivar los prints
 DEBUG = False
@@ -37,11 +49,9 @@ class ViewerPanel(QWidget):
 
         self.setObjectName("com.lega.ViewerPanel")
         self.setWindowTitle("ViewerTL")
-        self.setStyleSheet(
-            "QToolTip { color: #ffffff; background-color: #2a2a2a; border: 1px solid white; }"
-        )
 
         self.layout = QGridLayout(self)
+        self.layout.setSpacing(6)  # Reducir espacio entre botones
         self.setLayout(self.layout)
 
         # Crear botones y agregarlos al layout
@@ -154,8 +164,44 @@ class ViewerPanel(QWidget):
             shortcut = button_info[3] if len(button_info) > 3 else None
             tooltip = button_info[4] if len(button_info) > 4 else None
 
+            # Aplicar estilos dinámicos con bordes, hover y tooltips
+            border_color = calculate_dynamic_border(style)
+            hover_color = calculate_dynamic_hover(style)
+
+            button_stylesheet = f"""
+                QPushButton {{
+                    background-color: {style};
+                    border: 1px solid {border_color};
+                    border-radius: 3px;
+                    color: #d8d8d8;
+                    padding: 0px 0px;
+                    min-height: 22px;
+                }}
+                QPushButton:hover {{
+                    background-color: {hover_color};
+                }}
+                QPushButton:pressed {{
+                    background-color: {style}aa;
+                }}
+            """
+
+            # Agregar estilos de tooltip dinámicos si hay tooltip
+            if tooltip:
+                # Crear un selector único para este botón usando su objectName
+                button_object_name = f"button_{index}"
+                button_stylesheet += f"#{button_object_name} {{}} "  # Placeholder para el selector
+
+                # Crear stylesheet de tooltip dinámico
+                tooltip_stylesheet = create_tooltip_stylesheet(style)
+                # Modificar el tooltip stylesheet para usar el selector del botón
+                tooltip_stylesheet = tooltip_stylesheet.replace("QToolTip", f"#{button_object_name} QToolTip")
+
+                # Combinar estilos del botón con estilos de tooltip
+                button_stylesheet += tooltip_stylesheet
+
             button = QPushButton(name)
-            button.setStyleSheet(f"background-color: {style}")
+            button.setObjectName(f"button_{index}")  # Para tooltips dinámicos
+            button.setStyleSheet(button_stylesheet)
             button.clicked.connect(handler)
             if shortcut:
                 button.setShortcut(QKeySequence(shortcut))

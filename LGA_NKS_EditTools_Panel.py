@@ -225,7 +225,8 @@ class ReconnectMediaWidget(QWidget):
                     border: 1px solid {border_color};
                     border-radius: 3px;
                     color: #d8d8d8;
-                    padding: 2px 3px;
+                    padding: 0px 0px;
+                    min-height: 24px;
                 }}
                 QPushButton:hover {{
                     background-color: {hover_color};

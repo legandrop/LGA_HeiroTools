@@ -142,7 +142,7 @@ class FlowProdPanel(QWidget):
             (
                 "Shot Priority",
                 self.toggle_shot_priority_for_selected_clip,
-                "#8B0000",
+                "#450101",
                 None,
                 "Cambiar prioridad del shot (alta ↔ normal)",
             ),
@@ -210,8 +210,8 @@ class FlowProdPanel(QWidget):
                         border: 1px solid {border_color};
                         border-radius: 3px;
                         color: #d8d8d8;
-                        padding: 0px 3px;
-                        min-height: 20px;
+                        padding: 0px 0px;
+                        min-height: 24px;
                     }}
                     QPushButton:hover {{
                         background-color: qlineargradient(
@@ -237,8 +237,8 @@ class FlowProdPanel(QWidget):
                         border: 1px solid {border_color};
                         border-radius: 3px;
                         color: #d8d8d8;
-                        padding: 0px 3px;
-                        min-height: 20px;
+                        padding: 0px 0px;
+                        min-height: 24px;
                     }}
                     QPushButton:hover {{
                         background-color: {hover_color};
