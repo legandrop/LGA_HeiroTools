@@ -110,7 +110,7 @@ def calculate_dynamic_border(style):
         # Para gradientes, extraer colores y usar el más brillante
         gradient_colors = []
         if style == "gradient_magenta_violet":
-            gradient_colors = ["#5c166c", "#36166c"]
+            gradient_colors = ["#443a91", "#543a91", "#5b3a91"]
 
         if not gradient_colors:
             return "#616161"  # Color fallback
@@ -153,7 +153,7 @@ def calculate_dynamic_hover(style):
         # Para gradientes, crear versión más brillante de todo el gradiente
         if style == "gradient_magenta_violet":
             # Colores base del gradiente
-            base_colors = ["#5c166c", "#36166c"]
+            base_colors = ["#443a91", "#543a91", "#5b3a91"]
             hover_colors = []
 
             for color in base_colors:
@@ -192,9 +192,9 @@ def calculate_dynamic_tooltip(style):
     if style.startswith("gradient_"):
         # Para gradientes, usar el color más brillante como base
         if style == "gradient_magenta_violet":
-            base_color = "#5c166c"  # Color más brillante del gradiente
+            base_color = "#5b3a91"  # Color más brillante del gradiente
         else:
-            base_color = "#36166c"  # Fallback
+            base_color = "#5b3a91"  # Fallback
     else:
         # Para colores sólidos, usar el color del botón
         base_color = style
@@ -245,8 +245,8 @@ def create_gradient_style(gradient_type, include_hover=True):
     """
     gradients = {
         "gradient_magenta_violet": {
-            "inicio": "#5c166c",
-            "fin": "#36166c"
+            "inicio": "#443a91",
+            "fin": "#5b3a91"
         }
         # Agregar más gradientes aquí según se necesiten
     }
@@ -287,9 +287,10 @@ def create_gradient_style(gradient_type, include_hover=True):
     style += """
         QPushButton:pressed {
             background-color: qlineargradient(
-                x1: 0, y1: 0, x2: 1, y2: 0,
-                stop: 0 #5c166c,
-                stop: 1 #2a1450
+                x1: 0, y1: 1, x2: 1, y2: 0,
+                stop: 0 #5145ac,
+                stop: 0.5 #6a49b5,
+                stop: 1 #5b3a91
             );
         }
     """

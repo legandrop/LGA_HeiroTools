@@ -104,7 +104,7 @@ class FlowProdPanel(QWidget):
     def __init__(self):
         super(FlowProdPanel, self).__init__()
         self.setObjectName("com.lega.FlowProdPanel")
-        self.setWindowTitle("Flow Production")
+        self.setWindowTitle("Coordination")
         self.layout = QGridLayout()
         self.layout.setSpacing(6)  # Reducir espacio entre botones
         self.setLayout(self.layout)
@@ -204,8 +204,9 @@ class FlowProdPanel(QWidget):
                     QPushButton {{
                         background-color: qlineargradient(
                             x1: 0, y1: 0, x2: 1, y2: 0,
-                            stop: 0 #5c166c,
-                            stop: 1 #36166c
+                            stop: 0 #443a91,
+                            stop: 0.5 #543a91,
+                            stop: 1 #5b3a91
                         );
                         border: 1px solid {border_color};
                         border-radius: 3px;
@@ -215,16 +216,18 @@ class FlowProdPanel(QWidget):
                     }}
                     QPushButton:hover {{
                         background-color: qlineargradient(
-                            x1: 0, y1: 0, x2: 1, y2: 0,
+                            x1: 0, y1: 1, x2: 1, y2: 0,
                             stop: 0 {hover_colors['inicio']},
+                            stop: 0.5 #9a6cd8,
                             stop: 1 {hover_colors['fin']}
                         );
                     }}
                     QPushButton:pressed {{
                         background-color: qlineargradient(
-                            x1: 0, y1: 0, x2: 1, y2: 0,
-                            stop: 0 #5c166c,
-                            stop: 1 #2a1450
+                            x1: 0, y1: 1, x2: 1, y2: 0,
+                            stop: 0 #5145ac,
+                            stop: 0.5 #6a49b5,
+                            stop: 1 #5b3a91
                         );
                     }}
                 """
