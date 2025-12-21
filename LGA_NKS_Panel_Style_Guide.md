@@ -47,7 +47,7 @@ if style.startswith("gradient_"):
             border: 1px solid {border_color};
             border-radius: 3px;
             color: #d8d8d8;
-            padding: 3px 5px;
+            padding: 2px 3px;
         }}
         QPushButton:hover {{
             background-color: qlineargradient(
@@ -70,7 +70,7 @@ else:
             border: 1px solid {border_color};
             border-radius: 3px;
             color: #d8d8d8;
-            padding: 3px 5px;
+            padding: 2px 3px;
         }}
         QPushButton:hover {{
             background-color: {hover_color};

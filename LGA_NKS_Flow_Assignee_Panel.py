@@ -1,11 +1,12 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_Assignee_Panel v1.51 | Lega
+  LGA_NKS_Flow_Assignee_Panel v1.52 | Lega
   Panel para obtener los asignados de la tarea del clip seleccionado en Flow,
   limpiarlos o sumar asignados a la tarea comp.
 
-
+  v1.52: Actualizado para usar estilos dinámicos con bordes y hover para todos los botones
+         Agregado tooltip dinámico para todos los botones
   v1.51: Actualiza la UI para mostrar las tasks y los asignados en Flow. 
          Funciona con todas las tasks disponibles en Flow.
 
@@ -39,6 +40,13 @@ from LGA_NKS_Flow_NamingUtils import clean_base_name
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Utils"))
 from LGA_NKS_GetClip import get_clips_to_process
 import LGA_NKS_GetClip as clip_utils
+
+# Importar funciones de utilidad de estilos
+from LGA_NKS_StyleUtils import (
+    calculate_dynamic_border,
+    calculate_dynamic_hover,
+    create_tooltip_stylesheet
+)
 
 
 # Clase de botón personalizada que maneja el Shift+Click y Ctrl+Shift+Click
@@ -86,10 +94,6 @@ class AssigneePanel(QWidget):
         super(AssigneePanel, self).__init__()
         self.setObjectName("com.lega.FPTAssigneePanel")
         self.setWindowTitle("Assignees")
-        # Estilo para los tooltips
-        self.setStyleSheet(
-            "QToolTip { color: #ffffff; background-color: #2a2a2a; border: 1px solid white; }"
-        )
         self.layout = QGridLayout()
         self.setLayout(self.layout)
 
@@ -241,6 +245,9 @@ class AssigneePanel(QWidget):
                 and callable(button_info[4])
             )
 
+            # Determinar si el botón tiene tooltip
+            has_tooltip = is_user_button or (len(button_info) > 4 and button_info[4])
+
             if is_user_button:
                 # Boton de usuario: (name, handler, style, shift_handler, ctrl_shift_handler)
                 shift_handler = button_info[3]
@@ -249,13 +256,6 @@ class AssigneePanel(QWidget):
                 button.setCustomClickHandler(handler)
                 button.setShiftClickHandler(shift_handler)
                 button.setCtrlShiftClickHandler(ctrl_shift_handler)
-                # Tooltip que explica las tres funcionalidades del botón de usuario
-                tooltip_text = (
-                    "Click: Asigna el usuario a las tasks seleccionadas (comp por defecto) en Flow Production Tracking\n"
-                    "Shift+Click: Crea/actualiza políticas IAM de Wasabi para el usuario\n"
-                    "Ctrl+Shift+Click: Abre ventana de gestión de shots asignados en policy de Wasabi"
-                )
-                button.setToolTip(tooltip_text)
             else:
                 # Boton fijo: (name, handler, style, [shortcut], [tooltip])
                 shortcut = button_info[3] if len(button_info) > 3 else None
@@ -264,14 +264,59 @@ class AssigneePanel(QWidget):
                 button = QPushButton(name)
                 button.clicked.connect(handler)
 
-                # Agregar shortcut y tooltip si existen
+                # Agregar shortcut si existe
                 if shortcut:
                     button.setShortcut(QKeySequence(shortcut))
-                if tooltip:
-                    button.setToolTip(tooltip)
 
-            # Aplicar solo el color de fondo, sin negrita ni color de texto blanco
-            button.setStyleSheet(f"background-color: {style}")
+            # Obtener el texto del tooltip para asignarlo después
+            if is_user_button:
+                tooltip_text = (
+                    "Click: Asigna el usuario a las tasks seleccionadas (comp por defecto) en Flow Production Tracking\n"
+                    "Shift+Click: Crea/actualiza políticas IAM de Wasabi para el usuario\n"
+                    "Ctrl+Shift+Click: Abre ventana de gestión de shots asignados en policy de Wasabi"
+                )
+            else:
+                tooltip_text = tooltip if tooltip else None
+
+            # Aplicar estilos dinámicos con bordes, hover y tooltips
+            border_color = calculate_dynamic_border(style)
+            hover_color = calculate_dynamic_hover(style)
+
+            button_stylesheet = f"""
+                QPushButton {{
+                    background-color: {style};
+                    border: 1px solid {border_color};
+                    border-radius: 3px;
+                    color: #d8d8d8;
+                    padding: 2px 3px;
+                }}
+                QPushButton:hover {{
+                    background-color: {hover_color};
+                }}
+                QPushButton:pressed {{
+                    background-color: {style}aa;
+                }}
+            """
+
+            # Agregar estilos de tooltip dinámicos si hay tooltip
+            if has_tooltip:
+                # Crear un selector único para este botón usando su objectName
+                button_object_name = f"button_{index}"
+                button.setObjectName(button_object_name)
+
+                # Crear stylesheet de tooltip dinámico
+                tooltip_stylesheet = create_tooltip_stylesheet(style)
+                # Modificar el tooltip stylesheet para usar el selector del botón
+                tooltip_stylesheet = tooltip_stylesheet.replace("QToolTip", f"#{button_object_name} QToolTip")
+
+                # Combinar estilos del botón con estilos de tooltip
+                button_stylesheet += tooltip_stylesheet
+
+            button.setStyleSheet(button_stylesheet)
+
+            # Asignar tooltips después de configurar el objectName (para que los estilos dinámicos funcionen)
+            if tooltip_text:
+                button.setToolTip(tooltip_text)
 
             row = index // self.num_columns
             column = index % self.num_columns

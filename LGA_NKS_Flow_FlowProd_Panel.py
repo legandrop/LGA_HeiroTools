@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_FlowProd_Panel v1.20 | Lega
+  LGA_NKS_Flow_FlowProd_Panel v1.21 | Lega
   Panel para operaciones de producción con Flow:
   - Revelar clips en Flow
   - Crear shots automáticamente
@@ -9,6 +9,10 @@ ________________________________________________________________________________
   - Cambiar prioridad de shots
   - Integración con FileManager (Open, Download, Upload)
 
+
+  v1.21: Actualizado para usar estilos dinámicos con bordes y hover para todos los botones
+         Agregado tooltip dinámico para todos los botones
+         
   v1.20: Agregados botones de integración con FileManager CLI
          - Open in FileManager: Abre carpeta del shot en FileManager
          - Download Shot: Descarga shot desde Wasabi S3
@@ -205,7 +209,7 @@ class FlowProdPanel(QWidget):
                         border: 1px solid {border_color};
                         border-radius: 3px;
                         color: #d8d8d8;
-                        padding: 3px 5px;
+                        padding: 2px 3px;
                     }}
                     QPushButton:hover {{
                         background-color: qlineargradient(
@@ -231,7 +235,7 @@ class FlowProdPanel(QWidget):
                         border: 1px solid {border_color};
                         border-radius: 3px;
                         color: #d8d8d8;
-                        padding: 3px 5px;
+                        padding: 2px 3px;
                     }}
                     QPushButton:hover {{
                         background-color: {hover_color};

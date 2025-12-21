@@ -1,9 +1,11 @@
 """
 _________________________________________
 
-  LGA_EditToolsPanel v2.96 | Lega
+  LGA_EditToolsPanel v2.97 | Lega
   Tools panel for Hiero / Nuke Studio
 
+  v2.97: Actualizado para usar estilos dinámicos con bordes y hover para todos los botones
+         Agregado tooltip dinámico para todos los botones
   v2.96: Extracción de funcionalidades embebidas - Creados LGA_NKS_SetShotName.py
          y LGA_NKS_OrganizeProject.py como scripts independientes
   v2.95: Reorganización de scripts - Movidos 7 scripts de edición desde LGA_NKS/
