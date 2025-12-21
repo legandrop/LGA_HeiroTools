@@ -76,6 +76,14 @@ if naming_utils_path.exists():
 else:
     HAS_NAMING_UTILS = False
 
+# Importar funciones de utilidad de estilos
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Utils"))
+from LGA_NKS_StyleUtils import (
+    calculate_dynamic_border,
+    calculate_dynamic_hover,
+    create_tooltip_stylesheet
+)
+
 
 # Clase de botón personalizada que maneja el Shift+Click
 class CustomButton(QPushButton):
@@ -205,7 +213,42 @@ class ReconnectMediaWidget(QWidget):
                 button = QPushButton(name)
                 button.clicked.connect(handler)
 
-            button.setStyleSheet(f"background-color: {style}")
+            # Aplicar estilos del botón con bordes y hover dinámicos
+            border_color = calculate_dynamic_border(style)
+            hover_color = calculate_dynamic_hover(style)
+
+            button_stylesheet = f"""
+                QPushButton {{
+                    background-color: {style};
+                    border: 1px solid {border_color};
+                    border-radius: 3px;
+                    color: #d8d8d8;
+                    padding: 2px 3px;
+                }}
+                QPushButton:hover {{
+                    background-color: {hover_color};
+                }}
+                QPushButton:pressed {{
+                    background-color: {style}aa;
+                }}
+            """
+
+            # Agregar estilos de tooltip dinámicos si hay tooltip
+            if tooltip:
+                # Crear un selector único para este botón usando su objectName
+                button_object_name = f"button_{index}"
+                button.setObjectName(button_object_name)
+
+                # Crear stylesheet de tooltip dinámico
+                tooltip_stylesheet = create_tooltip_stylesheet(style)
+                # Modificar el tooltip stylesheet para usar el selector del botón
+                tooltip_stylesheet = tooltip_stylesheet.replace("QToolTip", f"#{button_object_name} QToolTip")
+
+                # Combinar estilos del botón con estilos de tooltip
+                button_stylesheet += tooltip_stylesheet
+
+            button.setStyleSheet(button_stylesheet)
+
             if shortcut:
                 button.setShortcut(shortcut)
             if tooltip:

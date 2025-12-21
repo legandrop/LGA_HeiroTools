@@ -205,7 +205,7 @@ class FlowProdPanel(QWidget):
                         border: 1px solid {border_color};
                         border-radius: 3px;
                         color: #d8d8d8;
-                        padding: 5px;
+                        padding: 3px 5px;
                     }}
                     QPushButton:hover {{
                         background-color: qlineargradient(
@@ -231,7 +231,7 @@ class FlowProdPanel(QWidget):
                         border: 1px solid {border_color};
                         border-radius: 3px;
                         color: #d8d8d8;
-                        padding: 5px;
+                        padding: 3px 5px;
                     }}
                     QPushButton:hover {{
                         background-color: {hover_color};
