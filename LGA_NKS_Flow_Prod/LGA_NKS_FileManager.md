@@ -103,19 +103,19 @@ Los siguientes botones están disponibles en el panel **Flow Production** de Hie
 - **Función**: Abre la carpeta del shot seleccionado en FileManager
 - **Comando**: `FileManager.exe --path "ruta_del_shot"`
 - **Uso**: Explorar y gestionar archivos del shot local vs Wasabi S3
-- **Color**: Azul (#4a90e2)
+- **Color**: Marrón (#8e6c17)
 
 #### ⬇️ **Download Shot**
 - **Función**: Descarga el shot completo desde Wasabi S3
 - **Comando**: `FileManager.exe --download "ruta_del_shot"`
 - **Uso**: Sincronizar archivos remotos hacia local
-- **Color**: Verde (#2e8b57)
+- **Color**: Marrón (#8e6c17)
 
 #### ⬆️ **Upload Shot**
 - **Función**: Sube el shot completo a Wasabi S3
 - **Comando**: `FileManager.exe --upload "ruta_del_shot"`
 - **Uso**: Sincronizar archivos locales hacia remoto
-- **Color**: Dorado (#daa520)
+- **Color**: Marrón (#8e6c17)
 
 ### 📂 Estructura de Rutas
 
@@ -150,7 +150,11 @@ Los scripts ejecutan comandos CLI reales de FileManager:
 - Toma primeras 4: `['T:', 'VFX-LC', '101', 'LC_1021_050_Beauty_Senora']`
 - Extrae: `T:/VFX-LC/101/LC_1021_050_Beauty_Senora` ← **Esta es la carpeta del shot**
 
-**Ruta del ejecutable**: `C:\Portable\LGA\FileManager\FileManager.exe`
+**Rutas del ejecutable**:
+- **Producción**: `C:\Portable\LGA\FileManager\FileManager.exe`
+- **Desarrollo**: `C:\Portable\LGA_FileManager\build\FileManager.exe` (cuando `Desarrollo = True`)
+
+Los scripts incluyen una variable `Desarrollo = True` para alternar entre rutas.
 
 Los comandos se ejecutan de forma asíncrona (subprocess.Popen) para no bloquear la interfaz de Hiero/Nuke Studio.
 
