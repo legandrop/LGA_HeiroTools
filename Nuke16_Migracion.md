@@ -64,12 +64,12 @@
 - [ ] `LGA_NKS_FileManager_OpenPath.py` — Abrir ruta FileManager (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
 
 ### LGA_NKS_ViewerTL/ - Scripts de timeline/viewer
-- [ ] `LGA_NKS_Timeline_Refresh_Wrap.py` — Refresh timeline (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
+- [x] `LGA_NKS_Timeline_Refresh_Wrap.py` — Refresh timeline (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
 - [ ] `LGA_NKS_FrameNumber.py` — Números de frame (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
-- [ ] `LGA_NKS_PrevNext_Rev.py` — Navegación revisión (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
-- [ ] `LGA_NKS_InOut_Editref.py` — EditRef IN/OUT (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
-- [ ] `LGA_NKS_Reduce_SeqWin.py` — Reducir secuencia (sin Qt directo)
-- [ ] `LGA_NKS_SnapShot.py` — Captura de pantalla (sin Qt directo)
+- [x] `LGA_NKS_PrevNext_Rev.py` — Navegación revisión (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
+- [x] `LGA_NKS_InOut_Editref.py` — EditRef IN/OUT (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
+- [x] `LGA_NKS_Reduce_SeqWin.py` — Reducir secuencia (sin Qt directo)
+- [x] `LGA_NKS_SnapShot.py` — Captura de pantalla (sin Qt directo)
 
 ### LGA_NKS_Wasabi/ - Scripts de Wasabi
 - [ ] `LGA_NKS_Wasabi_PolicyAssign.py` — Asignación de políticas Wasabi (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar, QRunnable, QThreadPool)
@@ -148,6 +148,20 @@ Muchos scripts crean QApplication. En PySide6 puede haber cambios en el manejo d
 
 ### QFont y QFontMetrics
 Algunos scripts pueden usar APIs de fuente que cambiaron.
+
+### Cambios en jerarquía de widgets del Timeline
+**Problema identificado:** La estructura interna de widgets del timeline cambió significativamente entre Nuke 15 y 16.
+
+**Ejemplo con `LGA_NKS_ScrollTo_TopTrack.py`:**
+- **Nuke 15:** Scrollbar horizontal en `QSplitter → QWidget → QAbstractScrollArea → qt_scrollarea_hcontainer`
+- **Nuke 16:** Scrollbar vertical (¡no horizontal!) en `QSplitter → QWidget → QAbstractScrollArea → qt_scrollarea_vcontainer`
+
+**Solución implementada:** Lógica híbrida que detecta automáticamente la versión y busca el scrollbar en la ubicación correcta:
+- Detecta valores "sospechosos" (positivos cuando deberían ser negativos)
+- Cambia automáticamente a método alternativo específico para cada versión
+- En Nuke 16 busca en `vcontainer` en lugar de `hcontainer`
+
+**Lección aprendida:** No asumir que la orientación del scrollbar (horizontal vs vertical) se mantiene entre versiones. Hacer pruebas exhaustivas de jerarquía de widgets.
 
 ## Estado actual
 - [ ] Migración no iniciada

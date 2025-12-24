@@ -17,7 +17,7 @@ __________________________________________________________
 
 import hiero.core
 import hiero.ui
-from PySide2.QtCore import QTimer
+from qt_compat import QtCore
 from pathlib import Path
 import sys
 

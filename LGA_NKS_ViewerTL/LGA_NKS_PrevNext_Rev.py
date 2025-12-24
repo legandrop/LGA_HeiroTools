@@ -19,8 +19,7 @@ ________________________________________________________________________________
 
 import hiero.core
 import hiero.ui
-from PySide2.QtGui import QColor
-from PySide2.QtCore import QTimer
+from qt_compat import QtGui, QtCore
 from pathlib import Path
 import sys
 
@@ -47,9 +46,9 @@ def debug_print(*message):
 
 # Definir los colores que buscamos
 COLORS = {
-    "lega": QColor(105, 19, 94),  # #69135e
-    "sup": QColor(189, 127, 159),  # #bd7f9f
-    "javi": QColor(156, 62, 94),  # #9c3e5e
+    "lega": QtGui.QColor(105, 19, 94),  # #69135e
+    "sup": QtGui.QColor(189, 127, 159),  # #bd7f9f
+    "javi": QtGui.QColor(156, 62, 94),  # #9c3e5e
 }
 
 
@@ -230,7 +229,7 @@ def ajustar_vista_al_clip():
         window.setFocus()
 
         # Ejecutar el comando Zoom to Fit después de que la UI se actualice
-        QTimer.singleShot(0, lambda: hiero.ui.findMenuAction("Zoom to Fit").trigger())
+        QtCore.QTimer.singleShot(0, lambda: hiero.ui.findMenuAction("Zoom to Fit").trigger())
         debug_print("Ejecutando comando Zoom to Fit")
     except Exception as e:
         debug_print(f"Error al ajustar la vista: {e}")

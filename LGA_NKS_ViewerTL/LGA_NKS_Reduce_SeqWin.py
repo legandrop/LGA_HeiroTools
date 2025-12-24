@@ -8,7 +8,7 @@ ______________________________________________________________________
 """
 
 import hiero.ui
-from PySide2 import QtWidgets
+from qt_compat import QtWidgets
 
 # Variable global para activar o desactivar los prints de depuración
 DEBUG = False

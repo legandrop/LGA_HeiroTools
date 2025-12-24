@@ -18,7 +18,7 @@ import hiero.core
 import hiero.ui
 import os
 import importlib.util
-from PySide2 import QtWidgets, QtCore
+from qt_compat import QtWidgets, QtCore
 import time
 
 # Variable global para activar o desactivar los prints

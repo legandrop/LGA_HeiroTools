@@ -10,8 +10,7 @@ ______________________________________________________
 import hiero.core
 import hiero.ui
 import os
-from PySide2.QtWidgets import QApplication
-from PySide2.QtCore import QRect
+from qt_compat import QtWidgets, QtCore
 
 DEBUG = False
 SaveToFile = False
@@ -31,13 +30,13 @@ def crop_to_aspect_ratio(qimage, target_aspect):
     if current_aspect > target_aspect:
         new_width = int(height * target_aspect)
         offset_x = int((width - new_width) / 2)
-        rect = QRect(offset_x, 0, new_width, height)
+        rect = QtCore.QRect(offset_x, 0, new_width, height)
         cropped = qimage.copy(rect)
         return cropped
     else:
         new_height = int(width / target_aspect)
         offset_y = int((height - new_height) / 2)
-        rect = QRect(0, offset_y, width, new_height)
+        rect = QtCore.QRect(0, offset_y, width, new_height)
         cropped = qimage.copy(rect)
         return cropped
 
@@ -90,9 +89,9 @@ def main():
             debug_print("❌ No se pudo crear el archivo.")
 
     # Copiar al portapapeles
-    app = QApplication.instance()
+    app = QtWidgets.QApplication.instance()
     if not app:
-        app = QApplication([])
+        app = QtWidgets.QApplication([])
 
     clipboard = app.clipboard()
     clipboard.setImage(qimage_cropped)
