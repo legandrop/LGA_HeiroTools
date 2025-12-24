@@ -13,22 +13,7 @@ import re
 import os
 import glob
 import datetime
-from PySide2.QtWidgets import (
-    QMainWindow,
-    QVBoxLayout,
-    QLabel,
-    QPushButton,
-    QGridLayout,
-    QFrame,
-    QTableWidget,
-    QTableWidgetItem,
-    QWidget,
-    QApplication,
-    QHBoxLayout,
-    QAbstractItemView,
-)
-from PySide2.QtCore import Qt, QTimer
-from PySide2.QtGui import QFont, QColor
+from qt_compat import QtWidgets, QtGui, QtCore
 
 # Configuración del temporizador (en minutos)
 INTERVALO_TEMPORIZADOR = 4

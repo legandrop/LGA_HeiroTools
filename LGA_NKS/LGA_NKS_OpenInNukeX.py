@@ -15,7 +15,7 @@ import os
 import re
 import subprocess
 import socket
-from PySide2 import QtWidgets, QtCore
+from qt_compat import QtWidgets, QtCore
 
 DEBUG = False
 

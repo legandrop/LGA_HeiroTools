@@ -26,9 +26,9 @@
 ## Scripts de Funcionalidad (requieren migración Qt)
 
 ### LGA_NKS/ - Scripts básicos
-- [ ] `LGA_NKS_CheckProjectVersions.py` — Verificación de versiones (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
-- [ ] `LGA_NKS_OpenInNukeX.py` — Abrir en NukeX (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
-- [ ] `LGA_NKS_Compare_Versions.py` — Comparar versiones (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
+- [x] `LGA_NKS_CheckProjectVersions.py` — Verificación de versiones (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
+- [x] `LGA_NKS_OpenInNukeX.py` — Abrir en NukeX (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
+- [x] `LGA_NKS_Compare_Versions.py` — Comparar versiones (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
 
 ### LGA_NKS_Edit/ - Scripts de edición
 - [ ] `LGA_NKS_Reconnect.py` — Reconexión de media (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)

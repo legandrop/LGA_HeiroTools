@@ -12,7 +12,7 @@ ______________________________________________________________________
 
 import hiero.core
 import hiero.ui
-from PySide2.QtGui import QColor
+from qt_compat import QtGui
 from pathlib import Path
 import sys
 
