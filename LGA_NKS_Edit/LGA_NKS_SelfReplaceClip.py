@@ -11,17 +11,44 @@ ______________________________________________________________________
 
 """
 
-import hiero.core
-import hiero.ui
-import os
-import re
-from PySide2.QtGui import QColor
-
-DEBUG = False
+DEBUG = True
 
 def debug_print(*message):
     if DEBUG:
         print(*message)
+
+debug_print("Iniciando LGA_NKS_SelfReplaceClip.py...")
+
+import hiero.core
+import hiero.ui
+import os
+import re
+import sys
+
+debug_print(f"Python path incluye Startup: {'Python/Startup' in str(sys.path)}")
+debug_print(f"Directorio actual: {os.getcwd()}")
+debug_print(f"Archivo qt_compat.py existe: {os.path.exists('../qt_compat.py')}")
+
+# Importar qt_compat con fallback
+try:
+    # Agregar el directorio padre al path para encontrar qt_compat.py
+    parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if parent_dir not in sys.path:
+        sys.path.insert(0, parent_dir)
+        debug_print(f"Agregado al path: {parent_dir}")
+
+    from qt_compat import QtGui
+    debug_print("qt_compat importado correctamente")
+except ImportError as e:
+    debug_print(f"Error importando qt_compat: {e}")
+    # Fallback a PySide2 directamente
+    try:
+        from PySide2.QtGui import QColor
+        QtGui = type('QtGui', (), {'QColor': QColor})
+        debug_print("Usando PySide2 como fallback")
+    except ImportError as e2:
+        debug_print(f"Error importando PySide2: {e2}")
+        QtGui = None
 
 def print_clip_info(shot, prefix=""):
     """
@@ -156,7 +183,12 @@ def set_clip_color(clip, color):
 def main(force_all_clips=False):
     debug_print("\n==== INICIANDO SCRIPT DE SELFREPLACE ====")
     try:
-        project = hiero.core.projects()[-1]
+        projects = hiero.core.projects()
+        if not projects:
+            debug_print("No hay proyectos abiertos")
+            return
+        project = projects[-1]
+        debug_print(f"Proyecto activo: {project.name()}")
         with project.beginUndo("Self Replace Clips"):
             seq = hiero.ui.activeSequence()
             if not seq:
@@ -252,3 +284,5 @@ def main(force_all_clips=False):
         debug_print("\n==== SCRIPT DE SELFREPLACE COMPLETADO ====")
     except Exception as e:
         debug_print(f"Error en script SelfReplace: {e}")
+        import traceback
+        debug_print(traceback.format_exc())

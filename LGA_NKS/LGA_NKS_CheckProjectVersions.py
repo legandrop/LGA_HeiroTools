@@ -154,7 +154,7 @@ def obtener_timestamp():
     return ahora.strftime("%d/%m/%Y %H:%M:%S")
 
 
-class ProyectosAbertosDialog(QMainWindow):
+class ProyectosAbertosDialog(QtWidgets.QMainWindow):
     def __init__(self, parent=None, proyectos_con_version_alta=None):
         super(ProyectosAbertosDialog, self).__init__(parent)
         self.setWindowTitle("Proyectos Abiertos")
@@ -168,14 +168,14 @@ class ProyectosAbertosDialog(QMainWindow):
 
         # Configurar banderas de ventana para permitir minimizar, maximizar y cerrar
         self.setWindowFlags(
-            Qt.Window
-            | Qt.WindowMinimizeButtonHint
-            | Qt.WindowMaximizeButtonHint
-            | Qt.WindowCloseButtonHint
+            QtCore.Qt.Window
+            | QtCore.Qt.WindowMinimizeButtonHint
+            | QtCore.Qt.WindowMaximizeButtonHint
+            | QtCore.Qt.WindowCloseButtonHint
         )
 
         # Hacer que la ventana se destruya completamente cuando se cierra
-        self.setAttribute(Qt.WA_DeleteOnClose, True)
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
 
         # Conectar el evento de cierre para detener el temporizador
         self.destroyed.connect(self.on_destroyed)
@@ -185,26 +185,26 @@ class ProyectosAbertosDialog(QMainWindow):
         debug_print(f"Nombre de objeto: {self.objectName()}")
 
         # Widget central y layout
-        central_widget = QWidget()
+        central_widget = QtWidgets.QWidget()
         self.setCentralWidget(central_widget)
-        layout = QVBoxLayout(central_widget)
+        layout = QtWidgets.QVBoxLayout(central_widget)
 
         # Añadir título
-        titulo = QLabel("Versiones de Proyectos Abiertos")
-        titulo.setAlignment(Qt.AlignCenter)
-        font = QFont()
+        titulo = QtWidgets.QLabel("Versiones de Proyectos Abiertos")
+        titulo.setAlignment(QtCore.Qt.AlignCenter)
+        font = QtGui.QFont()
         font.setBold(True)
         font.setPointSize(12)
         titulo.setFont(font)
         layout.addWidget(titulo)
 
         # Añadir información del temporizador
-        self.label_timer = QLabel(f"Actualizando cada {INTERVALO_TEMPORIZADOR} minutos")
-        self.label_timer.setAlignment(Qt.AlignCenter)
+        self.label_timer = QtWidgets.QLabel(f"Actualizando cada {INTERVALO_TEMPORIZADOR} minutos")
+        self.label_timer.setAlignment(QtCore.Qt.AlignCenter)
         layout.addWidget(self.label_timer)
 
         # Tabla para mostrar los datos
-        self.tabla_proyectos = QTableWidget()
+        self.tabla_proyectos = QtWidgets.QTableWidget()
         self.tabla_proyectos.setColumnCount(3)
         self.tabla_proyectos.setHorizontalHeaderLabels(
             ["Nombre del Proyecto", "Ruta en Disco", "Versión Más Alta en Disco"]
@@ -214,26 +214,26 @@ class ProyectosAbertosDialog(QMainWindow):
         self.tabla_proyectos.setColumnWidth(1, 350)  # Ruta en disco
 
         # Configurar selección de filas
-        self.tabla_proyectos.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.tabla_proyectos.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.tabla_proyectos.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.tabla_proyectos.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
 
         layout.addWidget(self.tabla_proyectos)
 
         # Botones inferiores en layout horizontal
-        botones_layout = QHBoxLayout()
+        botones_layout = QtWidgets.QHBoxLayout()
 
         # Botón para abrir nueva versión y cerrar actual
-        boton_abrir_y_cerrar = QPushButton("Cerrar versión actual y abrir la nueva")
+        boton_abrir_y_cerrar = QtWidgets.QPushButton("Cerrar versión actual y abrir la nueva")
         boton_abrir_y_cerrar.clicked.connect(self.abrir_nueva_version_y_cerrar_actual)
         botones_layout.addWidget(boton_abrir_y_cerrar)
 
         # Botón para abrir nueva versión
-        boton_abrir_nueva = QPushButton("Abrir nueva versión")
+        boton_abrir_nueva = QtWidgets.QPushButton("Abrir nueva versión")
         boton_abrir_nueva.clicked.connect(self.abrir_nueva_version)
         botones_layout.addWidget(boton_abrir_nueva)
 
         # Nuevo botón para deshabilitar el temporizador
-        self.boton_deshabilitar = QPushButton("Deshabilitar chequeos automáticos")
+        self.boton_deshabilitar = QtWidgets.QPushButton("Deshabilitar chequeos automáticos")
         self.boton_deshabilitar.clicked.connect(self.deshabilitar_temporizador_ui)
         botones_layout.addWidget(self.boton_deshabilitar)
 
@@ -297,9 +297,9 @@ class ProyectosAbertosDialog(QMainWindow):
         # Cargar datos directamente en la tabla
         for i, proyecto_data in enumerate(proyectos_con_version_alta):
             # Crear elementos de tabla
-            item_nombre = QTableWidgetItem(proyecto_data["nombre"])
-            item_ruta = QTableWidgetItem(proyecto_data["ruta_actual"])
-            item_ruta_alta = QTableWidgetItem(proyecto_data["ruta_alta"])
+            item_nombre = QtWidgets.QTableWidgetItem(proyecto_data["nombre"])
+            item_ruta = QtWidgets.QTableWidgetItem(proyecto_data["ruta_actual"])
+            item_ruta_alta = QtWidgets.QTableWidgetItem(proyecto_data["ruta_alta"])
 
             # Asignar a la tabla
             self.tabla_proyectos.setItem(i, 0, item_nombre)
@@ -557,10 +557,10 @@ def buscar_ventana_existente(nombre_objeto):
     Busca si ya existe una ventana con el nombre de objeto especificado
     Devuelve la ventana si existe y está visible, None en caso contrario
     """
-    for widget in QApplication.instance().allWidgets():
+    for widget in QtWidgets.QApplication.instance().allWidgets():
         if (
             widget.objectName() == nombre_objeto
-            and isinstance(widget, QMainWindow)
+            and isinstance(widget, QtWidgets.QMainWindow)
             and widget.isVisible()
         ):
             return widget
@@ -587,7 +587,7 @@ def iniciar_temporizador():
     detener_temporizador()
 
     # Crear un nuevo temporizador
-    temporizador_global = QTimer()
+    temporizador_global = QtCore.QTimer()
     temporizador_global.setObjectName(temporizador_id)
     temporizador_global.timeout.connect(main)
     temporizador_global.start(
@@ -781,7 +781,7 @@ def main():
 
         # Activar la ventana existente (traerla al frente)
         ventana_existente.setWindowState(
-            ventana_existente.windowState() & ~Qt.WindowMinimized | Qt.WindowActive
+            ventana_existente.windowState() & ~QtCore.Qt.WindowMinimized | QtCore.Qt.WindowActive
         )
         ventana_existente.activateWindow()
         ventana_existente.raise_()

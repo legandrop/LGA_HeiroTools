@@ -241,9 +241,29 @@ class ReviewPanel(QtWidgets.QWidget):
         else:
             debug_print(f"Script no encontrado en la ruta: {script_path}")
 
+    def execute_external_script_from_edit(self, script_name):
+        script_path = os.path.join(os.path.dirname(__file__), "LGA_NKS_Edit", script_name)
+        if os.path.exists(script_path):
+            try:
+                spec = importlib.util.spec_from_file_location(
+                    script_name[:-3], script_path
+                )
+                if spec is not None and spec.loader is not None:
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+                    module.main()
+                else:
+                    debug_print(
+                        f"El modulo o loader no se encontraron para el script {script_name}"
+                    )
+            except Exception as e:
+                debug_print(f"Error ejecutando el script {script_name}: {e}")
+        else:
+            debug_print(f"Script no encontrado en la ruta: {script_path}")
+
     # Handlers para cada boton que ejecutan scripts externos
     def execute_SelfReplaceClip(self):
-        self.execute_external_script("LGA_NKS_SelfReplaceClip.py")
+        self.execute_external_script_from_edit("LGA_NKS_SelfReplaceClip.py")
 
     def execute_EnableOrDisableClips(self):
         self.execute_external_script("LGA_NKS_ON_Clips_OFF_v00-Clips.py")

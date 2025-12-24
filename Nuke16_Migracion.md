@@ -32,7 +32,7 @@
 
 ### LGA_NKS_Edit/ - Scripts de edición
 - [ ] `LGA_NKS_Reconnect.py` — Reconexión de media (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
-- [ ] `LGA_NKS_SelfReplaceClip.py` — Reemplazo de clips (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
+- [x] `LGA_NKS_SelfReplaceClip.py` — Reemplazo de clips (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
 - [ ] `LGA_NKS_MatchVerToEXR.py` — Matching de versiones (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
 - [ ] `LGA_NKS_CompareVerToEditref.py` — Comparación con EditRef (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
 - [ ] `LGA_NKS_CompareEXR_to_aPlate.py` — Comparación EXR aPlate (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
