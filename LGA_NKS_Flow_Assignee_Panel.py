@@ -21,16 +21,7 @@ import hiero.core
 import sys
 import os
 import json
-from PySide2.QtWidgets import (
-    QWidget,
-    QPushButton,
-    QGridLayout,
-    QMessageBox,
-    QSpacerItem,
-    QSizePolicy,
-)
-from PySide2.QtCore import Qt
-from PySide2.QtGui import QColor, QKeySequence
+from qt_compat import QtWidgets, QtGui, QtCore
 
 # Importar función de limpieza de nombres desde NamingUtils
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Flow"))
@@ -50,7 +41,7 @@ from LGA_NKS_StyleUtils import (
 
 
 # Clase de botón personalizada que maneja el Shift+Click y Ctrl+Shift+Click
-class CustomButton(QPushButton):
+class CustomButton(QtWidgets.QPushButton):
     def __init__(self, text):
         super(CustomButton, self).__init__(text)
         self._custom_click_handler = None
@@ -69,10 +60,10 @@ class CustomButton(QPushButton):
     def mousePressEvent(self, event):
         if self._custom_click_handler and self._shift_click_handler:
             modifiers = event.modifiers()
-            if modifiers & Qt.ControlModifier and modifiers & Qt.ShiftModifier:
+            if modifiers & QtCore.Qt.ControlModifier and modifiers & QtCore.Qt.ShiftModifier:
                 if self._ctrl_shift_click_handler:
                     self._ctrl_shift_click_handler()
-            elif modifiers & Qt.ShiftModifier:
+            elif modifiers & QtCore.Qt.ShiftModifier:
                 self._shift_click_handler()
             else:
                 self._custom_click_handler()
@@ -89,12 +80,12 @@ def debug_print(*message):
         print(*message)
 
 
-class AssigneePanel(QWidget):
+class AssigneePanel(QtWidgets.QWidget):
     def __init__(self):
         super(AssigneePanel, self).__init__()
         self.setObjectName("com.lega.FPTAssigneePanel")
         self.setWindowTitle("Assignees")
-        self.layout = QGridLayout()
+        self.layout = QtWidgets.QGridLayout()
         self.layout.setSpacing(6)  # Reducir espacio entre botones
         self.setLayout(self.layout)
 
@@ -262,12 +253,12 @@ class AssigneePanel(QWidget):
                 shortcut = button_info[3] if len(button_info) > 3 else None
                 tooltip = button_info[4] if len(button_info) > 4 else None
 
-                button = QPushButton(name)
+                button = QtWidgets.QPushButton(name)
                 button.clicked.connect(handler)
 
                 # Agregar shortcut si existe
                 if shortcut:
-                    button.setShortcut(QKeySequence(shortcut))
+                    button.setShortcut(QtGui.QKeySequence(shortcut))
 
             # Obtener el texto del tooltip para asignarlo después
             if is_user_button:
@@ -328,7 +319,7 @@ class AssigneePanel(QWidget):
         num_rows = (len(self.buttons) + self.num_columns - 1) // self.num_columns
 
         # Anadir el espaciador vertical al final (espacio reducido entre botones)
-        spacer = QSpacerItem(20, 20, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        spacer = QtWidgets.QSpacerItem(20, 20, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.layout.addItem(spacer, num_rows, 0, 1, self.num_columns)
 
     def adjust_columns_on_resize(self, event=None):
@@ -356,13 +347,13 @@ class AssigneePanel(QWidget):
     def get_assignees_for_selected_clip(self):
         seq = hiero.ui.activeSequence()
         if not seq:
-            QMessageBox.warning(self, "No Sequence", "No hay una secuencia activa.")
+            QtWidgets.QMessageBox.warning(self, "No Sequence", "No hay una secuencia activa.")
             return
 
         # Usar método híbrido: selección múltiple prioritaria, playhead para selección simple
         clips_to_process = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
         if not clips_to_process:
-            QMessageBox.warning(
+            QtWidgets.QMessageBox.warning(
                 self, "No Clips", "No se encontraron clips para procesar. Selecciona clips o posiciona el playhead sobre un clip en el track _comp_."
             )
             return
@@ -380,9 +371,9 @@ class AssigneePanel(QWidget):
                         base_name = self.parse_exr_name(exr_name)
                         self.call_assignee_script(base_name)
                     except Exception as e:
-                        QMessageBox.warning(self, "Formato Incorrecto", str(e))
+                        QtWidgets.QMessageBox.warning(self, "Formato Incorrecto", str(e))
                 else:
-                    QMessageBox.warning(
+                    QtWidgets.QMessageBox.warning(
                         self, "Media Missing", "El clip no tiene media presente."
                     )
 
@@ -392,7 +383,7 @@ class AssigneePanel(QWidget):
             os.path.dirname(__file__), "LGA_NKS_Flow", "LGA_NKS_Flow_Assignee.py"
         )
         if not os.path.exists(script_path):
-            QMessageBox.warning(
+            QtWidgets.QMessageBox.warning(
                 self,
                 "Script no encontrado",
                 f"No se encontró el script en la ruta: {script_path}",
@@ -413,18 +404,18 @@ class AssigneePanel(QWidget):
             # Llamar a la función principal pasando el base_name
             module.show_task_assignees_from_base_name(base_name)
         except Exception as e:
-            QMessageBox.warning(self, "Error al ejecutar", str(e))
+            QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
 
     def clear_assignees_for_selected_clip(self):
         seq = hiero.ui.activeSequence()
         if not seq:
-            QMessageBox.warning(self, "No Sequence", "No hay una secuencia activa.")
+            QtWidgets.QMessageBox.warning(self, "No Sequence", "No hay una secuencia activa.")
             return
 
         # Usar método híbrido: selección múltiple prioritaria, playhead para selección simple
         clips_to_process = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
         if not clips_to_process:
-            QMessageBox.warning(
+            QtWidgets.QMessageBox.warning(
                 self, "No Clips", "No se encontraron clips para procesar. Selecciona clips o posiciona el playhead sobre un clip en el track _comp_."
             )
             return
@@ -442,9 +433,9 @@ class AssigneePanel(QWidget):
                         base_name = self.parse_exr_name(exr_name)
                         self.call_clear_assignees_script(base_name)
                     except Exception as e:
-                        QMessageBox.warning(self, "Formato Incorrecto", str(e))
+                        QtWidgets.QMessageBox.warning(self, "Formato Incorrecto", str(e))
                 else:
-                    QMessageBox.warning(
+                    QtWidgets.QMessageBox.warning(
                         self, "Media Missing", "El clip no tiene media presente."
                     )
 
@@ -453,7 +444,7 @@ class AssigneePanel(QWidget):
             os.path.dirname(__file__), "LGA_NKS_Flow", "LGA_NKS_Flow_Clear_Assignees.py"
         )
         if not os.path.exists(script_path):
-            QMessageBox.warning(
+            QtWidgets.QMessageBox.warning(
                 self,
                 "Script no encontrado",
                 f"No se encontró el script en la ruta: {script_path}",
@@ -474,7 +465,7 @@ class AssigneePanel(QWidget):
             # Llamar a la función principal pasando el base_name
             module.clear_task_assignees_from_base_name(base_name)
         except Exception as e:
-            QMessageBox.warning(self, "Error al ejecutar", str(e))
+            QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
 
     def assign_assignee_for_selected_clip(self, user_name):
         debug_print(
@@ -483,14 +474,14 @@ class AssigneePanel(QWidget):
         seq = hiero.ui.activeSequence()
         if not seq:
             debug_print("No hay secuencia activa")
-            QMessageBox.warning(self, "No Sequence", "No hay una secuencia activa.")
+            QtWidgets.QMessageBox.warning(self, "No Sequence", "No hay una secuencia activa.")
             return
 
         # Usar método híbrido: selección múltiple prioritaria, playhead para selección simple
         clips_to_process = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
         if not clips_to_process:
             debug_print("No hay clips para procesar")
-            QMessageBox.warning(
+            QtWidgets.QMessageBox.warning(
                 self, "No Clips", "No se encontraron clips para procesar. Selecciona clips o posiciona el playhead sobre un clip en el track _comp_."
             )
             return
@@ -516,10 +507,10 @@ class AssigneePanel(QWidget):
                         self.call_assign_assignee_script(base_name, user_name)
                     except Exception as e:
                         debug_print(f"Error parseando nombre: {e}")
-                        QMessageBox.warning(self, "Formato Incorrecto", str(e))
+                        QtWidgets.QMessageBox.warning(self, "Formato Incorrecto", str(e))
                 else:
                     debug_print("El clip no tiene media presente")
-                    QMessageBox.warning(
+                    QtWidgets.QMessageBox.warning(
                         self, "Media Missing", "El clip no tiene media presente."
                     )
 
@@ -536,7 +527,7 @@ class AssigneePanel(QWidget):
 
         if not os.path.exists(script_path):
             debug_print("Script no encontrado")
-            QMessageBox.warning(
+            QtWidgets.QMessageBox.warning(
                 self,
                 "Script no encontrado",
                 f"No se encontró el script en la ruta: {script_path}",
@@ -561,7 +552,7 @@ class AssigneePanel(QWidget):
             module.assign_assignee_to_task(base_name, user_name)
         except Exception as e:
             debug_print(f"Error ejecutando script: {e}")
-            QMessageBox.warning(self, "Error al ejecutar", str(e))
+            QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
 
     def create_wasabi_policy_for_user(self, wasabi_user):
         """Llama al script de Wasabi Policy Assign para crear/actualizar políticas IAM para un usuario específico"""
@@ -574,7 +565,7 @@ class AssigneePanel(QWidget):
             "LGA_NKS_Wasabi_PolicyAssign.py",
         )
         if not os.path.exists(script_path):
-            QMessageBox.warning(
+            QtWidgets.QMessageBox.warning(
                 self,
                 "Script no encontrado",
                 f"No se encontró el script en la ruta: {script_path}",
@@ -597,7 +588,7 @@ class AssigneePanel(QWidget):
             module.main(wasabi_user)
         except Exception as e:
             debug_print(f"Error ejecutando script de Wasabi: {e}")
-            QMessageBox.warning(self, "Error al ejecutar", str(e))
+            QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
 
     def unassign_wasabi_policy_for_user(self, wasabi_user):
         """Llama al script de Wasabi Policy Unassign para mostrar y gestionar shots asignados"""
@@ -610,7 +601,7 @@ class AssigneePanel(QWidget):
             "LGA_NKS_Wasabi_PolicyUnassign.py",
         )
         if not os.path.exists(script_path):
-            QMessageBox.warning(
+            QtWidgets.QMessageBox.warning(
                 self,
                 "Script no encontrado",
                 f"No se encontró el script en la ruta: {script_path}",
@@ -633,7 +624,7 @@ class AssigneePanel(QWidget):
             module.main(wasabi_user)
         except Exception as e:
             debug_print(f"Error ejecutando script de Wasabi Unassign: {e}")
-            QMessageBox.warning(self, "Error al ejecutar", str(e))
+            QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
 
 
 # Crear la instancia del panel y agregarlo al windowManager de Hiero

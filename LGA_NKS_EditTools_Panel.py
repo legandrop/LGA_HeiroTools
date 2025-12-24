@@ -30,19 +30,8 @@ import re
 import subprocess
 import socket
 import sys
-import PySide2, hiero
-import PySide2.QtWidgets as QtWidgets
-from PySide2.QtWidgets import (
-    QWidget,
-    QGridLayout,
-    QPushButton,
-    QSpacerItem,
-    QSizePolicy,
-    QMessageBox,
-)
-from PySide2.QtGui import QIcon
-from PySide2.QtCore import *
-from PySide2.QtCore import Qt
+import hiero
+from qt_compat import QtWidgets, QtGui, QtCore
 import importlib.util
 import importlib.machinery
 from pathlib import Path
@@ -88,7 +77,7 @@ from LGA_NKS_StyleUtils import (
 
 
 # Clase de botón personalizada que maneja el Shift+Click
-class CustomButton(QPushButton):
+class CustomButton(QtWidgets.QPushButton):
     def __init__(self, text):
         super(CustomButton, self).__init__(text)
         self._custom_click_handler = None
@@ -103,7 +92,7 @@ class CustomButton(QPushButton):
     def mousePressEvent(self, event):
         if self._custom_click_handler and self._shift_click_handler:
             modifiers = event.modifiers()
-            if modifiers & Qt.ShiftModifier:
+            if modifiers & QtCore.Qt.ShiftModifier:
                 self._shift_click_handler()
             else:
                 self._custom_click_handler()
@@ -111,7 +100,7 @@ class CustomButton(QPushButton):
             super(CustomButton, self).mousePressEvent(event)
 
 
-class ReconnectMediaWidget(QWidget):
+class ReconnectMediaWidget(QtWidgets.QWidget):
     def __init__(self):
         super(ReconnectMediaWidget, self).__init__()
 
@@ -121,7 +110,7 @@ class ReconnectMediaWidget(QWidget):
             "QToolTip { color: #ffffff; background-color: #2a2a2a; border: 1px solid white; }"
         )
 
-        self.layout = QGridLayout(self)  # Usamos QGridLayout en lugar de QVBoxLayout
+        self.layout = QtWidgets.QGridLayout(self)  # Usamos QGridLayout en lugar de QVBoxLayout
         self.setLayout(self.layout)
 
 
@@ -212,7 +201,7 @@ class ReconnectMediaWidget(QWidget):
                 button.setCustomClickHandler(self.execute_reconnect_win_to_mac)
                 button.setShiftClickHandler(self.execute_reconnect_win_to_mac_selected)
             else:
-                button = QPushButton(name)
+                button = QtWidgets.QPushButton(name)
                 button.clicked.connect(handler)
 
             # Aplicar estilos del botón con bordes y hover dinámicos
@@ -286,7 +275,7 @@ class ReconnectMediaWidget(QWidget):
         num_rows = (len(self.buttons) + self.num_columns - 1) // self.num_columns
 
         # Anadir el espaciador vertical
-        spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        spacer = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.layout.addItem(spacer, num_rows, 0, 1, self.num_columns)
 
     ###### Rec 709 en clips seleccionados

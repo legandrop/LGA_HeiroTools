@@ -21,10 +21,7 @@ import os
 import subprocess
 import socket
 import sys
-from PySide2.QtWidgets import *
-from PySide2.QtGui import QIcon, QKeySequence
-from PySide2.QtCore import *
-from PySide2 import QtWidgets, QtCore
+from qt_compat import QtWidgets, QtGui, QtCore
 
 # Importar funciones de utilidad de estilos
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Utils"))
@@ -43,14 +40,14 @@ def debug_print(*message):
         print(*message)
 
 
-class ViewerPanel(QWidget):
+class ViewerPanel(QtWidgets.QWidget):
     def __init__(self):
         super(ViewerPanel, self).__init__()
 
         self.setObjectName("com.lega.ViewerPanel")
         self.setWindowTitle("ViewerTL")
 
-        self.layout = QGridLayout(self)
+        self.layout = QtWidgets.QGridLayout(self)
         self.layout.setSpacing(6)  # Reducir espacio entre botones
         self.setLayout(self.layout)
 
@@ -199,12 +196,12 @@ class ViewerPanel(QWidget):
                 # Combinar estilos del botón con estilos de tooltip
                 button_stylesheet += tooltip_stylesheet
 
-            button = QPushButton(name)
+            button = QtWidgets.QPushButton(name)
             button.setObjectName(f"button_{index}")  # Para tooltips dinámicos
             button.setStyleSheet(button_stylesheet)
             button.clicked.connect(handler)
             if shortcut:
-                button.setShortcut(QKeySequence(shortcut))
+                button.setShortcut(QtGui.QKeySequence(shortcut))
             if tooltip:
                 button.setToolTip(tooltip)
 
@@ -237,7 +234,7 @@ class ViewerPanel(QWidget):
         num_rows = (len(self.buttons) + self.num_columns - 1) // self.num_columns
 
         # Anadir el espaciador vertical
-        spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        spacer = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.layout.addItem(spacer, num_rows, 0, 1, self.num_columns)
 
     ##### Rec709 en Viewer

@@ -24,16 +24,7 @@ import sys
 import os
 import re
 from pathlib import Path
-from PySide2.QtWidgets import (
-    QWidget,
-    QPushButton,
-    QGridLayout,
-    QSpacerItem,
-    QSizePolicy,
-    QMessageBox,
-)
-from PySide2.QtGui import QColor, QKeySequence
-from PySide2.QtCore import Qt
+from qt_compat import QtWidgets, QtGui, QtCore
 
 # Importar utilidades de naming
 sys.path.append(str(Path(__file__).parent / "LGA_NKS_Flow"))
@@ -58,7 +49,7 @@ def debug_print(*message):
 
 
 # Clase de botón personalizada que maneja el Shift+Click
-class CustomButton(QPushButton):
+class CustomButton(QtWidgets.QPushButton):
     def __init__(self, text):
         super(CustomButton, self).__init__(text)
         self._custom_click_handler = None
@@ -73,7 +64,7 @@ class CustomButton(QPushButton):
     def mousePressEvent(self, event):
         if self._custom_click_handler and self._shift_click_handler:
             modifiers = event.modifiers()
-            if modifiers & Qt.ShiftModifier:
+            if modifiers & QtCore.Qt.ShiftModifier:
                 self._shift_click_handler()
             else:
                 self._custom_click_handler()
@@ -81,14 +72,14 @@ class CustomButton(QPushButton):
             super(CustomButton, self).mousePressEvent(event)
 
 
-class ColorChangeWidget(QWidget):
+class ColorChangeWidget(QtWidgets.QWidget):
     def __init__(self):
         super(ColorChangeWidget, self).__init__()
 
         self.setObjectName("com.lega.FPTPanel")
         self.setWindowTitle("Flow")
 
-        self.layout = QGridLayout()  # Usamos QGridLayout
+        self.layout = QtWidgets.QGridLayout()  # Usamos QGridLayout
         self.layout.setSpacing(6)  # Reducir espacio entre botones
         self.setLayout(self.layout)
 
@@ -115,56 +106,56 @@ class ColorChangeWidget(QWidget):
             },  # Reemplazado Clear Tag
             {
                 "name": "Corrections",
-                "color": QColor(46, 119, 212),
+                "color": QtGui.QColor(46, 119, 212),
                 "style": "#2e77d4",
                 "action": "color",
             },
-            # {"name": "Corrs_Lega", "color": QColor(105, 19, 94), "style": "#69135e", "action": "color"},
+            # {"name": "Corrs_Lega", "color": QtGui.QColor(105, 19, 94), "style": "#69135e", "action": "color"},
             {
                 "name": "Rev Sebas",
-                "color": QColor(189, 127, 159),
+                "color": QtGui.QColor(189, 127, 159),
                 "style": "#bd7f9f",
                 "action": "color",
             },
             {
                 "name": "Rev Javi",
-                "color": QColor(156, 62, 94),
+                "color": QtGui.QColor(156, 62, 94),
                 "style": "#9c3e5e",
                 "action": "color",
             },
             {
                 "name": "Rev Lega",
-                "color": QColor(105, 19, 94),
+                "color": QtGui.QColor(105, 19, 94),
                 "style": "#69135e",
                 "action": "color",
             },
             {
                 "name": "Rev Hold",
-                "color": QColor(147, 49, 0),
+                "color": QtGui.QColor(147, 49, 0),
                 "style": "#933100",
                 "action": "color",
             },
             {
                 "name": "Rev Dir",
-                "color": QColor(152, 192, 84),
+                "color": QtGui.QColor(152, 192, 84),
                 "style": "#98c054",
                 "action": "color",
             },
             {
                 "name": "Approved",
-                "color": QColor(36, 76, 25),
+                "color": QtGui.QColor(36, 76, 25),
                 "style": "#244c19",
                 "action": "color",
             },
             {
                 "name": "Delivery Ok",
-                "color": QColor(82, 194, 51),
+                "color": QtGui.QColor(82, 194, 51),
                 "style": "#52C233",
                 "action": "color",
             },
             {
                 "name": "Rev Dir Den",
-                "color": QColor(77, 33, 168),
+                "color": QtGui.QColor(77, 33, 168),
                 "style": "#4d21a8",
                 "action": "color",
             },
@@ -248,7 +239,7 @@ class ColorChangeWidget(QWidget):
             elif action == "shot_info":
                 button.clicked.connect(self.run_shot_info_script)
                 if "shortcut" in button_info:
-                    button.setShortcut(QKeySequence(button_info["shortcut"]))
+                    button.setShortcut(QtGui.QKeySequence(button_info["shortcut"]))
                 button.setToolTip(
                     "Muestra información del shot y comentarios de las versiones de la task comp"
                 )
@@ -639,8 +630,8 @@ class ColorChangeWidget(QWidget):
                     te = hiero.ui.getTimelineEditor(seq)
                     selected_items = te.selection()
                     if len(selected_items) > 4:
-                        msg = QMessageBox()
-                        msg.setIcon(QMessageBox.Question)
+                        msg = QtWidgets.QMessageBox()
+                        msg.setIcon(QtWidgets.QMessageBox.Question)
                         msg.setWindowTitle("Confirm Status Application")
                         msg.setText(
                             f"Are you sure you want to apply the status '{status}' to {len(selected_items)} clips?"
@@ -681,8 +672,8 @@ class ColorChangeWidget(QWidget):
                 valid_clips.append(clip)
 
             if len(valid_clips) > 4:
-                msg = QMessageBox()
-                msg.setIcon(QMessageBox.Question)
+                msg = QtWidgets.QMessageBox()
+                msg.setIcon(QtWidgets.QMessageBox.Question)
                 msg.setWindowTitle("Confirm Status Application")
                 msg.setText(
                     f"¿Estás seguro de que quieres aplicar el estado '{status}' a {len(valid_clips)} clips?"
@@ -722,7 +713,7 @@ class ColorChangeWidget(QWidget):
         num_rows = (len(self.buttons) + self.num_columns - 1) // self.num_columns
 
         # Anadir el espaciador vertical
-        spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        spacer = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.layout.addItem(spacer, num_rows, 0, 1, self.num_columns)
 
 

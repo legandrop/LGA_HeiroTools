@@ -37,21 +37,11 @@ import hiero.core
 import sys
 import os
 import re
-from PySide2.QtWidgets import (
-    QWidget,
-    QPushButton,
-    QGridLayout,
-    QMessageBox,
-    QSpacerItem,
-    QSizePolicy,
-)
-from PySide2.QtCore import Qt
-from PySide2.QtGui import QColor, QKeySequence
-from PySide2.QtWidgets import QApplication
+from qt_compat import QtWidgets, QtGui, QtCore
 
 
 # Clase de botón personalizada que maneja el Shift+Click
-class CustomButton(QPushButton):
+class CustomButton(QtWidgets.QPushButton):
     def __init__(self, text):
         super(CustomButton, self).__init__(text)
         self._custom_click_handler = None
@@ -68,8 +58,8 @@ class CustomButton(QPushButton):
     def _handle_click(self):
         """Maneja los clicks del botón, verificando si es Shift+Click"""
         if self._custom_click_handler and self._shift_click_handler:
-            modifiers = QApplication.keyboardModifiers()
-            if modifiers & Qt.ShiftModifier:
+            modifiers = QtWidgets.QApplication.keyboardModifiers()
+            if modifiers & QtCore.Qt.ShiftModifier:
                 self._shift_click_handler()
             else:
                 self._custom_click_handler()
@@ -100,12 +90,12 @@ from LGA_NKS_StyleUtils import (
 )
 
 
-class FlowProdPanel(QWidget):
+class FlowProdPanel(QtWidgets.QWidget):
     def __init__(self):
         super(FlowProdPanel, self).__init__()
         self.setObjectName("com.lega.FlowProdPanel")
         self.setWindowTitle("Coordination")
-        self.layout = QGridLayout()
+        self.layout = QtWidgets.QGridLayout()
         self.layout.setSpacing(6)  # Reducir espacio entre botones
         self.setLayout(self.layout)
 
@@ -257,7 +247,7 @@ class FlowProdPanel(QWidget):
                 button.setCustomClickHandler(handler)
                 button.setShiftClickHandler(self.show_shot_in_flow_for_selected_clip)
             else:
-                button = QPushButton(name)
+                button = QtWidgets.QPushButton(name)
                 button.clicked.connect(handler)
 
             # Aplicar estilos del botón
@@ -283,7 +273,7 @@ class FlowProdPanel(QWidget):
 
             # Agregar shortcut si existe
             if shortcut:
-                button.setShortcut(QKeySequence(shortcut))
+                button.setShortcut(QtGui.QKeySequence(shortcut))
 
             row = index // self.num_columns
             column = index % self.num_columns
@@ -293,7 +283,7 @@ class FlowProdPanel(QWidget):
         num_rows = (len(self.buttons) + self.num_columns - 1) // self.num_columns
 
         # Anadir el espaciador vertical al final
-        spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        spacer = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.layout.addItem(spacer, num_rows, 0, 1, self.num_columns)
 
     def adjust_columns_on_resize(self, event=None):
@@ -325,7 +315,7 @@ class FlowProdPanel(QWidget):
             os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_Flow_ShowInFlow.py"
         )
         if not os.path.exists(script_path):
-            QMessageBox.warning(
+            QtWidgets.QMessageBox.warning(
                 self,
                 "Script no encontrado",
                 f"No se encontró el script en la ruta: {script_path}",
@@ -348,7 +338,7 @@ class FlowProdPanel(QWidget):
             module.show_in_flow_from_selected_clip()
         except Exception as e:
             debug_print(f"Error al ejecutar show_in_flow_from_selected_clip: {e}")
-            QMessageBox.warning(self, "Error al ejecutar", str(e))
+            QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
 
     def show_shot_in_flow_for_selected_clip(self):
         """Llama al script Show in Flow para abrir el Shot completo en Chrome (Shift+Click)"""
@@ -357,7 +347,7 @@ class FlowProdPanel(QWidget):
             os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_Flow_ShowInFlow.py"
         )
         if not os.path.exists(script_path):
-            QMessageBox.warning(
+            QtWidgets.QMessageBox.warning(
                 self,
                 "Script no encontrado",
                 f"No se encontró el script en la ruta: {script_path}",
@@ -380,7 +370,7 @@ class FlowProdPanel(QWidget):
             module.show_shot_in_flow_from_selected_clip()
         except Exception as e:
             debug_print(f"Error al ejecutar show_shot_in_flow_from_selected_clip: {e}")
-            QMessageBox.warning(self, "Error al ejecutar", str(e))
+            QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
 
     def create_thumbnail_for_selected_clip(self):
         """Llama al script Thumbnail para crear un thumbnail del clip seleccionado"""
@@ -388,7 +378,7 @@ class FlowProdPanel(QWidget):
             os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_Flow_Thumbs.py"
         )
         if not os.path.exists(script_path):
-            QMessageBox.warning(
+            QtWidgets.QMessageBox.warning(
                 self,
                 "Script no encontrado",
                 f"No se encontró el script en la ruta: {script_path}",
@@ -407,7 +397,7 @@ class FlowProdPanel(QWidget):
             # Llamar a la función principal
             module.main()
         except Exception as e:
-            QMessageBox.warning(self, "Error al ejecutar", str(e))
+            QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
 
     def create_shot_for_selected_clip(self):
         """Llama al script Create Shot para crear shots basado en el clip seleccionado"""
@@ -415,7 +405,7 @@ class FlowProdPanel(QWidget):
             os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_Flow_CreateShot.py"
         )
         if not os.path.exists(script_path):
-            QMessageBox.warning(
+            QtWidgets.QMessageBox.warning(
                 self,
                 "Script no encontrado",
                 f"No se encontró el script en la ruta: {script_path}",
@@ -436,7 +426,7 @@ class FlowProdPanel(QWidget):
             # Llamar a la función principal
             module.main()
         except Exception as e:
-            QMessageBox.warning(self, "Error al ejecutar", str(e))
+            QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
 
     def modify_shot_for_selected_clip(self):
         """Llama al script Modify Shot para ajustar shots existentes"""
@@ -444,7 +434,7 @@ class FlowProdPanel(QWidget):
             os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_Flow_ModifyShot.py"
         )
         if not os.path.exists(script_path):
-            QMessageBox.warning(
+            QtWidgets.QMessageBox.warning(
                 self,
                 "Script no encontrado",
                 f"No se encontró el script en la ruta: {script_path}",
@@ -464,7 +454,7 @@ class FlowProdPanel(QWidget):
             spec.loader.exec_module(module)
             module.main()
         except Exception as e:
-            QMessageBox.warning(self, "Error al ejecutar", str(e))
+            QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
 
     def toggle_shot_priority_for_selected_clip(self):
         """Llama al script Shot Priority para cambiar la prioridad del shot seleccionado"""
@@ -472,7 +462,7 @@ class FlowProdPanel(QWidget):
             os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_Flow_ShotPriority.py"
         )
         if not os.path.exists(script_path):
-            QMessageBox.warning(
+            QtWidgets.QMessageBox.warning(
                 self,
                 "Script no encontrado",
                 f"No se encontró el script en la ruta: {script_path}",
@@ -493,7 +483,7 @@ class FlowProdPanel(QWidget):
             # Llamar a la función principal
             module.toggle_shot_priority_from_selected_clip()
         except Exception as e:
-            QMessageBox.warning(self, "Error al ejecutar", str(e))
+            QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
 
     def open_shot_in_filemanager(self):
         """Llama al script FileManager para abrir la carpeta del shot seleccionado"""
@@ -501,7 +491,7 @@ class FlowProdPanel(QWidget):
             os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_FileManager_OpenPath.py"
         )
         if not os.path.exists(script_path):
-            QMessageBox.warning(
+            QtWidgets.QMessageBox.warning(
                 self,
                 "Script no encontrado",
                 f"No se encontró el script en la ruta: {script_path}",
@@ -522,7 +512,7 @@ class FlowProdPanel(QWidget):
             # Llamar a la función principal
             module.main()
         except Exception as e:
-            QMessageBox.warning(self, "Error al ejecutar", str(e))
+            QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
 
     def download_shot_from_filemanager(self):
         """Llama al script FileManager para descargar el shot seleccionado"""
@@ -530,7 +520,7 @@ class FlowProdPanel(QWidget):
             os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_FileManager_Download.py"
         )
         if not os.path.exists(script_path):
-            QMessageBox.warning(
+            QtWidgets.QMessageBox.warning(
                 self,
                 "Script no encontrado",
                 f"No se encontró el script en la ruta: {script_path}",
@@ -551,7 +541,7 @@ class FlowProdPanel(QWidget):
             # Llamar a la función principal
             module.main()
         except Exception as e:
-            QMessageBox.warning(self, "Error al ejecutar", str(e))
+            QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
 
     def upload_shot_to_filemanager(self):
         """Llama al script FileManager para subir el shot seleccionado"""
@@ -559,7 +549,7 @@ class FlowProdPanel(QWidget):
             os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_FileManager_Upload.py"
         )
         if not os.path.exists(script_path):
-            QMessageBox.warning(
+            QtWidgets.QMessageBox.warning(
                 self,
                 "Script no encontrado",
                 f"No se encontró el script en la ruta: {script_path}",
@@ -580,7 +570,7 @@ class FlowProdPanel(QWidget):
             # Llamar a la función principal
             module.main()
         except Exception as e:
-            QMessageBox.warning(self, "Error al ejecutar", str(e))
+            QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
 
 
 # Crear la instancia del panel y agregarlo al windowManager de Hiero

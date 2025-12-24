@@ -19,15 +19,7 @@ import subprocess
 import socket
 import importlib.util
 import sys
-from PySide2.QtWidgets import (
-    QWidget,
-    QPushButton,
-    QGridLayout,
-    QSpacerItem,
-    QSizePolicy,
-)
-from PySide2.QtGui import QIcon
-from PySide2.QtCore import QTimer, Qt
+from qt_compat import QtWidgets, QtGui, QtCore
 
 # Importar funciones de utilidad de estilos
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Utils"))
@@ -39,7 +31,7 @@ from LGA_NKS_StyleUtils import (
 
 
 # Clase de botón personalizada que maneja el Shift+Click
-class CustomButton(QPushButton):
+class CustomButton(QtWidgets.QPushButton):
     def __init__(self, text):
         super(CustomButton, self).__init__(text)
         self._custom_click_handler = None
@@ -54,7 +46,7 @@ class CustomButton(QPushButton):
     def mousePressEvent(self, event):
         if self._custom_click_handler and self._shift_click_handler:
             modifiers = event.modifiers()
-            if modifiers & Qt.ShiftModifier:
+            if modifiers & QtCore.Qt.ShiftModifier:
                 self._shift_click_handler()
             else:
                 self._custom_click_handler()
@@ -70,14 +62,14 @@ def debug_print(*message):
         print(*message)
 
 
-class ReviewPanel(QWidget):
+class ReviewPanel(QtWidgets.QWidget):
     def __init__(self):
         super(ReviewPanel, self).__init__()
 
         self.setObjectName("com.lega.RevtoolPanel")
         self.setWindowTitle("Review")
 
-        self.layout = QGridLayout(self)  # Usamos QGridLayout en lugar de QVBoxLayout
+        self.layout = QtWidgets.QGridLayout(self)  # Usamos QGridLayout en lugar de QVBoxLayout
         self.layout.setSpacing(6)  # Reducir espacio entre botones
         self.setLayout(self.layout)
 
@@ -129,7 +121,7 @@ class ReviewPanel(QWidget):
 
         # Ejecutar el script de verificación de versiones de proyectos al iniciar el panel
         # Con un pequeño retraso para asegurar que Hiero haya cargado completamente
-        QTimer.singleShot(7000, self.execute_CheckProjectVersions)
+        QtCore.QTimer.singleShot(7000, self.execute_CheckProjectVersions)
 
     def create_buttons(self):
         for index, button_info in enumerate(self.buttons):
@@ -185,7 +177,7 @@ class ReviewPanel(QWidget):
                 if tooltip:
                     button.setToolTip(tooltip)
             else:
-                button = QPushButton(name)
+                button = QtWidgets.QPushButton(name)
                 button.setObjectName(f"button_{index}")  # Para tooltips dinámicos
                 button.setStyleSheet(button_stylesheet)
                 button.clicked.connect(handler)
@@ -225,7 +217,7 @@ class ReviewPanel(QWidget):
         num_rows = (len(self.buttons) + self.num_columns - 1) // self.num_columns
 
         # Anadir el espaciador vertical
-        spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        spacer = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.layout.addItem(spacer, num_rows, 0, 1, self.num_columns)
 
     # Metodo generico para ejecutar scripts externos
