@@ -41,19 +41,22 @@ if utils_path.exists():
 else:
     # Fallback si no se encuentra el módulo
     TRACK_comp_EXR = "_comp_"
-from PySide2.QtWidgets import (
-    QApplication,
-    QWidget,
-    QVBoxLayout,
-    QTableWidget,
-    QTableWidgetItem,
-    QHeaderView,
-    QColorDialog,
-    QMessageBox,
-)
-from PySide2.QtWidgets import QStyledItemDelegate, QStyle
-from PySide2.QtGui import QColor, QBrush, QScreen, QFont, QPalette
-from PySide2.QtCore import Qt
+from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
+QApplication = QtWidgets.QApplication
+QWidget = QtWidgets.QWidget
+QVBoxLayout = QtWidgets.QVBoxLayout
+QTableWidget = QtWidgets.QTableWidget
+QTableWidgetItem = QtWidgets.QTableWidgetItem
+QHeaderView = QtWidgets.QHeaderView
+QColorDialog = QtWidgets.QColorDialog
+QMessageBox = QtWidgets.QMessageBox
+QStyledItemDelegate = QtWidgets.QStyledItemDelegate
+QStyle = QtWidgets.QStyle
+QColor = QtGui.QColor
+QBrush = QtGui.QBrush
+QScreen = QtGui.QScreen
+QFont = QtGui.QFont
+QPalette = QtGui.QPalette
 import sys
 import ctypes
 import ctypes.wintypes
@@ -74,7 +77,7 @@ def delete_tags_from_clip(clip):
 
 
 # Variable global para activar o desactivar los prints
-DEBUG = False
+DEBUG = True
 XYPlorer_Tags = True
 
 

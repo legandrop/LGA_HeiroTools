@@ -18,7 +18,7 @@ import re
 from pathlib import Path
 import hiero.core
 import hiero.ui
-from qt_compat import QtWidgets, QtGui, QtCore
+from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 import sys
 
 # Variable global para activar o desactivar los prints

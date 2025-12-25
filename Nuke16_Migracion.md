@@ -1,8 +1,8 @@
 # Plan de migración Nuke 15 → Nuke 16 (PySide2 → PySide6) - Hiero Panels
 
 ## Estrategia
-- Crear capa de compatibilidad `qt_compat.py` similar a ToolPacks
-- Reemplazar imports PySide2 → `qt_compat` en todos los paneles
+- Crear capa de compatibilidad `LGA_QtAdapter_HieroTools.py` similar a ToolPacks
+- Reemplazar imports PySide2 → `LGA_QtAdapter_HieroTools` en todos los paneles
 - Mantener compatibilidad con Nuke 15 mediante try/except
 - Actualizar APIs Qt5 deprecadas si es necesario
 
@@ -19,9 +19,9 @@
 - [x] `LGA_NKS_FlowNo_Panel.py` — Panel Flow alternativo (PySide2.QtWidgets, PySide2.QtGui)
 
 ### Archivos adicionales migrados (scripts auxiliares)
-- [x] `LGA_NKS_Shortcuts.py` — Atajos de teclado (migrado a qt_compat)
-- [x] `z_clear_outpoint_workaround.py` — Workaround para timeline viewer (migrado a qt_compat)
-- [x] `z_version_everywhere.py` — Versionado de clips (migrado a qt_compat)
+- [x] `LGA_NKS_Shortcuts.py` — Atajos de teclado (migrado a LGA_QtAdapter_HieroTools)
+- [x] `z_clear_outpoint_workaround.py` — Workaround para timeline viewer (migrado a LGA_QtAdapter_HieroTools)
+- [x] `z_version_everywhere.py` — Versionado de clips (migrado a LGA_QtAdapter_HieroTools)
 
 ## Scripts de Funcionalidad (requieren migración Qt)
 
@@ -43,7 +43,7 @@
 - [x] `LGA_NKS_FixColorspaces.py` — Corrección de colorspaces (sin Qt directo)
 
 ### LGA_NKS_Flow/ - Scripts de Flow
-- [ ] `LGA_NKS_Flow_Pull.py` — Pull de tasks Flow (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar, QRunnable, QThreadPool)
+- [x] `LGA_NKS_Flow_Pull.py` — Pull de tasks Flow (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar, QRunnable, QThreadPool)
 - [ ] `LGA_NKS_Flow_Push.py` — Push de estados Flow (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
 - [ ] `LGA_NKS_Flow_Assign_Assignee.py` — Asignación de usuarios (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
 - [ ] `LGA_NKS_Flow_Assignee.py` — Obtener asignados (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar, QRunnable, QThreadPool)
@@ -78,7 +78,7 @@
 ## Archivos que NO necesitan migración
 
 ### Utilidades y configuración
-- [x] `LGA_NKS_Shortcuts.py` — Atajos de teclado (migrado a qt_compat)
+- [x] `LGA_NKS_Shortcuts.py` — Atajos de teclado (migrado a LGA_QtAdapter_HieroTools)
 - [x] `LGA_NKS_Utils/LGA_NKS_StyleUtils.py` — Utilidades de estilos (sin Qt)
 - [x] `LGA_NKS_Utils/LGA_NKS_GetClip.py` — Utilidades de clips (sin Qt)
 - [x] `LGA_NKS_Utils/README_StyleUtils.md` — Documentación
@@ -107,7 +107,7 @@
 
 ## Pasos sugeridos para migración
 
-1. **Crear `qt_compat.py`** en `Python/Startup/` (similar al de ToolPacks):
+1. **Crear `LGA_QtAdapter_HieroTools.py`** en `Python/Startup/` (similar al de ToolPacks):
    ```python
    try:
        from PySide6 import QtWidgets, QtGui, QtCore
@@ -129,7 +129,7 @@
    - Luego paneles complejos como `LGA_NKS_Flow_Panel.py`
 
 3. **Migrar scripts de funcionalidad**:
-   - Reemplazar imports PySide2 → `qt_compat`
+   - Reemplazar imports PySide2 → `LGA_QtAdapter_HieroTools`
    - Revisar uso de APIs deprecated (QApplication, QThreadPool, etc.)
    - Los scripts que usan QRunnable/QThreadPool ya están preparados
 
@@ -186,14 +186,14 @@ Algunos scripts pueden usar APIs de fuente que cambiaron.
 **Solución implementada:** Cambiar todas las funciones para usar el context manager `with project.beginUndo("name"):`.
 
 ## Estado actual
-- [x] `qt_compat.py` creado y funcional
+- [x] `LGA_QtAdapter_HieroTools.py` creado y funcional
 - [x] Todos los paneles principales migrados (8/8)
 - [x] Scripts básicos LGA_NKS/ migrados (3/3)
 - [x] Scripts LGA_NKS_Edit/ migrados (8/8)
 - [x] Scripts LGA_NKS_ViewerTL/ migrados (5/6)
 - [x] Scripts auxiliares migrados (4/4)
 - [x] APIs problemáticas corregidas (undo system, scrollbar hierarchy)
-- [ ] ~15 scripts Flow requieren migración
+- [ ] ~14 scripts Flow requieren migración
 
 ## ✅ **MIGRACIÓN COMPLETA - LGA_NKS_Edit/**
 **8/8 archivos completamente migrados:**

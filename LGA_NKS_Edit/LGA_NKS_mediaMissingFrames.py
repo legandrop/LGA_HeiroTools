@@ -9,9 +9,9 @@ ________________________________________________________________________________
 
 import hiero.core
 import hiero.ui
-from qt_compat import QtWidgets, QtGui, QtCore, Qt
+from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
 
-# Qt ya está disponible desde qt_compat
+# Qt ya está disponible desde LGA_QtAdapter_HieroTools
 import os
 import re
 import subprocess

@@ -24,7 +24,7 @@ import sys
 import os
 import re
 from pathlib import Path
-from qt_compat import QtWidgets, QtGui, QtCore
+from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 
 # Importar utilidades de naming
 sys.path.append(str(Path(__file__).parent / "LGA_NKS_Flow"))
@@ -40,7 +40,7 @@ from LGA_NKS_StyleUtils import (
 
 
 # Variable global para activar o desactivar los prints
-DEBUG = False
+DEBUG = True
 
 
 def debug_print(*message):

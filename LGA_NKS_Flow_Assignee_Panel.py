@@ -21,7 +21,7 @@ import hiero.core
 import sys
 import os
 import json
-from qt_compat import QtWidgets, QtGui, QtCore
+from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 
 # Importar función de limpieza de nombres desde NamingUtils
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Flow"))

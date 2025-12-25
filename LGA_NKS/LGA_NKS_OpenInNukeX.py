@@ -15,7 +15,7 @@ import os
 import re
 import subprocess
 import socket
-from qt_compat import QtWidgets, QtCore
+from LGA_QtAdapter_HieroTools import QtWidgets, QtCore
 
 DEBUG = False
 

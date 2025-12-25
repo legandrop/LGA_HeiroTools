@@ -10,7 +10,7 @@ import hiero.ui
 import hiero.core
 import sys
 import os
-from qt_compat import QtWidgets, QtGui
+from LGA_QtAdapter_HieroTools import QtWidgets, QtGui
 
 # Importar funciones de utilidad de estilos
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Utils"))

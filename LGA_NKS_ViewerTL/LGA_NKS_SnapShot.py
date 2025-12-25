@@ -10,7 +10,7 @@ ______________________________________________________
 import hiero.core
 import hiero.ui
 import os
-from qt_compat import QtWidgets, QtCore
+from LGA_QtAdapter_HieroTools import QtWidgets, QtCore
 
 DEBUG = False
 SaveToFile = False

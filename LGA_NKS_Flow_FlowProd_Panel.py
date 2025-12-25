@@ -37,7 +37,7 @@ import hiero.core
 import sys
 import os
 import re
-from qt_compat import QtWidgets, QtGui, QtCore
+from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 
 
 # Clase de botón personalizada que maneja el Shift+Click

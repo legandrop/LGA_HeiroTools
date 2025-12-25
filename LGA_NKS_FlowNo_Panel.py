@@ -9,7 +9,7 @@ import hiero.ui
 import hiero.core
 import sys
 import os
-from qt_compat import QtWidgets, QtGui
+from LGA_QtAdapter_HieroTools import QtWidgets, QtGui
 
 
 class ColorChangeWidget(QtWidgets.QWidget):

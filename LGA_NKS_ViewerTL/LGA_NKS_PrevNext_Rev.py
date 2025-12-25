@@ -19,7 +19,7 @@ ________________________________________________________________________________
 
 import hiero.core
 import hiero.ui
-from qt_compat import QtGui, QtCore
+from LGA_QtAdapter_HieroTools import QtGui, QtCore
 from pathlib import Path
 import sys
 

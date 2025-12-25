@@ -31,7 +31,7 @@ import subprocess
 import socket
 import sys
 import hiero
-from qt_compat import QtWidgets, QtGui, QtCore
+from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 import importlib.util
 import importlib.machinery
 from pathlib import Path

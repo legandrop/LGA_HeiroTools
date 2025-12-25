@@ -14,7 +14,7 @@ ________________________________________________________________________________
 
 import hiero.core
 import hiero.ui
-from qt_compat import QtWidgets, QtGui, QAction
+from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QAction
 
 # Configurar depuración
 DEBUG = False

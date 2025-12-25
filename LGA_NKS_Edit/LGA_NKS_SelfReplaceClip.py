@@ -27,20 +27,20 @@ import sys
 
 debug_print(f"Python path incluye Startup: {'Python/Startup' in str(sys.path)}")
 debug_print(f"Directorio actual: {os.getcwd()}")
-debug_print(f"Archivo qt_compat.py existe: {os.path.exists('../qt_compat.py')}")
+debug_print(f"Archivo LGA_QtAdapter_HieroTools.py existe: {os.path.exists('../LGA_QtAdapter_HieroTools.py')}")
 
-# Importar qt_compat con fallback
+# Importar LGA_QtAdapter_HieroTools con fallback
 try:
-    # Agregar el directorio padre al path para encontrar qt_compat.py
+    # Agregar el directorio padre al path para encontrar LGA_QtAdapter_HieroTools.py
     parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if parent_dir not in sys.path:
         sys.path.insert(0, parent_dir)
         debug_print(f"Agregado al path: {parent_dir}")
 
-    from qt_compat import QtGui
-    debug_print("qt_compat importado correctamente")
+    from LGA_QtAdapter_HieroTools import QtGui
+    debug_print("LGA_QtAdapter_HieroTools importado correctamente")
 except ImportError as e:
-    debug_print(f"Error importando qt_compat: {e}")
+    debug_print(f"Error importando LGA_QtAdapter_HieroTools: {e}")
     QtGui = None
 
 def print_clip_info(shot, prefix=""):
