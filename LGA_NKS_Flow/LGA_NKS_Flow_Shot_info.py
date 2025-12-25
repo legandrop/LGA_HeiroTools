@@ -20,7 +20,14 @@ import sqlite3
 import subprocess
 import platform
 from pathlib import Path
-from PySide2.QtCore import QCoreApplication, Qt, QSize, Signal
+# Importar compatibilidad Qt para Hiero Panels
+from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
+
+# Reasignar clases QtCore para compatibilidad
+QCoreApplication = QtWidgets.QApplication  # En PySide6, QCoreApplication está en QtCore, pero usamos QApplication
+Qt = QtCore.Qt
+QSize = QtCore.QSize
+Signal = QtCore.Signal
 
 # Importar utilidades de naming
 sys.path.append(str(Path(__file__).parent))
@@ -41,18 +48,22 @@ if utils_path.exists():
         HAS_CLIP_UTILS = True
     except ImportError as e:
         debug_print(f"Error importando módulo LGA_NKS_GetClip: {e}")
-from PySide2.QtGui import QFontMetrics, QKeySequence, QPixmap, QCursor
-from PySide2.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QTextEdit,
-    QApplication,
-    QShortcut,
-    QScrollArea,
-    QLabel,
-    QFrame,
-)
+# Reasignar clases QtGui para compatibilidad
+QFontMetrics = QtGui.QFontMetrics
+QKeySequence = QtGui.QKeySequence
+QPixmap = QtGui.QPixmap
+QCursor = QtGui.QCursor
+
+# Reasignar clases QtWidgets para compatibilidad
+QWidget = QtWidgets.QWidget
+QVBoxLayout = QtWidgets.QVBoxLayout
+QHBoxLayout = QtWidgets.QHBoxLayout
+QTextEdit = QtWidgets.QTextEdit
+QApplication = QtWidgets.QApplication
+QShortcut = QtGui.QShortcut  # QShortcut está en QtGui en PySide6
+QScrollArea = QtWidgets.QScrollArea
+QLabel = QtWidgets.QLabel
+QFrame = QtWidgets.QFrame
 
 
 # Variable global para activar o desactivar los prints

@@ -4,6 +4,9 @@ ______________________________________________________
   LGA_NKS_Flow_CreateShot_Thumbs v1.01 | Lega
   Crea un snapshot del viewer actual con zoom to fill y lo guarda en ShotThumbs_Cache
   organizando por nombre de shot
+
+  No se usa actualmente.
+
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
@@ -17,8 +20,12 @@ import os
 import re
 import sys
 from pathlib import Path
-from PySide2.QtWidgets import QApplication
-from PySide2.QtCore import QRect
+# Importar compatibilidad Qt para Hiero Panels
+from LGA_QtAdapter_HieroTools import QtWidgets, QtCore
+
+# Reasignar clases para compatibilidad con código existente
+QApplication = QtWidgets.QApplication
+QRect = QtCore.QRect
 
 # Importar utilidades de naming
 sys.path.append(str(Path(__file__).parent))

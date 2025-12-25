@@ -427,8 +427,12 @@ def get_clip_to_process(track_name=None, prioritize_multiple_selection=False):
                     # 2c: Los shots no coinciden y el clip seleccionado no está bajo playhead, mostrar mensaje informativo
                     debug_print(f"Shots diferentes - seleccionado: {selected_shot}, playhead: {playhead_shot}")
                     if _SHOW_WARNINGS:
-                        from PySide2.QtWidgets import QMessageBox
-                        from PySide2.QtCore import Qt
+                        # Importar compatibilidad Qt
+                        import sys
+                        sys.path.insert(0, r"C:\Users\leg4-pc\.nuke\Python\Startup")
+                        from LGA_QtAdapter_HieroTools import QtWidgets, QtCore
+                        QMessageBox = QtWidgets.QMessageBox
+                        Qt = QtCore.Qt
 
                         msg_box = QMessageBox()
                         msg_box.setIcon(QMessageBox.Warning)
@@ -471,6 +475,9 @@ def get_clip_to_process(track_name=None, prioritize_multiple_selection=False):
             intelligent_clips = analyze_multiple_shots_selection(all_selected_clips, track_name=track_name)
             return intelligent_clips
         # Si no hay múltiples clips seleccionados, continuar con lógica normal
+        if len(all_selected_clips) == 0:
+            debug_print(f"ERROR: No hay clips seleccionados en el timeline")
+            return None
         selected_clip = all_selected_clips[0]
         debug_print(f"Solo un clip seleccionado fuera del track '{track_name}': {selected_clip.name()}")
 
@@ -494,7 +501,11 @@ def get_clip_to_process(track_name=None, prioritize_multiple_selection=False):
                 # 2c: Los shots no coinciden, mostrar mensaje informativo
                 debug_print(f"Shots diferentes - seleccionado: {selected_shot}, playhead: {playhead_shot}")
                 if _SHOW_WARNINGS:
-                    from PySide2.QtWidgets import QMessageBox
+                    # Importar compatibilidad Qt
+                    import sys
+                    sys.path.insert(0, r"C:\Users\leg4-pc\.nuke\Python\Startup")
+                    from LGA_QtAdapter_HieroTools import QtWidgets
+                    QMessageBox = QtWidgets.QMessageBox
                     QMessageBox.warning(
                         None,
                         "Shots diferentes",
@@ -520,7 +531,11 @@ def get_clip_to_process(track_name=None, prioritize_multiple_selection=False):
     # (solo si la lógica inteligente no resolvió el problema automáticamente)
     if not intelligent_selection_applied and len(all_selected_clips) > len(selected_clips_in_track) and _SHOW_WARNINGS:
         clips_in_other_tracks = len(all_selected_clips) - len(selected_clips_in_track)
-        from PySide2.QtWidgets import QMessageBox
+        # Importar compatibilidad Qt
+        import sys
+        sys.path.insert(0, r"C:\Users\leg4-pc\.nuke\Python\Startup")
+        from LGA_QtAdapter_HieroTools import QtWidgets
+        QMessageBox = QtWidgets.QMessageBox
         QMessageBox.information(
             None,
             "Selección filtrada por track",

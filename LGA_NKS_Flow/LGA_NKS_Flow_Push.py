@@ -37,7 +37,7 @@ import glob
 import shutil
 import tempfile
 import json
-from PySide2.QtCore import QRunnable, Slot, QThreadPool, Signal, QObject, Qt
+# QtCore classes ahora vienen del adapter (se asignarán después del import)
 import datetime
 import subprocess  # Importar subprocess para abrir archivos
 import sys
@@ -72,22 +72,30 @@ if utils_path.exists():
 else:
     debug_print("ERROR: No se encontró el módulo LGA_NKS_GetClip")
 
-# from PySide2.QtCore import QWaitCondition, QMutex
-from PySide2.QtWidgets import (
-    QApplication,
-    QMessageBox,
-    QDialog,
-    QVBoxLayout,
-    QHBoxLayout,
-    QPlainTextEdit,
-    QPushButton,
-    QLabel,
-    QShortcut,
-    QScrollArea,
-    QWidget,
-    QCheckBox,
-)
-from PySide2.QtGui import QKeySequence, QPixmap, QIcon
+# Importar compatibilidad Qt para Hiero Panels
+from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt, QShortcut
+
+# Reasignar clases para compatibilidad con código existente
+QRunnable = QtCore.QRunnable
+Slot = QtCore.Slot
+QThreadPool = QtCore.QThreadPool
+Signal = QtCore.Signal
+QObject = QtCore.QObject
+QApplication = QtWidgets.QApplication
+QMessageBox = QtWidgets.QMessageBox
+QDialog = QtWidgets.QDialog
+QVBoxLayout = QtWidgets.QVBoxLayout
+QHBoxLayout = QtWidgets.QHBoxLayout
+QPlainTextEdit = QtWidgets.QPlainTextEdit
+QPushButton = QtWidgets.QPushButton
+QLabel = QtWidgets.QLabel
+QScrollArea = QtWidgets.QScrollArea
+QWidget = QtWidgets.QWidget
+QCheckBox = QtWidgets.QCheckBox
+
+QKeySequence = QtGui.QKeySequence
+QPixmap = QtGui.QPixmap
+QIcon = QtGui.QIcon
 
 # Diccionario de traduccion de estados
 status_translation = {

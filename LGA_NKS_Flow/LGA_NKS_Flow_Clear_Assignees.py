@@ -21,20 +21,29 @@ import json
 import sqlite3
 import platform
 import shotgun_api3
-from PySide2.QtCore import QRunnable, Slot, QThreadPool, Signal, QObject, Qt, QTimer
-from PySide2.QtWidgets import (
-    QApplication,
-    QMessageBox,
-    QDialog,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QSizePolicy,
-    QCheckBox,
-    QWidget,
-)
-from PySide2.QtGui import QFont
+# Importar compatibilidad Qt para Hiero Panels
+from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
+
+# Reasignar clases para compatibilidad con código existente
+QRunnable = QtCore.QRunnable
+Slot = QtCore.Slot
+QThreadPool = QtCore.QThreadPool
+Signal = QtCore.Signal
+QObject = QtCore.QObject
+QTimer = QtCore.QTimer
+
+QApplication = QtWidgets.QApplication
+QMessageBox = QtWidgets.QMessageBox
+QDialog = QtWidgets.QDialog
+QVBoxLayout = QtWidgets.QVBoxLayout
+QHBoxLayout = QtWidgets.QHBoxLayout
+QLabel = QtWidgets.QLabel
+QPushButton = QtWidgets.QPushButton
+QSizePolicy = QtWidgets.QSizePolicy
+QCheckBox = QtWidgets.QCheckBox
+QWidget = QtWidgets.QWidget
+
+QFont = QtGui.QFont
 
 # Agregar la ruta actual al sys.path para importar SecureConfig_Reader
 current_dir = os.path.dirname(os.path.abspath(__file__))

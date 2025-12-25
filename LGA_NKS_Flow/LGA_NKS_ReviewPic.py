@@ -19,8 +19,12 @@ import os
 import re
 import glob
 from pathlib import Path
-from PySide2.QtWidgets import QApplication
-from PySide2.QtCore import QRect
+# Importar compatibilidad Qt para Hiero Panels
+from LGA_QtAdapter_HieroTools import QtWidgets, QtCore
+
+# Reasignar clases para compatibilidad con código existente
+QApplication = QtWidgets.QApplication
+QRect = QtCore.QRect
 import subprocess
 import sys
 

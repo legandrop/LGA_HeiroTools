@@ -45,14 +45,14 @@
 
 ### LGA_NKS_Flow/ - Scripts de Flow
 - [x] `LGA_NKS_Flow_Pull.py` — Pull de tasks Flow (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar, QRunnable, QThreadPool)
-- [ ] `LGA_NKS_Flow_Push.py` — Push de estados Flow (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
-- [ ] `LGA_NKS_Flow_Assign_Assignee.py` — Asignación de usuarios (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
-- [ ] `LGA_NKS_Flow_Assignee.py` — Obtener asignados (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar, QRunnable, QThreadPool)
-- [ ] `LGA_NKS_Flow_Clear_Assignees.py` — Limpiar asignados (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
-- [ ] `LGA_NKS_Flow_Shot_info.py` — Información de shots (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
-- [ ] `LGA_NKS_Flow_ReviewPic.py` — Captura de review (sin Qt directo)
-- [ ] `LGA_NKS_Flow_NamingUtils.py` — Utilidades de naming (sin Qt)
-- [ ] `LGA_NKS_Flow_CreateShot_Thumbs.py` — Creación de thumbnails (sin Qt directo)
+- [x] `LGA_NKS_Flow_Push.py` — Push de estados Flow (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
+- [x] `LGA_NKS_Flow_Assign_Assignee.py` — Asignación de usuarios (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
+- [x] `LGA_NKS_Flow_Assignee.py` — Obtener asignados (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar, QRunnable, QThreadPool)
+- [x] `LGA_NKS_Flow_Clear_Assignees.py` — Limpiar asignados (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
+- [x] `LGA_NKS_Flow_Shot_info.py` — Información de shots (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
+- [x] `LGA_NKS_Flow_ReviewPic.py` — Captura de review (migrado Qt)
+- [x] `LGA_NKS_Flow_NamingUtils.py` — Utilidades de naming (sin Qt)
+- [x] `LGA_NKS_Flow_CreateShot_Thumbs.py` — Creación de thumbnails (migrado Qt)
 
 ### LGA_NKS_Flow_Prod/ - Scripts de producción Flow
 - [ ] `LGA_NKS_Flow_CreateShot.py` — Crear shots Flow (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
@@ -81,7 +81,7 @@
 ### Utilidades y configuración
 - [x] `LGA_NKS_Shortcuts.py` — Atajos de teclado (migrado a LGA_QtAdapter_HieroTools)
 - [x] `LGA_NKS_Utils/LGA_NKS_StyleUtils.py` — Utilidades de estilos (sin Qt)
-- [x] `LGA_NKS_Utils/LGA_NKS_GetClip.py` — Utilidades de clips (sin Qt)
+- [x] `LGA_NKS_Utils/LGA_NKS_GetClip.py` — Utilidades de clips (migrado Qt + fix IndexError)
 - [x] `LGA_NKS_Utils/README_StyleUtils.md` — Documentación
 - [x] `LGA_NKS_Flow_Task_Config.py` — Configuración de tasks Flow (sin Qt)
 - [x] `LGA_NKS_Flow_Users.json` — Configuración de usuarios (JSON)
@@ -97,6 +97,9 @@
 - [x] `LGA_NKS_Wasabi/verify_updated_policy.py` — Script de verificación (sin Qt)
 - [x] `LGA_NKS_Wasabi/wasabi_policy_utils.py` — Utilidades Wasabi (sin Qt)
 - [x] `LGA_NKS_Edit/LGA_NKS_MatchVerToEXR.md` — Documentación
+
+### Archivos adicionales migrados durante testing
+- [x] `LGA_NKS_Utils/LGA_NKS_GetClip.py` — Utilidades de clips (migrado Qt + fix IndexError cuando no hay clips seleccionados)
 
 ### Building Blocks (archivos legacy)
 - [x] Todos los archivos en `+Building_Blocks/` — Scripts antiguos no usados
@@ -183,7 +186,7 @@ Algunos scripts pueden usar APIs de fuente que cambiaron.
 - [x] Scripts LGA_NKS_ViewerTL/ migrados (5/6)
 - [x] Scripts auxiliares migrados (4/4)
 - [x] APIs problemáticas corregidas (undo system, scrollbar hierarchy)
-- [ ] ~14 scripts Flow requieren migración
+- [ ] ~7 scripts Flow requieren migración
 
 ## ✅ **MIGRACIÓN COMPLETA - LGA_NKS_Edit/**
 **8/8 archivos completamente migrados:**
