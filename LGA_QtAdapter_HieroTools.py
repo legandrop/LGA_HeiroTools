@@ -1,5 +1,11 @@
 """
 Compatibilidad Qt para Hiero Panels - Nuke 15/16.
+
+Incluye compatibilidad para:
+- QShortcut (movido de QtWidgets a QtGui en Qt6)
+- horizontal_advance() para métricas de fuente
+- primary_screen_geometry() para geometría de pantalla
+- set_layout_margin() para márgenes de layout
 """
 
 from typing import Optional

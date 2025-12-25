@@ -12,15 +12,24 @@ import sys
 import json
 import hiero.core
 import hiero.ui
-from PySide2.QtWidgets import (
-    QApplication,
-    QDialog,
-    QVBoxLayout,
-    QLabel,
-    QPushButton,
-)
-from PySide2.QtCore import Qt, QRunnable, Slot, QThreadPool, Signal, QObject
-from PySide2.QtGui import QFont
+# Importar compatibilidad Qt para Hiero Panels
+from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
+
+# Reasignar clases para compatibilidad con código existente
+QApplication = QtWidgets.QApplication
+QDialog = QtWidgets.QDialog
+QVBoxLayout = QtWidgets.QVBoxLayout
+QLabel = QtWidgets.QLabel
+QPushButton = QtWidgets.QPushButton
+
+Qt = QtCore.Qt
+QRunnable = QtCore.QRunnable
+Slot = QtCore.Slot
+QThreadPool = QtCore.QThreadPool
+Signal = QtCore.Signal
+QObject = QtCore.QObject
+
+QFont = QtGui.QFont
 
 # Agregar la ruta actual al sys.path para que Python encuentre las dependencias locales
 current_dir = os.path.dirname(os.path.abspath(__file__))

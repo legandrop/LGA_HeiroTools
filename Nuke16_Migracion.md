@@ -73,8 +73,8 @@
 - [x] `LGA_NKS_SnapShot.py` — Captura de pantalla (sin Qt directo)
 
 ### LGA_NKS_Wasabi/ - Scripts de Wasabi
-- [ ] `LGA_NKS_Wasabi_PolicyAssign.py` — Asignación de políticas Wasabi (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar, QRunnable, QThreadPool)
-- [ ] `LGA_NKS_Wasabi_PolicyUnassign.py` — Eliminación de políticas Wasabi (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
+- [x] `LGA_NKS_Wasabi_PolicyAssign.py` — Asignación de políticas Wasabi (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar, QRunnable, QThreadPool)
+- [x] `LGA_NKS_Wasabi_PolicyUnassign.py` — Eliminación de políticas Wasabi (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
 
 ## Archivos que NO necesitan migración
 
@@ -186,7 +186,7 @@ Algunos scripts pueden usar APIs de fuente que cambiaron.
 - [x] Scripts LGA_NKS_ViewerTL/ migrados (5/6)
 - [x] Scripts auxiliares migrados (4/4)
 - [x] APIs problemáticas corregidas (undo system, scrollbar hierarchy)
-- [ ] ~7 scripts Flow requieren migración
+- [ ] ~5 scripts Flow requieren migración
 
 ## ✅ **MIGRACIÓN COMPLETA - LGA_NKS_Edit/**
 **8/8 archivos completamente migrados:**

@@ -12,21 +12,29 @@ import sys
 import json
 import hiero.core
 import hiero.ui
-from PySide2.QtWidgets import (
-    QApplication,
-    QDialog,
-    QVBoxLayout,
-    QHBoxLayout,
-    QGridLayout,
-    QLabel,
-    QPushButton,
-    QScrollArea,
-    QWidget,
-    QFrame,
-    QDesktopWidget,
-)
-from PySide2.QtCore import Qt, QRunnable, Slot, QThreadPool, Signal, QObject
-from PySide2.QtGui import QFont
+# Importar compatibilidad Qt para Hiero Panels
+from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
+
+# Reasignar clases para compatibilidad con código existente
+QApplication = QtWidgets.QApplication
+QDialog = QtWidgets.QDialog
+QVBoxLayout = QtWidgets.QVBoxLayout
+QHBoxLayout = QtWidgets.QHBoxLayout
+QGridLayout = QtWidgets.QGridLayout
+QLabel = QtWidgets.QLabel
+QPushButton = QtWidgets.QPushButton
+QScrollArea = QtWidgets.QScrollArea
+QWidget = QtWidgets.QWidget
+QFrame = QtWidgets.QFrame
+
+Qt = QtCore.Qt
+QRunnable = QtCore.QRunnable
+Slot = QtCore.Slot
+QThreadPool = QtCore.QThreadPool
+Signal = QtCore.Signal
+QObject = QtCore.QObject
+
+QFont = QtGui.QFont
 
 # Agregar la ruta actual al sys.path para que Python encuentre las dependencias locales
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -66,8 +74,8 @@ class WasabiShotsWindow(QDialog):
         self.wasabi_user = wasabi_user
 
         # Calcular altura máxima basada en la pantalla
-        desktop = QDesktopWidget()
-        screen_rect = desktop.screenGeometry()
+        screen = QApplication.primaryScreen()
+        screen_rect = screen.availableGeometry()
         max_height = screen_rect.height() - 300
 
         # Configurar tamaño inicial y máximo
