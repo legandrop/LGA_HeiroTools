@@ -13,8 +13,7 @@ ________________________________________________________________________________
 
 import hiero.core
 import hiero.ui
-from PySide2.QtWidgets import QAction
-from PySide2.QtGui import QIcon
+from qt_compat import QtWidgets, QtGui, QAction
 
 # Configurar depuración
 DEBUG = False

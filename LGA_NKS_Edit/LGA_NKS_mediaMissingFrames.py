@@ -9,9 +9,9 @@ ________________________________________________________________________________
 
 import hiero.core
 import hiero.ui
-from PySide2.QtWidgets import QApplication, QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView, QProgressDialog
-from PySide2.QtGui import QScreen
-from PySide2.QtCore import Qt, QThread, Signal, QTimer
+from qt_compat import QtWidgets, QtGui, QtCore, Qt
+
+# Qt ya está disponible desde qt_compat
 import os
 import re
 import subprocess
@@ -23,13 +23,13 @@ import logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-class WorkerThread(QThread):
-    update_progress = Signal(int)
-    update_table = Signal(list)
-    finished = Signal()
+class WorkerThread(QtCore.QThread):
+    update_progress = QtCore.Signal(int)
+    update_table = QtCore.Signal(list)
+    finished = QtCore.Signal()
 
     def __init__(self, selected_items):
-        QThread.__init__(self)
+        QtCore.QThread.__init__(self)
         self.selected_items = selected_items
         self.exr_cache = {}
 
@@ -112,7 +112,7 @@ class WorkerThread(QThread):
             self.exr_cache[file_hash] = False
             return False
 
-class ClipMediaInfo(QWidget):
+class ClipMediaInfo(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super(ClipMediaInfo, self).__init__(parent)
         self.initUI()
@@ -120,16 +120,16 @@ class ClipMediaInfo(QWidget):
     def initUI(self):
         try:
             self.setWindowTitle("Informacion de Clips EXR")
-            layout = QVBoxLayout(self)
+            layout = QtWidgets.QVBoxLayout(self)
 
-            self.table = QTableWidget(0, 7, self)
+            self.table = QtWidgets.QTableWidget(0, 7, self)
             self.table.setHorizontalHeaderLabels(['Ruta', 'Nombre del Clip', 'IN', 'OUT', 'Frames', 'Frames Faltantes', 'Frames Corruptos'])
-            self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+            self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
             
             layout.addWidget(self.table)
             self.setLayout(layout)
             
-            QTimer.singleShot(0, self.load_data)
+            QtCore.QTimer.singleShot(0, self.load_data)
         except Exception as e:
             print(f"Error en initUI: {str(e)}")
             print(traceback.format_exc())
@@ -141,7 +141,7 @@ class ClipMediaInfo(QWidget):
                 te = hiero.ui.getTimelineEditor(seq)
                 selected_items = te.selection()
 
-                self.progress = QProgressDialog("Verificando clips...", "Cancelar", 0, len(selected_items), self)
+                self.progress = QtWidgets.QProgressDialog("Verificando clips...", "Cancelar", 0, len(selected_items), self)
                 self.progress.setWindowModality(Qt.WindowModal)
 
                 self.worker = WorkerThread(selected_items)
@@ -156,16 +156,16 @@ class ClipMediaInfo(QWidget):
 
     def update_progress(self, value):
         self.progress.setValue(value)
-        QApplication.processEvents()  # Permite que la interfaz de usuario se actualice
+        QtWidgets.QApplication.processEvents()  # Permite que la interfaz de usuario se actualice
 
     def update_table(self, clip_info):
         row_count = self.table.rowCount()
         self.table.insertRow(row_count)
         for col, value in enumerate(clip_info):
-            item = QTableWidgetItem(value)
+            item = QtWidgets.QTableWidgetItem(value)
             item.setTextAlignment(Qt.AlignCenter)
             self.table.setItem(row_count, col, item)
-        QApplication.processEvents()  # Permite que la interfaz de usuario se actualice
+        QtWidgets.QApplication.processEvents()  # Permite que la interfaz de usuario se actualice
 
     def on_finished(self):
         self.progress.close()
@@ -181,7 +181,7 @@ class ClipMediaInfo(QWidget):
             for i in range(self.table.columnCount()):
                 width += self.table.columnWidth(i) + 20
 
-            screen = QApplication.primaryScreen()
+            screen = QtWidgets.QApplication.primaryScreen()
             screen_rect = screen.availableGeometry()
             max_width = screen_rect.width() * 0.8
             final_width = min(width, max_width)

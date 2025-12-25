@@ -31,16 +31,16 @@
 - [x] `LGA_NKS_Compare_Versions.py` — Comparar versiones (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
 
 ### LGA_NKS_Edit/ - Scripts de edición
-- [ ] `LGA_NKS_Reconnect.py` — Reconexión de media (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
+- [x] `LGA_NKS_Reconnect.py` — Reconexión de media (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
 - [x] `LGA_NKS_SelfReplaceClip.py` — Reemplazo de clips (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
-- [ ] `LGA_NKS_MatchVerToEXR.py` — Matching de versiones (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
-- [ ] `LGA_NKS_CompareVerToEditref.py` — Comparación con EditRef (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
-- [ ] `LGA_NKS_CompareEXR_to_aPlate.py` — Comparación EXR aPlate (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
-- [ ] `LGA_NKS_CreateNewTrack.py` — Creación de tracks (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
-- [ ] `LGA_NKS_mediaMissingFrames.py` — Frames faltantes (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
-- [ ] `LGA_NKS_Trim_In.py` — Recorte IN (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
-- [ ] `LGA_NKS_Trim_Out.py` — Recorte OUT (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
-- [ ] `LGA_NKS_FixColorspaces.py` — Corrección de colorspaces (sin Qt directo)
+- [x] `LGA_NKS_MatchVerToEXR.py` — Matching de versiones (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
+- [x] `LGA_NKS_CompareVerToEditref.py` — Comparación con EditRef (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
+- [x] `LGA_NKS_CompareEXR_to_aPlate.py` — Comparación EXR aPlate (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
+- [x] `LGA_NKS_CreateNewTrack.py` — Creación de tracks (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
+- [x] `LGA_NKS_mediaMissingFrames.py` — Frames faltantes (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
+- [x] `LGA_NKS_Trim_In.py` — Recorte IN (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
+- [x] `LGA_NKS_Trim_Out.py` — Recorte OUT (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
+- [x] `LGA_NKS_FixColorspaces.py` — Corrección de colorspaces (sin Qt directo)
 
 ### LGA_NKS_Flow/ - Scripts de Flow
 - [ ] `LGA_NKS_Flow_Pull.py` — Pull de tasks Flow (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar, QRunnable, QThreadPool)
@@ -163,8 +163,46 @@ Algunos scripts pueden usar APIs de fuente que cambiaron.
 
 **Lección aprendida:** No asumir que la orientación del scrollbar (horizontal vs vertical) se mantiene entre versiones. Hacer pruebas exhaustivas de jerarquía de widgets.
 
+### Problema resuelto: API del Undo System
+**Problema identificado:** En versiones recientes, `project.undoStack()` ya no existe.
+
+**Ejemplo con `LGA_NKS_EditTools_Panel.py`:**
+- **❌ Código problemático (API antigua):**
+  ```python
+  project.beginUndo("Operation")
+  try:
+      # do something
+  finally:
+      if project.undoStack().canEnd():  # AttributeError!
+          project.endUndo()
+  ```
+
+- **✅ Código correcto (context manager):**
+  ```python
+  with project.beginUndo("Operation"):
+      # do something  # begin/end manejado automáticamente
+  ```
+
+**Solución implementada:** Cambiar todas las funciones para usar el context manager `with project.beginUndo("name"):`.
+
 ## Estado actual
-- [ ] Migración no iniciada
-- [ ] `qt_compat.py` no existe
-- [ ] Todos los paneles usan PySide2 directamente
-- [ ] ~35 scripts requieren cambios de imports
+- [x] `qt_compat.py` creado y funcional
+- [x] Todos los paneles principales migrados (8/8)
+- [x] Scripts básicos LGA_NKS/ migrados (3/3)
+- [x] Scripts LGA_NKS_Edit/ migrados (8/8)
+- [x] Scripts LGA_NKS_ViewerTL/ migrados (5/6)
+- [x] Scripts auxiliares migrados (4/4)
+- [x] APIs problemáticas corregidas (undo system, scrollbar hierarchy)
+- [ ] ~15 scripts Flow requieren migración
+
+## ✅ **MIGRACIÓN COMPLETA - LGA_NKS_Edit/**
+**8/8 archivos completamente migrados:**
+- `LGA_NKS_SelfReplaceClip.py` ✅
+- `LGA_NKS_Reconnect.py` ✅
+- `LGA_NKS_MatchVerToEXR.py` ✅
+- `LGA_NKS_CompareVerToEditref.py` ✅
+- `LGA_NKS_CompareEXR_to_aPlate.py` ✅
+- `LGA_NKS_mediaMissingFrames.py` ✅
+- `LGA_NKS_Trim_In.py` ✅
+- `LGA_NKS_Trim_Out.py` ✅
+- `LGA_NKS_FixColorspaces.py` ✅ (sin Qt)

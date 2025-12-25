@@ -37,8 +37,8 @@ import importlib.machinery
 from pathlib import Path
 
 # Variable global para activar o desactivar los prints
-DEBUG = False
-DEBUG_BASIC = False
+DEBUG = True
+DEBUG_BASIC = True
 
 
 def debug_print(*message):
@@ -165,7 +165,7 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
                 None,
                 "Click: Compara los rangos de frames entre clips del track _comp_ (exr) y el track aPlate\nShift+Click: Compara todos los clips del timeline",
             ),
-            # ("Check Frames", self.check_frames, "#4a4329"),  # Nuevo boton
+            ("Check Frames", self.check_frames, "#4a4329", None, "Revisa los clips seleccionados para ver si tienen frames faltantes o corruptos"),
         ]
 
         self.num_columns = 1  # Inicialmente una columna
@@ -536,17 +536,8 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
                 debug_print(f"No active project found for Reconnect T > N.")
                 return
 
-            project.beginUndo("Reconnect T > N")
-            try:
+            with project.beginUndo("Reconnect T > N"):
                 self.reconnect_media("t:", "n:")
-            except Exception as e:
-                debug_print(f"Error: {e}")
-            finally:
-                if project:
-                    if project.undoStack().canEnd():
-                        project.endUndo()
-                    else:
-                        debug_print("No current undo item to end.")
         except Exception as e:
             debug_print(f"Error: {e}")
 
@@ -561,12 +552,6 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
                 self.reconnect_media("n:", "t:")
         except Exception as e:
             debug_print(f"Error: {e}")
-        finally:
-            if project:
-                if project.undoStack().canEnd():
-                    project.endUndo()
-                else:
-                    debug_print("No current undo item to end.")
 
     def execute_reconnect_win_to_mac(self):
         """Ejecuta reconnect y selfreplace para todos los clips del timeline."""
@@ -839,8 +824,7 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
     def run_clear_tag_script(self):
         project = get_active_project()
         if project:
-            project.beginUndo("Run External Script")
-            try:
+            with project.beginUndo("Run External Script"):
                 seq = hiero.ui.activeSequence()
                 if seq:
                     te = hiero.ui.getTimelineEditor(seq)
@@ -883,8 +867,6 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
                                 debug_print_b(
                                     f"Script no encontrado en la ruta: {script_path}"
                                 )
-            finally:
-                project.endUndo()
         else:
             debug_print("No active project found for Clear Tag.")
 
@@ -901,6 +883,7 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
 
     def _execute_match_rev_version(self, force_all_clips=False):
         """Ejecuta el script de match de versiones con parametro force_all_clips."""
+        debug_print_b(f"DEBUG: Iniciando _execute_match_rev_version con force_all_clips={force_all_clips}")
         try:
             # Importar y ejecutar el script desde la carpeta LGA_NKS_Edit
             script_path = os.path.join(
@@ -908,15 +891,15 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
                 "LGA_NKS_Edit",
                 "LGA_NKS_MatchVerToEXR.py",
             )
+            debug_print_b(f"DEBUG: Script path: {script_path}")
+            debug_print_b(f"DEBUG: Script exists: {os.path.exists(script_path)}")
             if os.path.exists(script_path):
                 try:
                     spec = importlib.util.spec_from_file_location(
                         "LGA_NKS_MatchVerToEXR", script_path
                     )
-                    if spec is not None and isinstance(
-                        spec.loader,
-                        importlib.machinery.SourceFileLoader,
-                    ):
+                    if spec is not None and spec.loader is not None:
+                        debug_print_b("DEBUG: Spec y loader válidos, ejecutando módulo...")
                         module = importlib.util.module_from_spec(spec)
                         spec.loader.exec_module(module)
                         # Llamar a la funcion principal con el parametro
@@ -924,7 +907,7 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
                         debug_print_b("Match Rev Ver script ejecutado correctamente.")
                     else:
                         debug_print_b(
-                            f"No se pudo crear el spec o loader para el script: LGA_NKS_MatchVerToEXR.py"
+                            f"DEBUG: Spec o loader inválidos. Spec: {spec}, Loader: {spec.loader if spec else None}"
                         )
                 except Exception as e:
                     debug_print_b(f"Error al ejecutar el script Match Rev Ver: {e}")
@@ -993,6 +976,7 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
 
     def _execute_compare_exr_aplate(self, force_all_clips=False):
         """Ejecuta el script de comparacion EXR vs aPlate con parametro force_all_clips."""
+        debug_print_b(f"DEBUG: Iniciando _execute_compare_exr_aplate con force_all_clips={force_all_clips}")
         try:
             # Importar y ejecutar el script desde la carpeta LGA_NKS_Edit
             script_path = os.path.join(
@@ -1000,15 +984,15 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
                 "LGA_NKS_Edit",
                 "LGA_NKS_CompareEXR_to_aPlate.py",
             )
+            debug_print_b(f"DEBUG: Script path: {script_path}")
+            debug_print_b(f"DEBUG: Script exists: {os.path.exists(script_path)}")
             if os.path.exists(script_path):
                 try:
                     spec = importlib.util.spec_from_file_location(
                         "LGA_NKS_CompareEXR_to_aPlate", script_path
                     )
-                    if spec is not None and isinstance(
-                        spec.loader,
-                        importlib.machinery.SourceFileLoader,
-                    ):
+                    if spec is not None and spec.loader is not None:
+                        debug_print_b("DEBUG: Spec y loader válidos, ejecutando módulo...")
                         module = importlib.util.module_from_spec(spec)
                         spec.loader.exec_module(module)
                         # Llamar a la funcion principal con el parametro
@@ -1018,7 +1002,7 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
                         )
                     else:
                         debug_print_b(
-                            f"No se pudo crear el spec o loader para el script: LGA_NKS_CompareEXR_to_aPlate.py"
+                            f"DEBUG: Spec o loader inválidos. Spec: {spec}, Loader: {spec.loader if spec else None}"
                         )
                 except Exception as e:
                     debug_print_b(

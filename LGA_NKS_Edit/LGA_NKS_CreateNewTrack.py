@@ -10,7 +10,7 @@ ______________________________________________________
 
 import hiero.core
 import hiero.ui
-from PySide2 import QtWidgets, QtCore
+from qt_compat import QtWidgets, QtCore
 
 DEBUG = False
 

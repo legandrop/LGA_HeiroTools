@@ -28,7 +28,7 @@ import hiero.core
 import hiero.ui
 import os
 import re
-from PySide2.QtGui import QColor
+from qt_compat import QtGui
 
 # Eliminamos la importaci?n del SelfReplace
 # import LGA_NKS_SelfReplaceClip as self_replace

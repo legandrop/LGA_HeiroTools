@@ -21,24 +21,11 @@ import re
 from pathlib import Path
 import hiero.core
 import hiero.ui
-from PySide2.QtWidgets import (
-    QApplication,
-    QWidget,
-    QVBoxLayout,
-    QTableWidget,
-    QTableWidgetItem,
-    QHeaderView,
-    QMessageBox,
-    QPushButton,
-    QHBoxLayout,
-)
-from PySide2.QtWidgets import QStyledItemDelegate, QStyle
-from PySide2.QtGui import QColor, QBrush, QFont, QPalette
-from PySide2.QtCore import Qt
+from qt_compat import QtWidgets, QtGui, QtCore
 import sys
 
 # Variable global para activar o desactivar los prints
-DEBUG = False
+DEBUG = True
 
 # Importar utilidades para naming (compatibilidad con ambos formatos)
 naming_utils_path = Path(__file__).parent.parent / "LGA_NKS_Flow"
@@ -125,7 +112,7 @@ def extract_version_number(version_str):
     return 0
 
 
-class FrameRangeComparisonGUI(QWidget):
+class FrameRangeComparisonGUI(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super(FrameRangeComparisonGUI, self).__init__(parent)
         self.row_background_colors = []  # COPIADO DEL PULL para el delegado
@@ -145,7 +132,7 @@ class FrameRangeComparisonGUI(QWidget):
                 self.adjust_window_size()  # COPIADO DEL PULL
                 self.show()
             else:
-                QMessageBox.information(
+                QtWidgets.QMessageBox.information(
                     self,
                     "No Changes",
                     "No se encontraron clips REV con correspondientes clips EditRef.",
@@ -157,11 +144,11 @@ class FrameRangeComparisonGUI(QWidget):
 
     def initUI(self):
         self.setWindowTitle("REV to EditRef Frame Range Comparison - Results")
-        layout = QVBoxLayout(self)
+        layout = QtWidgets.QVBoxLayout(self)
 
         # Ajustar columnas segun la flag AnalizeTC
         if AnalizeTC:
-            self.table = QTableWidget(0, 8, self)
+            self.table = QtWidgets.QTableWidget(0, 8, self)
             self.table.setHorizontalHeaderLabels(
                 [
                     "Shot",
@@ -175,7 +162,7 @@ class FrameRangeComparisonGUI(QWidget):
                 ]
             )
         else:
-            self.table = QTableWidget(0, 6, self)
+            self.table = QtWidgets.QTableWidget(0, 6, self)
             self.table.setHorizontalHeaderLabels(
                 [
                     "Shot",
@@ -188,11 +175,11 @@ class FrameRangeComparisonGUI(QWidget):
             )
 
         # COPIADO DEL PULL - Configuracion de tabla
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-        self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table.setSelectionMode(QTableWidget.SingleSelection)
+        self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+        self.table.setSelectionBehavior(QtWidgets.QTableWidget.SelectRows)
+        self.table.setSelectionMode(QtWidgets.QTableWidget.SingleSelection)
         self.table.verticalHeader().setVisible(False)
-        self.table.setFocusPolicy(Qt.NoFocus)
+        self.table.setFocusPolicy(QtCore.Qt.NoFocus)
         self.table.setStyleSheet(
             """
             QTableView::item:selected {
@@ -210,7 +197,7 @@ class FrameRangeComparisonGUI(QWidget):
         self.setLayout(layout)
 
         # COPIADO DEL PULL - Estilo para headers
-        font = QFont()
+        font = QtGui.QFont()
         font.setBold(True)
         self.table.horizontalHeader().setFont(font)
 
@@ -230,27 +217,27 @@ class FrameRangeComparisonGUI(QWidget):
         self.table.insertRow(row)
 
         # Agregar items a la tabla
-        shot_item = QTableWidgetItem(shot_base + "   ")  # COPIADO DEL PULL - espacios
-        rev_item = QTableWidgetItem(rev_range)
-        editref_item = QTableWidgetItem(editref_range)
-        rev_fps_item = QTableWidgetItem(rev_fps)
-        editref_fps_item = QTableWidgetItem(editref_fps)
-        status_item = QTableWidgetItem(status)
+        shot_item = QtWidgets.QTableWidgetItem(shot_base + "   ")  # COPIADO DEL PULL - espacios
+        rev_item = QtWidgets.QTableWidgetItem(rev_range)
+        editref_item = QtWidgets.QTableWidgetItem(editref_range)
+        rev_fps_item = QtWidgets.QTableWidgetItem(rev_fps)
+        editref_fps_item = QtWidgets.QTableWidgetItem(editref_fps)
+        status_item = QtWidgets.QTableWidgetItem(status)
 
         # Items de TC solo si AnalizeTC esta activado
         if AnalizeTC:
-            rev_tc_item = QTableWidgetItem(rev_tc_in)
-            editref_tc_item = QTableWidgetItem(editref_tc_in)
+            rev_tc_item = QtWidgets.QTableWidgetItem(rev_tc_in)
+            editref_tc_item = QtWidgets.QTableWidgetItem(editref_tc_in)
 
         # COPIADO DEL PULL - Centrado
-        rev_item.setTextAlignment(Qt.AlignCenter)
-        editref_item.setTextAlignment(Qt.AlignCenter)
-        rev_fps_item.setTextAlignment(Qt.AlignCenter)
-        editref_fps_item.setTextAlignment(Qt.AlignCenter)
+        rev_item.setTextAlignment(QtCore.Qt.AlignCenter)
+        editref_item.setTextAlignment(QtCore.Qt.AlignCenter)
+        rev_fps_item.setTextAlignment(QtCore.Qt.AlignCenter)
+        editref_fps_item.setTextAlignment(QtCore.Qt.AlignCenter)
 
         if AnalizeTC:
-            rev_tc_item.setTextAlignment(Qt.AlignCenter)
-            editref_tc_item.setTextAlignment(Qt.AlignCenter)
+            rev_tc_item.setTextAlignment(QtCore.Qt.AlignCenter)
+            editref_tc_item.setTextAlignment(QtCore.Qt.AlignCenter)
 
         # Colorear segun el estado
         if status == "Match":
@@ -269,11 +256,11 @@ class FrameRangeComparisonGUI(QWidget):
             status_color = "#8a8a8a"  # Gris por defecto
 
         # COPIADO DEL PULL - Configuracion de colores
-        status_bg_color = QColor(status_color)
+        status_bg_color = QtGui.QColor(status_color)
         status_text_color = self.color_for_background(status_color)
-        status_item.setBackground(QBrush(status_bg_color))
-        status_item.setForeground(QBrush(QColor(status_text_color)))
-        status_item.setTextAlignment(Qt.AlignCenter)
+        status_item.setBackground(QtGui.QBrush(status_bg_color))
+        status_item.setForeground(QtGui.QBrush(QtGui.QColor(status_text_color)))
+        status_item.setTextAlignment(QtCore.Qt.AlignCenter)
 
         # Agregar items segun la flag AnalizeTC
         if AnalizeTC:
@@ -316,7 +303,7 @@ class FrameRangeComparisonGUI(QWidget):
 
     def color_for_background(self, hex_color):
         """COPIADO DEL PULL - Determina el color del texto basado en el color de fondo."""
-        color = QColor(hex_color)
+        color = QtGui.QColor(hex_color)
         return "#ffffff" if self.luminance(color) < 128 else "#000000"
 
     def adjust_window_size(self):
@@ -326,7 +313,7 @@ class FrameRangeComparisonGUI(QWidget):
         width = self.table.verticalHeader().width() - 30
         for i in range(self.table.columnCount()):
             width += self.table.columnWidth(i) + 20
-        screen = QApplication.primaryScreen()
+        screen = QtWidgets.QApplication.primaryScreen()
         screen_rect = screen.availableGeometry()
         max_width = screen_rect.width() * 0.8
         final_width = min(width, max_width)
@@ -344,13 +331,13 @@ class FrameRangeComparisonGUI(QWidget):
 
     def keyPressEvent(self, event):
         """COPIADO DEL PULL - Cerrar la ventana con ESC."""
-        if event.key() == Qt.Key_Escape:
+        if event.key() == QtCore.Qt.Key_Escape:
             self.close()
         else:
             super(FrameRangeComparisonGUI, self).keyPressEvent(event)
 
 
-class ColorMixDelegate(QStyledItemDelegate):
+class ColorMixDelegate(QtWidgets.QStyledItemDelegate):
     """COPIADO EXACTO DEL PULL - Delegado para mezclar colores en selecciones"""
 
     def __init__(
@@ -364,16 +351,16 @@ class ColorMixDelegate(QStyledItemDelegate):
     def paint(self, painter, option, index):
         row = index.row()
         column = index.column()
-        if option.state & QStyle.State_Selected:
-            original_color = QColor(self.background_colors[row][column])
+        if option.state & QtWidgets.QStyle.State_Selected:
+            original_color = QtGui.QColor(self.background_colors[row][column])
             mixed_color = self.mix_colors(
                 (original_color.red(), original_color.green(), original_color.blue()),
                 self.mix_color,
             )
-            option.palette.setColor(QPalette.Highlight, QColor(*mixed_color))
+            option.palette.setColor(QtGui.QPalette.Highlight, QtGui.QColor(*mixed_color))
         else:
-            original_color = QColor(self.background_colors[row][column])
-            option.palette.setColor(QPalette.Base, original_color)
+            original_color = QtGui.QColor(self.background_colors[row][column])
+            option.palette.setColor(QtGui.QPalette.Base, original_color)
         super(ColorMixDelegate, self).paint(painter, option, index)
 
     def mix_colors(self, original_color, mix_color):
@@ -477,12 +464,12 @@ class HieroOperations:
         """MODIFICADO - Procesar clip del track basado en posicion del playhead"""
         seq = hiero.ui.activeSequence()
         if not seq:
-            QMessageBox.warning(None, "Error", "No hay secuencia activa en Hiero.")
+            QtWidgets.QMessageBox.warning(None, "Error", "No hay secuencia activa en Hiero.")
             return False
 
         viewer = hiero.ui.currentViewer()
         if not viewer:
-            QMessageBox.warning(None, "Error", "No se encontró un visor activo.")
+            QtWidgets.QMessageBox.warning(None, "Error", "No se encontró un visor activo.")
             return False
 
         current_time = viewer.time()
@@ -491,7 +478,7 @@ class HieroOperations:
         # Obtener el proyecto para el manejo de UNDO
         project = seq.project()
         if not project:
-            QMessageBox.warning(None, "Error", "No se encontró el proyecto.")
+            QtWidgets.QMessageBox.warning(None, "Error", "No se encontró el proyecto.")
             return False
 
         # Encontrar tracks usando variables centralizadas
@@ -508,13 +495,13 @@ class HieroOperations:
                 editrefclean_track = track
 
         if not rev_track:
-            QMessageBox.warning(
+            QtWidgets.QMessageBox.warning(
                 None, "Error", f"No se encontró el track {TRACK_comp_REV}."
             )
             return False
 
         if not editref_track:
-            QMessageBox.warning(None, "Error", "No se encontró el track EditRef.")
+            QtWidgets.QMessageBox.warning(None, "Error", "No se encontró el track EditRef.")
             return False
 
         # Obtener clips a procesar - basado en force_all_clips o método híbrido
@@ -545,7 +532,7 @@ class HieroOperations:
                 )
 
             if not rev_clip_at_playhead:
-                QMessageBox.warning(
+                QtWidgets.QMessageBox.warning(
                     None,
                     "Error",
                     f"No se encontró un clip en el track {TRACK_comp_REV} en la posición actual del playhead ni en la selección.",
@@ -866,7 +853,7 @@ def compare_rev_to_editref(force_all_clips=False):
     """MODIFICADO - Funcion principal para comparar rangos entre REV y EditRef basado en playhead"""
     global app, window  # COPIADO DEL PULL - usar variables globales
 
-    app = QApplication.instance() if QApplication.instance() else QApplication(sys.argv)
+    app = QtWidgets.QApplication.instance() if QtWidgets.QApplication.instance() else QtWidgets.QApplication(sys.argv)
     window = FrameRangeComparisonGUI()
     hiero_ops = HieroOperations(window)
     hiero_ops.force_all_clips = force_all_clips  # Pasar el parametro al HieroOperations

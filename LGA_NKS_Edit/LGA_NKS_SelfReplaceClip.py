@@ -41,14 +41,7 @@ try:
     debug_print("qt_compat importado correctamente")
 except ImportError as e:
     debug_print(f"Error importando qt_compat: {e}")
-    # Fallback a PySide2 directamente
-    try:
-        from PySide2.QtGui import QColor
-        QtGui = type('QtGui', (), {'QColor': QColor})
-        debug_print("Usando PySide2 como fallback")
-    except ImportError as e2:
-        debug_print(f"Error importando PySide2: {e2}")
-        QtGui = None
+    QtGui = None
 
 def print_clip_info(shot, prefix=""):
     """
