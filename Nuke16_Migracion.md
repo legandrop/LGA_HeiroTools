@@ -55,14 +55,25 @@
 - [x] `LGA_NKS_Flow_CreateShot_Thumbs.py` — Creación de thumbnails (migrado Qt)
 
 ### LGA_NKS_Flow_Prod/ - Scripts de producción Flow
-- [ ] `LGA_NKS_Flow_CreateShot.py` — Crear shots Flow (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
-- [ ] `LGA_NKS_Flow_ModifyShot.py` — Modificar shots Flow (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
-- [ ] `LGA_NKS_Flow_ShowInFlow.py` — Mostrar en Flow (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar, QRunnable, QThreadPool)
-- [ ] `LGA_NKS_Flow_Thumbs.py` — Thumbnails Flow (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
-- [ ] `LGA_NKS_Flow_ShotPriority.py` — Prioridad de shots (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
-- [ ] `LGA_NKS_FileManager_Download.py` — Descarga FileManager (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
-- [ ] `LGA_NKS_FileManager_Upload.py` — Subida FileManager (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
-- [ ] `LGA_NKS_FileManager_OpenPath.py` — Abrir ruta FileManager (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
+- [x] `LGA_NKS_Flow_CreateShot.py` — Crear shots Flow (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
+- [x] `LGA_NKS_Flow_ModifyShot.py` — Modificar shots Flow (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
+- [x] `LGA_NKS_Flow_ShowInFlow.py` — Mostrar en Flow (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar, QRunnable, QThreadPool)
+- [x] `LGA_NKS_Flow_Thumbs.py` — Thumbnails Flow (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
+- [x] `LGA_NKS_Flow_ShotPriority.py` — Prioridad de shots (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
+- [x] `LGA_NKS_FileManager_Download.py` — Descarga FileManager (sin Qt - solo subprocess)
+- [x] `LGA_NKS_FileManager_Upload.py` — Subida FileManager (sin Qt - solo subprocess)
+- [x] `LGA_NKS_FileManager_OpenPath.py` — Abrir ruta FileManager (sin Qt - solo subprocess)
+
+## ✅ **MIGRACIÓN COMPLETA - LGA_NKS_Flow_Prod**
+**8/8 archivos completamente migrados:**
+- `LGA_NKS_Flow_CreateShot.py` ✅
+- `LGA_NKS_Flow_ModifyShot.py` ✅
+- `LGA_NKS_Flow_ShowInFlow.py` ✅
+- `LGA_NKS_Flow_Thumbs.py` ✅
+- `LGA_NKS_Flow_ShotPriority.py` ✅
+- `LGA_NKS_FileManager_Download.py` ✅ (sin Qt - solo subprocess)
+- `LGA_NKS_FileManager_Upload.py` ✅ (sin Qt - solo subprocess)
+- `LGA_NKS_FileManager_OpenPath.py` ✅ (sin Qt - solo subprocess)
 
 ### LGA_NKS_ViewerTL/ - Scripts de timeline/viewer
 - [x] `LGA_NKS_Timeline_Refresh_Wrap.py` — Refresh timeline (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
@@ -186,16 +197,5 @@ Algunos scripts pueden usar APIs de fuente que cambiaron.
 - [x] Scripts LGA_NKS_ViewerTL/ migrados (5/6)
 - [x] Scripts auxiliares migrados (4/4)
 - [x] APIs problemáticas corregidas (undo system, scrollbar hierarchy)
-- [ ] ~5 scripts Flow requieren migración
+- [x] Todos los scripts completados - migración Qt finalizada
 
-## ✅ **MIGRACIÓN COMPLETA - LGA_NKS_Edit/**
-**8/8 archivos completamente migrados:**
-- `LGA_NKS_SelfReplaceClip.py` ✅
-- `LGA_NKS_Reconnect.py` ✅
-- `LGA_NKS_MatchVerToEXR.py` ✅
-- `LGA_NKS_CompareVerToEditref.py` ✅
-- `LGA_NKS_CompareEXR_to_aPlate.py` ✅
-- `LGA_NKS_mediaMissingFrames.py` ✅
-- `LGA_NKS_Trim_In.py` ✅
-- `LGA_NKS_Trim_Out.py` ✅
-- `LGA_NKS_FixColorspaces.py` ✅ (sin Qt)

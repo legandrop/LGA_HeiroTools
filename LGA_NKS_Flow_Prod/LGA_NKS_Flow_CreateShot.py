@@ -61,23 +61,29 @@ import os
 import re
 import sys
 from pathlib import Path
-from PySide2.QtCore import QRunnable, Slot, QThreadPool, Signal, QObject, Qt
-from PySide2.QtWidgets import (
-    QApplication,
-    QMessageBox,
-    QDialog,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QSizePolicy,
-    QTextEdit,
-    QCheckBox,
-    QFrame,
-    QLineEdit,
-)
-from PySide2.QtGui import QFont, QPixmap
-from PySide2.QtCore import QRect
+from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
+QApplication = QtWidgets.QApplication
+QMessageBox = QtWidgets.QMessageBox
+QDialog = QtWidgets.QDialog
+QVBoxLayout = QtWidgets.QVBoxLayout
+QHBoxLayout = QtWidgets.QHBoxLayout
+QLabel = QtWidgets.QLabel
+QPushButton = QtWidgets.QPushButton
+QSizePolicy = QtWidgets.QSizePolicy
+QTextEdit = QtWidgets.QTextEdit
+QCheckBox = QtWidgets.QCheckBox
+QFrame = QtWidgets.QFrame
+QLineEdit = QtWidgets.QLineEdit
+QFont = QtGui.QFont
+QPixmap = QtGui.QPixmap
+QRect = QtCore.QRect
+QRunnable = QtCore.QRunnable
+Slot = QtCore.Slot
+QThreadPool = QtCore.QThreadPool
+Signal = QtCore.Signal
+QObject = QtCore.QObject
+QDoubleValidator = QtGui.QDoubleValidator
+QTimer = QtCore.QTimer
 
 # Agregar la ruta de shotgun_api3 al sys.path
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "LGA_ToolPack"))
@@ -112,7 +118,7 @@ sys.path.insert(0, str(folders_path))
 from LGA_NKS_Flow_CreateShot_Folders import create_folders_for_shot_tasks
 
 
-DEBUG = False
+DEBUG = True
 debug_messages = []
 
 # Sincronizar debug con el módulo centralizado de clips (después de definir DEBUG)
@@ -558,7 +564,6 @@ class ShotConfigDialog(QDialog):
         """
         )
         # Validación para números decimales
-        from PySide2.QtGui import QDoubleValidator
         validator = QDoubleValidator(0.0, 99.9, 1)  # Mínimo 0, máximo 99.9, 1 decimal
         validator.setNotation(QDoubleValidator.StandardNotation)
         self.estimated_days_line_edit.setValidator(validator)
@@ -727,7 +732,6 @@ class ShotConfigDialog(QDialog):
         """
         )
         # Validación para números decimales
-        from PySide2.QtGui import QDoubleValidator
         validator = QDoubleValidator(0.0, 99.9, 1)
         validator.setNotation(QDoubleValidator.StandardNotation)
         estimated_days_edit.setValidator(validator)
@@ -862,7 +866,6 @@ class ShotConfigDialog(QDialog):
         
         # Ajustar el tamaño de la ventana para acomodar el cambio
         # Esperar un frame para que Qt actualice el layout
-        from PySide2.QtCore import QTimer
         QTimer.singleShot(0, self.adjust_window_size)
     
     def set_task_fields_editable(self, task_name, editable):

@@ -28,15 +28,18 @@ import webbrowser
 import subprocess
 import base64  # Importar base64
 import binascii  # Importar binascii para la excepcion
-from PySide2.QtWidgets import (
-    QMessageBox,
-    QDialog,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-)
-from PySide2.QtCore import Qt, QRunnable, Slot, QThreadPool, Signal, QObject
+from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
+QMessageBox = QtWidgets.QMessageBox
+QDialog = QtWidgets.QDialog
+QVBoxLayout = QtWidgets.QVBoxLayout
+QHBoxLayout = QtWidgets.QHBoxLayout
+QLabel = QtWidgets.QLabel
+QPushButton = QtWidgets.QPushButton
+QRunnable = QtCore.QRunnable
+Slot = QtCore.Slot
+QThreadPool = QtCore.QThreadPool
+Signal = QtCore.Signal
+QObject = QtCore.QObject
 
 # Variable global para controlar el debug
 DEBUG = False  # Poner en False para desactivar los mensajes de debug

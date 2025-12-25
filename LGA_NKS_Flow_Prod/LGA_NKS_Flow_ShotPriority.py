@@ -17,7 +17,9 @@ import hiero.core
 import os
 import sys
 from pathlib import Path
-from PySide2.QtWidgets import QMessageBox, QApplication
+from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
+QMessageBox = QtWidgets.QMessageBox
+QApplication = QtWidgets.QApplication
 
 # Agregar la ruta de shotgun_api3 al sys.path
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "LGA_ToolPack"))

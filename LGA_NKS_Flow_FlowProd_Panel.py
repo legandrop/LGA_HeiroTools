@@ -73,7 +73,7 @@ from LGA_NKS_Flow_NamingUtils import clean_base_name
 
 
 # Variable global para activar o desactivar los prints
-DEBUG = False
+DEBUG = True
 
 
 def debug_print(*message):

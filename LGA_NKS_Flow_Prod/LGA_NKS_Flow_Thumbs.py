@@ -19,8 +19,10 @@ import re
 import sys
 import time
 from pathlib import Path
-from PySide2.QtWidgets import QApplication
-from PySide2.QtCore import QRect, QTimer
+from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
+QApplication = QtWidgets.QApplication
+QRect = QtCore.QRect
+QTimer = QtCore.QTimer
 
 # Importar utilidades de naming
 sys.path.append(str(Path(__file__).parent.parent / "LGA_NKS_Flow"))
@@ -30,7 +32,7 @@ from LGA_NKS_Flow_NamingUtils import (
     clean_base_name,
 )
 
-DEBUG = False
+DEBUG = True
 
 
 def debug_print(*message):
@@ -254,7 +256,11 @@ def restore_burnin_track_simple(track_found, was_enabled):
 
 
 def zoom_to_fill_simple():
-    """Aplica zoom to fill al viewer actual de forma simple"""
+    """
+    Aplica zoom to fill al viewer actual (compatible con Nuke 15/16).
+    En Nuke 16: viewer.zoomToFill()
+    En Nuke 15: viewer.player().zoomToFill()
+    """
     debug_print("🔍 Aplicando zoom to fill...")
 
     viewer = hiero.ui.currentViewer()
@@ -263,13 +269,23 @@ def zoom_to_fill_simple():
         return False
 
     try:
-        player = viewer.player()
-        if not player:
-            debug_print("❌ No se encontró el player del viewer")
-            return False
+        # Intentar método de Nuke 16 primero (viewer.zoomToFill)
+        if hasattr(viewer, 'zoomToFill'):
+            viewer.zoomToFill()
+            debug_print("✅ Zoom to Fill aplicado con éxito (Nuke 16)")
 
-        player.zoomToFill()
-        debug_print("✅ Zoom to Fill aplicado con éxito")
+        # Fallback a método de Nuke 15 (player.zoomToFill)
+        elif hasattr(viewer, 'player'):
+            player = viewer.player()
+            if player and hasattr(player, 'zoomToFill'):
+                player.zoomToFill()
+                debug_print("✅ Zoom to Fill aplicado con éxito (Nuke 15)")
+            else:
+                debug_print("⚠️ zoomToFill no disponible en player - continuando sin zoom")
+                return False
+        else:
+            debug_print("⚠️ zoomToFill no disponible en viewer - continuando sin zoom")
+            return False
 
         # Solo un procesamiento básico de eventos
         QApplication.processEvents()
@@ -277,7 +293,7 @@ def zoom_to_fill_simple():
 
         return True
     except Exception as e:
-        debug_print(f"❌ Error aplicando zoomToFill: {e}")
+        debug_print(f"❌ Error aplicando zoom: {e}")
         return False
 
 

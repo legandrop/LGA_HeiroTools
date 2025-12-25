@@ -21,7 +21,7 @@ if utils_path.exists():
     import LGA_NKS_GetClip as clip_utils
 
 # Variable global para activar o desactivar los prints
-DEBUG = False
+DEBUG = True
 
 # Variable de desarrollo para cambiar la ruta del ejecutable
 Desarrollo = True

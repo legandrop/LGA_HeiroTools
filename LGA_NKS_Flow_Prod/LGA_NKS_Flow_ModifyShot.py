@@ -16,8 +16,15 @@ ________________________________________________________________________________
 ____________________________________________________________________________________
 """
 
-from PySide2.QtCore import QObject, QRunnable, QThreadPool, Signal, Slot
-from PySide2.QtWidgets import QApplication, QMessageBox, QDialog
+from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
+QApplication = QtWidgets.QApplication
+QMessageBox = QtWidgets.QMessageBox
+QDialog = QtWidgets.QDialog
+QObject = QtCore.QObject
+QRunnable = QtCore.QRunnable
+QThreadPool = QtCore.QThreadPool
+Signal = QtCore.Signal
+Slot = QtCore.Slot
 
 # Agregar el directorio actual al sys.path para importar módulos locales
 import sys
