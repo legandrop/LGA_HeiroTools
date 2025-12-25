@@ -1,7 +1,8 @@
 # Plan de migración Nuke 15 → Nuke 16 (PySide2 → PySide6) - Hiero Panels
 
 ## Estrategia
-- Crear capa de compatibilidad `LGA_QtAdapter_HieroTools.py` similar a ToolPacks
+- Capa de compatibilidad `LGA_QtAdapter_HieroTools.py` con funciones helper avanzadas similar a ToolPacks
+- Funciones helper automatizan cambios de API Qt5/Qt6: `horizontal_advance()`, `primary_screen_geometry()`, `set_layout_margin()`
 - Reemplazar imports PySide2 → `LGA_QtAdapter_HieroTools` en todos los paneles
 - Mantener compatibilidad con Nuke 15 mediante try/except
 - Actualizar APIs Qt5 deprecadas si es necesario
@@ -107,21 +108,10 @@
 
 ## Pasos sugeridos para migración
 
-1. **Crear `LGA_QtAdapter_HieroTools.py`** en `Python/Startup/` (similar al de ToolPacks):
-   ```python
-   try:
-       from PySide6 import QtWidgets, QtGui, QtCore
-       from PySide6.QtGui import QAction, QGuiApplication
-       PYSIDE_VERSION = 6
-   except ImportError:
-       from PySide2 import QtWidgets, QtGui, QtCore
-       try:
-           from PySide2.QtGui import QAction
-       except ImportError:
-           from PySide2.QtWidgets import QAction
-       from PySide2.QtGui import QGuiApplication
-       PYSIDE_VERSION = 2
-   ```
+1. **`LGA_QtAdapter_HieroTools.py`** en `Python/Startup/` incluye funciones helper avanzadas:
+   - `horizontal_advance(metrics, text)` - ancho de texto compatible Qt5/Qt6
+   - `primary_screen_geometry(pos)` - geometría de pantalla con fallback robusto
+   - `set_layout_margin(layout, margin)` - márgenes de layout compatibles Qt5/Qt6
 
 2. **Migrar paneles principales** (orden recomendado):
    - Empezar con paneles simples como `LGA_NKS_Color_Panel.py`
@@ -186,7 +176,7 @@ Algunos scripts pueden usar APIs de fuente que cambiaron.
 **Solución implementada:** Cambiar todas las funciones para usar el context manager `with project.beginUndo("name"):`.
 
 ## Estado actual
-- [x] `LGA_QtAdapter_HieroTools.py` creado y funcional
+- [x] `LGA_QtAdapter_HieroTools.py` creado con funciones helper avanzadas (`horizontal_advance`, `primary_screen_geometry`, `set_layout_margin`)
 - [x] Todos los paneles principales migrados (8/8)
 - [x] Scripts básicos LGA_NKS/ migrados (3/3)
 - [x] Scripts LGA_NKS_Edit/ migrados (8/8)
