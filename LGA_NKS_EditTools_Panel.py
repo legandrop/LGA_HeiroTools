@@ -280,87 +280,102 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
 
     ###### Rec 709 en clips seleccionados
     def rec709_clip(self):
-        # Obtener la secuencia activa y el editor de linea de tiempo
-        seq = hiero.ui.activeSequence()
-        if seq:  # Asegurarse de que hay una secuencia activa
-            te = hiero.ui.getTimelineEditor(seq)
-            selected_clips = te.selection()
-
-            # Iterar sobre los clips seleccionados para cambiar el color transform
-            for clip in selected_clips:
-                try:
-                    clip.setSourceMediaColourTransform("Output - Rec.709")
-                    debug_print("Color transform changed successfully.")
-                except Exception as e:
-                    debug_print("Error changing color transform:", e)
-        else:
-            debug_print("No active sequence found.")
-
-    ###### Compositing Log en clips seleccionados
-    def set_compositing_log(self):
-        """Ejecuta el script LGA_NKS_SetCompositingLog.py para cambiar clips a compositing_log."""
-        debug_print_b("\n>>> Ejecutando Set Compositing Log script...")
-
+        """Cambia clips seleccionados a Rec.709 usando el módulo unificado"""
         try:
-            # Ejecutamos el script desde la carpeta LGA_NKS_Edit (como los scripts de compare)
+            # Importar y ejecutar el script desde la carpeta LGA_NKS_Edit
             script_path = os.path.join(
                 os.path.dirname(__file__),
                 "LGA_NKS_Edit",
-                "LGA_NKS_SetCompositingLog.py",
+                "LGA_NKS_ColorTransforms.py",
             )
             if os.path.exists(script_path):
                 try:
                     spec = importlib.util.spec_from_file_location(
-                        "LGA_NKS_SetCompositingLog", script_path
+                        "LGA_NKS_ColorTransforms", script_path
                     )
-                    if spec is not None and isinstance(
-                        spec.loader,
-                        importlib.machinery.SourceFileLoader,
-                    ):
+                    if spec is not None and spec.loader is not None:
                         module = importlib.util.module_from_spec(spec)
                         spec.loader.exec_module(module)
 
-                        # Llamar a la función principal
+                        # Llamar a la función específica
+                        if hasattr(module, "set_rec709"):
+                            module.set_rec709()
+                        else:
+                            debug_print("El módulo LGA_NKS_ColorTransforms.py no tiene función 'set_rec709'")
+                    else:
+                        debug_print("No se pudo crear el spec o loader para el módulo: LGA_NKS_ColorTransforms.py")
+                except Exception as e:
+                    debug_print(f"Error al ejecutar set_rec709: {e}")
+            else:
+                debug_print(f"Módulo no encontrado en la ruta: {script_path}")
+        except Exception as e:
+            debug_print(f"Error cambiando a Rec.709: {e}")
+
+    ###### Compositing Log en clips seleccionados
+    def set_compositing_log(self):
+        """Cambia clips seleccionados a compositing_log usando el módulo unificado"""
+        try:
+            # Importar y ejecutar el script desde la carpeta LGA_NKS_Edit
+            script_path = os.path.join(
+                os.path.dirname(__file__),
+                "LGA_NKS_Edit",
+                "LGA_NKS_ColorTransforms.py",
+            )
+            if os.path.exists(script_path):
+                try:
+                    spec = importlib.util.spec_from_file_location(
+                        "LGA_NKS_ColorTransforms", script_path
+                    )
+                    if spec is not None and spec.loader is not None:
+                        module = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(module)
+
+                        # Llamar a la función específica
                         if hasattr(module, "set_compositing_log"):
                             module.set_compositing_log()
                         else:
-                            debug_print_b("El script LGA_NKS_SetCompositingLog.py no tiene función 'set_compositing_log'")
-
-                        debug_print_b(">>> Set Compositing Log script completado")
-                        return True
+                            debug_print("El módulo LGA_NKS_ColorTransforms.py no tiene función 'set_compositing_log'")
                     else:
-                        debug_print_b(
-                            "No se pudo crear el spec o loader para el script: LGA_NKS_SetCompositingLog.py"
-                        )
-                        return False
+                        debug_print("No se pudo crear el spec o loader para el módulo: LGA_NKS_ColorTransforms.py")
                 except Exception as e:
-                    debug_print_b(f"Error al ejecutar el script Set Compositing Log: {e}")
-                    return False
+                    debug_print(f"Error al ejecutar set_compositing_log: {e}")
             else:
-                debug_print_b(f"Script no encontrado en la ruta: {script_path}")
-                return False
+                debug_print(f"Módulo no encontrado en la ruta: {script_path}")
         except Exception as e:
-            debug_print_b(f"Error durante la ejecución de Set Compositing Log: {e}")
-            import traceback
-            debug_print_b(traceback.format_exc())
+            debug_print(f"Error cambiando a compositing_log: {e}")
 
     ###### Default space color en clips seleccionados
     def default_clip(self):
-        # Obtener la secuencia activa y el editor de linea de tiempo
-        seq = hiero.ui.activeSequence()
-        if seq:  # Asegurarse de que hay una secuencia activa
-            te = hiero.ui.getTimelineEditor(seq)
-            selected_clips = te.selection()
-
-            # Iterar sobre los clips seleccionados para cambiar el color transform
-            for clip in selected_clips:
+        """Cambia clips seleccionados a default usando el módulo unificado"""
+        try:
+            # Importar y ejecutar el script desde la carpeta LGA_NKS_Edit
+            script_path = os.path.join(
+                os.path.dirname(__file__),
+                "LGA_NKS_Edit",
+                "LGA_NKS_ColorTransforms.py",
+            )
+            if os.path.exists(script_path):
                 try:
-                    clip.setSourceMediaColourTransform("default")
-                    debug_print("Color transform changed successfully.")
+                    spec = importlib.util.spec_from_file_location(
+                        "LGA_NKS_ColorTransforms", script_path
+                    )
+                    if spec is not None and spec.loader is not None:
+                        module = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(module)
+
+                        # Llamar a la función específica
+                        if hasattr(module, "set_default"):
+                            module.set_default()
+                        else:
+                            debug_print("El módulo LGA_NKS_ColorTransforms.py no tiene función 'set_default'")
+                    else:
+                        debug_print("No se pudo crear el spec o loader para el módulo: LGA_NKS_ColorTransforms.py")
                 except Exception as e:
-                    debug_print("Error changing color transform:", e)
-        else:
-            debug_print("No active sequence found.")
+                    debug_print(f"Error al ejecutar set_default: {e}")
+            else:
+                debug_print(f"Módulo no encontrado en la ruta: {script_path}")
+        except Exception as e:
+            debug_print(f"Error cambiando a default: {e}")
 
     ###### Fix Colorspaces
     def fix_colorspaces(self):
