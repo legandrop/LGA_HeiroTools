@@ -1,6 +1,6 @@
 # _________________________________________________
 #
-#   LGA_NKS_ColorTransforms v1.01 | Lega
+#   LGA_NKS_ColorTransforms v1.02 | Lega
 #   Módulo unificado para transformaciones de color de clips
 #   Soporta: Rec.709, Default, Compositing Log
 # _________________________________________________
@@ -8,7 +8,7 @@
 import hiero.ui
 import hiero.core
 
-DEBUG = True
+DEBUG = False
 
 def debug_print(*message):
     if DEBUG:
@@ -142,65 +142,120 @@ class ColorTransformManager:
             return []
 
     @classmethod
-    def detect_real_default_colorspace(cls, clip):
-        """Detecta dinámicamente cuál es el default colorspace real para este clip/proyecto"""
-        debug_print(">>> Detectando default colorspace real...")
-
+    def detect_file_type(cls, clip):
+        """Determina el tipo de archivo del clip para saber qué setting OCIO usar"""
         try:
-            # Obtener el source y read node
             source = clip.source()
             if not source:
-                debug_print("✗ No se pudo obtener source del clip")
                 return None
 
-            read_node = source.readNode()
-            if not read_node:
-                debug_print("✗ No se pudo obtener read node")
-                return None
+            # Obtener información del archivo
+            media_source = source.mediaSource()
+            if media_source:
+                fileinfos = media_source.fileinfos()
+                if fileinfos and len(fileinfos) > 0:
+                    filename = fileinfos[0].filename().lower()
 
-            # Obtener el knob de colorspace
-            if 'colorspace' not in read_node.knobs():
-                debug_print("✗ Read node no tiene knob 'colorspace'")
-                return None
+                    # Determinar tipo basado en extensión y características
 
-            colorspace_knob = read_node.knobs()['colorspace']
+                    # 1. Floating point files (alta precisión)
+                    if filename.endswith(('.exr', '.hdr')):
+                        debug_print(f"  Archivo detectado como FLOAT: {filename}")
+                        return 'float'
 
-            # Intentar obtener las opciones disponibles
-            try:
-                available_options = colorspace_knob.values()
-                debug_print(f"✓ Opciones de colorspace disponibles: {len(available_options)}")
+                    # 2. Video files comprimidos (típicamente 8-bit)
+                    elif filename.endswith(('.mov', '.mp4', '.avi', '.mxf', '.mkv', '.webm', '.flv', '.wmv')):
+                        debug_print(f"  Archivo detectado como VIDEO 8-BIT: {filename}")
+                        return '8bit'  # Videos comprimidos son típicamente 8-bit
 
-                if available_options:
-                    first_option = available_options[0]
-                    debug_print(f"✓ Primer opción: '{first_option}'")
+                    # 3. Imagen files estáticos (típicamente 8-bit)
+                    elif filename.endswith(('.png', '.jpg', '.jpeg', '.tiff', '.tif', '.bmp', '.gif')):
+                        debug_print(f"  Archivo detectado como IMAGEN 8-BIT: {filename}")
+                        return '8bit'
 
-                    # Caso 1: 'default (xxxxx)' - extraer xxxxx
-                    if first_option.startswith('default (') and first_option.endswith(')'):
-                        real_default = first_option.split('(')[1].rstrip(')')
-                        debug_print(f"✓ Default detectado del primer elemento: '{real_default}'")
-                        return real_default
+                    # 4. Log format files (cineon, dpx, etc.)
+                    elif any(ext in filename for ext in ['.dpx', '.cin', '.r3d', '.ari', '.braw']):
+                        debug_print(f"  Archivo detectado como LOG: {filename}")
+                        return 'log'
 
-                    # Caso 2: Solo 'default' - usar out_colorspace del read node
-                    elif first_option == 'default':
-                        if 'out_colorspace' in read_node.knobs():
-                            out_colorspace = read_node['out_colorspace'].value()
-                            debug_print(f"✓ Default detectado de out_colorspace: '{out_colorspace}'")
-                            return out_colorspace
+                    # 5. Raw formats o otros de alta precisión
+                    elif filename.endswith(('.raw', '.dng', '.cr2', '.nef')):
+                        debug_print(f"  Archivo detectado como RAW/HIGH BIT: {filename}")
+                        return '16bit'  # Raw photos suelen ser 12-16 bit
+
+                    else:
+                        # Para formatos desconocidos, intentar determinar por contexto
+                        debug_print(f"  Formato desconocido, intentando determinar por contexto: {filename}")
+
+                        # Si el nombre contiene palabras relacionadas con log
+                        if any(word in filename for word in ['log', 'cineon', 'film']):
+                            return 'log'
+                        # Si contiene palabras relacionadas con raw/alta calidad
+                        elif any(word in filename for word in ['raw', 'linear', 'scene']):
+                            return '16bit'
                         else:
-                            debug_print("✗ No se encontró knob 'out_colorspace'")
+                            # Default fallback: asumir 8-bit para formatos desconocidos
+                            debug_print(f"  Usando fallback 8-bit para formato desconocido: {filename}")
+                            return '8bit'
 
+            return None
+        except Exception as e:
+            debug_print(f"Error determinando tipo de archivo: {e}")
+            return None
+
+    @classmethod
+    def detect_real_default_colorspace(cls, clip):
+        """Detecta dinámicamente cuál es el default colorspace real usando settings OCIO del proyecto"""
+        debug_print(">>> Detectando default colorspace real desde settings OCIO del proyecto...")
+
+        try:
+            # Obtener el proyecto
+            project = clip.project()
+            if not project:
+                debug_print("✗ No se pudo obtener el proyecto")
+                return None
+
+            # Determinar el tipo de archivo del clip
+            file_type = cls.detect_file_type(clip)
+            debug_print(f"✓ Tipo de archivo detectado: {file_type}")
+
+            if file_type:
+                # Usar los métodos OCIO reales del proyecto según el tipo de archivo
+                if file_type == 'float':
+                    try:
+                        default_cs = project.lutSettingFloat()
+                        debug_print(f"✓ Default para float files (EXR): '{default_cs}'")
+                        return default_cs
+                    except Exception as e:
+                        debug_print(f"✗ Error obteniendo lutSettingFloat: {e}")
+
+                elif file_type == '8bit':
+                    try:
+                        default_cs = project.lutSetting8Bit()
+                        debug_print(f"✓ Default para 8-bit files: '{default_cs}'")
+                        return default_cs
+                    except Exception as e:
+                        debug_print(f"✗ Error obteniendo lutSetting8Bit: {e}")
+
+                elif file_type == 'log':
+                    try:
+                        default_cs = project.lutSettingLog()
+                        debug_print(f"✓ Default para log files: '{default_cs}'")
+                        return default_cs
+                    except Exception as e:
+                        debug_print(f"✗ Error obteniendo lutSettingLog: {e}")
+
+            # Fallback: intentar usar 16-bit setting (más común)
+            try:
+                default_cs = project.lutSetting16Bit()
+                debug_print(f"✓ Default fallback usando 16-bit setting: '{default_cs}'")
+                return default_cs
             except Exception as e:
-                debug_print(f"⚠️ Error obteniendo opciones del knob: {e}")
+                debug_print(f"✗ Error obteniendo lutSetting16Bit: {e}")
 
-            # Fallback: usar out_colorspace directamente
-            if 'out_colorspace' in read_node.knobs():
-                out_colorspace = read_node['out_colorspace'].value()
-                debug_print(f"✓ Default fallback usando out_colorspace: '{out_colorspace}'")
-                return out_colorspace
-
-            # Último fallback: scene_linear (común en ACES)
-            debug_print("⚠️ Usando fallback: 'scene_linear'")
-            return 'scene_linear'
+            # Último fallback: aces_interchange (muy común en ACES)
+            debug_print("⚠️ Usando último fallback: 'aces_interchange'")
+            return 'aces_interchange'
 
         except Exception as e:
             debug_print(f"✗ Error detectando default colorspace: {e}")
