@@ -6,7 +6,7 @@ Hiero / Nuke Studio - Switch V3: HÍBRIDO OPTIMIZADO (Lo Mejor de Ambos Mundos)
 - Velocidad del v2 + Estado completo del v1
 - NO crea duplicados + Mantiene viewer settings completos
 - ✅ Playhead: Preservado automáticamente por Hiero (como v2)
-- ✅ Gain/Gamma: Transferidos desde viewer anterior (como v3)
+- ✅ Gain/Gamma/Saturation: Transferidos desde viewer anterior (como v3 mejorado)
 - ✅ UI: Redimensiona ventana + Scroll al top track (como v4)
 - Detección inteligente + Logs minimalistas con timing
 
@@ -38,27 +38,30 @@ def _process_events():
             pass
 
 def _get_viewer_state(viewer):
-    """Captura estado del viewer (gain/gamma para transferir, sin time)"""
+    """Captura estado del viewer (gain/gamma/saturation para transferir, sin time)"""
     if not viewer:
         return None
     try:
         return {
             'gain': viewer.gain(),
-            'gamma': viewer.gamma()
+            'gamma': viewer.gamma(),
+            'saturation': viewer.saturation()
         }
     except Exception:
         return None
 
 def _apply_viewer_settings(viewer, state):
-    """Aplica ajustes del viewer (gain/gamma) - playhead lo maneja Hiero automáticamente"""
+    """Aplica ajustes del viewer (gain/gamma/saturation) - playhead lo maneja Hiero automáticamente"""
     if not viewer or not state:
         return
     try:
-        # Solo aplicamos gain/gamma - el playhead lo preserva Hiero automáticamente
+        # Aplicamos gain/gamma/saturation - el playhead lo preserva Hiero automáticamente
         if 'gain' in state:
             viewer.setGain(state['gain'])
         if 'gamma' in state:
             viewer.setGamma(state['gamma'])
+        if 'saturation' in state:
+            viewer.setSaturation(state['saturation'])
     except Exception:
         pass
 
@@ -105,7 +108,7 @@ def switch_to_sequence_hybrid(target_sequence_name):
     - Velocidad del v2 + Estado completo del v1
     - Sin duplicados + Mantiene viewer settings completos
     - ✅ Playhead: Preservado automáticamente por Hiero
-    - ✅ Gain/Gamma: Transferidos desde viewer anterior
+    - ✅ Gain/Gamma/Saturation: Transferidos desde viewer anterior
     - ✅ UI: Redimensiona ventana + Scroll al top track
     """
     total_start = time.time()

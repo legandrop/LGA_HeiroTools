@@ -14,7 +14,7 @@
 ### 📊 **COMPARACIÓN FINAL DE VERSIONES**
 | Versión | Tiempo | Duplicados | Ajustes Viewer | Método | Estado |
 |---------|--------|------------|----------------|---------|--------|
-| **v3 Híbrida** | **0.49s** | ❌ No | ✅ **Completos** | Cerrar→Reabrir+UI | 🏆 **GANADORA** |
+| **v3 Híbrida** | **0.49s** | ❌ No | ✅ **Completos** (Gain/Gamma/Sat) | Cerrar→Reabrir+UI | 🏆 **GANADORA** |
 | v4 | 0.71s | ❌ No | ⚠️ Sin playhead | Cerrar→Reabrir+UI | ✅ Buena |
 | v1 | 1.28s | ❌ No | ✅ Completos | Refresh completo | 🐌 Lento |
 | v2 | 0.43s | ❌ No | ❌ Pierde | Simple | ⚠️ Básico |
@@ -81,6 +81,7 @@ Resultado: ✅ OK (Total: 0.51s)
 #### **Preservación de Ajustes:**
 - ✅ **Gain:** 0.27000001072883606 (mantenido perfectamente)
 - ✅ **Gamma:** 1.0 (mantenido perfectamente)
+- ✅ **Saturation:** 1.0 (mantenido perfectamente)
 - ✅ **Playhead:** Preservado automáticamente por Hiero
 - ✅ **UI State:** Panel reducido + scroll al top track
 
@@ -89,7 +90,7 @@ Resultado: ✅ OK (Total: 0.51s)
 | Aspecto | V3 Híbrida | V4 Anterior | V1 Original | V2 Básico |
 |---------|------------|-------------|-------------|-----------|
 | **Velocidad** | 🏆 0.49s | 0.71s | 1.28s | ⚡ 0.43s |
-| **Ajustes Completos** | ✅ Sí | ⚠️ Sin playhead | ✅ Sí | ❌ No |
+| **Ajustes Completos** | ✅ Gain/Gamma/Sat | ⚠️ Sin playhead | ✅ Gain/Gamma | ❌ No |
 | **Comportamiento Hiero** | ✅ Reemplaza | ✅ Reemplaza | ✅ Reemplaza | ❌ Crea nuevo |
 | **UI Completa** | ✅ Sí | ✅ Sí | ✅ Sí | ❌ No |
 | **Sin Duplicados** | ✅ Sí | ✅ Sí | ✅ Sí | ✅ Sí |
@@ -419,27 +420,30 @@ def switch_to_sequence_hybrid(target_sequence_name):
 
 ```python
 def _get_viewer_state(viewer):
-    """Captura estado del viewer (gain/gamma para transferir, sin time)"""
+    """Captura estado del viewer (gain/gamma/saturation para transferir, sin time)"""
     if not viewer:
         return None
     try:
         return {
             'gain': viewer.gain(),
-            'gamma': viewer.gamma()
+            'gamma': viewer.gamma(),
+            'saturation': viewer.saturation()
         }
     except Exception:
         return None
 
 def _apply_viewer_settings(viewer, state):
-    """Aplica ajustes del viewer (gain/gamma) - playhead lo maneja Hiero automáticamente"""
+    """Aplica ajustes del viewer (gain/gamma/saturation) - playhead lo maneja Hiero automáticamente"""
     if not viewer or not state:
         return
     try:
-        # Solo aplicamos gain/gamma - el playhead lo preserva Hiero automáticamente
+        # Aplicamos gain/gamma/saturation - el playhead lo preserva Hiero automáticamente
         if 'gain' in state:
             viewer.setGain(state['gain'])
         if 'gamma' in state:
             viewer.setGamma(state['gamma'])
+        if 'saturation' in state:
+            viewer.setSaturation(state['saturation'])
     except Exception:
         pass
 
@@ -635,7 +639,7 @@ La **V3 Híbrida** representa la síntesis perfecta de todos los descubrimientos
 
 **Combina lo mejor de cada versión:**
 - **Velocidad de v2** (0.49s vs 0.71s de v4)
-- **Ajustes completos de v1** (playhead + gain + gamma)
+- **Ajustes completos de v1 mejorado** (playhead + gain + gamma + saturation)
 - **Comportamiento nativo de v4** (reemplaza, no crea duplicado)
 - **UI completa** (reduce panel + scroll automático)
 
