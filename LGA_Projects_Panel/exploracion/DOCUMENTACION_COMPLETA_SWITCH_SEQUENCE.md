@@ -40,7 +40,7 @@ V3 HÍBRIDA = v2 (velocidad) + v1 (ajustes) + UI (experiencia)
 4. **⏰ Playhead:** Automáticamente preservado por Hiero
 5. **🎨 UI:** Redimensionamiento + scroll automático
 6. **🔄 Cross-Project:** Cambia entre proyectos automáticamente
-7. **📜 Logging detallado:** Lista viewers antes/después y cuáles se mantienen/cierran
+7. **📜 Logging detallado:** Lista viewers/timelines antes/después y cuáles se mantienen/cierran
 
 #### **Flujo de Ejecución:**
 ```python

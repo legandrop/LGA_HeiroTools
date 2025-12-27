@@ -87,15 +87,45 @@ def _collect_viewers():
         pass
     return viewers
 
-def _pick_target_viewer(viewers, target_sequence_name):
-    """Selecciona el viewer que debemos mantener (preferencia: visible + título exacto)."""
-    visible_matches = [v for v in viewers if v.get("title") == target_sequence_name and v.get("visible")]
+def _pick_target_by_title(items, target_sequence_name):
+    """Selecciona un item cuyo título coincida, priorizando los visibles."""
+    visible_matches = [v for v in items if v.get("title") == target_sequence_name and v.get("visible")]
     if visible_matches:
         return visible_matches[0]
-    name_matches = [v for v in viewers if v.get("title") == target_sequence_name]
+    name_matches = [v for v in items if v.get("title") == target_sequence_name]
     if name_matches:
         return name_matches[0]
     return None
+
+def _pick_target_viewer(viewers, target_sequence_name):
+    return _pick_target_by_title(viewers, target_sequence_name)
+
+def _collect_timelines():
+    """Devuelve lista de timelines Qt (TimelineEditor) con título, visibilidad y secuencia asociada (si disponible)."""
+    timelines = []
+    try:
+        from LGA_QtAdapter_HieroTools import QtWidgets
+        all_widgets = QtWidgets.QApplication.instance().allWidgets()
+        for widget in all_widgets:
+            try:
+                class_name = widget.metaObject().className() if hasattr(widget, 'metaObject') else str(type(widget))
+                # Distintos nombres observados para timelines
+                if 'TimelineEditor' in class_name or 'Timeline' in class_name:
+                    title = widget.windowTitle() if hasattr(widget, 'windowTitle') else ""
+                    visible = widget.isVisible() if hasattr(widget, 'isVisible') else False
+                    seq_name = None
+                    try:
+                        seq = widget.sequence() if hasattr(widget, 'sequence') else None
+                        if seq:
+                            seq_name = seq.name()
+                    except Exception:
+                        seq_name = None
+                    timelines.append({"widget": widget, "title": title, "visible": visible, "seq_name": seq_name})
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return timelines
 
 def _cleanup_viewers_aggressive(target_sequence_name):
     """
@@ -132,6 +162,50 @@ def _cleanup_viewers_aggressive(target_sequence_name):
         print(f"   │   Cerrados: {closed}")
 
     return len(closed), len(kept), kept, closed
+
+def _cleanup_timelines_aggressive(target_sequence_name, target_seq_obj=None):
+    """
+    Cierra timelines (TimelineEditor) que no correspondan a la secuencia objetivo.
+    Mantiene los timelines cuya secuencia asociada o título coincida con la secuencia objetivo.
+    No cierra timelines de secuencia desconocida (para evitar dejar la UI sin timeline si no podemos determinar).
+    """
+    timelines = _collect_timelines()
+    target_timeline = _pick_target_by_title(timelines, target_sequence_name)
+    closed = []
+    kept = []
+    skipped = []
+
+    for entry in timelines:
+        widget = entry["widget"]
+        title = entry.get("title", "") or "<sin título>"
+        seq_name = entry.get("seq_name")
+
+        # Mantener timelines que correspondan a la secuencia objetivo (por nombre de secuencia o por título)
+        if (target_timeline and widget == target_timeline["widget"]) or (seq_name == target_sequence_name):
+            kept.append(title)
+            continue
+
+        # Si no podemos determinar la secuencia, no lo cerramos para no dejar la UI en gris
+        if seq_name is None:
+            skipped.append(title)
+            continue
+
+        try:
+            widget.close()
+            _process_events()
+            closed.append(title)
+        except Exception:
+            continue
+
+    print(f"   ├── Timelines antes: {len(timelines)} | cerrados: {len(closed)} | mantenidos: {len(kept)} | omitidos (desconocidos): {len(skipped)}")
+    if kept:
+        print(f"   │   Timelines mantenidos: {kept}")
+    if closed:
+        print(f"   │   Timelines cerrados: {closed}")
+    if skipped:
+        print(f"   │   Timelines omitidos (seq desconocida): {skipped}")
+
+    return len(closed), len(kept), kept, closed, skipped
 
 def _focus_target_viewer(target_sequence_name):
     """Intenta enfocar el viewer de la secuencia objetivo después de la limpieza."""
@@ -288,6 +362,16 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
         viewers_closed, viewers_kept, kept_titles, closed_titles = 0, 0, [], []
     viewer_close_time = time.time() - step_start
 
+    # 6. LIMPIEZA DE TIMELINES: cerrar timelines no objetivo (para evitar "Sequence" vacíos)
+    timelines_close_time = 0
+    try:
+        step_start = time.time()
+        timelines_closed, timelines_kept, timelines_kept_titles, timelines_closed_titles, timelines_skipped = _cleanup_timelines_aggressive(target_sequence_name, target_seq)
+        timelines_close_time = time.time() - step_start
+    except Exception as e:
+        print(f"   ├── Error cerrando timelines: {e}")
+        timelines_closed, timelines_kept, timelines_kept_titles, timelines_closed_titles, timelines_skipped = 0, 0, [], [], []
+
     # 6. Aplicar ajustes del viewer anterior (gain/gamma) - playhead ya está correcto
     viewer_restore_time = 0
     if viewer_state:
@@ -300,22 +384,32 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
     # 7. Enfocar viewer objetivo tras limpieza (para evitar pantallas grises)
     _focus_target_viewer(target_sequence_name)
 
-    # 8. Redimensionar ventana del timeline (como v4)
+    # 8. Si no quedó ningún timeline de la secuencia objetivo, reabrir timeline
+    if timelines_kept == 0 and target_seq:
+        try:
+            print("   ├── Reabriendo timeline de la secuencia objetivo (no había timeline mantenido)")
+            hiero.ui.openInTimeline(target_seq)
+            _process_events()
+        except Exception as e:
+            print(f"   ├── Error reabriendo timeline: {e}")
+
+    # 9. Redimensionar ventana del timeline (como v4)
     step_start = time.time()
     reduce_success = reduce_sequence_window()
     reduce_time = time.time() - step_start
 
-    # 9. Scrollear al top track (como v4)
+    # 10. Scrollear al top track (como v4)
     step_start = time.time()
     scroll_success = scroll_to_top_track()
     scroll_time = time.time() - step_start
 
-    # 10. Resultado final
+    # 11. Resultado final
     total_time = time.time() - total_start
     print(f"✅ Switch híbrido perfecto completado en {total_time:.2f}s")
     print(f"   ├── Viewer capture: {viewer_capture_time:.3f}s")
     print(f"   ├── Sequence open: {open_time:.3f}s")
     print(f"   ├── Viewers cleanup: {viewer_close_time:.3f}s")
+    print(f"   ├── Timelines cleanup: {timelines_close_time:.3f}s")
     print(f"   ├── Viewer settings apply: {viewer_restore_time:.3f}s")
     print(f"   ├── UI reduce: {reduce_time:.3f}s")
     print(f"   ├── UI scroll: {scroll_time:.3f}s")

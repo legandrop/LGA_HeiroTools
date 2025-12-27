@@ -312,7 +312,17 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
         viewers_closed, viewers_kept, kept_titles, closed_titles = 0, 0, [], []
     viewer_close_time = time.time() - step_start
 
-    # 6. Aplicar ajustes del viewer anterior (gain/gamma) - playhead ya está correcto
+    # 6. LIMPIEZA DE TIMELINES: cerrar timelines no objetivo (para evitar "Sequence" vacíos)
+    timelines_close_time = 0
+    try:
+        step_start = time.time()
+        timelines_closed, timelines_kept, timelines_kept_titles, timelines_closed_titles, timelines_skipped = _cleanup_timelines_aggressive(target_sequence_name)
+        timelines_close_time = time.time() - step_start
+    except Exception as e:
+        print(f"   ├── Error cerrando timelines: {e}")
+        timelines_closed, timelines_kept, timelines_kept_titles, timelines_closed_titles, timelines_skipped = 0, 0, [], [], []
+
+    # 7. Aplicar ajustes del viewer anterior (gain/gamma) - playhead ya está correcto
     viewer_restore_time = 0
     if viewer_state:
         step_start = time.time()
@@ -321,20 +331,29 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
             _apply_viewer_settings(new_viewer, viewer_state)
         viewer_restore_time = time.time() - step_start
 
-    # 7. Enfocar viewer objetivo tras limpieza (para evitar pantallas grises)
+    # 8. Enfocar viewer objetivo tras limpieza (para evitar pantallas grises)
     _focus_target_viewer(target_sequence_name)
 
-    # 8. Redimensionar ventana del timeline (como v4)
+    # 9. Si no quedó ningún timeline de la secuencia objetivo, reabrir timeline
+    if timelines_kept == 0 and target_seq:
+        try:
+            print("   ├── Reabriendo timeline de la secuencia objetivo (no había timeline mantenido)")
+            hiero.ui.openInTimeline(target_seq)
+            _process_events()
+        except Exception as e:
+            print(f"   ├── Error reabriendo timeline: {e}")
+
+    # 10. Redimensionar ventana del timeline (como v4)
     step_start = time.time()
     reduce_success = reduce_sequence_window()
     reduce_time = time.time() - step_start
 
-    # 9. Scrollear al top track (como v4)
+    # 11. Scrollear al top track (como v4)
     step_start = time.time()
     scroll_success = scroll_to_top_track()
     scroll_time = time.time() - step_start
 
-    # 10. Resultado final
+    # 12. Resultado final
     total_time = time.time() - total_start
     print(f"✅ Switch híbrido perfecto completado en {total_time:.2f}s")
     print(f"   ├── Viewer capture: {viewer_capture_time:.3f}s")
