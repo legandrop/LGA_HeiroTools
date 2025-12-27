@@ -12,6 +12,7 @@ import hiero.core
 import os
 import importlib
 import sys
+import configparser
 from pathlib import Path
 from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
 
@@ -28,6 +29,9 @@ AUTO_CREATE_PANEL = True
 # Flag para controlar si mostrar el botón de reimport
 REIMPORT_BUTTON = True
 
+# Configuración de colores desde archivo .ini
+PROJECT_COLORS = {}
+
 
 def debug_print(*message):
     """Imprime un mensaje de debug si la variable DEBUG es True."""
@@ -43,6 +47,85 @@ def print_debug_messages():
     if DEBUG and debug_messages:
         print("\n".join(debug_messages))
         debug_messages.clear()
+
+
+def load_project_colors():
+    """Carga los colores de proyectos desde el archivo .ini"""
+    global PROJECT_COLORS
+    PROJECT_COLORS.clear()
+    debug_print("🔧 Iniciando carga de colores desde .ini...")
+
+    ini_path = Path(__file__).parent / "LGA_NKS_Projects_Panel.ini"
+    debug_print(f"📁 Ruta del archivo .ini: {ini_path}")
+    debug_print(f"📁 Archivo .ini existe: {ini_path.exists()}")
+
+    if not ini_path.exists():
+        debug_print(f"❌ Archivo de configuración no encontrado: {ini_path}")
+        return
+
+    try:
+        config = configparser.ConfigParser()
+        config.read(ini_path, encoding='utf-8')
+        debug_print("📖 Archivo .ini leído correctamente")
+
+        if 'Colors' in config:
+            debug_print("🎨 Sección [Colors] encontrada")
+            for project_name, color in config['Colors'].items():
+                clean_name = project_name.strip().upper()  # Convertir a mayúsculas
+                clean_color = color.strip()
+                PROJECT_COLORS[clean_name] = clean_color
+                debug_print(f"✅ Color cargado para {clean_name}: {clean_color}")
+        else:
+            debug_print("❌ Sección [Colors] no encontrada en el archivo .ini")
+
+        debug_print(f"📊 Total colores cargados: {len(PROJECT_COLORS)}")
+        debug_print(f"📋 Colores cargados: {sorted(PROJECT_COLORS.keys())}")
+
+    except Exception as e:
+        debug_print(f"💥 Error al cargar configuración de colores: {e}")
+        import traceback
+        debug_print(f"Traceback: {traceback.format_exc()}")
+
+
+def get_brighter_color(base_color):
+    """Devuelve un color más brillante para hover basado en el color base"""
+    if not base_color.startswith('#') or len(base_color) != 7:
+        return "#FFFFFF"  # Color por defecto si el formato es inválido
+
+    try:
+        # Convertir de hex a RGB
+        r = int(base_color[1:3], 16)
+        g = int(base_color[3:5], 16)
+        b = int(base_color[5:7], 16)
+
+        # Aumentar el brillo (mezclar con blanco)
+        factor = 0.4  # Cuánto brillo añadir (0.0 = sin cambio, 1.0 = blanco puro)
+        r = min(255, int(r + (255 - r) * factor))
+        g = min(255, int(g + (255 - g) * factor))
+        b = min(255, int(b + (255 - b) * factor))
+
+        # Convertir de vuelta a hex
+        return f"#{r:02X}{g:02X}{b:02X}"
+
+    except ValueError:
+        return "#FFFFFF"  # Color por defecto si hay error
+
+
+def get_project_colors(project_name):
+    """Devuelve los colores (base, hover) para un proyecto específico"""
+    project_name_upper = project_name.upper()  # Buscar en mayúsculas
+    debug_print(f"🎨 get_project_colors() llamado para: '{project_name}' (buscando como: '{project_name_upper}')")
+    debug_print(f"📋 PROJECT_COLORS disponibles: {sorted(PROJECT_COLORS.keys())}")
+
+    if project_name_upper in PROJECT_COLORS:
+        base_color = PROJECT_COLORS[project_name_upper]
+        hover_color = get_brighter_color(base_color)
+        debug_print(f"✅ Proyecto '{project_name}' encontrado - Base: {base_color}, Hover: {hover_color}")
+        return base_color, hover_color
+    else:
+        # Colores por defecto
+        debug_print(f"⚪ Proyecto '{project_name}' no encontrado en .ini - Usando colores por defecto")
+        return "#cccccc", "#ffffff"
 
 
 # Buscar y añadir la ruta del módulo de escaneo al sys.path
@@ -208,14 +291,27 @@ class ProjectItem(QtWidgets.QWidget):
         # Crear texto formateado: "NOMBRE (vXXX)"
         formatted_text = f"{project_name} (v{clean_version})"
 
+        # Obtener colores para este proyecto
+        debug_print(f"🎨 Aplicando colores para proyecto: '{project_name}' (desde nombre_base: '{nombre}')")
+        base_color, hover_color = get_project_colors(project_name)
+        debug_print(f"🎨 Colores aplicados - Base: {base_color}, Hover: {hover_color}")
+
         # Agregar emoji según estado
         if self.is_open and self.sequences:
             display_text = f"▼ {formatted_text}"
-            self.project_label.setStyleSheet("font-size: 13px; color: #cccccc;")
+            self.project_label.setStyleSheet(f"font-size: 13px; color: {base_color};")
+            # Guardar colores para el event filter
+            self.project_label.setProperty("base_color", base_color)
+            self.project_label.setProperty("hover_color", hover_color)
+            self.project_label.setProperty("is_project_label", True)  # Para distinguir del resto
             self.show_sequences()
         else:
             display_text = f"▶ {formatted_text}"
-            self.project_label.setStyleSheet("font-size: 13px; color: #cccccc;")
+            self.project_label.setStyleSheet(f"font-size: 13px; color: {base_color};")
+            # Guardar colores para el event filter
+            self.project_label.setProperty("base_color", base_color)
+            self.project_label.setProperty("hover_color", hover_color)
+            self.project_label.setProperty("is_project_label", True)  # Para distinguir del resto
             self.sequences_widget.hide()
 
         # Debug: mostrar exactamente qué texto se está configurando
@@ -275,10 +371,19 @@ class ProjectItem(QtWidgets.QWidget):
             except Exception:
                 pass
 
+        # Obtener colores para las secuencias (mismo que el proyecto padre)
+        project_name = self.project_info.get("nombre_base", "")
+        if "_SUP" in project_name:
+            project_name = project_name.split("_SUP")[0]
+        base_color, hover_color = get_project_colors(project_name)
+
         for seq_name in sorted(self.sequences):
             seq_label = QtWidgets.QLabel(f"> {seq_name}")
-            seq_label.setStyleSheet("color: #77bdd4;")
+            seq_label.setStyleSheet(f"color: {base_color};")
             seq_label.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
+            # Guardar colores para el event filter
+            seq_label.setProperty("base_color", base_color)
+            seq_label.setProperty("hover_color", hover_color)
 
             seq_obj = sequences_dict.get(seq_name)
             seq_label.mousePressEvent = (
@@ -320,6 +425,11 @@ class ProjectsPanel(QtWidgets.QWidget):
         self.setObjectName("com.lega.ProjectsPanel")
         self.setWindowTitle("Projects")
         self.setAttribute(Qt.WA_DeleteOnClose, False)
+
+        # Cargar configuración de colores
+        debug_print("🏗️ Inicializando ProjectsPanel - cargando colores...")
+        load_project_colors()
+        debug_print("✅ Carga de colores completada")
 
         # Estado
         self.proyectos_encontrados = []
@@ -426,22 +536,30 @@ class ProjectsPanel(QtWidgets.QWidget):
                 if hasattr(self, 'refresh_icon_normal'):
                     self.refresh_button.setIcon(self.refresh_icon_normal)
 
-        # Manejar hover de los project labels
+        # Manejar hover de los project labels y sequence labels
         elif hasattr(obj, 'setStyleSheet') and obj != self.refresh_button:
-            # Verificar si es un project label (tiene cursor de pointing hand)
+            # Verificar si es un label con cursor de pointing hand
             if obj.cursor().shape() == QtCore.Qt.PointingHandCursor:
                 if event.type() == QtCore.QEvent.Enter:
-                    # Cambiar a color hover (#ffffff)
-                    current_style = obj.styleSheet()
-                    if 'color: #cccccc' in current_style:
-                        new_style = current_style.replace('color: #cccccc', 'color: #ffffff')
-                        obj.setStyleSheet(new_style)
+                    # Cambiar a color hover usando las propiedades guardadas
+                    hover_color = obj.property("hover_color")
+                    if hover_color:
+                        if obj.property("is_project_label"):
+                            # Project label: mantener font-size
+                            obj.setStyleSheet(f"font-size: 13px; color: {hover_color};")
+                        else:
+                            # Sequence label: solo color
+                            obj.setStyleSheet(f"color: {hover_color};")
                 elif event.type() == QtCore.QEvent.Leave:
-                    # Volver a color normal (#cccccc)
-                    current_style = obj.styleSheet()
-                    if 'color: #ffffff' in current_style:
-                        new_style = current_style.replace('color: #ffffff', 'color: #cccccc')
-                        obj.setStyleSheet(new_style)
+                    # Volver a color base usando las propiedades guardadas
+                    base_color = obj.property("base_color")
+                    if base_color:
+                        if obj.property("is_project_label"):
+                            # Project label: mantener font-size
+                            obj.setStyleSheet(f"font-size: 13px; color: {base_color};")
+                        else:
+                            # Sequence label: solo color
+                            obj.setStyleSheet(f"color: {base_color};")
 
         return super().eventFilter(obj, event)
 
