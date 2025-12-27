@@ -77,6 +77,9 @@ class ProjectItem(QtWidgets.QWidget):
             self.update_icon_hover = QtGui.QIcon(update_hover_icon_path)
             self.update_button.setIcon(self.update_icon_normal)
             self.update_button.setIconSize(QtCore.QSize(16, 16))
+            # Guardar referencias de iconos en el propio botón para el event filter
+            self.update_button.update_icon_normal = self.update_icon_normal
+            self.update_button.update_icon_hover = self.update_icon_hover
 
             # Instalar event filter para manejar hover
             if self.panel:

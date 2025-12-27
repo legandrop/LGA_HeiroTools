@@ -120,6 +120,18 @@ class UIManager:
                 if hasattr(panel, 'refresh_icon_normal'):
                     panel.refresh_button.setIcon(panel.refresh_icon_normal)
 
+        # Manejar hover del botón update (buscar en todos los project items)
+        elif hasattr(obj, 'toolTip') and obj.toolTip() == "Actualizar a versión más nueva":
+            # Es un botón de update
+            if event.type() == QtCore.QEvent.Enter:
+                # Cambiar a ícono hover
+                if hasattr(obj, 'update_icon_hover'):
+                    obj.setIcon(obj.update_icon_hover)
+            elif event.type() == QtCore.QEvent.Leave:
+                # Cambiar a ícono normal
+                if hasattr(obj, 'update_icon_normal'):
+                    obj.setIcon(obj.update_icon_normal)
+
         # Manejar hover de los project labels y sequence labels
         elif hasattr(obj, 'setStyleSheet') and obj != panel.refresh_button:
             # Verificar si es un label con cursor de pointing hand
