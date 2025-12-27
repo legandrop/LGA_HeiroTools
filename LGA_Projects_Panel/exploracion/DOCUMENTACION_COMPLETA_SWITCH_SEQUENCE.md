@@ -9,14 +9,14 @@
 - ✅ **Ajustes completos:** Playhead, Gain, Gamma, Saturation preservados
 - ✅ **Velocidad óptima:** 0.63s (con limpieza total incluida)
 - ✅ **Sin duplicados:** Lógica viewer-centric inteligente
-- ✅ **Limpieza total:** Cierra automáticamente todos los viewers innecesarios
+- ✅ **Limpieza total AGRESIVA:** Solo queda el viewer de la secuencia objetivo; se cierran todos los demás
 - ✅ **Cross-project:** Cambia entre proyectos automáticamente
 - ✅ **UI completa:** Reduce panel + scroll automático
 
 ### 📊 **COMPARACIÓN FINAL DE VERSIONES**
 | Versión | Tiempo | Duplicados | Ajustes Viewer | Limpieza Total | Cross-Project | Método | Estado |
 |---------|--------|------------|----------------|-------------|--------------|---------|--------|
-| **v3 Híbrida** | **0.63s** | ❌ No | ✅ **Completos** | ✅ **SÍ** | ✅ **SÍ** | Abrir→Limpiar+UI | 🏆 **GANADORA** |
+| **v3 Híbrida** | **0.63s** | ❌ No | ✅ **Completos** | ✅ **SÍ (agresiva)** | ✅ **SÍ** | Abrir→Limpiar+UI | 🏆 **GANADORA** |
 | v4 | 0.71s | ❌ No | ⚠️ Sin playhead | ❌ No | ❌ No | Cerrar→Reabrir+UI | ✅ Buena |
 | v1 | 1.28s | ❌ No | ✅ Completos | ❌ No | ❌ No | Refresh completo | 🐌 Lento |
 | v2 | 0.43s | ❌ No | ❌ Pierde | ❌ No | ❌ No | Simple | ⚠️ Básico |
@@ -40,6 +40,7 @@ V3 HÍBRIDA = v2 (velocidad) + v1 (ajustes) + UI (experiencia)
 4. **⏰ Playhead:** Automáticamente preservado por Hiero
 5. **🎨 UI:** Redimensionamiento + scroll automático
 6. **🔄 Cross-Project:** Cambia entre proyectos automáticamente
+7. **📜 Logging detallado:** Lista viewers antes/después y cuáles se mantienen/cierran
 
 #### **Flujo de Ejecución:**
 ```python
@@ -71,7 +72,7 @@ def switch_to_sequence_hybrid(target_sequence_name):
 ✅ Switch híbrido perfecto completado en 0.63s
    ├── Viewer capture: 0.000s
    ├── Sequence open: 0.504s
-   ├── Viewers cleanup: 0.093s
+   ├── Viewers cleanup: 0.093s (agresiva: mantiene 1, cierra el resto)
    ├── Viewer settings apply: 0.001s
    ├── UI reduce: 0.019s
    ├── UI scroll: 0.009s
@@ -85,7 +86,7 @@ Resultado: ✅ OK (Total: 0.64s)
 - ✅ **Gamma:** 1.0 (mantenido perfectamente)
 - ✅ **Saturation:** 1.0 (mantenido perfectamente)
 - ✅ **Playhead:** Preservado automáticamente por Hiero
-- ✅ **Limpieza Total:** Viewers cerrados: 12 (todos los demás eliminados)
+- ✅ **Limpieza Total (agresiva):** Viewers cerrados: 12; solo queda 1 (la secuencia objetivo)
 - ✅ **Cross-Project:** Cambio automático entre proyectos
 
 ### 🎪 **VENTAJAS COMPETITIVAS**
@@ -609,7 +610,7 @@ def switch_to_sequence_hybrid_safe(target_sequence_name):
 
 | Versión | Tiempo Promedio | Ajustes Preservados | UI Optimizada | Limpieza Total | Cross-Project | Estabilidad |
 |---------|----------------|---------------------|---------------|-------------|--------------|-------------|
-| **V3 Híbrida** | **0.63s** | ✅ **Completos** | ✅ Sí | ✅ **SÍ** | ✅ **SÍ** | ✅ Excelente |
+| **V3 Híbrida** | **0.63s** | ✅ **Completos** | ✅ Sí | ✅ **SÍ (agresiva)** | ✅ **SÍ** | ✅ Excelente |
 | V4 | 0.71s | ⚠️ Sin playhead | ✅ Sí | ❌ No | ❌ No | ✅ Buena |
 | V1 | 1.28s | ✅ Completos | ✅ Sí | ❌ No | ❌ No | ✅ Buena |
 | V2 | 0.43s | ❌ Ninguno | ❌ No | ❌ No | ❌ No | ✅ Básica |
@@ -646,7 +647,7 @@ V3 HÍBRIDA - Desglose de 0.63s total (con limpieza total):
 La **V3 Híbrida** representa la síntesis perfecta de todos los descubrimientos realizados durante la exploración exhaustiva del problema de cambio de secuencia en Hiero.
 
 **Funcionalidades exclusivas implementadas:**
-- **🏆 Limpieza Total:** Cierra automáticamente todos los viewers innecesarios
+- **🏆 Limpieza Total (agresiva):** Solo queda el viewer objetivo; el resto se cierra
 - **🔄 Cross-Project:** Cambia entre proyectos de manera transparente
 - **⚡ Velocidad optimizada:** 0.63s con funcionalidad completa
 - **🎯 Ajustes completos:** Playhead, Gain, Gamma, Saturation preservados

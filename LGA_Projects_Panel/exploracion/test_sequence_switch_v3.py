@@ -67,6 +67,88 @@ def _apply_viewer_settings(viewer, state):
     except Exception:
         pass
 
+def _collect_viewers():
+    """Devuelve lista de viewers Qt (Foundry::Storm::UI::Viewer) con título y visibilidad."""
+    viewers = []
+    try:
+        from LGA_QtAdapter_HieroTools import QtWidgets
+        all_widgets = QtWidgets.QApplication.instance().allWidgets()
+        for widget in all_widgets:
+            try:
+                class_name = widget.metaObject().className() if hasattr(widget, 'metaObject') else str(type(widget))
+                if 'Foundry::Storm::UI::Viewer' in class_name:
+                    title = widget.windowTitle() if hasattr(widget, 'windowTitle') else ""
+                    visible = widget.isVisible() if hasattr(widget, 'isVisible') else False
+                    viewers.append({"widget": widget, "title": title, "visible": visible})
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return viewers
+
+def _pick_target_viewer(viewers, target_sequence_name):
+    """Selecciona el viewer que debemos mantener (preferencia: visible + título exacto)."""
+    visible_matches = [v for v in viewers if v.get("title") == target_sequence_name and v.get("visible")]
+    if visible_matches:
+        return visible_matches[0]
+    name_matches = [v for v in viewers if v.get("title") == target_sequence_name]
+    if name_matches:
+        return name_matches[0]
+    return None
+
+def _cleanup_viewers_aggressive(target_sequence_name):
+    """
+    Cierra TODOS los viewers excepto el correspondiente a la secuencia objetivo.
+    - Mantiene únicamente el primer viewer con windowTitle == target_sequence_name (el activo).
+    - Cierra duplicados y cualquier otro viewer/timeline residual.
+    - Loggea estado antes/después para diagnóstico.
+    """
+    viewers = _collect_viewers()
+    closed = []
+    kept = []
+    target_viewer = _pick_target_viewer(viewers, target_sequence_name)
+
+    for entry in viewers:
+        widget = entry["widget"]
+        title = entry.get("title", "") or "<sin título>"
+        visible = entry.get("visible", False)
+
+        if target_viewer and widget == target_viewer["widget"]:
+            kept.append(title)
+            continue
+
+        try:
+            widget.close()
+            _process_events()
+            closed.append(title)
+        except Exception:
+            continue
+
+    print(f"   ├── Viewers antes: {len(viewers)} | cerrados: {len(closed)} | mantenidos: {len(kept)}")
+    if kept:
+        print(f"   │   Mantenidos: {kept}")
+    if closed:
+        print(f"   │   Cerrados: {closed}")
+
+    return len(closed), len(kept), kept, closed
+
+def _focus_target_viewer(target_sequence_name):
+    """Intenta enfocar el viewer de la secuencia objetivo después de la limpieza."""
+    viewers = _collect_viewers()
+    target = _pick_target_viewer(viewers, target_sequence_name)
+    if not target:
+        print(f"   ├── No se encontró viewer para '{target_sequence_name}' tras limpieza")
+        return
+    widget = target["widget"]
+    try:
+        widget.show()
+        widget.raise_()
+        widget.activateWindow()
+        _process_events()
+        print(f"   ├── Viewer enfocado: {target_sequence_name}")
+    except Exception:
+        print(f"   ├── No se pudo enfocar viewer '{target_sequence_name}'")
+
 
 def import_script(script_name):
     """Importa script desde LGA_NKS_ViewerTL."""
@@ -221,35 +303,16 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
 
     open_time = time.time() - step_start
 
-    # 5. CERRAR TODOS LOS VIEWERS QUE NO SEAN EL DE LA SECUENCIA OBJETIVO (para evitar acumulación)
-    viewer_close_time = 0
+    # 5. LIMPIEZA AGRESIVA: cerrar todos los viewers que no sean el de la secuencia objetivo
     step_start = time.time()
     try:
-        from LGA_QtAdapter_HieroTools import QtWidgets
-        all_widgets = QtWidgets.QApplication.instance().allWidgets()
-
-        viewers_closed = 0
-        for widget in all_widgets:
-            try:
-                class_name = widget.metaObject().className() if hasattr(widget, 'metaObject') else str(type(widget))
-                if 'Foundry::Storm::UI::Viewer' in class_name:
-                    window_title = widget.windowTitle() if hasattr(widget, 'windowTitle') else ""
-                    # Cerrar todos los viewers QUE NO sean la secuencia objetivo
-                    if window_title != target_sequence_name:
-                        widget.close()
-                        viewers_closed += 1
-                        _process_events()
-            except Exception:
-                continue
-
-        print(f"   ├── Viewers cerrados: {viewers_closed}")
-
+        viewers_closed, viewers_kept, kept_titles, closed_titles = _cleanup_viewers_aggressive(target_sequence_name)
     except Exception as e:
         print(f"   ├── Error cerrando viewers: {e}")
-
+        viewers_closed, viewers_kept, kept_titles, closed_titles = 0, 0, [], []
     viewer_close_time = time.time() - step_start
 
-    # 7. Aplicar ajustes del viewer anterior (gain/gamma) - playhead ya está correcto
+    # 6. Aplicar ajustes del viewer anterior (gain/gamma) - playhead ya está correcto
     viewer_restore_time = 0
     if viewer_state:
         step_start = time.time()
@@ -257,6 +320,9 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
         if new_viewer:
             _apply_viewer_settings(new_viewer, viewer_state)
         viewer_restore_time = time.time() - step_start
+
+    # 7. Enfocar viewer objetivo tras limpieza (para evitar pantallas grises)
+    _focus_target_viewer(target_sequence_name)
 
     # 8. Redimensionar ventana del timeline (como v4)
     step_start = time.time()
