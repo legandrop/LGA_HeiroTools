@@ -6,7 +6,12 @@
 - Click en proyecto lo abre; click en secuencia la abre en timeline (cross-project) preservando ajustes de viewer.
 
 ## Archivos clave
-- `LGA_NKS_Projects_Panel.py` — Panel definitivo. Clases `ProjectsPanel`, `ProjectItem`, `ScanWorker`. Se auto-registra en `hiero.ui.windowManager()` (AUTO_CREATE_PANEL).
+- `LGA_NKS_Projects_Panel.py` — Panel definitivo. Clase `ProjectsPanel`. Se auto-registra en `hiero.ui.windowManager()` (AUTO_CREATE_PANEL).
+- `LGA_Projects_Panel/LGA_NKS_ProjectItem.py` — Clase `ProjectItem` para widgets de proyecto y secuencias.
+- `LGA_Projects_Panel/LGA_NKS_Workers.py` — Clases `WorkerSignals`, `ScanWorker` para operaciones en background.
+- `LGA_Projects_Panel/LGA_NKS_UIManager.py` — Clase `UIManager` para configuración y gestión de interfaz de usuario.
+- `LGA_Projects_Panel/LGA_NKS_ScanManager.py` — Clase `ScanManager` para gestión de operaciones de escaneo.
+- `LGA_Projects_Panel/LGA_NKS_ProjectHandler.py` — Clase `ProjectHandler` para manejo de proyectos y apertura.
 - `LGA_Projects_Panel/LGA_Projects_Panel_ScanProjects.py` — `scan_projects_on_disk()`, `get_open_projects_info()`, `is_project_open()`, `get_project_sequences()`.
 - `LGA_Projects_Panel/LGA_Projects_Panel_SwitchSequence.py` — `switch_to_sequence_hybrid()` (V3 híbrida: preserva gain/gamma/saturation/playhead, optimiza UI y funciona cross-project).
 - `LGA_Projects_Panel/LGA_NKS_Projects_Panel_Smart_Reload.py` — `main()` recarga y redockea el panel (botón ♻).
