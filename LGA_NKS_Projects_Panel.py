@@ -244,9 +244,10 @@ class ScanWorker(QtCore.QRunnable):
 class ProjectItem(QtWidgets.QWidget):
     """Widget personalizado para mostrar un proyecto y sus secuencias"""
 
-    def __init__(self, project_info, parent=None):
+    def __init__(self, project_info, panel=None, parent=None):
         super(ProjectItem, self).__init__(parent)
         self.project_info = project_info
+        self.panel = panel  # Referencia al ProjectsPanel para el event filter
         self.is_open = False
         self.sequences = []
         self.setup_ui()
@@ -384,6 +385,10 @@ class ProjectItem(QtWidgets.QWidget):
             # Guardar colores para el event filter
             seq_label.setProperty("base_color", base_color)
             seq_label.setProperty("hover_color", hover_color)
+
+            # Instalar event filter para hover (si hay panel disponible)
+            if self.panel:
+                seq_label.installEventFilter(self.panel)
 
             seq_obj = sequences_dict.get(seq_name)
             seq_label.mousePressEvent = (
@@ -634,7 +639,7 @@ class ProjectsPanel(QtWidgets.QWidget):
             debug_print(f"      Archivo: {os.path.basename(ruta_hrox) if ruta_hrox else 'N/A'}")
             debug_print(f"      Display: {formatted_display}")
 
-            item = ProjectItem(proyecto_info)
+            item = ProjectItem(proyecto_info, self)
             item.project_label.mousePressEvent = lambda e, p=proyecto_info: self.on_project_click(p)
             # Instalar event filter para hover del project label
             item.project_label.installEventFilter(self)
