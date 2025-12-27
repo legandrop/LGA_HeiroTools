@@ -709,6 +709,11 @@ class ProjectsPanel(QtWidgets.QWidget):
     def reimport_panel(self):
         """Recarga el panel usando el script externo de smart reload"""
         try:
+            # 🔄 RECARGAR COLORES DESDE .INI ANTES DEL RELOAD
+            debug_print("🔄 Recargando colores desde .ini antes del reimport...")
+            load_project_colors()
+            debug_print("✅ Colores recargados desde .ini")
+
             script_path = os.path.join(
                 os.path.dirname(__file__), "LGA_Projects_Panel", "LGA_NKS_Projects_Panel_Smart_Reload.py"
             )

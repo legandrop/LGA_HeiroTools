@@ -212,31 +212,46 @@ def force_cleanup_old_panels(wm):
 
     debug_print(f"Encontrados {len(old_panels)} panel(es) Projects para limpiar")
 
+    # Procesar cada panel con múltiples estrategias
     for i, panel in enumerate(old_panels):
-        debug_print(f"  Limpiando panel {i+1}: {panel.windowTitle()} - Visible: {panel.isVisible()}")
+        debug_print(f"  Limpiando panel {i+1}: {panel.windowTitle()} - Visible: {panel.isVisible()} - ID: {id(panel)}")
 
         try:
-            # Intentar remover del WindowManager
+            # Estrategia 1: Remover del WindowManager
             if hasattr(wm, 'removeWindow'):
-                wm.removeWindow(panel)
-                debug_print("    ✓ Removido del WindowManager")
+                try:
+                    wm.removeWindow(panel)
+                    debug_print("    ✓ Removido del WindowManager")
+                except Exception as e:
+                    debug_print(f"    ⚠️ Error removiendo del WindowManager: {e}")
 
-            # Forzar ocultamiento y desconexión
+            # Estrategia 2: Ocultar y desconectar
             panel.hide()
             panel.setParent(None)
             panel.setVisible(False)
+            debug_print("    ✓ Ocultado y desconectado")
 
-            # Destruir completamente
+            # Estrategia 3: Destruir completamente
             panel.destroy()
             debug_print("    ✓ Destruido completamente")
 
         except Exception as e:
             debug_print(f"    ⚠️ Error limpiando panel: {e}")
 
-    # Verificación final
+    # Verificación final con espera
+    QtCore.QTimer.singleShot(50, lambda: verify_cleanup_complete(wm))
+
+def verify_cleanup_complete(wm):
+    """Verifica que la limpieza se completó correctamente"""
+    target_object_name = "com.lega.ProjectsPanel"
     remaining = len([w for w in wm.windows() if w.objectName() == target_object_name])
     debug_print(f"Panels Projects restantes después de limpieza: {remaining}")
     log_panel_count(wm, "[DESPUÉS DE LIMPIEZA FORZADA - VERIFICACIÓN]")
+
+    if remaining == 0:
+        debug_print("✅ Limpieza completa exitosa - no quedan panels Projects")
+    else:
+        debug_print(f"⚠️ Limpieza incompleta - quedan {remaining} panel(s) Projects")
 
 
 def create_new_panel_after_destruction(wm, attempt=1, max_attempts=5):
@@ -292,13 +307,30 @@ def create_new_panel_anyway(wm):
         log_panel_count(wm, "[DESPUÉS DE EXEC_MODULE]")
         debug_print("✓ Módulo cargado exitosamente - Panel automático creado")
 
-        # ENCONTRAR el panel automático que se creó durante exec_module()
-        automatic_panel = None
+        # ENCONTRAR TODOS los panels Projects y seleccionar el más nuevo
+        projects_panels = []
         for window in wm.windows():
             if window.objectName() == target_object_name:
-                automatic_panel = window
-                debug_print(f"✓ Encontrado panel automático: {window.windowTitle()} - ID: {id(window)}")
-                break
+                projects_panels.append(window)
+
+        debug_print(f"Encontrados {len(projects_panels)} panels Projects después de exec_module")
+
+        # Seleccionar el panel más nuevo (último en la lista, que debería ser el creado por exec_module)
+        if projects_panels:
+            automatic_panel = projects_panels[-1]  # El último es el más nuevo
+            debug_print(f"✓ Usando panel más nuevo: {automatic_panel.windowTitle()} - ID: {id(automatic_panel)}")
+
+            # 🔄 RECARGAR COLORES en el nuevo panel para asegurar que use los valores actualizados del .ini
+            debug_print("🔄 Recargando colores en el nuevo panel...")
+            try:
+                panel_module.load_project_colors()
+                debug_print("✅ Colores recargados en el nuevo panel")
+            except Exception as e:
+                debug_print(f"⚠️ Error recargando colores: {e}")
+
+        else:
+            debug_print("❌ ERROR: No se encontraron panels Projects después de exec_module()")
+            return
 
         if automatic_panel is None:
             debug_print("❌ ERROR: No se encontró el panel automático creado por exec_module()")
