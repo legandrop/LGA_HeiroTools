@@ -6,7 +6,7 @@ snapshot_gallery/
 __pycache__/
 +OLD/
 Building_Blocks/
-z_*.py
+#z_*.py
 .DS_Store
 Thumbs.db
 ReviewPic_Cache/
