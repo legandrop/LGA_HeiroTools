@@ -207,8 +207,8 @@ class ProjectItem(QtWidgets.QWidget):
             except Exception:
                 pass
 
-        # Agregar secuencias (usar objetos Sequence si están disponibles)
-        for seq_name in self.sequences:
+        # Agregar secuencias ordenadas alfabéticamente (usar objetos Sequence si están disponibles)
+        for seq_name in sorted(self.sequences):
             seq_label = QtWidgets.QLabel(f"▶ {seq_name}")
             # Color claro que contrasta bien con fondo oscuro #323232
             seq_label.setStyleSheet("color: #66BB6A;")  # Verde claro legible

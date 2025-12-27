@@ -39,13 +39,14 @@ switch_to_sequence("nombre_secuencia")
 
 ### 🖱️ Interacciones
 - **Click en proyecto cerrado:** Abre el proyecto en Hiero
-- **Click en secuencia:** Abre la secuencia en el timeline usando **solución V3 Híbrida avanzada**
+- **Click en secuencia:** Abre la secuencia en el timeline usando **solución V3 Híbrida definitiva**
   - ✅ **Preserva ajustes del viewer:** Gain, gamma, saturation y playhead
   - ✅ **Optimiza UI automáticamente:** Reduce panel izquierdo a 340px + scroll al top track
-  - ✅ **Velocidad óptima:** 0.49s con comportamiento nativo de Hiero
+  - ✅ **Velocidad óptima:** 0.63s con funcionalidad completa
   - ✅ **Sin duplicados:** Maneja viewers existentes correctamente
-  - ✅ **Cross-project:** Funciona perfectamente con secuencias de cualquier proyecto abierto
-  - ✅ **Cambio automático:** Cambia automáticamente al proyecto correcto si la secuencia pertenece a otro proyecto
+  - ✅ **Cross-project:** Funciona perfectamente con secuencias de cualquier proyecto
+  - ✅ **Limpieza total:** Cierra automáticamente todos los viewers innecesarios
+  - ✅ **Cambio automático:** Cambia automáticamente al proyecto correcto si es necesario
 - **Botón Refresh:** Re-escanear proyectos manualmente
 
 ### 🔄 Actualización Automática

@@ -15,8 +15,9 @@ Panel personalizado `com.lega.ProjectPanel` que escanea proyectos VFX en disco T
 - Muestra proyectos con formato: `NOMBREPROYECTO_SUP_v###` (ejemplo: `ETDM_SUP_v472`)
 
 ### Visualización
+- **Ordenamiento alfabético:** Tanto proyectos como secuencias se muestran ordenados alfabéticamente
 - **Proyectos no abiertos:** Solo se muestra el nombre del proyecto con su versión
-- **Proyectos abiertos:** Se muestra el nombre del proyecto y debajo (con indentación) todas sus secuencias:
+- **Proyectos abiertos:** Se muestra el nombre del proyecto y debajo (con indentación) todas sus secuencias ordenadas alfabéticamente:
   ```
   ETDM_SUP_v472
     000-100
