@@ -6,18 +6,20 @@
 
 ### 🎯 **SOLUCIÓN GANADORA CONFIRMADA: V3 HÍBRIDA**
 - ✅ **Comportamiento perfecto:** Reemplaza viewer como Hiero nativo
-- ✅ **Ajustes completos:** Playhead, Gain, Gamma preservados
-- ✅ **Velocidad óptima:** 0.49s (más rápido que v4 ganadora anterior)
-- ✅ **Sin duplicados:** Lógica viewer-centric
+- ✅ **Ajustes completos:** Playhead, Gain, Gamma, Saturation preservados
+- ✅ **Velocidad óptima:** 0.63s (con limpieza total incluida)
+- ✅ **Sin duplicados:** Lógica viewer-centric inteligente
+- ✅ **Limpieza total:** Cierra automáticamente todos los viewers innecesarios
+- ✅ **Cross-project:** Cambia entre proyectos automáticamente
 - ✅ **UI completa:** Reduce panel + scroll automático
 
 ### 📊 **COMPARACIÓN FINAL DE VERSIONES**
-| Versión | Tiempo | Duplicados | Ajustes Viewer | Método | Estado |
-|---------|--------|------------|----------------|---------|--------|
-| **v3 Híbrida** | **0.49s** | ❌ No | ✅ **Completos** (Gain/Gamma/Sat) | Cerrar→Reabrir+UI | 🏆 **GANADORA** |
-| v4 | 0.71s | ❌ No | ⚠️ Sin playhead | Cerrar→Reabrir+UI | ✅ Buena |
-| v1 | 1.28s | ❌ No | ✅ Completos | Refresh completo | 🐌 Lento |
-| v2 | 0.43s | ❌ No | ❌ Pierde | Simple | ⚠️ Básico |
+| Versión | Tiempo | Duplicados | Ajustes Viewer | Limpieza Total | Cross-Project | Método | Estado |
+|---------|--------|------------|----------------|-------------|--------------|---------|--------|
+| **v3 Híbrida** | **0.63s** | ❌ No | ✅ **Completos** | ✅ **SÍ** | ✅ **SÍ** | Abrir→Limpiar+UI | 🏆 **GANADORA** |
+| v4 | 0.71s | ❌ No | ⚠️ Sin playhead | ❌ No | ❌ No | Cerrar→Reabrir+UI | ✅ Buena |
+| v1 | 1.28s | ❌ No | ✅ Completos | ❌ No | ❌ No | Refresh completo | 🐌 Lento |
+| v2 | 0.43s | ❌ No | ❌ Pierde | ❌ No | ❌ No | Simple | ⚠️ Básico |
 
 ---
 
@@ -32,31 +34,31 @@ V3 HÍBRIDA = v2 (velocidad) + v1 (ajustes) + UI (experiencia)
 ```
 
 #### **Componentes:**
-1. **🎯 Lógica Core:** Estrategia "Cerrar Existente → Reabrir"
-2. **📸 Preservación:** Gain/Gamma del viewer actual
-3. **⏰ Playhead:** Automáticamente preservado por Hiero
-4. **🎨 UI:** Redimensionamiento + scroll automático
+1. **🎯 Lógica Core:** Estrategia "Abrir → Limpiar Total"
+2. **🧹 Limpieza Total:** Cierra TODOS los viewers no deseados
+3. **📸 Preservación:** Gain/Gamma del viewer actual
+4. **⏰ Playhead:** Automáticamente preservado por Hiero
+5. **🎨 UI:** Redimensionamiento + scroll automático
+6. **🔄 Cross-Project:** Cambia entre proyectos automáticamente
 
 #### **Flujo de Ejecución:**
 ```python
 def switch_to_sequence_hybrid(target_sequence_name):
-    # 1. Capturar ajustes del viewer actual (gain/gamma)
+    # 1. Capturar ajustes del viewer actual (gain/gamma/saturation)
     viewer_state = _get_viewer_state(current_viewer)
 
-    # 2. Buscar viewer existente para la secuencia OBJETIVO
-    existing_viewer = _find_viewer_for_sequence(target_sequence_name)
-
-    # 3. Cerrar viewer existente si existe (evitar duplicados)
-    if existing_viewer:
-        existing_viewer.close()
-
-    # 4. Abrir nueva secuencia (playhead preservado automáticamente)
+    # 2. Abrir nueva secuencia (playhead preservado automáticamente)
     hiero.ui.openInTimeline(target_seq)
 
-    # 5. Aplicar ajustes transferidos (gain/gamma)
+    # 3. LIMPIEZA TOTAL: Cerrar TODOS los viewers que NO sean la secuencia objetivo
+    for viewer in all_viewers:
+        if viewer.windowTitle() != target_sequence_name:
+            viewer.close()
+
+    # 4. Aplicar ajustes transferidos (gain/gamma/saturation)
     _apply_viewer_settings(new_viewer, viewer_state)
 
-    # 6. Optimizar UI (reduce panel + scroll)
+    # 5. Optimizar UI (reduce panel + scroll)
     reduce_sequence_window()
     scroll_to_top_track()
 ```
@@ -66,16 +68,16 @@ def switch_to_sequence_hybrid(target_sequence_name):
 #### **Resultados de Testing:**
 ```
 🔄 Switch híbrido a '010-350'...
-✅ Switch híbrido perfecto completado en 0.49s
+✅ Switch híbrido perfecto completado en 0.63s
    ├── Viewer capture: 0.000s
-   ├── Existing viewer close: 0.000s
-   ├── Sequence open: 0.470s
-   ├── Viewer settings apply: 0.002s
-   ├── UI reduce: 0.002s
-   ├── UI scroll: 0.001s
-   └── Total: 0.49s
+   ├── Sequence open: 0.504s
+   ├── Viewers cleanup: 0.093s
+   ├── Viewer settings apply: 0.001s
+   ├── UI reduce: 0.019s
+   ├── UI scroll: 0.009s
+   └── Total: 0.63s
 
-Resultado: ✅ OK (Total: 0.51s)
+Resultado: ✅ OK (Total: 0.64s)
 ```
 
 #### **Preservación de Ajustes:**
@@ -83,16 +85,20 @@ Resultado: ✅ OK (Total: 0.51s)
 - ✅ **Gamma:** 1.0 (mantenido perfectamente)
 - ✅ **Saturation:** 1.0 (mantenido perfectamente)
 - ✅ **Playhead:** Preservado automáticamente por Hiero
-- ✅ **UI State:** Panel reducido + scroll al top track
+- ✅ **Limpieza Total:** Viewers cerrados: 12 (todos los demás eliminados)
+- ✅ **Cross-Project:** Cambio automático entre proyectos
 
 ### 🎪 **VENTAJAS COMPETITIVAS**
 
 | Aspecto | V3 Híbrida | V4 Anterior | V1 Original | V2 Básico |
 |---------|------------|-------------|-------------|-----------|
-| **Velocidad** | 🏆 0.49s | 0.71s | 1.28s | ⚡ 0.43s |
+| **Velocidad** | 🏆 0.63s | 0.71s | 1.28s | ⚡ 0.43s |
 | **Ajustes Completos** | ✅ Gain/Gamma/Sat | ⚠️ Sin playhead | ✅ Gain/Gamma | ❌ No |
 | **Comportamiento Hiero** | ✅ Reemplaza | ✅ Reemplaza | ✅ Reemplaza | ❌ Crea nuevo |
 | **UI Completa** | ✅ Sí | ✅ Sí | ✅ Sí | ❌ No |
+| **Limpieza Total** | ✅ **SÍ** | ❌ No | ❌ No | ❌ No |
+| **Cross-Project** | ✅ **SÍ** | ❌ No | ❌ No | ❌ No |
+| **Cross-Project** | ✅ **SÍ** | ❌ No | ❌ No | ❌ No |
 | **Sin Duplicados** | ✅ Sí | ✅ Sí | ✅ Sí | ✅ Sí |
 
 ---
@@ -255,6 +261,7 @@ def switch_to_sequence_final(sequence_name):
 - **🎪 COMPORTAMIENTO PERFECTO:** Reemplaza como Hiero nativo
 - **🎨 UI COMPLETA:** Reduce panel + scroll automático
 - **🧠 LÓGICA INTELIGENTE:** Detecta viewers existentes
+- **🧹 LIMPIEZA TOTAL:** Cierra TODOS los otros viewers para evitar acumulación
 
 #### 🎪 **Resultado:** **GANADORA ABSOLUTA** - Mejor combinación de velocidad y funcionalidad.
 
@@ -265,20 +272,23 @@ def switch_to_sequence_final(sequence_name):
 
 ### **📦 Arquitectura y Dependencias**
 
-#### **✅ Funcionalidad INTEGRADA (80% del código):**
-- **Captura de estado del viewer:** Gain, gamma (sin time)
-- **Lógica principal de cambio de secuencia:** Cerrar→reabrir
-- **Restauración de estado del viewer:** Aplicar ajustes transferidos
-- **Manejo de errores y logging completo**
+#### **📁 Archivos Principales:**
+- **`LGA_Projects_Panel/switch_sequence_v3_final.py`** - Función principal `switch_to_sequence_hybrid()`
+- **`LGA_Projects_Panel/LGA_Projects_Panel_Window.py`** - Integración en panel `on_sequence_click()`
 
-#### **📦 Scripts Externos (20% - operaciones UI especializadas):**
-- **`LGA_NKS_Reduce_SeqWin`** - Reduce panel izquierdo del timeline a 340px
-- **`LGA_NKS_ScrollTo_TopTrack`** - Scroll automático al track superior
+#### **🔧 Funciones Clave:**
+- **`switch_to_sequence_hybrid(target_sequence_name, target_project=None)`** - Cambio inteligente con limpieza total
+- **`_close_all_other_viewers_except_current()`** - Limpieza automática de viewers
+- **`_get_viewer_state()` / `_apply_viewer_settings()`** - Preservación de ajustes
 
-#### **🔗 Dependencias del Sistema:**
-- **Hiero APIs:** `hiero.core`, `hiero.ui`
-- **Qt Framework:** `QtWidgets`, `QtCore` (vía adaptador)
-- **Python estándar:** `os`, `importlib.util`, `time`
+#### **📦 Scripts Externos (operaciones UI):**
+- **`LGA_NKS_ViewerTL/LGA_NKS_Reduce_SeqWin.py`** - Reduce panel izquierdo del timeline
+- **`LGA_NKS_ViewerTL/LGA_NKS_ScrollTo_TopTrack.py`** - Scroll automático al track superior
+
+#### **🔗 Dependencias:**
+- **Hiero APIs:** `hiero.core.projects()`, `hiero.ui.openInTimeline()`, `hiero.ui.currentViewer()`
+- **Qt Framework:** `QtWidgets.QApplication.allWidgets()` (vía adaptador)
+- **Python estándar:** `time`, `importlib`
 
 ### **🎯 Código de Implementación Completa**
 
@@ -335,37 +345,7 @@ def switch_to_sequence_hybrid(target_sequence_name):
     viewer_state = _get_viewer_state(current_viewer) if current_viewer else None
     viewer_capture_time = time.time() - step_start
 
-    # 4. Buscar viewer existente para la secuencia OBJETIVO (como v2)
-    existing_viewer = None
-    try:
-        from LGA_QtAdapter_HieroTools import QtWidgets
-        all_widgets = QtWidgets.QApplication.instance().allWidgets()
-
-        for widget in all_widgets:
-            try:
-                class_name = widget.metaObject().className() if hasattr(widget, 'metaObject') else str(type(widget))
-                if 'Foundry::Storm::UI::Viewer' in class_name:
-                    window_title = widget.windowTitle() if hasattr(widget, 'windowTitle') else ""
-                    if window_title == target_sequence_name:
-                        existing_viewer = widget
-                        break
-            except Exception:
-                continue
-    except Exception:
-        pass
-
-    # 5. Cerrar viewer existente si lo hay (como v2) - Hiero preservará playhead automáticamente
-    viewer_close_time = 0
-    if existing_viewer:
-        step_start = time.time()
-        try:
-            existing_viewer.close()
-            _process_events()
-        except Exception:
-            pass
-        viewer_close_time = time.time() - step_start
-
-    # 6. Abrir secuencia con openInTimeline (como v2) - playhead se preserva automáticamente
+    # 4. Abrir secuencia con openInTimeline (como v2) - playhead se preserva automáticamente
     step_start = time.time()
     try:
         hiero.ui.openInTimeline(target_seq)
@@ -382,6 +362,34 @@ def switch_to_sequence_hybrid(target_sequence_name):
         return False
 
     open_time = time.time() - step_start
+
+    # 5. CERRAR TODOS LOS VIEWERS QUE NO SEAN EL CURRENT (para evitar acumulación)
+    viewer_close_time = 0
+    step_start = time.time()
+    try:
+        from LGA_QtAdapter_HieroTools import QtWidgets
+        all_widgets = QtWidgets.QApplication.instance().allWidgets()
+        current_viewer = hiero.ui.currentViewer()
+
+        viewers_closed = 0
+        for widget in all_widgets:
+            try:
+                class_name = widget.metaObject().className() if hasattr(widget, 'metaObject') else str(type(widget))
+                if 'Foundry::Storm::UI::Viewer' in class_name:
+                    # Cerrar todos los viewers EXCEPTO el current
+                    if widget != current_viewer:
+                        widget.close()
+                        viewers_closed += 1
+                        _process_events()
+            except Exception:
+                continue
+
+        print(f"   ├── Viewers cerrados: {viewers_closed}")
+
+    except Exception as e:
+        print(f"   ├── Error cerrando viewers: {e}")
+
+    viewer_close_time = time.time() - step_start
 
     # 7. Aplicar ajustes del viewer anterior (gain/gamma) - playhead ya está correcto
     viewer_restore_time = 0
@@ -406,8 +414,8 @@ def switch_to_sequence_hybrid(target_sequence_name):
     total_time = time.time() - total_start
     print(f"✅ Switch híbrido perfecto completado en {total_time:.2f}s")
     print(f"   ├── Viewer capture: {viewer_capture_time:.3f}s")
-    print(f"   ├── Existing viewer close: {viewer_close_time:.3f}s")
     print(f"   ├── Sequence open: {open_time:.3f}s")
+    print(f"   ├── Viewers cleanup: {viewer_close_time:.3f}s")
     print(f"   ├── Viewer settings apply: {viewer_restore_time:.3f}s")
     print(f"   ├── UI reduce: {reduce_time:.3f}s")
     print(f"   ├── UI scroll: {scroll_time:.3f}s")
@@ -599,24 +607,24 @@ def switch_to_sequence_hybrid_safe(target_sequence_name):
 
 ### **🎯 Benchmarks Comparativos**
 
-| Versión | Tiempo Promedio | Ajustes Preservados | UI Optimizada | Estabilidad |
-|---------|----------------|---------------------|---------------|-------------|
-| **V3 Híbrida** | **0.49s** | ✅ **Completos** | ✅ Sí | ✅ Excelente |
-| V4 | 0.71s | ⚠️ Sin playhead | ✅ Sí | ✅ Buena |
-| V1 | 1.28s | ✅ Completos | ✅ Sí | ✅ Buena |
-| V2 | 0.43s | ❌ Ninguno | ❌ No | ✅ Básica |
+| Versión | Tiempo Promedio | Ajustes Preservados | UI Optimizada | Limpieza Total | Cross-Project | Estabilidad |
+|---------|----------------|---------------------|---------------|-------------|--------------|-------------|
+| **V3 Híbrida** | **0.63s** | ✅ **Completos** | ✅ Sí | ✅ **SÍ** | ✅ **SÍ** | ✅ Excelente |
+| V4 | 0.71s | ⚠️ Sin playhead | ✅ Sí | ❌ No | ❌ No | ✅ Buena |
+| V1 | 1.28s | ✅ Completos | ✅ Sí | ❌ No | ❌ No | ✅ Buena |
+| V2 | 0.43s | ❌ Ninguno | ❌ No | ❌ No | ❌ No | ✅ Básica |
 
 ### **🎯 Análisis de Rendimiento por Componente**
 
 ```
-V3 HÍBRIDA - Desglose de 0.49s total:
+V3 HÍBRIDA - Desglose de 0.63s total (con limpieza total):
 ├── Viewer capture: 0.000s (instantáneo)
-├── Existing viewer close: 0.000s (instantáneo)
-├── Sequence open: 0.470s (operación principal)
-├── Viewer settings apply: 0.002s (muy rápido)
-├── UI reduce: 0.002s (óptimo)
-├── UI scroll: 0.001s (óptimo)
-└── Total: 0.49s (excelente)
+├── Sequence open: 0.504s (operación principal)
+├── Viewers cleanup: 0.093s (cierra 12 viewers)
+├── Viewer settings apply: 0.001s (muy rápido)
+├── UI reduce: 0.019s (óptimo)
+├── UI scroll: 0.009s (óptimo)
+└── Total: 0.63s (excelente con limpieza total)
 ```
 
 ### **🎯 Fiabilidad por Escenario**
@@ -637,11 +645,13 @@ V3 HÍBRIDA - Desglose de 0.49s total:
 
 La **V3 Híbrida** representa la síntesis perfecta de todos los descubrimientos realizados durante la exploración exhaustiva del problema de cambio de secuencia en Hiero.
 
-**Combina lo mejor de cada versión:**
-- **Velocidad de v2** (0.49s vs 0.71s de v4)
-- **Ajustes completos de v1 mejorado** (playhead + gain + gamma + saturation)
-- **Comportamiento nativo de v4** (reemplaza, no crea duplicado)
-- **UI completa** (reduce panel + scroll automático)
+**Funcionalidades exclusivas implementadas:**
+- **🏆 Limpieza Total:** Cierra automáticamente todos los viewers innecesarios
+- **🔄 Cross-Project:** Cambia entre proyectos de manera transparente
+- **⚡ Velocidad optimizada:** 0.63s con funcionalidad completa
+- **🎯 Ajustes completos:** Playhead, Gain, Gamma, Saturation preservados
+- **🎨 UI completa:** Panel reducido + scroll automático
+- **🧠 Comportamiento nativo:** Reemplaza viewer como Hiero nativo
 
 ### **✅ Validación Final**
 
@@ -653,9 +663,8 @@ La implementación está **completamente lista** para ser integrada en el panel 
 
 ---
 
-**📅 Fecha:** Diciembre 2025
 **📊 Estado:** ✅ **COMPLETADO Y VALIDADO**
-**🎯 Solución:** V3 Híbrida - Ganadora Absoluta
-**⚡ Rendimiento:** 0.49s - Ajustes 100% preservados
-**🏆 Resultado:** Arquitectura comprendida, problema resuelto, solución implementada</content>
+**🎯 Solución:** V3 Híbrida + Limpieza Total + Cross-Project
+**⚡ Rendimiento:** 0.63s con funcionalidad completa
+**🏆 Resultado:** Switch sequence perfecto con limpieza automática y cross-project</content>
 </xai:function_call<parameter name="file_path">LGA_Projects_Panel/exploracion/DOCUMENTACION_COMPLETA_SWITCH_SEQUENCE.md

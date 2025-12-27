@@ -92,11 +92,15 @@ except ImportError as e:
     raise ImportError(f"No se pudo importar el módulo LGA_Projects_Panel_ScanProjects: {e}. "
                      f"Verificado en: {projects_panel_path}")
 
-# Importar función de cambio de secuencia
+# Importar función de cambio de secuencia V3 FINAL (con limpieza total + cross-project)
 try:
-    from LGA_Projects_Panel_SwitchSequence import switch_to_sequence
+    import importlib
+    import switch_sequence_v3_final
+    importlib.reload(switch_sequence_v3_final)  # FORZAR RECARGA DEL MÓDULO
+    from switch_sequence_v3_final import switch_to_sequence_hybrid as switch_to_sequence
+    print("✅ Módulo switch_sequence_v3_final recargado exitosamente")
 except ImportError as e:
-    raise ImportError(f"No se pudo importar el módulo LGA_Projects_Panel_SwitchSequence: {e}")
+    raise ImportError(f"No se pudo importar el módulo switch_sequence_v3_final: {e}")
 
 
 class WorkerSignals(QObject):
@@ -215,22 +219,18 @@ class ProjectItem(QtWidgets.QWidget):
             if seq_name in sequences_dict:
                 seq_label.setProperty("sequence_obj", sequences_dict[seq_name])
             
-            seq_label.mousePressEvent = lambda e, name=seq_name, seq_obj=sequences_dict.get(seq_name): self.on_sequence_click(name, seq_obj)
+            seq_label.mousePressEvent = lambda e, name=seq_name, seq_obj=sequences_dict.get(seq_name), proj_obj=self.project_info.get("proyecto_obj"): self.on_sequence_click(name, seq_obj, proj_obj)
             self.sequences_layout.addWidget(seq_label)
 
         self.sequences_widget.show()
 
-    def on_sequence_click(self, sequence_name, sequence_obj=None):
+    def on_sequence_click(self, sequence_name, sequence_obj=None, proyecto_obj=None):
         """Manejador de click en secuencia"""
-        # Usar la función avanzada de cambio de secuencia (v3 híbrida)
-        # Si tenemos el objeto Sequence, pasarlo directamente (funciona cross-project)
+        # Usar la función V3 FINAL híbrida con limpieza total + cross-project
+        # La nueva función maneja todo automáticamente (limpieza total incluida)
         try:
-            if sequence_obj:
-                # Pasar objeto Sequence directamente - funciona incluso cross-project
-                success = switch_to_sequence(sequence_name, sequence_obj=sequence_obj)
-            else:
-                # Fallback: buscar por nombre (comportamiento anterior)
-                success = switch_to_sequence(sequence_name)
+            # Función V3 híbrida: abre secuencia + cierra todos los otros viewers + preserva ajustes + cambia proyecto si es necesario
+            success = switch_to_sequence(sequence_name, target_project=proyecto_obj)
             
             if success:
                 print(f"✅ Secuencia '{sequence_name}' cambiada exitosamente")
