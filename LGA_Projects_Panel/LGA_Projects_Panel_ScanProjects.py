@@ -30,11 +30,20 @@ except ImportError:
     debug_messages = []
 
 def debug_print(*message):
-    """Función de debug que almacena en lista para imprimir al final (hilos seguros)"""
+    """Función de debug que almacena en lista para hilos o imprime inmediatamente en hilo principal"""
     if DEBUG:
-        # Almacenar en lista global para imprimir al final
-        if len(debug_messages) < 200:  # Máximo 200 mensajes
-            debug_messages.append(" ".join(str(m) for m in message))
+        # Importar para detectar si estamos en el hilo principal
+        from LGA_QtAdapter_HieroTools import QtCore
+
+        message_str = " ".join(str(m) for m in message)
+
+        # Si estamos en el hilo principal, imprimir inmediatamente
+        if QtCore.QThread.currentThread() == QtCore.QCoreApplication.instance().thread():
+            print(message_str)
+        else:
+            # En hilo secundario, almacenar en lista para imprimir al final
+            if len(debug_messages) < 200:  # Máximo 200 mensajes
+                debug_messages.append(message_str)
 
 # Importar funciones de manejo de versiones desde código existente
 lga_nks_path = None
@@ -419,7 +428,8 @@ def get_projects_with_newer_versions(base_path="T:\\"):
             # Comparar versiones
             version_mas_alta_resultado = comparar_versiones(version_mas_alta_abierta, version_nueva_str)
 
-            if version_mas_alta_resultado == version_nueva_str:
+            # Solo considerar "nueva" si la versión de disco es distinta y mayor
+            if version_nueva_str != version_mas_alta_abierta and version_mas_alta_resultado == version_nueva_str:
                 # Hay una versión más nueva disponible
                 debug_print(f"   ✅ ¡VERSIÓN MÁS NUEVA ENCONTRADA! {version_mas_alta_abierta} → {version_nueva_str}")
 
