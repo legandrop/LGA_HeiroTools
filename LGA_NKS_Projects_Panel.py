@@ -256,17 +256,28 @@ class ProjectItem(QtWidgets.QWidget):
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(5, 2, 5, 2)
 
+        # Contenedor horizontal para el proyecto (para evitar expansión horizontal)
+        project_container = QtWidgets.QWidget()
+        project_layout = QtWidgets.QHBoxLayout(project_container)
+        project_layout.setContentsMargins(0, 0, 0, 0)
+        project_layout.setSpacing(0)
+
         # Nombre del proyecto (clickable)
         self.project_label = QtWidgets.QLabel()
         self.project_label.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
         self.project_label.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
         self.project_label.setWordWrap(False)  # No word wrap para mantener en una línea
-        self.project_label.setMinimumWidth(300)  # Ancho mínimo mayor
-        self.project_label.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
+        self.project_label.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
         # Asegurar que el texto no se trunque
         self.project_label.setTextFormat(QtCore.Qt.PlainText)
         # El event filter se instalará desde ProjectsPanel
-        layout.addWidget(self.project_label)
+        project_layout.addWidget(self.project_label)
+
+        # Spacer horizontal para empujar el label a la izquierda
+        spacer = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        project_layout.addItem(spacer)
+
+        layout.addWidget(project_container)
 
         # Contenedor para secuencias
         self.sequences_widget = QtWidgets.QWidget()
@@ -328,8 +339,8 @@ class ProjectItem(QtWidgets.QWidget):
         text_width = font_metrics.width(display_text)
         text_height = font_metrics.height()
 
-        # Establecer tamaño mínimo basado en el texto
-        min_width = max(300, text_width + 20)  # +20 para padding
+        # Establecer tamaño mínimo basado en el texto (más conservador)
+        min_width = text_width + 20  # +20 para padding
         self.project_label.setMinimumWidth(min_width)
 
         # Forzar actualización del layout
@@ -379,9 +390,17 @@ class ProjectItem(QtWidgets.QWidget):
         base_color, hover_color = get_project_colors(project_name)
 
         for seq_name in sorted(self.sequences):
+            # Contenedor horizontal para la secuencia
+            seq_container = QtWidgets.QWidget()
+            seq_layout = QtWidgets.QHBoxLayout(seq_container)
+            seq_layout.setContentsMargins(0, 0, 0, 0)
+            seq_layout.setSpacing(0)
+
             seq_label = QtWidgets.QLabel(f"> {seq_name}")
             seq_label.setStyleSheet(f"color: {base_color};")
             seq_label.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
+            seq_label.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
+            seq_label.adjustSize()  # Ajustar tamaño al contenido del texto
             # Guardar colores para el event filter
             seq_label.setProperty("base_color", base_color)
             seq_label.setProperty("hover_color", hover_color)
@@ -394,7 +413,14 @@ class ProjectItem(QtWidgets.QWidget):
             seq_label.mousePressEvent = (
                 lambda e, name=seq_name, so=seq_obj, po=self.project_info.get("proyecto_obj"): self.on_sequence_click(name, so, po)
             )
-            self.sequences_layout.addWidget(seq_label)
+
+            seq_layout.addWidget(seq_label)
+
+            # Spacer horizontal para empujar el label a la izquierda
+            seq_spacer = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+            seq_layout.addItem(seq_spacer)
+
+            self.sequences_layout.addWidget(seq_container)
 
         self.sequences_widget.show()
 
