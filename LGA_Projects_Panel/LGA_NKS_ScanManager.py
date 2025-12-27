@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Gestor de escaneo para el panel de proyectos LGA.
 """
@@ -46,6 +47,13 @@ class ScanManager:
 
         panel.proyectos_encontrados = proyectos_encontrados
         panel.proyectos_abiertos = proyectos_abiertos
+
+        # Obtener información de proyectos con versiones más nuevas
+        debug_print("🔍 Buscando proyectos con versiones más nuevas...")
+        from LGA_Projects_Panel_ScanProjects import get_projects_with_newer_versions
+        proyectos_con_version_nueva = get_projects_with_newer_versions()
+        panel.proyectos_con_version_nueva = proyectos_con_version_nueva
+        debug_print(f"   📈 Proyectos con versiones nuevas: {len(proyectos_con_version_nueva)}")
 
         panel.refresh_button.setEnabled(True)
 

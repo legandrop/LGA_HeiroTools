@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Panel de Proyectos LGA integrado para Hiero con recarga inteligente.
 - Escanea proyectos en T:\, muestra versiones y secuencias abiertas.
@@ -182,6 +183,7 @@ try:
         get_open_projects_info,
         is_project_open,
         get_project_sequences,
+        get_projects_with_newer_versions,
     )
 except ImportError as e:
     raise ImportError(
@@ -407,6 +409,10 @@ class ProjectsPanel(QtWidgets.QWidget):
         except Exception as e:
             debug_print(f"Error durante reimportación: {e}")
             QtWidgets.QMessageBox.warning(self, "Error", f"Error durante reimportación:\n{str(e)}")
+
+    def on_update_project_click(self, newer_version_info):
+        """Manejar el click en el botón de update para actualizar proyecto a versión más nueva"""
+        ProjectHandler.on_update_project_click(self, newer_version_info)
 
 
 # Crear la instancia del widget y añadirlo al gestor de ventanas de Hiero

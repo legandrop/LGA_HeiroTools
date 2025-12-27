@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Widget personalizado para mostrar proyectos y secuencias en el panel de proyectos LGA.
 """
@@ -22,12 +23,14 @@ def initialize_dependencies(colors_func, debug_func, switch_func):
 class ProjectItem(QtWidgets.QWidget):
     """Widget personalizado para mostrar un proyecto y sus secuencias"""
 
-    def __init__(self, project_info, panel=None, parent=None):
+    def __init__(self, project_info, panel=None, has_newer_version=False, newer_version_info=None, parent=None):
         super(ProjectItem, self).__init__(parent)
         self.project_info = project_info
         self.panel = panel  # Referencia al ProjectsPanel para el event filter
         self.is_open = False
         self.sequences = []
+        self.has_newer_version = has_newer_version
+        self.newer_version_info = newer_version_info  # Dict con info de versión más nueva
         self.setup_ui()
 
     def setup_ui(self):
@@ -51,7 +54,39 @@ class ProjectItem(QtWidgets.QWidget):
         # El event filter se instalará desde ProjectsPanel
         project_layout.addWidget(self.project_label)
 
-        # Spacer horizontal para empujar el label a la izquierda
+        # Botón de update (siempre creado, inicialmente oculto)
+        self.update_button = QtWidgets.QPushButton()
+        self.update_button.setToolTip("Actualizar a versión más nueva")
+        self.update_button.setStyleSheet("""
+            QPushButton {
+                border: none;
+                padding: 2px;
+                background: transparent;
+            }
+        """)
+        self.update_button.setVisible(False)  # Inicialmente oculto
+        self.update_button.setFixedSize(20, 20)  # Tamaño fijo pequeño
+
+        # Configurar iconos SVG para el botón de update
+        import os
+        update_icon_path = os.path.join(os.path.dirname(__file__), "update.svg")
+        update_hover_icon_path = os.path.join(os.path.dirname(__file__), "update_white.svg")
+
+        if os.path.exists(update_icon_path) and os.path.exists(update_hover_icon_path):
+            self.update_icon_normal = QtGui.QIcon(update_icon_path)
+            self.update_icon_hover = QtGui.QIcon(update_hover_icon_path)
+            self.update_button.setIcon(self.update_icon_normal)
+            self.update_button.setIconSize(QtCore.QSize(16, 16))
+
+            # Instalar event filter para manejar hover
+            if self.panel:
+                self.update_button.installEventFilter(self.panel)
+
+        # Conectar el click del botón
+        self.update_button.clicked.connect(self.on_update_click)
+        project_layout.addWidget(self.update_button)
+
+        # Spacer horizontal para empujar los elementos a la izquierda
         spacer = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         project_layout.addItem(spacer)
 
@@ -120,6 +155,19 @@ class ProjectItem(QtWidgets.QWidget):
         # Establecer tamaño mínimo basado en el texto (más conservador)
         min_width = text_width + 20  # +20 para padding
         self.project_label.setMinimumWidth(min_width)
+
+        # Manejar visibilidad del botón de update
+        should_show_update = self.has_newer_version and self.is_open
+        self.update_button.setVisible(should_show_update)
+        debug_print(f"UI: Botón update visible: {should_show_update} (has_newer: {self.has_newer_version}, is_open: {self.is_open})")
+
+        # Debug adicional para entender por qué aparece siempre
+        if should_show_update:
+            debug_print(f"   🔍 DEBUG: Botón VISIBLE - Proyecto: {self.project_info.get('nombre_base', '')}, versión: {self.project_info.get('version', '')}")
+        elif self.has_newer_version:
+            debug_print(f"   🔍 DEBUG: Botón OCULTO pero has_newer=True - Proyecto no abierto: {self.project_info.get('nombre_base', '')}")
+        elif self.is_open:
+            debug_print(f"   🔍 DEBUG: Botón OCULTO pero is_open=True - Proyecto sin versión nueva: {self.project_info.get('nombre_base', '')}")
 
         # Forzar actualización del layout
         self.project_label.update()
@@ -223,3 +271,10 @@ class ProjectItem(QtWidgets.QWidget):
         if proyecto_obj:
             self.project_info["proyecto_obj"] = proyecto_obj
         self.update_display()
+
+    def on_update_click(self):
+        """Manejar el click en el botón de update para abrir la versión más nueva"""
+        if self.panel and self.newer_version_info:
+            # Llamar al método del panel para manejar la actualización
+            if hasattr(self.panel, 'on_update_project_click'):
+                self.panel.on_update_project_click(self.newer_version_info)

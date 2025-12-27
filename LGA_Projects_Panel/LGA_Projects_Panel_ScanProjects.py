@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Módulo de Escaneo de Proyectos - Panel de Proyectos LGA
 ========================================================
@@ -25,7 +26,7 @@ try:
     from LGA_NKS_Projects_Panel import DEBUG, debug_messages
 except ImportError:
     # Fallback si no se puede importar
-    DEBUG = False
+    DEBUG = True
     debug_messages = []
 
 def debug_print(*message):
@@ -340,21 +341,102 @@ def is_project_open(ruta_hrox, proyectos_abiertos_info):
 def get_project_sequences(proyecto):
     """
     Obtiene lista de nombres de secuencias de un proyecto.
-    
+
     Args:
         proyecto: Objeto proyecto de Hiero (hiero.core.Project)
-        
+
     Returns:
         list: Lista de nombres de secuencias (strings)
     """
     sequences_names = []
-    
+
     try:
         sequences = proyecto.sequences()
         sequences_names = [seq.name() for seq in sequences if hasattr(seq, 'name')]
     except Exception:
         # Retornar lista vacía si hay error
         pass
-    
+
     return sequences_names
 
+
+def get_projects_with_newer_versions(base_path="T:\\"):
+    """
+    Detecta proyectos abiertos que tienen versiones más nuevas disponibles en disco.
+
+    Args:
+        base_path (str): Ruta base donde buscar proyectos (default: "T:\\")
+
+    Returns:
+        dict: Diccionario con información de proyectos que tienen versiones más nuevas.
+              Clave: nombre_base del proyecto
+              Valor: {
+                  "proyecto_abierto": objeto proyecto abierto,
+                  "version_actual": str (ej: "v003"),
+                  "version_nueva": str (ej: "v007"),
+                  "ruta_version_nueva": str (ruta completa al archivo .hrox)
+              }
+    """
+    debug_print("🔍 Buscando proyectos abiertos con versiones más nuevas disponibles...")
+
+    proyectos_con_version_nueva = {}
+
+    # Obtener información de proyectos abiertos
+    proyectos_abiertos_info = get_open_projects_info()
+
+    if not proyectos_abiertos_info:
+        debug_print("⚠️ No hay proyectos abiertos para verificar versiones")
+        return proyectos_con_version_nueva
+
+    # Para cada grupo de proyectos abiertos (por nombre base)
+    for nombre_base, proyectos_grupo in proyectos_abiertos_info.items():
+        debug_print(f"📁 Verificando grupo: {nombre_base} ({len(proyectos_grupo)} proyecto(s) abierto(s))")
+
+        # Encontrar la versión más alta entre los proyectos abiertos de este grupo
+        version_mas_alta_abierta = None
+        proyecto_mas_reciente = None
+
+        for proyecto_info in proyectos_grupo:
+            version_actual = proyecto_info["version_str"]
+            if version_mas_alta_abierta is None:
+                version_mas_alta_abierta = version_actual
+                proyecto_mas_reciente = proyecto_info
+            else:
+                if comparar_versiones(version_mas_alta_abierta, version_actual) == version_actual:
+                    version_mas_alta_abierta = version_actual
+                    proyecto_mas_reciente = proyecto_info
+
+        debug_print(f"   📊 Versión más alta abierta: {version_mas_alta_abierta}")
+
+        # Usar el proyecto más reciente como referencia para buscar versiones más nuevas
+        ruta_referencia = proyecto_mas_reciente["ruta"]
+        ruta_version_mas_alta = encontrar_version_mas_alta(ruta_referencia)
+
+        if ruta_version_mas_alta not in ["No detectada", "Error", "No disponible", "No hay otras versiones"]:
+            version_nueva_str = extraer_version(ruta_version_mas_alta)
+            debug_print(f"   🔍 Versión más alta en disco: {version_nueva_str}")
+
+            # Comparar versiones
+            version_mas_alta_resultado = comparar_versiones(version_mas_alta_abierta, version_nueva_str)
+
+            if version_mas_alta_resultado == version_nueva_str:
+                # Hay una versión más nueva disponible
+                debug_print(f"   ✅ ¡VERSIÓN MÁS NUEVA ENCONTRADA! {version_mas_alta_abierta} → {version_nueva_str}")
+
+                proyectos_con_version_nueva[nombre_base] = {
+                    "proyecto_abierto": proyecto_mas_reciente["proyecto"],
+                    "version_actual": version_mas_alta_abierta,
+                    "version_nueva": version_nueva_str,
+                    "ruta_version_nueva": ruta_version_mas_alta,
+                    "ruta_version_actual": proyecto_mas_reciente["ruta"]
+                }
+            else:
+                debug_print(f"   ✅ Versión abierta ya es la más actual: {version_mas_alta_abierta}")
+        else:
+            debug_print(f"   ⚠️ No se pudo determinar versión más alta en disco para {nombre_base}")
+
+    debug_print(f"✅ Verificación completada. Proyectos con versiones nuevas: {len(proyectos_con_version_nueva)}")
+    for nombre_base, info in proyectos_con_version_nueva.items():
+        debug_print(f"   • {nombre_base}: {info['version_actual']} → {info['version_nueva']}")
+
+    return proyectos_con_version_nueva

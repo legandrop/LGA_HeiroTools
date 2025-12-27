@@ -302,6 +302,29 @@ def create_new_panel_anyway(wm):
         panel_module.AUTO_CREATE_PANEL = True
         debug_print("✓ Activada auto-creación del panel (lo reutilizaremos)")
 
+        # 🔄 RECARGAR MÓDULOS DEPENDIENTES ANTES DE EXEC_MODULE
+        debug_print("🔄 Recargando módulos dependientes...")
+        modules_to_reload = [
+            'LGA_Projects_Panel.LGA_Projects_Panel_ScanProjects',
+            'LGA_Projects_Panel.LGA_NKS_ProjectItem',
+            'LGA_Projects_Panel.LGA_NKS_ProjectHandler',
+            'LGA_Projects_Panel.LGA_NKS_ScanManager',
+            'LGA_Projects_Panel.LGA_NKS_Workers',
+            'LGA_Projects_Panel.LGA_NKS_UIManager'
+        ]
+
+        for module_name in modules_to_reload:
+            try:
+                if module_name in sys.modules:
+                    debug_print(f"  🔄 Recargando {module_name}")
+                    importlib.reload(sys.modules[module_name])
+                else:
+                    debug_print(f"  ⚠️  Módulo {module_name} no estaba cargado")
+            except Exception as e:
+                debug_print(f"  ❌ Error recargando {module_name}: {e}")
+
+        debug_print("✅ Recarga de módulos dependientes completada")
+
         spec.loader.exec_module(panel_module)
 
         log_panel_count(wm, "[DESPUÉS DE EXEC_MODULE]")
