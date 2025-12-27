@@ -3,6 +3,8 @@ Panel de Proyectos LGA integrado para Hiero con recarga inteligente.
 - Escanea proyectos en T:\, muestra versiones y secuencias abiertas.
 - Permite abrir proyectos y secuencias (cross-project) sin perder ajustes de viewer.
 - Incluye botón de reimport/redock para aplicar cambios al vuelo.
+
+VERSION: 2.2 - Display formateado: PROYECTO (vXXX), emojis ▼▶, sin _SUP_
 """
 
 import hiero.ui
@@ -16,14 +18,28 @@ from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
 # Variable global para activar o desactivar los prints
 DEBUG = True
 
+# Lista global para almacenar mensajes de debug en hilos separados
+debug_messages = []
+
 # Variable global para controlar si se debe crear panel automáticamente
 # Se usa en smart reload para evitar creación duplicada
 AUTO_CREATE_PANEL = True
 
 
 def debug_print(*message):
+    """Imprime un mensaje de debug si la variable DEBUG es True."""
     if DEBUG:
-        print(*message)
+        # En hilos separados, almacenar en lista para imprimir al final
+        # En hilo principal, imprimir inmediatamente
+        if len(debug_messages) < 200:  # Máximo 200 mensajes para evitar memory issues
+            debug_messages.append(" ".join(str(m) for m in message))
+
+
+def print_debug_messages():
+    """Imprime todos los mensajes de debug almacenados y limpia la lista."""
+    if DEBUG and debug_messages:
+        print("\n".join(debug_messages))
+        debug_messages.clear()
 
 
 # Buscar y añadir la ruta del módulo de escaneo al sys.path
@@ -105,6 +121,7 @@ class WorkerSignals(QtCore.QObject):
 
     scan_finished = QtCore.Signal(list, dict)  # proyectos_encontrados, proyectos_abiertos
     error = QtCore.Signal(str)
+    debug_output = QtCore.Signal()  # Señal para imprimir logs al final
 
 
 class ScanWorker(QtCore.QRunnable):
@@ -117,12 +134,25 @@ class ScanWorker(QtCore.QRunnable):
 
     def run(self):
         """Ejecuta el escaneo en hilo secundario"""
+        debug_print(f"⚙️ ScanWorker.run() ejecutándose en hilo secundario...")
+        debug_print(f"   📍 Base path: {self.base_path}")
         try:
+            debug_print("🔍 Ejecutando scan_projects_on_disk()...")
             proyectos_encontrados = scan_projects_on_disk(self.base_path)
+            debug_print("📂 Ejecutando get_open_projects_info()...")
             proyectos_abiertos = get_open_projects_info()
+            debug_print("📡 Emitiendo señal scan_finished...")
             self.signals.scan_finished.emit(proyectos_encontrados, proyectos_abiertos)
+            debug_print("✅ ScanWorker completado exitosamente")
+            # Emitir señal para imprimir logs al final
+            self.signals.debug_output.emit()
         except Exception as e:
+            debug_print(f"💥 ERROR en ScanWorker: {str(e)}")
+            import traceback
+            debug_print(f"Traceback: {traceback.format_exc()}")
             self.signals.error.emit(f"Error durante escaneo: {str(e)}")
+            # Emitir señal para imprimir logs al final incluso en error
+            self.signals.debug_output.emit()
 
 
 class ProjectItem(QtWidgets.QWidget):
@@ -142,8 +172,13 @@ class ProjectItem(QtWidgets.QWidget):
         # Nombre del proyecto (clickable)
         self.project_label = QtWidgets.QLabel()
         self.project_label.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
-        self.project_label.setStyleSheet("font-weight: bold; color: #2E86C1;")
         self.project_label.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
+        self.project_label.setWordWrap(False)  # No word wrap para mantener en una línea
+        self.project_label.setMinimumWidth(300)  # Ancho mínimo mayor
+        self.project_label.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
+        # Asegurar que el texto no se trunque
+        self.project_label.setTextFormat(QtCore.Qt.PlainText)
+        # El event filter se instalará desde ProjectsPanel
         layout.addWidget(self.project_label)
 
         # Contenedor para secuencias
@@ -159,14 +194,65 @@ class ProjectItem(QtWidgets.QWidget):
         nombre = self.project_info.get("nombre_base", "")
         version = self.project_info.get("version", "")
 
+        # Extraer nombre del proyecto (antes de _SUP_)
+        project_name = nombre
+        if "_SUP" in nombre:
+            project_name = nombre.split("_SUP")[0]
+
+        # Limpiar versión (quitar 'v' inicial)
+        clean_version = version.lstrip('v')
+
+        # Crear texto formateado: "NOMBRE (vXXX)"
+        formatted_text = f"{project_name} (v{clean_version})"
+
+        # Agregar emoji según estado
         if self.is_open and self.sequences:
-            self.project_label.setText(f"📂 {nombre}_{version} (Abierto)")
-            self.project_label.setStyleSheet("font-weight: bold; color: #28B463;")
+            display_text = f"▼ {formatted_text}"
+            self.project_label.setStyleSheet("font-size: 13px; color: #cccccc;")
             self.show_sequences()
         else:
-            self.project_label.setText(f"📁 {nombre}_{version}")
-            self.project_label.setStyleSheet("font-weight: bold; color: #2E86C1;")
+            display_text = f"▶ {formatted_text}"
+            self.project_label.setStyleSheet("font-size: 13px; color: #cccccc;")
             self.sequences_widget.hide()
+
+        # Debug: mostrar exactamente qué texto se está configurando
+        debug_print(f"UI: Configurando texto para {project_name}: '{display_text}' (longitud: {len(display_text)})")
+
+        self.project_label.setText(display_text)
+
+        # Forzar actualización del tamaño del label para asegurar que muestre todo el texto
+        self.project_label.adjustSize()
+
+        # Calcular el tamaño necesario para el texto completo
+        font_metrics = self.project_label.fontMetrics()
+        text_width = font_metrics.width(display_text)
+        text_height = font_metrics.height()
+
+        # Establecer tamaño mínimo basado en el texto
+        min_width = max(300, text_width + 20)  # +20 para padding
+        self.project_label.setMinimumWidth(min_width)
+
+        # Forzar actualización del layout
+        self.project_label.update()
+        self.update()
+
+        # Verificar que el texto se aplicó correctamente
+        actual_text = self.project_label.text()
+        debug_print(f"UI: Texto aplicado al QLabel: '{actual_text}' (longitud: {len(actual_text)})")
+        if actual_text != display_text:
+            debug_print(f"ERROR: Texto aplicado difiere del esperado!")
+            # Debug detallado carácter por carácter
+            debug_print(f"Esperado: {[c for c in display_text]}")
+            debug_print(f"Actual:   {[c for c in actual_text]}")
+
+        # Información adicional de debug
+        size = self.project_label.size()
+        debug_print(f"UI: QLabel size: {size.width()}x{size.height()}, texto requiere: {text_width}x{text_height}")
+
+        # Información adicional de debug
+        size = self.project_label.size()
+        min_size = self.project_label.minimumSize()
+        debug_print(f"UI: QLabel size: {size.width()}x{size.height()}, min_size: {min_size.width()}x{min_size.height()}")
 
     def show_sequences(self):
         # Limpiar secuencias anteriores
@@ -187,8 +273,8 @@ class ProjectItem(QtWidgets.QWidget):
                 pass
 
         for seq_name in sorted(self.sequences):
-            seq_label = QtWidgets.QLabel(f"▶ {seq_name}")
-            seq_label.setStyleSheet("color: #66BB6A;")
+            seq_label = QtWidgets.QLabel(f"> {seq_name}")
+            seq_label.setStyleSheet("color: #77bdd4;")
             seq_label.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
 
             seq_obj = sequences_dict.get(seq_name)
@@ -244,22 +330,38 @@ class ProjectsPanel(QtWidgets.QWidget):
     def setup_ui(self):
         self.main_layout = QtWidgets.QVBoxLayout(self)
 
-        # Título
-        title_label = QtWidgets.QLabel("Panel de Proyectos LGA")
-        title_label.setStyleSheet("font-size: 16px; font-weight: bold; margin-bottom: 6px;")
-        title_label.setAlignment(QtCore.Qt.AlignCenter)
-        self.main_layout.addWidget(title_label)
 
         # Barra de herramientas
         toolbar_layout = QtWidgets.QHBoxLayout()
 
-        self.refresh_button = QtWidgets.QPushButton("🔄 Refresh")
-        self.refresh_button.setToolTip("Re-escanear proyectos")
-        toolbar_layout.addWidget(self.refresh_button)
+        # Configurar iconos para el botón refresh
+        refresh_icon_path = os.path.join(os.path.dirname(__file__), "LGA_Projects_Panel", "refresh.svg")
+        refresh_hover_icon_path = os.path.join(os.path.dirname(__file__), "LGA_Projects_Panel", "refresh_white.svg")
 
-        self.status_label = QtWidgets.QLabel("Listo")
-        self.status_label.setStyleSheet("color: #666;")
-        toolbar_layout.addWidget(self.status_label)
+        self.refresh_button = QtWidgets.QPushButton()
+        self.refresh_button.setToolTip("Re-escanear proyectos")
+        self.refresh_button.setStyleSheet("""
+            QPushButton {
+                border: none;
+                padding: 5px;
+                background: transparent;
+            }
+        """)
+
+        # Cargar iconos SVG si existen
+        if os.path.exists(refresh_icon_path) and os.path.exists(refresh_hover_icon_path):
+            self.refresh_icon_normal = QtGui.QIcon(refresh_icon_path)
+            self.refresh_icon_hover = QtGui.QIcon(refresh_hover_icon_path)
+            self.refresh_button.setIcon(self.refresh_icon_normal)
+            self.refresh_button.setIconSize(QtCore.QSize(20, 20))  # Tamaño aproximado al botón original
+
+            # Instalar event filter para manejar hover
+            self.refresh_button.installEventFilter(self)
+        else:
+            # Fallback si no se encuentran los iconos
+            self.refresh_button.setText("🔄 Refresh")
+
+        toolbar_layout.addWidget(self.refresh_button)
 
         toolbar_layout.addStretch()
 
@@ -291,33 +393,72 @@ class ProjectsPanel(QtWidgets.QWidget):
         self.refresh_button.clicked.connect(self.start_scan)
         self.reimport_button.clicked.connect(self.reimport_panel)
 
+    def eventFilter(self, obj, event):
+        """Manejar eventos de hover para botones y labels"""
+        # Manejar hover del botón refresh
+        if obj == self.refresh_button:
+            if event.type() == QtCore.QEvent.Enter:
+                if hasattr(self, 'refresh_icon_hover'):
+                    self.refresh_button.setIcon(self.refresh_icon_hover)
+            elif event.type() == QtCore.QEvent.Leave:
+                if hasattr(self, 'refresh_icon_normal'):
+                    self.refresh_button.setIcon(self.refresh_icon_normal)
+
+        # Manejar hover de los project labels
+        elif hasattr(obj, 'setStyleSheet') and obj != self.refresh_button:
+            # Verificar si es un project label (tiene cursor de pointing hand)
+            if obj.cursor().shape() == QtCore.Qt.PointingHandCursor:
+                if event.type() == QtCore.QEvent.Enter:
+                    # Cambiar a color hover (#ffffff)
+                    current_style = obj.styleSheet()
+                    if 'color: #cccccc' in current_style:
+                        new_style = current_style.replace('color: #cccccc', 'color: #ffffff')
+                        obj.setStyleSheet(new_style)
+                elif event.type() == QtCore.QEvent.Leave:
+                    # Volver a color normal (#cccccc)
+                    current_style = obj.styleSheet()
+                    if 'color: #ffffff' in current_style:
+                        new_style = current_style.replace('color: #ffffff', 'color: #cccccc')
+                        obj.setStyleSheet(new_style)
+
+        return super().eventFilter(obj, event)
+
     def start_scan(self):
-        self.status_label.setText("Escaneando...")
-        self.status_label.setStyleSheet("color: #F39C12;")
+        debug_print("🚀 Iniciando escaneo desde botón refresh...")
         self.refresh_button.setEnabled(False)
 
+        debug_print("👷 Creando ScanWorker...")
         worker = ScanWorker()
         worker.signals.scan_finished.connect(self.on_scan_finished)
         worker.signals.error.connect(self.on_scan_error)
+        worker.signals.debug_output.connect(lambda: print_debug_messages())
+        debug_print("🏃 Ejecutando ScanWorker en thread pool...")
         QtCore.QThreadPool.globalInstance().start(worker)
+        debug_print("✅ ScanWorker enviado a thread pool")
 
     def on_scan_finished(self, proyectos_encontrados, proyectos_abiertos):
+        debug_print("🎉 Escaneo completado exitosamente!")
+        debug_print(f"   📊 Proyectos encontrados: {len(proyectos_encontrados)}")
+        debug_print(f"   📂 Grupos de proyectos abiertos: {len(proyectos_abiertos)}")
+
         self.proyectos_encontrados = proyectos_encontrados
         self.proyectos_abiertos = proyectos_abiertos
 
-        self.status_label.setText("Listo")
-        self.status_label.setStyleSheet("color: #28B463;")
         self.refresh_button.setEnabled(True)
 
+        debug_print("🔄 Llamando a update_projects_display...")
         self.update_projects_display()
 
     def on_scan_error(self, error_msg):
-        self.status_label.setText("Error")
-        self.status_label.setStyleSheet("color: #E74C3C;")
+        debug_print(f"❌ ERROR durante el escaneo: {error_msg}")
         self.refresh_button.setEnabled(True)
         QtWidgets.QMessageBox.warning(self, "Error de Escaneo", error_msg)
 
     def update_projects_display(self):
+        debug_print("🔄 Actualizando display de proyectos...")
+        debug_print(f"   📊 Proyectos encontrados: {len(self.proyectos_encontrados)}")
+        debug_print(f"   📂 Proyectos abiertos: {len(self.proyectos_abiertos)} grupos")
+
         # Limpiar items anteriores
         for i in reversed(range(self.projects_layout.count())):
             item = self.projects_layout.itemAt(i)
@@ -335,11 +476,34 @@ class ProjectsPanel(QtWidgets.QWidget):
             return
 
         for proyecto_info in sorted(self.proyectos_encontrados, key=lambda x: x.get("nombre_base", "")):
+            nombre_base = proyecto_info.get("nombre_base", "")
+            version = proyecto_info.get("version", "")
+            ruta_hrox = proyecto_info.get("ruta_hrox", "")
+            vfx_folder = proyecto_info.get("vfx_folder", "")
+            sup_folder = proyecto_info.get("sup_folder", "")
+
+            # Calcular el display formateado
+            project_display_name = nombre_base
+            if "_SUP" in nombre_base:
+                project_display_name = nombre_base.split("_SUP")[0]
+            clean_ver = version.lstrip('v')
+            formatted_display = f"{project_display_name} (v{clean_ver})"
+
+            debug_print(f"   Creando item UI para: {nombre_base} {version}")
+            debug_print(f"      Origen: {vfx_folder}/{sup_folder}")
+            debug_print(f"      Archivo: {os.path.basename(ruta_hrox) if ruta_hrox else 'N/A'}")
+            debug_print(f"      Display: {formatted_display}")
+
             item = ProjectItem(proyecto_info)
             item.project_label.mousePressEvent = lambda e, p=proyecto_info: self.on_project_click(p)
+            # Instalar event filter para hover del project label
+            item.project_label.installEventFilter(self)
 
-            ruta_hrox = proyecto_info.get("ruta_hrox", "")
             is_open = is_project_open(ruta_hrox, self.proyectos_abiertos)
+            debug_print(f"      Estado abierto: {is_open}")
+
+            if is_open:
+                debug_print("      Este proyecto aparecera como ABIERTO en la UI")
 
             if is_open:
                 nombre_base = proyecto_info.get("nombre_base", "")
@@ -356,13 +520,44 @@ class ProjectsPanel(QtWidgets.QWidget):
         proyectos_abiertos_count = sum(1 for item in self.project_items.values() if item.is_open)
         self.info_label.setText(f"{total_proyectos} proyectos encontrados, {proyectos_abiertos_count} abiertos")
 
+        debug_print(f"✅ UI actualizada completamente!")
+        debug_print(f"   📊 Total items en UI: {len(self.project_items)}")
+        debug_print(f"   📂 Proyectos marcados como abiertos: {proyectos_abiertos_count}")
+        debug_print(f"   📋 Etiqueta inferior: '{self.info_label.text()}'")
+
+        # Mostrar resumen detallado de lo que se muestra en UI
+        debug_print("RESUMEN DE PROYECTOS EN UI:")
+        for nombre_base, item in sorted(self.project_items.items()):
+            version = item.project_info.get("version", "")
+            estado = "ABIERTA" if item.is_open else "cerrada"
+
+            # Calcular display formateado igual que en UI
+            project_display_name = nombre_base
+            if "_SUP" in nombre_base:
+                project_display_name = nombre_base.split("_SUP")[0]
+            clean_ver = version.lstrip('v')
+            formatted_display = f"{project_display_name} (v{clean_ver})"
+            icono = "▼" if item.is_open else "▶"
+
+            debug_print(f"   {icono} {formatted_display} ({estado})")
+
     def on_project_click(self, proyecto_info):
         ruta_hrox = proyecto_info.get("ruta_hrox", "")
         nombre_base = proyecto_info.get("nombre_base", "")
+        version = proyecto_info.get("version", "")
+        vfx_folder = proyecto_info.get("vfx_folder", "")
+        sup_folder = proyecto_info.get("sup_folder", "")
+
+        debug_print(f"🖱️ Click en proyecto: {nombre_base}")
+        debug_print(f"   📁 Origen: {vfx_folder}/{sup_folder}")
+        debug_print(f"   📄 Archivo: {os.path.basename(ruta_hrox) if ruta_hrox else 'N/A'}")
+        debug_print(f"   🔢 Versión en UI: v{version}")
 
         try:
+            debug_print(f"📂 Abriendo proyecto desde: {ruta_hrox}")
             proyecto = hiero.core.openProject(ruta_hrox)
-            debug_print(f"Proyecto abierto: {proyecto.name()}")
+            debug_print(f"✅ Proyecto abierto exitosamente: {proyecto.name()}")
+            debug_print("🔄 Iniciando re-escaneo automático...")
             self.start_scan()
         except Exception as e:
             QtWidgets.QMessageBox.warning(
