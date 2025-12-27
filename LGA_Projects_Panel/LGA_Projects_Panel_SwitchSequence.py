@@ -140,7 +140,7 @@ def scroll_to_top_track():
         print(f"  📄 Traceback: {traceback.format_exc()}")
     return False
 
-def switch_to_sequence_hybrid(target_sequence_name):
+def switch_to_sequence_hybrid(target_sequence_name, target_sequence_obj=None):
     """
     Switch HÍBRIDO V3 PERFECTO: Mejor que v4
     - Velocidad del v2 + Estado completo del v1
@@ -148,9 +148,11 @@ def switch_to_sequence_hybrid(target_sequence_name):
     - ✅ Playhead: Preservado automáticamente por Hiero
     - ✅ Gain/Gamma/Saturation: Transferidos desde viewer anterior
     - ✅ UI: Redimensiona ventana + Scroll al top track
+    - ✅ CROSS-PROJECT: Funciona con secuencias de cualquier proyecto abierto
 
     Args:
         target_sequence_name (str): Nombre de la secuencia objetivo
+        target_sequence_obj (Sequence, optional): Objeto Sequence directamente (funciona cross-project)
 
     Returns:
         bool: True si el cambio fue exitoso, False en caso contrario
@@ -158,27 +160,32 @@ def switch_to_sequence_hybrid(target_sequence_name):
     total_start = time.time()
     print(f"🔄 Switch híbrido a '{target_sequence_name}'...")
 
-    # 1. Verificar proyectos
-    projects = hiero.core.projects()
-    if not projects:
-        print("❌ Error: No hay proyectos abiertos")
-        return False
+    # 1. Si tenemos el objeto Sequence directamente, usarlo (más eficiente y funciona cross-project)
+    if target_sequence_obj:
+        target_seq = target_sequence_obj
+        print(f"   ✅ Usando objeto Sequence directamente (cross-project compatible)")
+    else:
+        # Buscar por nombre en el proyecto activo (comportamiento anterior)
+        projects = hiero.core.projects()
+        if not projects:
+            print("❌ Error: No hay proyectos abiertos")
+            return False
 
-    project = projects[0]
-    sequences = project.sequences()
-    target_seq = None
+        project = projects[0]
+        sequences = project.sequences()
+        target_seq = None
 
-    for seq in sequences:
-        try:
-            if seq.name() == target_sequence_name:
-                target_seq = seq
-                break
-        except Exception:
-            continue
+        for seq in sequences:
+            try:
+                if seq.name() == target_sequence_name:
+                    target_seq = seq
+                    break
+            except Exception:
+                continue
 
-    if not target_seq:
-        print(f"❌ Error: Secuencia '{target_sequence_name}' no encontrada")
-        return False
+        if not target_seq:
+            print(f"❌ Error: Secuencia '{target_sequence_name}' no encontrada en proyecto activo")
+            return False
 
     # 2. Verificar si ya estamos en la secuencia (OPTIMIZACIÓN)
     active_seq = None
@@ -311,14 +318,101 @@ def switch_to_sequence_hybrid(target_sequence_name):
 
     return True
 
+def get_active_project():
+    """Obtiene el proyecto actualmente activo/focused"""
+    try:
+        active_sequence = hiero.ui.activeSequence()
+        if active_sequence:
+            return active_sequence.project()
+        return None
+    except Exception as e:
+        print(f"❌ Error obteniendo proyecto activo: {e}")
+        return None
+
+def switch_to_sequence_cross_project(target_sequence_name, target_sequence_obj=None):
+    """
+    Función mejorada que busca secuencias en TODOS los proyectos abiertos.
+    RESUELTO: Ahora funciona cross-project usando objetos Sequence directamente.
+
+    Args:
+        target_sequence_name (str): Nombre de la secuencia objetivo
+        target_sequence_obj (Sequence, optional): Objeto Sequence directamente (más eficiente)
+
+    Returns:
+        bool: True si exitoso, False si error
+    """
+    # Si tenemos el objeto Sequence directamente, usarlo (más eficiente y funciona cross-project)
+    if target_sequence_obj:
+        print(f"🎯 Usando objeto Sequence directamente para '{target_sequence_name}'")
+        print(f"   Proyecto: '{target_sequence_obj.project().name()}'")
+        
+        # Verificar proyecto activo para logging
+        active_project = get_active_project()
+        target_project = target_sequence_obj.project()
+        
+        if active_project and target_project != active_project:
+            print(f"   📊 Cambiando de proyecto '{active_project.name()}' → '{target_project.name()}'")
+            print(f"   ✅ openInTimeline maneja el cambio automáticamente")
+        
+        # Usar switch_to_sequence_hybrid con objeto Sequence
+        return switch_to_sequence_hybrid(target_sequence_name, target_sequence_obj=target_sequence_obj)
+
+    # Si no tenemos el objeto, buscar por nombre (comportamiento anterior)
+    print(f"🔍 Buscando secuencia '{target_sequence_name}' en todos los proyectos...")
+
+    projects = hiero.core.projects()
+    active_project = get_active_project()
+
+    if not projects:
+        print("❌ No hay proyectos abiertos")
+        return False
+
+    if not active_project:
+        print("❌ No se puede determinar el proyecto activo")
+        return False
+
+    print(f"📊 Proyecto activo: '{active_project.name()}'")
+    print(f"📂 Total proyectos abiertos: {len(projects)}")
+
+    # Buscar la secuencia en TODOS los proyectos
+    found_in_projects = []
+
+    for project in projects:
+        sequences = project.sequences()
+        for seq in sequences:
+            try:
+                if seq.name() == target_sequence_name:
+                    found_in_projects.append((project, seq))
+                    print(f"✅ Secuencia encontrada en proyecto: '{project.name()}'")
+            except Exception:
+                continue
+
+    if not found_in_projects:
+        print(f"❌ Secuencia '{target_sequence_name}' no encontrada en ningún proyecto")
+        return False
+
+    # Si se encontró en múltiples proyectos, tomar el primero
+    target_project, target_sequence = found_in_projects[0]
+
+    if len(found_in_projects) > 1:
+        print(f"⚠️  Secuencia encontrada en {len(found_in_projects)} proyectos, usando el primero")
+
+    # Usar el objeto Sequence encontrado directamente (funciona cross-project)
+    print(f"✅ Usando objeto Sequence encontrado - funciona cross-project automáticamente")
+    return switch_to_sequence_hybrid(target_sequence_name, target_sequence_obj=target_sequence)
+
 # Función wrapper para compatibilidad con código existente
-def switch_to_sequence(target_sequence_name):
+def switch_to_sequence(target_sequence_name, sequence_obj=None):
     """
     Función principal para cambiar de secuencia.
-    Wrapper para switch_to_sequence_hybrid con manejo de errores.
+    Ahora usa la versión mejorada que funciona cross-project usando objetos Sequence.
+
+    Args:
+        target_sequence_name (str): Nombre de la secuencia objetivo
+        sequence_obj (Sequence, optional): Objeto Sequence directamente (recomendado para cross-project)
     """
     try:
-        return switch_to_sequence_hybrid(target_sequence_name)
+        return switch_to_sequence_cross_project(target_sequence_name, target_sequence_obj=sequence_obj)
     except Exception as e:
         print(f"❌ Error inesperado en switch_to_sequence: {e}")
         import traceback

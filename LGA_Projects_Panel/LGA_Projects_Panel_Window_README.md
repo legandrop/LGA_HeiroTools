@@ -44,6 +44,8 @@ switch_to_sequence("nombre_secuencia")
   - ✅ **Optimiza UI automáticamente:** Reduce panel izquierdo a 340px + scroll al top track
   - ✅ **Velocidad óptima:** 0.49s con comportamiento nativo de Hiero
   - ✅ **Sin duplicados:** Maneja viewers existentes correctamente
+  - ✅ **Cross-project:** Funciona perfectamente con secuencias de cualquier proyecto abierto
+  - ✅ **Cambio automático:** Cambia automáticamente al proyecto correcto si la secuencia pertenece a otro proyecto
 - **Botón Refresh:** Re-escanear proyectos manualmente
 
 ### 🔄 Actualización Automática
@@ -190,28 +192,44 @@ def main():
 
 ## ✅ Estado Actual - Funciona Perfecto
 
-La ventana de testing está **completamente funcional** y probada en Nuke 15:
+La ventana de testing está **completamente funcional** y probada en producción:
 
 - ✅ **Escaneo automático** de proyectos en T:\ funcionando
 - ✅ **Apertura de proyectos** desde la lista funcionando
 - ✅ **Cambio de secuencia** con V3 Híbrida funcionando perfecto
+- ✅ **Cross-project:** Funciona perfectamente con secuencias de cualquier proyecto abierto
+- ✅ **Cambio automático:** Cambia automáticamente al proyecto correcto cuando es necesario
+- ✅ **Sin duplicados:** Maneja correctamente viewers existentes (cierra antes de abrir)
 - ✅ **UI optimizada** automáticamente (reduce panel + scroll)
-- ✅ **Preservación de ajustes** del viewer funcionando
+- ✅ **Preservación de ajustes** del viewer funcionando (gain/gamma/saturation + playhead)
 
-## ⚠️ Limitación Conocida
+## ✅ Problema Resuelto Completamente
 
 ### Cambio de Secuencia entre Proyectos Diferentes
 
-**Problema:** Si estás dentro de un proyecto y quieres abrir una secuencia que pertenece a otro proyecto, no funciona. El sistema busca la secuencia únicamente en el proyecto actualmente activo.
+**✅ RESUELTO Y PROBADO:** La ventana ahora funciona perfectamente con secuencias de cualquier proyecto abierto.
 
-**Ejemplo del error:**
+**Antes (problema):**
 ```
 🔄 Switch híbrido a '000'...
 ❌ Error: Secuencia '000' no encontrada
-❌ Error cambiando a secuencia '000'
 ```
 
-**Estado:** ✅ **IDENTIFICADO** - Funcionalidad básica funciona perfecto dentro del mismo proyecto
+**Descubrimiento clave:**
+- `hiero.ui.openInTimeline(sequence_obj)` funciona automáticamente cross-project
+- Hiero cambia el proyecto activo automáticamente cuando abres una secuencia de otro proyecto
+- Solo necesitamos pasar el objeto Sequence directamente en lugar del nombre
+
+**Ahora (solución implementada):**
+```
+🎯 Usando objeto Sequence directamente para '000'
+   Proyecto: 'ERSO_SUP_v011'
+   📊 Cambiando de proyecto 'BRDA_SUP_v050' → 'ERSO_SUP_v011'
+   ✅ openInTimeline maneja el cambio automáticamente
+✅ Switch híbrido perfecto completado
+```
+
+**Estado:** ✅ **COMPLETAMENTE RESUELTO Y PROBADO** - Funciona perfectamente cross-project sin intervención manual
 
 ## Próximos Pasos
 

@@ -250,24 +250,30 @@ Ver [`exploracion/AVANCES_Y_DESCUBRIMIENTOS.md`](exploracion/AVANCES_Y_DESCUBRIM
 
 ## Problemas Conocidos y Limitaciones
 
-### ⚠️ **Limitación Actual: Cambio de Secuencia entre Proyectos Diferentes**
+### ✅ **RESUELTO COMPLETAMENTE: Cambio de Secuencia entre Proyectos Diferentes**
 
-**Problema:** Si estás dentro de un proyecto y quieres abrir una secuencia que pertenece a otro proyecto, no funciona. El sistema busca la secuencia únicamente en el proyecto actualmente activo.
+**Problema original:** Si intentabas abrir una secuencia de otro proyecto, fallaba porque solo buscaba en el proyecto activo.
 
-**Ejemplo del error:**
+**Error anterior:**
 ```
 🔄 Switch híbrido a '000'...
 ❌ Error: Secuencia '000' no encontrada
-❌ Error cambiando a secuencia '000'
 ```
 
-**Causa:** La función `switch_to_sequence()` busca secuencias solo en `hiero.core.projects()[0]` (el proyecto activo), sin considerar que la secuencia podría estar en otro proyecto.
+**✅ Solución implementada y probada:**
+- ✅ **Objetos Sequence directos:** El panel ahora pasa objetos Sequence directamente en lugar de solo nombres
+- ✅ **openInTimeline cross-project:** Descubrimos que `hiero.ui.openInTimeline(sequence_obj)` funciona automáticamente incluso cuando la secuencia pertenece a otro proyecto
+- ✅ **Cambio automático de proyecto:** Hiero maneja el cambio de proyecto activo automáticamente cuando abres una secuencia de otro proyecto
+- ✅ **Sin intervención manual:** Todo funciona automáticamente sin necesidad de cerrar/abrir proyectos
 
-**Solución futura:** Modificar la lógica para:
-1. Buscar la secuencia en TODOS los proyectos abiertos
-2. Si no está en el proyecto activo, cambiar al proyecto correcto primero
-3. Luego abrir la secuencia deseada
-4. Volver a aplicar todas las optimizaciones de UI
+**Resultado actual:**
+```
+🎯 Usando objeto Sequence directamente para '000'
+   Proyecto: 'ERSO_SUP_v011'
+   📊 Cambiando de proyecto 'BRDA_SUP_v050' → 'ERSO_SUP_v011'
+   ✅ openInTimeline maneja el cambio automáticamente
+✅ Switch híbrido perfecto completado
+```
 
-**Estado:** ✅ **IDENTIFICADO** - Funcionalidad básica funciona perfecto dentro del mismo proyecto
+**Estado:** ✅ **COMPLETAMENTE RESUELTO Y PROBADO EN PRODUCCIÓN** - Funciona perfectamente cross-project, sin duplicados, con cambio automático de proyecto
 

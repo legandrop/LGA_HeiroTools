@@ -187,22 +187,51 @@ class ProjectItem(QtWidgets.QWidget):
         for i in reversed(range(self.sequences_layout.count())):
             self.sequences_layout.itemAt(i).widget().setParent(None)
 
-        # Agregar secuencias
+        # Obtener objetos Sequence del proyecto (no solo nombres)
+        proyecto_obj = self.project_info.get("proyecto_obj")
+        sequences_dict = {}  # nombre -> objeto Sequence
+
+        if proyecto_obj:
+            try:
+                all_sequences = proyecto_obj.sequences()
+                for seq in all_sequences:
+                    try:
+                        seq_name = seq.name()
+                        sequences_dict[seq_name] = seq
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+
+        # Agregar secuencias (usar objetos Sequence si están disponibles)
         for seq_name in self.sequences:
             seq_label = QtWidgets.QLabel(f"▶ {seq_name}")
-            seq_label.setStyleSheet("color: #7D3C98;")
+            # Color claro que contrasta bien con fondo oscuro #323232
+            seq_label.setStyleSheet("color: #66BB6A;")  # Verde claro legible
             seq_label.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
             seq_label.setProperty("sequence_name", seq_name)
-            seq_label.mousePressEvent = lambda e, name=seq_name: self.on_sequence_click(name)
+            
+            # Guardar objeto Sequence si está disponible
+            if seq_name in sequences_dict:
+                seq_label.setProperty("sequence_obj", sequences_dict[seq_name])
+            
+            seq_label.mousePressEvent = lambda e, name=seq_name, seq_obj=sequences_dict.get(seq_name): self.on_sequence_click(name, seq_obj)
             self.sequences_layout.addWidget(seq_label)
 
         self.sequences_widget.show()
 
-    def on_sequence_click(self, sequence_name):
+    def on_sequence_click(self, sequence_name, sequence_obj=None):
         """Manejador de click en secuencia"""
         # Usar la función avanzada de cambio de secuencia (v3 híbrida)
+        # Si tenemos el objeto Sequence, pasarlo directamente (funciona cross-project)
         try:
-            success = switch_to_sequence(sequence_name)
+            if sequence_obj:
+                # Pasar objeto Sequence directamente - funciona incluso cross-project
+                success = switch_to_sequence(sequence_name, sequence_obj=sequence_obj)
+            else:
+                # Fallback: buscar por nombre (comportamiento anterior)
+                success = switch_to_sequence(sequence_name)
+            
             if success:
                 print(f"✅ Secuencia '{sequence_name}' cambiada exitosamente")
                 # Nota: La UI se actualiza automáticamente por el cambio de secuencia

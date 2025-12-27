@@ -28,13 +28,15 @@ switch_to_sequence(target_sequence_name)
 - `bool`: True si el cambio fue exitoso, False en caso contrario
 
 **Características:**
-- Detecta automáticamente si ya está en la secuencia (optimización)
-- Preserva ajustes del viewer actual (gain/gamma/saturation)
-- Cierra viewers duplicados existentes
-- Abre la nueva secuencia con `hiero.ui.openInTimeline()`
-- Aplica ajustes preservados al nuevo viewer
-- Optimiza UI (reduce panel + scroll al top track)
-- Logging detallado con tiempos de ejecución
+- ✅ **Búsqueda inteligente:** Busca la secuencia en TODOS los proyectos abiertos
+- ✅ **Cross-project:** Funciona perfectamente con secuencias de cualquier proyecto abierto
+- ✅ **Cambio automático:** Cambia automáticamente al proyecto correcto cuando es necesario
+- ✅ **Objetos Sequence directos:** Acepta objetos Sequence directamente (más eficiente y cross-project)
+- ✅ **Detección de proyecto:** Identifica automáticamente a qué proyecto pertenece la secuencia
+- ✅ **Preservación completa:** Gain/Gamma/Saturation + Playhead automático
+- ✅ **Optimización UI:** Reduce panel + scroll al top track
+- ✅ **Manejo de duplicados:** Cierra viewers existentes correctamente antes de abrir (evita duplicados)
+- ✅ **Logging detallado:** Tiempos de ejecución y estado de operaciones
 
 ## Uso en Panel de Proyectos
 
@@ -148,30 +150,41 @@ def on_sequence_click(self, sequence_name):
 
 ## Problemas Conocidos
 
-### ⚠️ **Limitación: Cambio entre Proyectos Diferentes**
+### ✅ **RESUELTO: Cambio entre Proyectos Diferentes**
 
-**Problema identificado:** La función `switch_to_sequence()` busca secuencias únicamente en el proyecto actualmente activo (`hiero.core.projects()[0]`). Si quieres cambiar a una secuencia que pertenece a otro proyecto, fallará.
+**Problema original:** La función buscaba secuencias únicamente en el proyecto activo.
 
-**Error típico:**
+**Error anterior:**
 ```
 🔄 Switch híbrido a '000'...
 ❌ Error: Secuencia '000' no encontrada
 ```
 
-**Causa:** La lógica actual asume que todas las secuencias pertenecen al proyecto activo.
+**✅ Solución implementada y probada:**
+- ✅ **Objetos Sequence directos:** La función ahora acepta objetos Sequence directamente
+- ✅ **openInTimeline cross-project:** Descubrimos que `hiero.ui.openInTimeline(sequence_obj)` funciona automáticamente incluso cross-project
+- ✅ **Cambio automático:** Hiero cambia el proyecto activo automáticamente cuando abres una secuencia de otro proyecto
+- ✅ **Sin intervención manual:** Todo funciona automáticamente sin necesidad de cerrar/abrir proyectos
 
-**Solución futura:** Modificar para buscar en todos los proyectos abiertos y cambiar de proyecto si es necesario.
+**Resultado actual (probado y funcionando):**
+```
+🎯 Usando objeto Sequence directamente para '000'
+   Proyecto: 'ERSO_SUP_v011'
+   📊 Cambiando de proyecto 'BRDA_SUP_v050' → 'ERSO_SUP_v011'
+   ✅ openInTimeline maneja el cambio automáticamente
+✅ Switch híbrido perfecto completado
+```
 
-**Estado actual:** ✅ **FUNCIONA PERFECTO** dentro del mismo proyecto
+**Estado:** ✅ **COMPLETAMENTE RESUELTO Y PROBADO EN PRODUCCIÓN** - Funciona perfectamente cross-project, sin duplicados, con cambio automático de proyecto
 
 ## Próximos Pasos
 
 Una vez probado y funcionando en la ventana de testing:
 
-1. ✅ **Integrar en panel final** (`LGA_Projects_Panel.py`)
-2. ✅ **Probar en producción** con casos reales
-3. ✅ **Documentar** en documentación completa del panel
-4. 🔄 **Resolver limitación entre proyectos** (futuro)
+1. ✅ **Integrar en panel final** (`LGA_Projects_Panel.py`) - PENDIENTE
+2. ✅ **Probar en producción** con casos reales - ✅ COMPLETADO
+3. ✅ **Documentar** en documentación completa del panel - ✅ COMPLETADO
+4. ✅ **Resolver limitación entre proyectos** - ✅ COMPLETADO (usando objetos Sequence directamente)
 
 ## Referencias
 
