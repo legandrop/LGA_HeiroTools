@@ -1,7 +1,7 @@
 """
 ________________________________________________________________
 
-  LGA_Projects_Panel_Smart_Reload v1.01 | Lega
+  LGA_Projects_Panel_Smart_Reload v1.02 | Lega
   Script para recarga inteligente del panel Projects
 
   Destruye el panel actual, crea uno nuevo y lo dockea automáticamente
