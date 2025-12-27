@@ -25,6 +25,9 @@ debug_messages = []
 # Se usa en smart reload para evitar creación duplicada
 AUTO_CREATE_PANEL = True
 
+# Flag para controlar si mostrar el botón de reimport
+REIMPORT_BUTTON = True
+
 
 def debug_print(*message):
     """Imprime un mensaje de debug si la variable DEBUG es True."""
@@ -328,11 +331,37 @@ class ProjectsPanel(QtWidgets.QWidget):
         self.start_scan()
 
     def setup_ui(self):
-        self.main_layout = QtWidgets.QVBoxLayout(self)
+        # Layout principal horizontal para dividir en dos columnas
+        self.main_layout = QtWidgets.QHBoxLayout(self)
 
+        # Columna izquierda: proyectos y info
+        left_column = QtWidgets.QVBoxLayout()
 
-        # Barra de herramientas
-        toolbar_layout = QtWidgets.QHBoxLayout()
+        # Área de scroll para la lista de proyectos
+        scroll_area = QtWidgets.QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+
+        self.projects_widget = QtWidgets.QWidget()
+        self.projects_layout = QtWidgets.QVBoxLayout(self.projects_widget)
+        self.projects_layout.setAlignment(QtCore.Qt.AlignTop)
+
+        scroll_area.setWidget(self.projects_widget)
+        left_column.addWidget(scroll_area)
+
+        # Información de estado
+        self.info_label = QtWidgets.QLabel("")
+        self.info_label.setStyleSheet("color: #666; font-size: 11px; margin-top: 6px;")
+        self.info_label.setAlignment(QtCore.Qt.AlignCenter)
+        left_column.addWidget(self.info_label)
+
+        # Añadir columna izquierda al layout principal (con stretch para que tome el espacio disponible)
+        self.main_layout.addLayout(left_column, 1)  # stretch factor 1
+
+        # Columna derecha: botones
+        right_column = QtWidgets.QVBoxLayout()
+        right_column.setAlignment(QtCore.Qt.AlignTop)
+        right_column.setSpacing(2)  # Espacio pequeño entre botones
 
         # Configurar iconos para el botón refresh
         refresh_icon_path = os.path.join(os.path.dirname(__file__), "LGA_Projects_Panel", "refresh.svg")
@@ -361,37 +390,30 @@ class ProjectsPanel(QtWidgets.QWidget):
             # Fallback si no se encuentran los iconos
             self.refresh_button.setText("🔄 Refresh")
 
-        toolbar_layout.addWidget(self.refresh_button)
+        # Añadir botón refresh a la columna derecha
+        right_column.addWidget(self.refresh_button)
 
-        toolbar_layout.addStretch()
+        # Botón de reimport solo con emoji (solo si la flag está activada)
+        if REIMPORT_BUTTON:
+            self.reimport_button = QtWidgets.QPushButton("♻")
+            self.reimport_button.setToolTip("Recarga y redockea el panel con el script externo")
+            self.reimport_button.setStyleSheet("""
+                QPushButton {
+                    border: none;
+                    padding: 5px;
+                    background: transparent;
+                    font-size: 14px;
+                }
+            """)
+            right_column.addWidget(self.reimport_button)
 
-        self.reimport_button = QtWidgets.QPushButton("♻ Reimport")
-        self.reimport_button.setToolTip("Recarga y redockea el panel con el script externo")
-        toolbar_layout.addWidget(self.reimport_button)
-
-        self.main_layout.addLayout(toolbar_layout)
-
-        # Área de scroll para la lista de proyectos
-        scroll_area = QtWidgets.QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-
-        self.projects_widget = QtWidgets.QWidget()
-        self.projects_layout = QtWidgets.QVBoxLayout(self.projects_widget)
-        self.projects_layout.setAlignment(QtCore.Qt.AlignTop)
-
-        scroll_area.setWidget(self.projects_widget)
-        self.main_layout.addWidget(scroll_area)
-
-        # Información de estado
-        self.info_label = QtWidgets.QLabel("")
-        self.info_label.setStyleSheet("color: #666; font-size: 11px; margin-top: 6px;")
-        self.info_label.setAlignment(QtCore.Qt.AlignCenter)
-        self.main_layout.addWidget(self.info_label)
+        # Añadir columna derecha al layout principal (sin stretch para mantener tamaño pequeño)
+        self.main_layout.addLayout(right_column, 0)  # stretch factor 0
 
     def setup_connections(self):
         self.refresh_button.clicked.connect(self.start_scan)
-        self.reimport_button.clicked.connect(self.reimport_panel)
+        if REIMPORT_BUTTON:
+            self.reimport_button.clicked.connect(self.reimport_panel)
 
     def eventFilter(self, obj, event):
         """Manejar eventos de hover para botones y labels"""
