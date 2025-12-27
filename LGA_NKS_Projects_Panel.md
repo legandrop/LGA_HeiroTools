@@ -1,280 +1,33 @@
 # Panel de Proyectos LGA - Documentación
 
-## Concepto
+## Concepto rápido
+- Panel `com.lega.ProjectsPanel` para Hiero/Nuke Studio que escanea `T:\` (`VFX-*/*_SUP`), detecta la última versión `.hrox`, y permite abrir proyectos y sus secuencias.
+- Barra superior: `🔄 Refresh` reescanea en background; estado visible; `♻ Reimport` ejecuta el smart reload para redockear y aplicar cambios.
+- Click en proyecto lo abre; click en secuencia la abre en timeline (cross-project) preservando ajustes de viewer.
 
-Panel personalizado `com.lega.ProjectPanel` que escanea proyectos VFX en disco T:, muestra la última versión de cada proyecto encontrado, y permite abrir proyectos y sus secuencias directamente desde el panel.
+## Archivos clave
+- `LGA_NKS_Projects_Panel.py` — Panel definitivo. Clases `ProjectsPanel`, `ProjectItem`, `ScanWorker`. Se auto-registra en `hiero.ui.windowManager()` (AUTO_CREATE_PANEL).
+- `LGA_Projects_Panel/LGA_Projects_Panel_ScanProjects.py` — `scan_projects_on_disk()`, `get_open_projects_info()`, `is_project_open()`, `get_project_sequences()`.
+- `LGA_Projects_Panel/LGA_Projects_Panel_SwitchSequence.py` — `switch_to_sequence_hybrid()` (V3 híbrida: preserva gain/gamma/saturation/playhead, optimiza UI y funciona cross-project).
+- `LGA_Projects_Panel/LGA_NKS_Projects_Panel_Smart_Reload.py` — `main()` recarga y redockea el panel (botón ♻).
+- Qt adapter: `LGA_QtAdapter_HieroTools.py` (imports obligatorios). Doc ampliada en `Docu_LGA_QtAdapter.md`.
 
-**Título visible del panel:** `Project`
+## Flujo y funcionalidades
+- Escaneo automático al abrir y en cada Refresh (QRunnable + QThreadPool, no bloquea UI). Mensajes: “Escaneando… / Listo / Error”.
+- Proyectos: se listan alfabéticamente con versión más alta. Click abre con `hiero.core.openProject()`.
+- Secuencias: solo de proyectos abiertos. Click llama `switch_to_sequence_hybrid()` y usa `hiero.ui.openInTimeline()` con el objeto `Sequence` (cambio de proyecto automático si aplica).
+- Contadores: etiqueta inferior muestra totales de proyectos encontrados y abiertos.
+- Reimport: botón `♻` ejecuta el smart reload externo para probar cambios sin reiniciar Hiero.
 
-## Funcionalidad
-
-### Escaneo de Proyectos
-- Escanea `T:\` buscando carpetas que empiecen con `VFX-`
-- Para cada carpeta encontrada, busca subcarpeta `*_SUP` (ejemplo: `T:\VFX-LC\LC_SUP`)
-- En cada carpeta SUP, encuentra el archivo `.hrox` con la versión más alta
-- Muestra proyectos con formato: `NOMBREPROYECTO_SUP_v###` (ejemplo: `ETDM_SUP_v472`)
-
-### Visualización
-- **Ordenamiento alfabético:** Tanto proyectos como secuencias se muestran ordenados alfabéticamente
-- **Proyectos no abiertos:** Solo se muestra el nombre del proyecto con su versión
-- **Proyectos abiertos:** Se muestra el nombre del proyecto y debajo (con indentación) todas sus secuencias ordenadas alfabéticamente:
-  ```
-  ETDM_SUP_v472
-    000-100
-    Renders_Alta
-  LC_SUP_v32
-  PHLDA_SUP_v21
-    011-020
-  ```
-
-### Interacción
-- **Click en proyecto no abierto:** Abre el proyecto en Hiero y actualiza la vista mostrando sus secuencias
-- **Click en secuencia:** Abre la secuencia en el timeline de Hiero (usando `hiero.ui.openInTimeline()`)
-
-### Escaneo
-- Escaneo automático al abrir el panel
-- Botón "Refresh" para re-escanear manualmente
-- Escaneo en background usando threads (no bloquea la UI)
-- Muestra "Scanning..." mientras escanea
-
-## Estructura de Carpetas Esperada
-
-```
-T:\
-  VFX-NOMBREPROYECTO1\
-    NOMBREPROYECTO1_SUP\
-      proyecto_v001.hrox
-      proyecto_v002.hrox
-      proyecto_v003.hrox  ← Última versión detectada
-  VFX-NOMBREPROYECTO2\
-    NOMBREPROYECTO2_SUP\
-      proyecto_v021.hrox
-      proyecto_v022.hrox  ← Última versión detectada
-```
+## UI del panel
+- Título centrado “Panel de Proyectos LGA”.
+- Toolbar: `🔄 Refresh`, estado, stretch y `♻ Reimport` a la derecha.
+- Lista con scroll: proyectos (📁 cerrados, 📂 abiertos). Secuencias indentadas `▶`.
+- Etiqueta inferior con resumen de conteos.
 
 ## Compatibilidad Qt (Nuke 15/16)
-
-**IMPORTANTE:** **TODOS** los scripts (tanto de exploración como finales) deben usar `LGA_QtAdapter_HieroTools` para compatibilidad entre Nuke 15 (PySide2) y Nuke 16 (PySide6).
-
-**Esto aplica a:**
-- ✅ Scripts de exploración en `exploracion/`
-- ✅ Scripts finales del panel
-- ✅ Cualquier script que use Qt en este proyecto
-
-### Imports Correctos
+Usar siempre el adapter:
 ```python
-# ✅ CORRECTO - Usar QtAdapter SIEMPRE
-from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, QApplication
-from LGA_QtAdapter_HieroTools import QRunnable, QThreadPool, Signal, QObject
-
-# ❌ INCORRECTO - NUNCA importar directamente
-# from PySide2 import QtWidgets  # NO HACER ESTO
-# from PySide6 import QtWidgets  # NO HACER ESTO
+from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
 ```
-
-### Funciones Helper Disponibles
-- `horizontal_advance(metrics, text)` - Ancho de texto compatible Qt5/Qt6
-- `primary_screen_geometry(pos)` - Geometría de pantalla con multi-monitor
-- `set_layout_margin(layout, margin)` - Márgenes de layout compatibles
-
-### Referencias
-- [`LGA_QtAdapter_HieroTools.py`](../LGA_QtAdapter_HieroTools.py) - Adaptador Qt para Hiero
-- [`c:\Users\leg4-pc\.nuke\Docu_LGA_QtAdapter.md`](../../Docu_LGA_QtAdapter.md) - Documentación completa del sistema QtAdapter
-
-### Testing
-- Los scripts de exploración se ejecutarán primero en **Nuke 15** para obtener resultados
-- Al final se verificará también en **Nuke 16**
-- Todos los scripts deben funcionar en ambas versiones gracias al QtAdapter
-
-## Referencias a Código Existente
-
-### Detección y Manejo de Versiones
-- **[`LGA_NKS/LGA_NKS_CheckProjectVersions.py`](../LGA_NKS/LGA_NKS_CheckProjectVersions.py)**
-  - `extraer_version(ruta_disco)` (líneas 36-61) - Extrae número de versión de ruta de archivo
-  - `comparar_versiones(version1, version2)` (líneas 64-85) - Compara dos versiones y devuelve la mayor
-  - `encontrar_version_mas_alta(ruta_actual)` (líneas 88-148) - Encuentra archivo con versión más alta en carpeta
-  - `obtener_nombre_base_proyecto(ruta)` (líneas 639-652) - Extrae nombre base sin versión ni extensión
-
-### Detección de Proyectos Abiertos
-- **[`LGA_NKS/LGA_NKS_CheckProjectVersions.py`](../LGA_NKS/LGA_NKS_CheckProjectVersions.py)**
-  - Lógica para detectar proyectos abiertos (líneas 326-348):
-    ```python
-    proyectos_abiertos_por_base = {}
-    for proyecto in hiero.core.projects():
-        ruta_disco = proyecto.path()
-        nombre_base = obtener_nombre_base_proyecto(ruta_disco)
-        # Agrupar por nombre base y comparar versiones
-    ```
-  - Comparación por nombre base + versión para determinar si proyecto ya está abierto (líneas 394-403)
-
-### Apertura de Proyectos
-- **[`LGA_NKS/LGA_NKS_CheckProjectVersions.py`](../LGA_NKS/LGA_NKS_CheckProjectVersions.py)**
-  - `hiero.core.openProject(ruta_nueva_version)` (línea 509) - Abre proyecto desde ruta de archivo
-
-### Obtención de Secuencias
-- **[`+Building_Blocks/Hiero/Bin/LGA_H-Bin-Print_Only_Sequences.py`](../+Building_Blocks/Hiero/Bin/LGA_H-Bin-Print_Only_Sequences.py)**
-  - `find_sequences(bin_item)` (líneas 25-41) - Busca recursivamente todas las secuencias en un Bin
-  - `list_sequences_in_project(project)` (líneas 3-23) - Lista todas las secuencias de un proyecto
-
-### Apertura de Secuencias
-- **[`+Building_Blocks/Hiero/Viewer/LGA_Abrir_Nuevo_CompTimelineViewers.py`](../+Building_Blocks/Hiero/Viewer/LGA_Abrir_Nuevo_CompTimelineViewers.py)**
-  - `find_sequence_by_name(project, sequence_name)` (líneas 4-26) - Busca secuencia por nombre en proyecto
-  - `hiero.ui.openInTimeline(sequence)` (línea 54) - Abre secuencia en timeline
-
-### Threading y Operaciones en Background
-- **[`LGA_NKS_Hilos_Hiero.md`](../LGA_NKS_Hilos_Hiero.md)**
-  - Patrón completo para usar `QRunnable` y `QThreadPool` sin bloquear el hilo principal
-  - Ejemplo de `WorkerSignals(QObject)` con señales `result_ready` y `error`
-  - Ejemplo de `Worker(QRunnable)` para operaciones pesadas
-
-### Ejemplos de Workers Existentes
-- **[`LGA_NKS_Flow/LGA_NKS_Flow_Push.py`](../LGA_NKS_Flow/LGA_NKS_Flow_Push.py)**
-  - Clase `WorkerSignals` (líneas 1343-1350) - Señales para comunicación
-  - Clase `Worker(QRunnable)` (líneas 1353+) - Worker para operaciones en background
-- **[`LGA_NKS_Flow_Prod/LGA_NKS_Flow_ShowInFlow.py`](../LGA_NKS_Flow_Prod/LGA_NKS_Flow_ShowInFlow.py)**
-  - Ejemplo de worker con señales y uso de `QThreadPool.globalInstance().start(worker)`
-
-## Estructura de Archivos del Proyecto
-
-Todos los archivos irán en `LGA_Projects_Panel/`:
-
-1. **`LGA_Projects_Panel.md`** (este archivo)
-   - Documentación del concepto y referencias
-
-2. **`exploracion/`** (subcarpeta)
-   - Scripts de exploración para entender la estructura y APIs
-   - Se ejecutan en Hiero para obtener información sobre nombres de funciones, métodos, etc.
-   - Los resultados se comparten para escribir el código final correctamente
-   - **Todos usan `LGA_QtAdapter_HieroTools`** para compatibilidad Qt
-   - Ejemplos:
-     - `LGA_Projects_Panel_Explorer_01_ScanDisk.py` - Explora estructura de T:\
-     - `LGA_Projects_Panel_Explorer_02_OpenProjects.py` - Explora proyectos abiertos
-     - `LGA_Projects_Panel_Explorer_03_Sequences.py` - Explora secuencias
-
-3. **`LGA_Projects_Panel_ScanProjects.py`**
-   - Módulo con funciones reutilizables para escanear proyectos
-   - Funciones para detectar proyectos abiertos
-   - Funciones para obtener secuencias de proyectos
-   - **Usa `LGA_QtAdapter_HieroTools`** para compatibilidad Qt
-
-4. **`LGA_Projects_Panel_SwitchSequence.py`**
-   - **NUEVO:** Módulo auxiliar para cambio de secuencia
-   - Implementa solución V3 Híbrida ganadora
-   - Preserva ajustes del viewer (gain/gamma/saturation + playhead)
-   - Optimiza UI automáticamente (reduce panel + scroll)
-   - Velocidad óptima: 0.49s
-   - **Usa `LGA_QtAdapter_HieroTools`** para compatibilidad Qt
-
-5. **`LGA_Projects_Panel_SwitchSequence_README.md`**
-   - **NUEVO:** Documentación completa del módulo de switch sequence
-
-6. **`LGA_Projects_Panel_Window.py`**
-   - Ventana independiente (`QMainWindow`) para testing
-   - Implementación completa de funcionalidad antes de convertir a panel
-   - Más fácil de testear ejecutando el script directamente
-   - **Integra `LGA_Projects_Panel_SwitchSequence`** para cambio de secuencia
-   - **Usa `LGA_QtAdapter_HieroTools`** para compatibilidad Qt
-
-7. **`LGA_Projects_Panel_Window_README.md`**
-   - **NUEVO:** Documentación específica de la ventana de testing
-
-8. **`LGA_Projects_Panel.py`**
-   - Panel final integrado con Hiero
-   - Hereda de `QWidget` en lugar de `QMainWindow`
-   - Se registra con `hiero.ui.windowManager().addWindow()`
-   - Se abre automáticamente al iniciar Hiero
-   - **Usa `LGA_QtAdapter_HieroTools`** para compatibilidad Qt
-
-## Orden de Implementación
-
-1. ✅ **Crear MD con documentación** (este archivo)
-2. ✅ **Crear subcarpeta `exploracion/` y scripts de exploración**
-3. ✅ **Ejecutar Exploración 01: Escaneo de Disco T:** - COMPLETADO
-   - Ver [`exploracion/AVANCES_Y_DESCUBRIMIENTOS.md`](exploracion/AVANCES_Y_DESCUBRIMIENTOS.md) para detalles
-4. ✅ **Ejecutar Exploración 02: Proyectos Abiertos** - COMPLETADO
-5. ✅ **Ejecutar Exploración 03: Secuencias** - COMPLETADO
-6. ✅ **Crear módulo de escaneo** (`LGA_Projects_Panel_ScanProjects.py`) - COMPLETADO
-   - Módulo con 4 funciones reutilizables listas para usar
-7. ✅ **Crear ventana de testing** (`LGA_Projects_Panel_Window.py`) - COMPLETADO
-   - QMainWindow independiente con funcionalidad completa
-   - Worker de escaneo en background, UI completa, interacciones
-   - Patrón de importaciones corregido siguiendo scripts existentes
-8. ✅ **Crear módulo de cambio de secuencia** (`LGA_Projects_Panel_SwitchSequence.py`) - COMPLETADO
-   - Implementación de la solución V3 Híbrida ganadora
-   - Preservación completa de ajustes del viewer (gain/gamma/saturation + playhead)
-   - Optimización automática de UI (reduce panel + scroll)
-   - Velocidad óptima: 0.49s
-9. ✅ **Integrar switch sequence en ventana** - COMPLETADO
-   - Ventana usa la función avanzada de cambio de secuencia
-   - Testing exhaustivo completado - funciona perfecto
-10. 🔄 Probar ventana exhaustivamente en Nuke 15/16 - COMPLETADO
-11. 🔄 Convertir ventana en panel integrado (`LGA_Projects_Panel.py`) - PENDIENTE
-12. 🔄 Probar panel integrado en Nuke 15 y Nuke 16 - PENDIENTE
-
-## Documentación de Avances
-
-Ver [`exploracion/AVANCES_Y_DESCUBRIMIENTOS.md`](exploracion/AVANCES_Y_DESCUBRIMIENTOS.md) para:
-- Descubrimientos de cada exploración
-- Decisiones técnicas tomadas
-- Próximos pasos
-- Preguntas abiertas
-
-## Notas de Implementación
-
-### Detección de Proyectos Abiertos
-- Usar `proyecto.path()` para obtener ruta completa del archivo `.hrox`
-- Comparar por nombre base (sin versión) + número de versión
-- Un proyecto está abierto si su nombre base y versión coinciden con uno en `hiero.core.projects()`
-
-### Escaneo en Background
-- Usar patrón `QRunnable` + `QThreadPool` de `LGA_NKS_Hilos_Hiero.md`
-- NO usar `thread.join()` - bloquea el hilo principal
-- Obtener datos de Hiero en el hilo principal ANTES del worker
-- Usar señales para comunicar resultados al hilo principal
-
-### Compatibilidad Qt
-- **SIEMPRE** importar desde `LGA_QtAdapter_HieroTools` en TODOS los scripts (exploración y finales)
-- **NUNCA** importar directamente de `PySide2` o `PySide6`
-- Usar funciones helper cuando sea necesario (`set_layout_margin`, etc.)
-- Los scripts de exploración también deben usar el QtAdapter aunque no usen Qt directamente (para mantener consistencia)
-
-### Visualización de Secuencias
-- Solo mostrar secuencias de proyectos que están abiertos
-- Usar indentación visual para mostrar jerarquía proyecto → secuencias
-- Actualizar vista automáticamente cuando se abre un proyecto
-
-### Cambio de Secuencia
-- Usa el módulo `LGA_Projects_Panel_SwitchSequence.py` con solución V3 Híbrida
-- Preserva ajustes del viewer (gain/gamma/saturation + playhead automático)
-- Optimiza UI automáticamente (reduce panel izquierdo + scroll al top track)
-- Velocidad óptima: 0.49s
-
-## Problemas Conocidos y Limitaciones
-
-### ✅ **RESUELTO COMPLETAMENTE: Cambio de Secuencia entre Proyectos Diferentes**
-
-**Problema original:** Si intentabas abrir una secuencia de otro proyecto, fallaba porque solo buscaba en el proyecto activo.
-
-**Error anterior:**
-```
-🔄 Switch híbrido a '000'...
-❌ Error: Secuencia '000' no encontrada
-```
-
-**✅ Solución implementada y probada:**
-- ✅ **Objetos Sequence directos:** El panel ahora pasa objetos Sequence directamente en lugar de solo nombres
-- ✅ **openInTimeline cross-project:** Descubrimos que `hiero.ui.openInTimeline(sequence_obj)` funciona automáticamente incluso cuando la secuencia pertenece a otro proyecto
-- ✅ **Cambio automático de proyecto:** Hiero maneja el cambio de proyecto activo automáticamente cuando abres una secuencia de otro proyecto
-- ✅ **Sin intervención manual:** Todo funciona automáticamente sin necesidad de cerrar/abrir proyectos
-
-**Resultado actual:**
-```
-🎯 Usando objeto Sequence directamente para '000'
-   Proyecto: 'ERSO_SUP_v011'
-   📊 Cambiando de proyecto 'BRDA_SUP_v050' → 'ERSO_SUP_v011'
-   ✅ openInTimeline maneja el cambio automáticamente
-✅ Switch híbrido perfecto completado
-```
-
-**Estado:** ✅ **COMPLETAMENTE RESUELTO Y PROBADO EN PRODUCCIÓN** - Funciona perfectamente cross-project, sin duplicados, con cambio automático de proyecto
-
+No importar PySide2/PySide6 directamente. Helpers disponibles: `horizontal_advance`, `primary_screen_geometry`, `set_layout_margin`.
