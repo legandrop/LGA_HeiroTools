@@ -16,6 +16,13 @@ import os
 import sys
 from pathlib import Path
 
+# Variable global para activar o desactivar los prints
+DEBUG = True
+
+def debug_print(*message):
+    if DEBUG:
+        print(*message)
+
 # Importar compatibilidad Qt para Hiero Panels
 from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
 
@@ -95,12 +102,12 @@ except ImportError as e:
 # Importar función de cambio de secuencia V3 FINAL (con limpieza total + cross-project)
 try:
     import importlib
-    import switch_sequence_v3_final
-    importlib.reload(switch_sequence_v3_final)  # FORZAR RECARGA DEL MÓDULO
-    from switch_sequence_v3_final import switch_to_sequence_hybrid as switch_to_sequence
-    print("✅ Módulo switch_sequence_v3_final recargado exitosamente")
+    import LGA_Projects_Panel_SwitchSequence
+    importlib.reload(LGA_Projects_Panel_SwitchSequence)  # FORZAR RECARGA DEL MÓDULO
+    from LGA_Projects_Panel_SwitchSequence import switch_to_sequence_hybrid as switch_to_sequence
+    debug_print("✅ Módulo LGA_Projects_Panel_SwitchSequence recargado exitosamente")
 except ImportError as e:
-    raise ImportError(f"No se pudo importar el módulo switch_sequence_v3_final: {e}")
+    raise ImportError(f"No se pudo importar el módulo LGA_Projects_Panel_SwitchSequence: {e}")
 
 
 class WorkerSignals(QObject):
@@ -233,15 +240,15 @@ class ProjectItem(QtWidgets.QWidget):
             success = switch_to_sequence(sequence_name, target_project=proyecto_obj)
             
             if success:
-                print(f"✅ Secuencia '{sequence_name}' cambiada exitosamente")
+                debug_print(f"✅ Secuencia '{sequence_name}' cambiada exitosamente")
                 # Nota: La UI se actualiza automáticamente por el cambio de secuencia
                 # Si necesitas refresh manual, usa el botón "Refresh"
             else:
-                print(f"❌ Error cambiando a secuencia '{sequence_name}'")
+                debug_print(f"❌ Error cambiando a secuencia '{sequence_name}'")
         except Exception as e:
-            print(f"❌ Error en cambio de secuencia '{sequence_name}': {e}")
+            debug_print(f"❌ Error en cambio de secuencia '{sequence_name}': {e}")
             import traceback
-            print(traceback.format_exc())
+            debug_print(traceback.format_exc())
 
     def set_open_state(self, is_open, sequences=None, proyecto_obj=None):
         """Actualizar estado de apertura del proyecto"""
@@ -413,7 +420,7 @@ class ProjectPanelWindow(QtWidgets.QWidget):
         try:
             # Abrir proyecto en Hiero
             proyecto = hiero.core.openProject(ruta_hrox)
-            print(f"Proyecto abierto: {proyecto.name()}")
+            debug_print(f"Proyecto abierto: {proyecto.name()}")
 
             # Actualizar vista después de abrir
             self.start_scan()  # Re-escanear para actualizar estado
@@ -441,9 +448,9 @@ def main():
         _projects_panel_window.show()
         return _projects_panel_window
     except Exception as e:
-        print(f"Error mostrando ventana de proyectos: {str(e)}")
+        debug_print(f"Error mostrando ventana de proyectos: {str(e)}")
         import traceback
-        print(traceback.format_exc())
+        debug_print(traceback.format_exc())
         return None
 
 
