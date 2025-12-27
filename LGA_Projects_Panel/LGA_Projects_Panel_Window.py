@@ -92,6 +92,12 @@ except ImportError as e:
     raise ImportError(f"No se pudo importar el módulo LGA_Projects_Panel_ScanProjects: {e}. "
                      f"Verificado en: {projects_panel_path}")
 
+# Importar función de cambio de secuencia
+try:
+    from LGA_Projects_Panel_SwitchSequence import switch_to_sequence
+except ImportError as e:
+    raise ImportError(f"No se pudo importar el módulo LGA_Projects_Panel_SwitchSequence: {e}")
+
 
 class WorkerSignals(QObject):
     """Señales para comunicar resultados del worker de escaneo"""
@@ -194,18 +200,19 @@ class ProjectItem(QtWidgets.QWidget):
 
     def on_sequence_click(self, sequence_name):
         """Manejador de click en secuencia"""
-        # Encontrar la secuencia en el proyecto y abrirla en timeline
+        # Usar la función avanzada de cambio de secuencia (v3 híbrida)
         try:
-            proyecto = self.project_info.get("proyecto_obj")
-            if proyecto:
-                sequences = proyecto.sequences()
-                for seq in sequences:
-                    if seq.name() == sequence_name:
-                        hiero.ui.openInTimeline(seq)
-                        print(f"Abriendo secuencia '{sequence_name}' en timeline")
-                        break
+            success = switch_to_sequence(sequence_name)
+            if success:
+                print(f"✅ Secuencia '{sequence_name}' cambiada exitosamente")
+                # Nota: La UI se actualiza automáticamente por el cambio de secuencia
+                # Si necesitas refresh manual, usa el botón "Refresh"
+            else:
+                print(f"❌ Error cambiando a secuencia '{sequence_name}'")
         except Exception as e:
-            print(f"Error abriendo secuencia '{sequence_name}': {e}")
+            print(f"❌ Error en cambio de secuencia '{sequence_name}': {e}")
+            import traceback
+            print(traceback.format_exc())
 
     def set_open_state(self, is_open, sequences=None, proyecto_obj=None):
         """Actualizar estado de apertura del proyecto"""

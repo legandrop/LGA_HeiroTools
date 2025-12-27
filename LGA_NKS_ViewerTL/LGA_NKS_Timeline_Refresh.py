@@ -15,7 +15,7 @@ __________________________________________________________
 import hiero.core
 import hiero.ui
 
-DEBUG = False
+DEBUG = True
 
 def debug_print(*message):
     if DEBUG:

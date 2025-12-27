@@ -156,13 +156,28 @@ Todos los archivos irán en `LGA_Projects_Panel/`:
    - Funciones para obtener secuencias de proyectos
    - **Usa `LGA_QtAdapter_HieroTools`** para compatibilidad Qt
 
-4. **`LGA_Projects_Panel_Window.py`**
+4. **`LGA_Projects_Panel_SwitchSequence.py`**
+   - **NUEVO:** Módulo auxiliar para cambio de secuencia
+   - Implementa solución V3 Híbrida ganadora
+   - Preserva ajustes del viewer (gain/gamma/saturation + playhead)
+   - Optimiza UI automáticamente (reduce panel + scroll)
+   - Velocidad óptima: 0.49s
+   - **Usa `LGA_QtAdapter_HieroTools`** para compatibilidad Qt
+
+5. **`LGA_Projects_Panel_SwitchSequence_README.md`**
+   - **NUEVO:** Documentación completa del módulo de switch sequence
+
+6. **`LGA_Projects_Panel_Window.py`**
    - Ventana independiente (`QMainWindow`) para testing
    - Implementación completa de funcionalidad antes de convertir a panel
    - Más fácil de testear ejecutando el script directamente
+   - **Integra `LGA_Projects_Panel_SwitchSequence`** para cambio de secuencia
    - **Usa `LGA_QtAdapter_HieroTools`** para compatibilidad Qt
 
-5. **`LGA_Projects_Panel.py`**
+7. **`LGA_Projects_Panel_Window_README.md`**
+   - **NUEVO:** Documentación específica de la ventana de testing
+
+8. **`LGA_Projects_Panel.py`**
    - Panel final integrado con Hiero
    - Hereda de `QWidget` en lugar de `QMainWindow`
    - Se registra con `hiero.ui.windowManager().addWindow()`
@@ -183,9 +198,17 @@ Todos los archivos irán en `LGA_Projects_Panel/`:
    - QMainWindow independiente con funcionalidad completa
    - Worker de escaneo en background, UI completa, interacciones
    - Patrón de importaciones corregido siguiendo scripts existentes
-8. 🔄 Probar ventana exhaustivamente en Nuke 15 - SIGUIENTE
-9. Convertir ventana en panel (`LGA_Projects_Panel.py`)
-10. Probar panel integrado en Nuke 15 y Nuke 16
+8. ✅ **Crear módulo de cambio de secuencia** (`LGA_Projects_Panel_SwitchSequence.py`) - COMPLETADO
+   - Implementación de la solución V3 Híbrida ganadora
+   - Preservación completa de ajustes del viewer (gain/gamma/saturation + playhead)
+   - Optimización automática de UI (reduce panel + scroll)
+   - Velocidad óptima: 0.49s
+9. ✅ **Integrar switch sequence en ventana** - COMPLETADO
+   - Ventana usa la función avanzada de cambio de secuencia
+   - Testing exhaustivo completado - funciona perfecto
+10. 🔄 Probar ventana exhaustivamente en Nuke 15/16 - COMPLETADO
+11. 🔄 Convertir ventana en panel integrado (`LGA_Projects_Panel.py`) - PENDIENTE
+12. 🔄 Probar panel integrado en Nuke 15 y Nuke 16 - PENDIENTE
 
 ## Documentación de Avances
 
@@ -218,4 +241,33 @@ Ver [`exploracion/AVANCES_Y_DESCUBRIMIENTOS.md`](exploracion/AVANCES_Y_DESCUBRIM
 - Solo mostrar secuencias de proyectos que están abiertos
 - Usar indentación visual para mostrar jerarquía proyecto → secuencias
 - Actualizar vista automáticamente cuando se abre un proyecto
+
+### Cambio de Secuencia
+- Usa el módulo `LGA_Projects_Panel_SwitchSequence.py` con solución V3 Híbrida
+- Preserva ajustes del viewer (gain/gamma/saturation + playhead automático)
+- Optimiza UI automáticamente (reduce panel izquierdo + scroll al top track)
+- Velocidad óptima: 0.49s
+
+## Problemas Conocidos y Limitaciones
+
+### ⚠️ **Limitación Actual: Cambio de Secuencia entre Proyectos Diferentes**
+
+**Problema:** Si estás dentro de un proyecto y quieres abrir una secuencia que pertenece a otro proyecto, no funciona. El sistema busca la secuencia únicamente en el proyecto actualmente activo.
+
+**Ejemplo del error:**
+```
+🔄 Switch híbrido a '000'...
+❌ Error: Secuencia '000' no encontrada
+❌ Error cambiando a secuencia '000'
+```
+
+**Causa:** La función `switch_to_sequence()` busca secuencias solo en `hiero.core.projects()[0]` (el proyecto activo), sin considerar que la secuencia podría estar en otro proyecto.
+
+**Solución futura:** Modificar la lógica para:
+1. Buscar la secuencia en TODOS los proyectos abiertos
+2. Si no está en el proyecto activo, cambiar al proyecto correcto primero
+3. Luego abrir la secuencia deseada
+4. Volver a aplicar todas las optimizaciones de UI
+
+**Estado:** ✅ **IDENTIFICADO** - Funcionalidad básica funciona perfecto dentro del mismo proyecto
 

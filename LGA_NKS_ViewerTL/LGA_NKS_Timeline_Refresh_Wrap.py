@@ -22,7 +22,7 @@ from LGA_QtAdapter_HieroTools import QtWidgets, QtCore
 import time
 
 # Variable global para activar o desactivar los prints
-DEBUG = False
+DEBUG = True
 
 def debug_print(*message):
     if DEBUG:
