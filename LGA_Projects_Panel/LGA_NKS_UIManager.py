@@ -119,18 +119,35 @@ class UIManager:
 
         right_column.addWidget(panel.settings_button)
 
-        # Botón de reimport solo con emoji (solo si la flag está activada)
+        # Configurar iconos para el botón reimport
+        reimport_icon_path = os.path.join(os.path.dirname(__file__), "..", "LGA_Projects_Panel", "recargar_script.svg")
+        reimport_hover_icon_path = os.path.join(os.path.dirname(__file__), "..", "LGA_Projects_Panel", "recargar_script_white.svg")
+
+        # Botón de reimport con iconos SVG (solo si la flag está activada)
         if REIMPORT_BUTTON:
-            panel.reimport_button = QtWidgets.QPushButton("♻")
+            panel.reimport_button = QtWidgets.QPushButton()
             panel.reimport_button.setToolTip("Recarga y redockea el panel con el script externo")
             panel.reimport_button.setStyleSheet("""
                 QPushButton {
                     border: none;
                     padding: 5px;
                     background: transparent;
-                    font-size: 14px;
                 }
             """)
+
+            # Cargar iconos SVG si existen
+            if os.path.exists(reimport_icon_path) and os.path.exists(reimport_hover_icon_path):
+                panel.reimport_icon_normal = QtGui.QIcon(reimport_icon_path)
+                panel.reimport_icon_hover = QtGui.QIcon(reimport_hover_icon_path)
+                panel.reimport_button.setIcon(panel.reimport_icon_normal)
+                panel.reimport_button.setIconSize(QtCore.QSize(20, 20))  # Tamaño aproximado al botón original
+
+                # Instalar event filter para manejar hover
+                panel.reimport_button.installEventFilter(panel)
+            else:
+                # Fallback si no se encuentran los iconos
+                panel.reimport_button.setText("♻")
+
             right_column.addWidget(panel.reimport_button)
 
         # Añadir columna derecha al layout principal (sin stretch para mantener tamaño pequeño)
@@ -165,6 +182,15 @@ class UIManager:
             elif event.type() == QtCore.QEvent.Leave:
                 if hasattr(panel, 'settings_icon_normal'):
                     panel.settings_button.setIcon(panel.settings_icon_normal)
+
+        # Manejar hover del botón reimport
+        elif obj == getattr(panel, "reimport_button", None):
+            if event.type() == QtCore.QEvent.Enter:
+                if hasattr(panel, 'reimport_icon_hover'):
+                    panel.reimport_button.setIcon(panel.reimport_icon_hover)
+            elif event.type() == QtCore.QEvent.Leave:
+                if hasattr(panel, 'reimport_icon_normal'):
+                    panel.reimport_button.setIcon(panel.reimport_icon_normal)
 
         # Manejar hover del botón update (buscar en todos los project items)
         elif hasattr(obj, 'toolTip') and obj.toolTip() == "Actualizar a versión más nueva":

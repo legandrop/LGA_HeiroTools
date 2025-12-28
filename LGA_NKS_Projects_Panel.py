@@ -17,6 +17,10 @@ import configparser
 from pathlib import Path
 from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
 
+# Importar funciones de utilidad de estilos
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Utils"))
+from LGA_NKS_StyleUtils import calculate_dynamic_border, calculate_dynamic_hover
+
 # Variable global para activar o desactivar los prints
 DEBUG = True
 
@@ -364,18 +368,35 @@ class ProjectsPanel(QtWidgets.QWidget):
         # Añadir botón refresh a la columna derecha
         right_column.addWidget(self.refresh_button)
 
-        # Botón de reimport solo con emoji (solo si la flag está activada)
+        # Configurar iconos para el botón reimport
+        reimport_icon_path = os.path.join(os.path.dirname(__file__), "LGA_Projects_Panel", "recargar_script.svg")
+        reimport_hover_icon_path = os.path.join(os.path.dirname(__file__), "LGA_Projects_Panel", "recargar_script_white.svg")
+
+        # Botón de reimport con iconos SVG (solo si la flag está activada)
         if REIMPORT_BUTTON:
-            self.reimport_button = QtWidgets.QPushButton("♻")
+            self.reimport_button = QtWidgets.QPushButton()
             self.reimport_button.setToolTip("Recarga y redockea el panel con el script externo")
             self.reimport_button.setStyleSheet("""
                 QPushButton {
                     border: none;
                     padding: 5px;
                     background: transparent;
-                    font-size: 14px;
                 }
             """)
+
+            # Cargar iconos SVG si existen
+            if os.path.exists(reimport_icon_path) and os.path.exists(reimport_hover_icon_path):
+                self.reimport_icon_normal = QtGui.QIcon(reimport_icon_path)
+                self.reimport_icon_hover = QtGui.QIcon(reimport_hover_icon_path)
+                self.reimport_button.setIcon(self.reimport_icon_normal)
+                self.reimport_button.setIconSize(QtCore.QSize(20, 20))  # Tamaño aproximado al botón original
+
+                # Instalar event filter para manejar hover
+                self.reimport_button.installEventFilter(self)
+            else:
+                # Fallback si no se encuentran los iconos
+                self.reimport_button.setText("♻")
+
             right_column.addWidget(self.reimport_button)
 
         # Añadir columna derecha al layout principal (sin stretch para mantener tamaño pequeño)
@@ -410,6 +431,7 @@ class ProjectsPanel(QtWidgets.QWidget):
 
     def reimport_panel(self):
         """Recarga el panel usando el script externo de smart reload"""
+        debug_print("🔄 BOTÓN REIMPORT PRESIONADO - Iniciando recarga del panel...")
         try:
             # 🔄 RECARGAR COLORES DESDE .INI ANTES DEL RELOAD
             debug_print("🔄 Recargando colores desde .ini antes del reimport...")
@@ -483,6 +505,9 @@ class ProjectsPanel(QtWidgets.QWidget):
 
         layout.addLayout(interval_row)
 
+        # Línea en blanco antes del título de projects colors
+        layout.addWidget(QtWidgets.QLabel(""))
+
         # Projects colors list
         colors_label = QtWidgets.QLabel("Project colors")
         layout.addWidget(colors_label)
@@ -497,20 +522,72 @@ class ProjectsPanel(QtWidgets.QWidget):
         for name, color in sorted(PROJECT_COLORS.items()):
             self._add_settings_row(name, color)
 
+        # Aplicar estilo dinámico al botón Add project con color gris oscuro
+        add_button_style = "#3f3f3f"
+        add_border_color = calculate_dynamic_border(add_button_style)
+        add_hover_color = calculate_dynamic_hover(add_button_style)
+
+        add_button_stylesheet = f"""
+            QPushButton {{
+                background-color: {add_button_style};
+                border: 1px solid {add_border_color};
+                border-radius: 3px;
+                color: #d8d8d8;
+                padding: 0px 0px;
+                min-height: 24px;
+            }}
+            QPushButton:hover {{
+                background-color: {add_hover_color};
+            }}
+            QPushButton:pressed {{
+                background-color: {add_button_style}aa;
+            }}
+        """
+
         add_button = QtWidgets.QPushButton("+ Add project")
-        add_button.setFixedWidth(100)  # Ancho más pequeño para el botón
+        add_button.setFixedWidth(220)  # Ancho para el botón
+        add_button.setStyleSheet(add_button_stylesheet)
         add_button.clicked.connect(lambda: self._add_settings_row("", "#cccccc"))
         layout.addWidget(add_button)
+
+        # Línea en blanco antes de los botones Cancel y Save
+        layout.addWidget(QtWidgets.QLabel(""))
 
         # Save / Cancel buttons - alineados con los botones X de las filas
         # El layout padre ya tiene 10px de margen izquierdo, así que ajustamos
         # ancho real necesario: 140 + 4 + 40 + 4 + 30 - 10 = 208px
         buttons_container = QtWidgets.QHBoxLayout()
-        buttons_container.setContentsMargins(60, 0, 0, 0)  # Probar con margen más pequeño para verificar que funciona
-        buttons_container.setSpacing(4)
+        buttons_container.setContentsMargins(40, 0, 0, 0)  # ✅✅ Margen izquierdo para alinear con botones X
+        buttons_container.setSpacing(10)
+
+        # Aplicar estilo dinámico a los botones Cancel y Save
+        button_style = "#443a91"
+        border_color = calculate_dynamic_border(button_style)
+        hover_color = calculate_dynamic_hover(button_style)
+
+        button_stylesheet = f"""
+            QPushButton {{
+                background-color: {button_style};
+                border: 1px solid {border_color};
+                border-radius: 3px;
+                color: #d8d8d8;
+                padding: 0px 0px;
+                min-height: 24px;
+            }}
+            QPushButton:hover {{
+                background-color: {hover_color};
+            }}
+            QPushButton:pressed {{
+                background-color: {button_style}aa;
+            }}
+        """
 
         cancel_btn = QtWidgets.QPushButton("Cancel")
         save_btn = QtWidgets.QPushButton("Save")
+        cancel_btn.setFixedWidth(70)
+        save_btn.setFixedWidth(70)
+        cancel_btn.setStyleSheet(button_stylesheet)
+        save_btn.setStyleSheet(button_stylesheet)
         cancel_btn.clicked.connect(self._on_settings_cancel)
         save_btn.clicked.connect(self._on_settings_save)
 
