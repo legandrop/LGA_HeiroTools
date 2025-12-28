@@ -479,7 +479,7 @@ class ProjectsPanel(QtWidgets.QWidget):
         self.settings_widget = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(self.settings_widget)
         layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(6)  # Reducir espacios entre items
+        layout.setSpacing(6)  # Espaciado más pequeño entre items
 
         # IMPORTANTE: Configurar para que NO expanda espacios automáticamente
         self.settings_widget.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
@@ -489,21 +489,74 @@ class ProjectsPanel(QtWidgets.QWidget):
         interval_row.setContentsMargins(0, 0, 0, 0)
         interval_row.setSpacing(8)
 
-        interval_label = QtWidgets.QLabel("Auto-refresh interval")
+        interval_label = QtWidgets.QLabel("Auto-refresh")
+
+        # Ruta para icono SVG de flecha (triángulo sólido)
+        arrow_icon_path = os.path.join(os.path.dirname(__file__), "LGA_Projects_Panel", "down_arrow.svg")
+        arrow_icon_url = QtCore.QUrl.fromLocalFile(arrow_icon_path).toString()
+
+        # Aplicar estilo elegante al dropdown con flecha y separador DENTRO del botón
+        dropdown_stylesheet = f"""
+            QComboBox {{
+                background-color: #2d2d2d;
+                border: 1px solid #555555;
+                border-radius: 3px;
+                color: #d8d8d8;
+                padding: 2px 24px 2px 8px;  /* espacio derecho para separador + flecha */
+                min-height: 24px;
+            }}
+            QComboBox:hover {{
+                background-color: #3d3d3d;
+                border: 1px solid #777777;
+            }}
+            QComboBox::drop-down {{
+                border-left: 1px solid #555555; /* separador vertical interno */
+                background: transparent;
+                width: 20px;
+                subcontrol-origin: padding;
+                subcontrol-position: right center;
+            }}
+            QComboBox::down-arrow {{
+                image: url("{arrow_icon_url}");
+                width: 10px;
+                height: 6px;
+                margin-right: 4px;
+                margin-top: 3px;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: #2d2d2d;
+                border: 1px solid #555555;
+                border-radius: 3px;
+                color: #d8d8d8;
+                selection-background-color: #443a91;
+                selection-color: #ffffff;
+            }}
+        """
+
         self.settings_timer_dropdown = QtWidgets.QComboBox()
-        self.settings_timer_dropdown.setFixedWidth(80)  # Ancho más pequeño para el dropdown
+        self.settings_timer_dropdown.setFixedWidth(95)  # Ancho suficiente para texto + flecha integrada
+        self.settings_timer_dropdown.setStyleSheet(dropdown_stylesheet)
         for key in ["never", "5min", "10min", "15min", "30min", "1h", "2h"]:
             self.settings_timer_dropdown.addItem(key, key)
+
+        # Orden correcto: label primero, luego dropdown
+        interval_row.addWidget(interval_label)
+        interval_row.addWidget(self.settings_timer_dropdown)
+        interval_row.addStretch(1)  # Empujar elementos a la izquierda
+
         current_interval_key = self._load_auto_refresh_interval()
         idx = self.settings_timer_dropdown.findData(current_interval_key)
         if idx >= 0:
             self.settings_timer_dropdown.setCurrentIndex(idx)
 
-        interval_row.addWidget(interval_label)
-        interval_row.addWidget(self.settings_timer_dropdown)
-        interval_row.addStretch(1)  # Empujar elementos a la izquierda
-
         layout.addLayout(interval_row)
+
+        # Línea de próximo auto-refresh
+        self.next_refresh_label = QtWidgets.QLabel("Next in: --")
+        self.next_refresh_label.setStyleSheet("color: #888888; font-size: 13px; margin: 0px;")
+        self.next_refresh_label.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+        self.next_refresh_label.setMinimumHeight(20)
+        layout.addWidget(self.next_refresh_label, alignment=QtCore.Qt.AlignLeft)
 
         # Línea en blanco antes del título de projects colors
         layout.addWidget(QtWidgets.QLabel(""))
@@ -752,16 +805,34 @@ class ProjectsPanel(QtWidgets.QWidget):
         minutes = AUTO_REFRESH_OPTIONS.get(key, 0)
         if minutes <= 0:
             self.auto_refresh_timer.stop()
+            self._update_next_refresh_label()
             return
         self.auto_refresh_timer.start(minutes * 60 * 1000)
+        self._update_next_refresh_label()
 
     def _restart_auto_refresh_timer(self):
         if self.auto_refresh_timer.isActive():
             self.auto_refresh_timer.start(self.auto_refresh_timer.interval())
+        self._update_next_refresh_label()
 
     def _on_auto_refresh_timeout(self):
         if self.refresh_button.isEnabled():
             self.start_scan()
+        self._update_next_refresh_label()
+
+    def _update_next_refresh_label(self):
+        """Actualiza la etiqueta de cuenta regresiva del auto-refresh."""
+        if not hasattr(self, "next_refresh_label") or self.next_refresh_label is None:
+            return
+        if not self.auto_refresh_timer.isActive():
+            self.next_refresh_label.setText("Next in: --")
+            return
+        remaining_ms = self.auto_refresh_timer.remainingTime()
+        if remaining_ms < 0:
+            self.next_refresh_label.setText("Next in: --")
+            return
+        minutes = max(1, int(round(remaining_ms / 60000.0)))
+        self.next_refresh_label.setText(f"Next in: {minutes} min")
 
     def _save_colors_to_ini(self, colors_dict):
         ini_path = Path(__file__).parent / "LGA_NKS_Projects_Panel.ini"
