@@ -470,6 +470,8 @@ class ProjectsPanel(QtWidgets.QWidget):
             self._build_settings_view()
         if self.content_stack and self.settings_widget:
             self.content_stack.setCurrentWidget(self.settings_widget)
+            # Actualizar la etiqueta de cuenta regresiva cada vez que se muestra settings
+            self._update_next_refresh_label()
 
     def show_projects_view(self):
         if self.content_stack and self.projects_container:
@@ -558,6 +560,9 @@ class ProjectsPanel(QtWidgets.QWidget):
         self.next_refresh_label.setMinimumHeight(20)
         layout.addWidget(self.next_refresh_label, alignment=QtCore.Qt.AlignLeft)
 
+        # Actualizar la etiqueta con el estado actual del timer
+        self._update_next_refresh_label()
+
         # Línea en blanco antes del título de projects colors
         layout.addWidget(QtWidgets.QLabel(""))
 
@@ -599,7 +604,7 @@ class ProjectsPanel(QtWidgets.QWidget):
         """
 
         add_button = QtWidgets.QPushButton("+ Add project")
-        add_button.setFixedWidth(220)  # Ancho para el botón
+        add_button.setFixedWidth(188)  # Ancho para el botón
         add_button.setStyleSheet(add_button_stylesheet)
         add_button.clicked.connect(lambda: self._add_settings_row("", "#cccccc"))
         layout.addWidget(add_button)
