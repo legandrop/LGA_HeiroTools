@@ -510,6 +510,7 @@ class ProjectsPanel(QtWidgets.QWidget):
 
         # Projects colors list
         colors_label = QtWidgets.QLabel("Project colors")
+        colors_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #d8d8d8;")
         layout.addWidget(colors_label)
 
         self.settings_rows = []
@@ -608,27 +609,87 @@ class ProjectsPanel(QtWidgets.QWidget):
         row_widget = QtWidgets.QWidget()
         row_layout = QtWidgets.QHBoxLayout(row_widget)
         row_layout.setContentsMargins(0, 0, 0, 0)
-        row_layout.setSpacing(4)  # Reducir espacios entre elementos de cada fila
+        row_layout.setSpacing(8)  # Espacio de 3px entre elementos de cada fila
 
         name_edit = QtWidgets.QLineEdit(name)
         name_edit.setPlaceholderText("Project name (e.g. BRDA)")
         name_edit.setFixedWidth(140)
 
+        # Aplicar estilo dinámico al botón de color manteniendo el color actual
+        color_border_color = calculate_dynamic_border(color)
+        color_hover_color = calculate_dynamic_hover(color)
+
+        color_button_stylesheet = f"""
+            QPushButton {{
+                background-color: {color};
+                border: 1px solid {color_border_color};
+                border-radius: 3px;
+                color: #d8d8d8;
+                padding: 0px 0px;
+            }}
+            QPushButton:hover {{
+                background-color: {color_hover_color};
+            }}
+            QPushButton:pressed {{
+                background-color: {color}aa;
+            }}
+        """
+
         color_btn = QtWidgets.QPushButton()
-        color_btn.setFixedSize(40, 24)
-        color_btn.setStyleSheet(f"background: {color}; border: 1px solid #444;")
+        color_btn.setFixedSize(16, 16)
+        color_btn.setStyleSheet(color_button_stylesheet)
 
         def pick_color():
             dlg = QtWidgets.QColorDialog(QtGui.QColor(color_btn.palette().button().color()))
             dlg.setOption(QtWidgets.QColorDialog.ShowAlphaChannel, False)
             if dlg.exec_():
                 chosen = dlg.selectedColor().name()
-                color_btn.setStyleSheet(f"background: {chosen}; border: 1px solid #444;")
+                # Aplicar el nuevo estilo dinámico con el color elegido
+                new_border_color = calculate_dynamic_border(chosen)
+                new_hover_color = calculate_dynamic_hover(chosen)
+                new_stylesheet = f"""
+                    QPushButton {{
+                        background-color: {chosen};
+                        border: 1px solid {new_border_color};
+                        border-radius: 3px;
+                        color: #d8d8d8;
+                        padding: 0px 0px;
+                    }}
+                    QPushButton:hover {{
+                        background-color: {new_hover_color};
+                    }}
+                    QPushButton:pressed {{
+                        background-color: {chosen}aa;
+                    }}
+                """
+                color_btn.setStyleSheet(new_stylesheet)
 
         color_btn.clicked.connect(pick_color)
 
+        # Aplicar estilo dinámico al botón delete con color rojo no saturado
+        delete_button_style = "#a33333"
+        delete_border_color = calculate_dynamic_border(delete_button_style)
+        delete_hover_color = calculate_dynamic_hover(delete_button_style)
+
+        delete_button_stylesheet = f"""
+            QPushButton {{
+                background-color: {delete_button_style};
+                border: 1px solid {delete_border_color};
+                border-radius: 3px;
+                color: #d8d8d8;
+                padding: 0px 0px;
+            }}
+            QPushButton:hover {{
+                background-color: {delete_hover_color};
+            }}
+            QPushButton:pressed {{
+                background-color: {delete_button_style}aa;
+            }}
+        """
+
         delete_btn = QtWidgets.QPushButton("✕")
-        delete_btn.setFixedWidth(30)
+        delete_btn.setFixedSize(16, 16)
+        delete_btn.setStyleSheet(delete_button_stylesheet)
 
         def delete_row():
             self.settings_list_layout.removeWidget(row_widget)
