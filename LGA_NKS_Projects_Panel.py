@@ -30,6 +30,17 @@ AUTO_CREATE_PANEL = True
 # Flag para controlar si mostrar el botón de reimport
 REIMPORT_BUTTON = True
 
+# Opciones de intervalo de auto-refresh (minutos)
+AUTO_REFRESH_OPTIONS = {
+    "never": 0,
+    "5min": 5,
+    "10min": 10,
+    "15min": 15,
+    "30min": 30,
+    "1h": 60,
+    "2h": 120,
+}
+
 # Configuración de colores desde archivo .ini
 PROJECT_COLORS = {}
 
@@ -273,9 +284,21 @@ class ProjectsPanel(QtWidgets.QWidget):
         self.proyectos_encontrados = []
         self.proyectos_abiertos = {}
         self.project_items = {}
+        self.content_stack = None
+        self.projects_container = None
+        self.settings_widget = None
+        self.settings_rows = []
+        self.settings_timer_dropdown = None
+        self.auto_refresh_timer = QtCore.QTimer(self)
+        self.auto_refresh_timer.timeout.connect(self._on_auto_refresh_timeout)
 
         UIManager.setup_ui(self)
         UIManager.setup_connections(self)
+
+        # Aplicar intervalo de auto-refresh desde .ini
+        interval_key = self._load_auto_refresh_interval()
+        self._apply_auto_refresh_interval(interval_key)
+
         self.start_scan()
 
     def setup_ui(self):
@@ -369,6 +392,7 @@ class ProjectsPanel(QtWidgets.QWidget):
 
     def start_scan(self):
         ScanManager.start_scan(self)
+        self._restart_auto_refresh_timer()
 
     def on_scan_finished(self, proyectos_encontrados, proyectos_abiertos):
         ScanManager.on_scan_finished(self, proyectos_encontrados, proyectos_abiertos)
@@ -378,6 +402,8 @@ class ProjectsPanel(QtWidgets.QWidget):
 
     def update_projects_display(self):
         ProjectHandler.update_projects_display(self)
+        # Siempre volver a la vista principal después de actualizar
+        self.show_projects_view()
 
     def on_project_click(self, proyecto_info):
         ProjectHandler.on_project_click(self, proyecto_info)
@@ -413,6 +439,204 @@ class ProjectsPanel(QtWidgets.QWidget):
     def on_update_project_click(self, newer_version_info):
         """Manejar el click en el botón de update para actualizar proyecto a versión más nueva"""
         ProjectHandler.on_update_project_click(self, newer_version_info)
+
+    # =========================
+    #       SETTINGS VIEW
+    # =========================
+    def show_settings_view(self):
+        if not self.settings_widget:
+            self._build_settings_view()
+        if self.content_stack and self.settings_widget:
+            self.content_stack.setCurrentWidget(self.settings_widget)
+
+    def show_projects_view(self):
+        if self.content_stack and self.projects_container:
+            self.content_stack.setCurrentWidget(self.projects_container)
+
+    def _build_settings_view(self):
+        self.settings_widget = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(self.settings_widget)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(6)  # Reducir espacios entre items
+
+        # IMPORTANTE: Configurar para que NO expanda espacios automáticamente
+        self.settings_widget.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+
+        # Auto-refresh interval (label + dropdown en fila horizontal)
+        interval_row = QtWidgets.QHBoxLayout()
+        interval_row.setContentsMargins(0, 0, 0, 0)
+        interval_row.setSpacing(8)
+
+        interval_label = QtWidgets.QLabel("Auto-refresh interval")
+        self.settings_timer_dropdown = QtWidgets.QComboBox()
+        self.settings_timer_dropdown.setFixedWidth(80)  # Ancho más pequeño para el dropdown
+        for key in ["never", "5min", "10min", "15min", "30min", "1h", "2h"]:
+            self.settings_timer_dropdown.addItem(key, key)
+        current_interval_key = self._load_auto_refresh_interval()
+        idx = self.settings_timer_dropdown.findData(current_interval_key)
+        if idx >= 0:
+            self.settings_timer_dropdown.setCurrentIndex(idx)
+
+        interval_row.addWidget(interval_label)
+        interval_row.addWidget(self.settings_timer_dropdown)
+        interval_row.addStretch(1)  # Empujar elementos a la izquierda
+
+        layout.addLayout(interval_row)
+
+        # Projects colors list
+        colors_label = QtWidgets.QLabel("Project colors")
+        layout.addWidget(colors_label)
+
+        self.settings_rows = []
+        self.settings_list_container = QtWidgets.QWidget()
+        self.settings_list_layout = QtWidgets.QVBoxLayout(self.settings_list_container)
+        self.settings_list_layout.setContentsMargins(0, 0, 0, 0)
+        self.settings_list_layout.setSpacing(4)  # Reducir espacios entre filas de colores
+        layout.addWidget(self.settings_list_container)
+
+        for name, color in sorted(PROJECT_COLORS.items()):
+            self._add_settings_row(name, color)
+
+        add_button = QtWidgets.QPushButton("+ Add project")
+        add_button.setFixedWidth(100)  # Ancho más pequeño para el botón
+        add_button.clicked.connect(lambda: self._add_settings_row("", "#cccccc"))
+        layout.addWidget(add_button)
+
+        # Save / Cancel buttons - alineados con los botones X de las filas
+        # El layout padre ya tiene 10px de margen izquierdo, así que ajustamos
+        # ancho real necesario: 140 + 4 + 40 + 4 + 30 - 10 = 208px
+        buttons_container = QtWidgets.QHBoxLayout()
+        buttons_container.setContentsMargins(60, 0, 0, 0)  # Probar con margen más pequeño para verificar que funciona
+        buttons_container.setSpacing(4)
+
+        cancel_btn = QtWidgets.QPushButton("Cancel")
+        save_btn = QtWidgets.QPushButton("Save")
+        cancel_btn.clicked.connect(self._on_settings_cancel)
+        save_btn.clicked.connect(self._on_settings_save)
+
+        buttons_container.addWidget(cancel_btn)
+        buttons_container.addWidget(save_btn)
+        buttons_container.addStretch(1)  # Empujar botones a la izquierda dentro del margen
+
+        layout.addLayout(buttons_container)
+
+        # AÑADIR STRETCH AL FINAL PARA EVITAR ESPACIOS FLEX ENTRE ELEMENTOS
+        layout.addStretch(1)
+
+        # Insert settings widget into stack
+        if self.content_stack:
+            self.content_stack.addWidget(self.settings_widget)
+
+    def _add_settings_row(self, name, color):
+        row_widget = QtWidgets.QWidget()
+        row_layout = QtWidgets.QHBoxLayout(row_widget)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(4)  # Reducir espacios entre elementos de cada fila
+
+        name_edit = QtWidgets.QLineEdit(name)
+        name_edit.setPlaceholderText("Project name (e.g. BRDA)")
+        name_edit.setFixedWidth(140)
+
+        color_btn = QtWidgets.QPushButton()
+        color_btn.setFixedSize(40, 24)
+        color_btn.setStyleSheet(f"background: {color}; border: 1px solid #444;")
+
+        def pick_color():
+            dlg = QtWidgets.QColorDialog(QtGui.QColor(color_btn.palette().button().color()))
+            dlg.setOption(QtWidgets.QColorDialog.ShowAlphaChannel, False)
+            if dlg.exec_():
+                chosen = dlg.selectedColor().name()
+                color_btn.setStyleSheet(f"background: {chosen}; border: 1px solid #444;")
+
+        color_btn.clicked.connect(pick_color)
+
+        delete_btn = QtWidgets.QPushButton("✕")
+        delete_btn.setFixedWidth(30)
+
+        def delete_row():
+            self.settings_list_layout.removeWidget(row_widget)
+            row_widget.deleteLater()
+            self.settings_rows[:] = [r for r in self.settings_rows if r["widget"] != row_widget]
+
+        delete_btn.clicked.connect(delete_row)
+
+        row_layout.addWidget(name_edit)
+        row_layout.addWidget(color_btn)
+        row_layout.addWidget(delete_btn)
+        row_layout.addStretch(1)
+
+        self.settings_list_layout.addWidget(row_widget)
+        self.settings_rows.append({"widget": row_widget, "name": name_edit, "color_btn": color_btn})
+
+    def _on_settings_cancel(self):
+        self.show_projects_view()
+
+    def _on_settings_save(self):
+        interval_key = self.settings_timer_dropdown.currentData()
+        self._save_auto_refresh_interval(interval_key)
+
+        # Leer colores
+        new_colors = {}
+        for row in self.settings_rows:
+            name = row["name"].text().strip().upper()
+            if not name:
+                continue
+            color = row["color_btn"].palette().button().color().name()
+            new_colors[name] = color
+
+        self._save_colors_to_ini(new_colors)
+        load_project_colors()
+        self._apply_auto_refresh_interval(interval_key)
+        self.show_projects_view()
+        self.start_scan()
+
+    # --- Auto refresh helpers ---
+    def _load_auto_refresh_interval(self):
+        ini_path = Path(__file__).parent / "LGA_NKS_Projects_Panel.ini"
+        if not ini_path.exists():
+            return "never"
+        config = configparser.ConfigParser()
+        config.read(ini_path, encoding="utf-8")
+        return config.get("General", "AutoRefreshInterval", fallback="never")
+
+    def _save_auto_refresh_interval(self, key):
+        ini_path = Path(__file__).parent / "LGA_NKS_Projects_Panel.ini"
+        config = configparser.ConfigParser()
+        if ini_path.exists():
+            config.read(ini_path, encoding="utf-8")
+        if "General" not in config:
+            config["General"] = {}
+        config["General"]["AutoRefreshInterval"] = key
+        with open(ini_path, "w", encoding="utf-8") as f:
+            config.write(f)
+
+    def _apply_auto_refresh_interval(self, key):
+        minutes = AUTO_REFRESH_OPTIONS.get(key, 0)
+        if minutes <= 0:
+            self.auto_refresh_timer.stop()
+            return
+        self.auto_refresh_timer.start(minutes * 60 * 1000)
+
+    def _restart_auto_refresh_timer(self):
+        if self.auto_refresh_timer.isActive():
+            self.auto_refresh_timer.start(self.auto_refresh_timer.interval())
+
+    def _on_auto_refresh_timeout(self):
+        if self.refresh_button.isEnabled():
+            self.start_scan()
+
+    def _save_colors_to_ini(self, colors_dict):
+        ini_path = Path(__file__).parent / "LGA_NKS_Projects_Panel.ini"
+        config = configparser.ConfigParser()
+        if ini_path.exists():
+            config.read(ini_path, encoding="utf-8")
+        if "Colors" not in config:
+            config["Colors"] = {}
+        config["Colors"].clear()
+        for name, color in colors_dict.items():
+            config["Colors"][name] = color
+        with open(ini_path, "w", encoding="utf-8") as f:
+            config.write(f)
 
 
 # Crear la instancia del widget y añadirlo al gestor de ventanas de Hiero

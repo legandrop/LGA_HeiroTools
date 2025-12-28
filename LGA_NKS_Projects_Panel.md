@@ -16,6 +16,7 @@
 - `LGA_Projects_Panel/LGA_Projects_Panel_ScanProjects.py` — `scan_projects_on_disk()`, `get_open_projects_info()`, `is_project_open()`, `get_project_sequences()`, `get_projects_with_newer_versions()`.
 - `LGA_Projects_Panel/LGA_Projects_Panel_SwitchSequence.py` — `switch_to_sequence_hybrid()` (V3 híbrida: preserva gain/gamma/saturation/playhead, optimiza UI y funciona cross-project).
 - `LGA_Projects_Panel/LGA_NKS_Projects_Panel_Smart_Reload.py` — `main()` recarga y redockea el panel (botón ♻).
+- `LGA_NKS_Projects_Panel.ini` — Configuración (colores por proyecto y auto-refresh interval para re-escaneos periódicos).
 - Qt adapter: `LGA_QtAdapter_HieroTools.py` (imports obligatorios). Doc ampliada en `Docu_LGA_QtAdapter.md`.
 
 ## Flujo y funcionalidades
@@ -28,9 +29,13 @@
 
 ## UI del panel
 - Título centrado "Panel de Proyectos LGA".
-- Toolbar: `🔄 Refresh`, estado, stretch y `♻ Reimport` a la derecha.
+- Toolbar derecha: `🔄 Refresh`, `⚙ Settings`, estado, `♻ Reimport` (opcional).
 - Lista con scroll: proyectos (▶ cerrados, ▼ abiertos). **Botón 🔼 update** al lado de proyectos abiertos con versión más nueva.
 - Etiqueta inferior con resumen de conteos.
+- Vista de Settings (sustituye la lista al pulsar ⚙):
+  - Dropdown `Auto-refresh interval`: never / 5min / 10min / 15min / 30min / 1h / 2h (lanza el mismo escaneo que el botón Refresh).
+  - Lista editable de proyectos desde el `.ini`: nombre y botón de color (selector HSV). Botón ✕ para eliminar, y `+ Add project` para añadir.
+  - Botones `Cancel` y `Save`: vuelven a la vista principal; `Save` escribe en `.ini`, recarga colores y relanza el escaneo.
 
 ## Compatibilidad Qt (Nuke 15/16)
 Usar siempre el adapter:
