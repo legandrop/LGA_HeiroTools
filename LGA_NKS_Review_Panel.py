@@ -1,9 +1,11 @@
 """
 _________________________________________
 
-  LGA_ReviewPanel v2.76 | Lega
+  LGA_ReviewPanel v2.77 | Lega
   Tools panel for Hiero / Nuke Studio
-
+  
+  v2.77: Sin botón Check Project Versions
+         
   v2.76: Actualizado para usar estilos dinámicos con bordes y hover para todos los botones
          Agregado tooltip dinámico para todos los botones
          Optimizado espaciado del layout y dimensiones de botones para mejor UX
@@ -103,13 +105,6 @@ class ReviewPanel(QtWidgets.QWidget):
                 "Shift+R\nAbre la carpeta que contiene al script de Nuke asociado al clip seleccionado",
             ),
             ("OpenInNuke&X", self.execute_OpenInNukeX, "#493800", "Shift+X", "Shift+X\nAbre en Nuke el script asociado al clip seleccionado"),
-            (
-                "Check Project Versions",
-                self.execute_CheckProjectVersions,
-                "#3a202e",
-                None,
-                "Chequea en el disco si hay versiones mayores de los proyectos abiertos en Nuke Studio",
-            ),
         ]
 
         self.num_columns = 1  # Inicialmente una columna
@@ -118,10 +113,6 @@ class ReviewPanel(QtWidgets.QWidget):
         # Conectar la senal de cambio de tamano del widget al metodo correspondiente
         self.adjust_columns_on_resize()
         self.resizeEvent = self.adjust_columns_on_resize
-
-        # Ejecutar el script de verificación de versiones de proyectos al iniciar el panel
-        # Con un pequeño retraso para asegurar que Hiero haya cargado completamente
-        QtCore.QTimer.singleShot(7000, self.execute_CheckProjectVersions)
 
     def create_buttons(self):
         for index, button_info in enumerate(self.buttons):
@@ -313,9 +304,6 @@ class ReviewPanel(QtWidgets.QWidget):
 
     def execute_DisableEXR(self):
         self.execute_external_script("LGA_NKS_Clip_DisableEXR.py")
-
-    def execute_CheckProjectVersions(self):
-        self.execute_external_script("LGA_NKS_CheckProjectVersions.py")
 
 
 # Crear la instancia del widget y anadirlo al gestor de ventanas de Hiero
