@@ -3,7 +3,13 @@
 Widget personalizado para mostrar proyectos y secuencias en el panel de proyectos LGA.
 """
 
-from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
+# Forzar recarga del módulo para evitar problemas de cache en Nuke
+import sys
+if 'LGA_NKS_ProjectItem' in sys.modules:
+    import importlib
+    importlib.reload(sys.modules['LGA_NKS_ProjectItem'])
+
+from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt, horizontal_advance
 
 # Importar funciones necesarias del módulo principal
 # Estas serán importadas desde el archivo principal cuando se importe este módulo
@@ -150,12 +156,12 @@ class ProjectItem(QtWidgets.QWidget):
         # Forzar actualización del tamaño del label para asegurar que muestre todo el texto
         self.project_label.adjustSize()
 
-        # Calcular el tamaño necesario para el texto completo
+        # Calcular el tamaño necesario para el texto usando la función compatible del adapter
         font_metrics = self.project_label.fontMetrics()
-        text_width = font_metrics.width(display_text)
+        text_width = horizontal_advance(font_metrics, display_text)
         text_height = font_metrics.height()
 
-        # Establecer tamaño mínimo basado en el texto (más conservador)
+        # Establecer tamaño mínimo basado en el texto
         min_width = text_width + 20  # +20 para padding
         self.project_label.setMinimumWidth(min_width)
 

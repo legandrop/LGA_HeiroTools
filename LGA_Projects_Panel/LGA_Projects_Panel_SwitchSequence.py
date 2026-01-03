@@ -31,13 +31,7 @@ def debug_print(*message):
         print(*message)
 
 # Qt import (según entorno)
-try:
-    from PySide2 import QtCore
-except Exception:
-    try:
-        from PySide6 import QtCore
-    except Exception:
-        QtCore = None
+from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
 
 
 def _process_events():
