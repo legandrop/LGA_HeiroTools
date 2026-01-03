@@ -303,7 +303,8 @@ class ProjectsPanel(QtWidgets.QWidget):
         interval_key = self._load_auto_refresh_interval()
         self._apply_auto_refresh_interval(interval_key)
 
-        self.start_scan()
+        # Delay antes de iniciar escaneo para que Qt esté completamente inicializado
+        QtCore.QTimer.singleShot(500, self.start_scan)  # 500ms delay
 
     def setup_ui(self):
         # Layout principal horizontal para dividir en dos columnas

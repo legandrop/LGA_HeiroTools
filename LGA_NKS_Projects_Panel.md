@@ -21,6 +21,7 @@
 
 ## Flujo y funcionalidades
 - Escaneo automático al abrir y en cada Refresh (QRunnable + QThreadPool, no bloquea UI). Mensajes: "Escaneando… / Listo / Error".
+- **Nuke 16: Delay de inicialización** - Se usa `QTimer.singleShot(500ms)` para esperar que Qt esté completamente inicializado antes de ejecutar threads.
 - Proyectos: se listan alfabéticamente con versión más alta. Click abre con `hiero.core.openProject()`.
 - **Update automático**: proyectos abiertos muestran botón 🔼 cuando existe versión más nueva en disco. Click actualiza automáticamente.
 - Secuencias: solo de proyectos abiertos. Click llama `switch_to_sequence_hybrid()` y usa `hiero.ui.openInTimeline()` con el objeto `Sequence` (cambio de proyecto automático si aplica).
@@ -43,3 +44,7 @@ Usar siempre el adapter:
 from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
 ```
 No importar PySide2/PySide6 directamente. Helpers disponibles: `horizontal_advance`, `primary_screen_geometry`, `set_layout_margin`.
+
+**Consideraciones específicas de Nuke 16:**
+- Threading requiere delay de inicialización: `QTimer.singleShot(500ms)` antes de usar `QThreadPool`
+- `QFontMetrics.width()` → usar `horizontal_advance()` del adapter

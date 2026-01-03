@@ -189,6 +189,25 @@ Algunos scripts pueden usar APIs de fuente que cambiaron.
 
 **Solución implementada:** Cambiar todas las funciones para usar el context manager `with project.beginUndo("name"):`.
 
+### Problema resuelto: Threading initialization timing en Nuke 16
+**Problema identificado:** En Nuke 16 (PySide6), el `QThreadPool` global no está disponible inmediatamente al inicio, causando que los workers no se ejecuten.
+
+**Síntoma:** El panel funciona cuando se recarga con el botón, pero no al abrir Nuke por primera vez.
+
+**Causa:** El sistema de threading de Qt/PySide6 requiere inicialización completa antes de poder usar threads.
+
+**Solución implementada:** Agregar delay de inicialización usando `QTimer.singleShot()`:
+
+```python
+# En el constructor del panel, en lugar de:
+self.start_scan()
+
+# Usar:
+QtCore.QTimer.singleShot(500, self.start_scan)  # 500ms delay
+```
+
+**Resultado:** El threading funciona correctamente en Nuke 16 después de esperar a que Qt esté completamente inicializado.
+
 ## Estado actual
 - [x] `LGA_QtAdapter_HieroTools.py` creado con funciones helper avanzadas (`horizontal_advance`, `primary_screen_geometry`, `set_layout_margin`)
 - [x] Todos los paneles principales migrados (8/8)
