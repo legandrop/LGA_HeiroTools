@@ -49,7 +49,7 @@
 - [x] `LGA_NKS_Flow_Assign_Assignee.py` — Asignación de usuarios (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
 - [x] `LGA_NKS_Flow_Assignee.py` — Obtener asignados (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar, QRunnable, QThreadPool)
 - [x] `LGA_NKS_Flow_Clear_Assignees.py` — Limpiar asignados (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
-- [x] `LGA_NKS_Flow_Shot_info.py` — Información de shots (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
+- [x] `LGA_NKS_Flow_Shot_info.py` — Información de shots (migrado a LGA_QtAdapter_HieroTools - QShortcut fix)
 - [x] `LGA_NKS_Flow_ReviewPic.py` — Captura de review (migrado Qt)
 - [x] `LGA_NKS_Flow_NamingUtils.py` — Utilidades de naming (sin Qt)
 - [x] `LGA_NKS_Flow_CreateShot_Thumbs.py` — Creación de thumbnails (migrado Qt)
@@ -207,6 +207,22 @@ QtCore.QTimer.singleShot(500, self.start_scan)  # 500ms delay
 ```
 
 **Resultado:** El threading funciona correctamente en Nuke 16 después de esperar a que Qt esté completamente inicializado.
+
+### Problema resuelto: QShortcut movido entre módulos en PySide6
+**Problema identificado:** `QShortcut` se movió de `QtWidgets` a `QtGui` en PySide6.
+
+**Ejemplo con `LGA_NKS_Flow_Shot_info.py`:**
+- **❌ Código problemático:**
+  ```python
+  from PySide6.QtWidgets import QShortcut  # No existe en PySide6
+  ```
+- **✅ Código correcto:**
+  ```python
+  from LGA_QtAdapter_HieroTools import QtGui, QShortcut
+  # QShortcut ya está disponible desde el adapter
+  ```
+
+**Solución implementada:** Usar directamente las clases del adapter `LGA_QtAdapter_HieroTools` que maneja automáticamente estas diferencias.
 
 ## Estado actual
 - [x] `LGA_QtAdapter_HieroTools.py` creado con funciones helper avanzadas (`horizontal_advance`, `primary_screen_geometry`, `set_layout_margin`)

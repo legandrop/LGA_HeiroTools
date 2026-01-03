@@ -1,9 +1,12 @@
 """
 __________________________________________________________________
 
-  LGA_NKS_Flow_Shot_info v1.84 | Lega
+  LGA_NKS_Flow_Shot_info v1.85 | Lega
   Imprime informacion del shot y las versiones de la task comp
-  Actualizado para ser compatible con ambos sistemas de nomenclatura:
+  
+  v1.85: Actualizado para usar las clases del adapter para compatibilidad PySide2/6
+  
+  V1.84: Actualizado para ser compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 __________________________________________________________________
@@ -21,13 +24,24 @@ import subprocess
 import platform
 from pathlib import Path
 # Importar compatibilidad Qt para Hiero Panels
-from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
+from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, QShortcut, QApplication
 
-# Reasignar clases QtCore para compatibilidad
-QCoreApplication = QtWidgets.QApplication  # En PySide6, QCoreApplication está en QtCore, pero usamos QApplication
+# Usar directamente las clases del adapter (ya manejan compatibilidad PySide2/6)
+QCoreApplication = QApplication  # Para compatibilidad
 Qt = QtCore.Qt
 QSize = QtCore.QSize
 Signal = QtCore.Signal
+QFontMetrics = QtGui.QFontMetrics
+QKeySequence = QtGui.QKeySequence
+QPixmap = QtGui.QPixmap
+QCursor = QtGui.QCursor
+QWidget = QtWidgets.QWidget
+QVBoxLayout = QtWidgets.QVBoxLayout
+QHBoxLayout = QtWidgets.QHBoxLayout
+QTextEdit = QtWidgets.QTextEdit
+QScrollArea = QtWidgets.QScrollArea
+QLabel = QtWidgets.QLabel
+QFrame = QtWidgets.QFrame
 
 # Importar utilidades de naming
 sys.path.append(str(Path(__file__).parent))
@@ -48,22 +62,6 @@ if utils_path.exists():
         HAS_CLIP_UTILS = True
     except ImportError as e:
         debug_print(f"Error importando módulo LGA_NKS_GetClip: {e}")
-# Reasignar clases QtGui para compatibilidad
-QFontMetrics = QtGui.QFontMetrics
-QKeySequence = QtGui.QKeySequence
-QPixmap = QtGui.QPixmap
-QCursor = QtGui.QCursor
-
-# Reasignar clases QtWidgets para compatibilidad
-QWidget = QtWidgets.QWidget
-QVBoxLayout = QtWidgets.QVBoxLayout
-QHBoxLayout = QtWidgets.QHBoxLayout
-QTextEdit = QtWidgets.QTextEdit
-QApplication = QtWidgets.QApplication
-QShortcut = QtWidgets.QShortcut  # QShortcut está en QtWidgets en PySide2/6
-QScrollArea = QtWidgets.QScrollArea
-QLabel = QtWidgets.QLabel
-QFrame = QtWidgets.QFrame
 
 
 # Variable global para activar o desactivar los prints

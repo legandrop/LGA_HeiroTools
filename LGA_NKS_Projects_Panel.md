@@ -48,3 +48,4 @@ No importar PySide2/PySide6 directamente. Helpers disponibles: `horizontal_advan
 **Consideraciones específicas de Nuke 16:**
 - Threading requiere delay de inicialización: `QTimer.singleShot(500ms)` antes de usar `QThreadPool`
 - `QFontMetrics.width()` → usar `horizontal_advance()` del adapter
+- `QShortcut` se movió de `QtWidgets` a `QtGui` en PySide6
