@@ -138,7 +138,7 @@ XYPlorer_Tags = True
 
 # Variable global para activar o desactivar los prints // En esta version el Debug se imprime al final del script
 DEBUG = False
-DEBUG_RESUMEN = True
+DEBUG_RESUMEN = False
 debug_messages = []
 resumen_messages = []
 
@@ -671,7 +671,7 @@ class InputDialog(QDialog):
         self.layout.addWidget(self.ok_button)
 
         # Conectar Ctrl+Enter al metodo accept
-        shortcut = QShortcut(QKeySequence(Qt.CTRL + Qt.Key_Return), self)
+        shortcut = QShortcut(QKeySequence(Qt.CTRL | Qt.Key_Return), self)
         shortcut.activated.connect(self.accept)
 
         # Ajustar el tamaño del diálogo para que se ajuste a su contenido (ahora solo ajusta la altura)
@@ -2308,7 +2308,7 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
         layout.addWidget(ok_button)
 
         # Conectar Ctrl+Enter
-        shortcut = QShortcut(QKeySequence(Qt.CTRL + Qt.Key_Return), dialog)
+        shortcut = QShortcut(QKeySequence(Qt.CTRL | Qt.Key_Return), dialog)
         shortcut.activated.connect(dialog.accept)
 
         dialog.adjustSize()
