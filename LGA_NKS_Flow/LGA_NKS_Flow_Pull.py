@@ -1,16 +1,19 @@
 """
 ____________________________________________________________________________
-  LGA_NKS_Flow_Pull v3.31 | Lega
+  LGA_NKS_Flow_Pull v3.32 | Lega
   Compara los estados de las task Comp de los shots del timeline de Hiero
   con los estados registrados en un archivo JSON basado en Flow PT
   Tambien aplica tags con los colores de los estados en xyplorer
-  Actualizado para ser compatible con ambos sistemas de nomenclatura:
-  - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
-  - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 
+
+  v3.32: Debug_print ahora tambien escribe en un archivo de log para debug.
+         Arreglos para Hiero 16 (PySide6): omitir doScan problemático, reconexión automática de clips offline y reintento de cambio de color.
   v3.31: Se permite cambiar la versión de un clip offline incluso si no hay media presente.
   v3.30: Centralización del nombre del track usando TRACK_comp_EXR del módulo LGA_NKS_GetClip
   v3.29: Soporta versiones de 2 y 3 dígitos
+  v3.28: Actualizado para ser compatible con ambos sistemas de nomenclatura:
+         - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+         - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 ____________________________________________________________________________
 """
 
@@ -22,6 +25,7 @@ import re
 import sys
 import nuke
 import shotgun_api3
+import logging  # Agregar esta importación
 from pathlib import Path
 
 # Importar utilidades de naming
@@ -65,6 +69,47 @@ import sqlite3
 import threading
 
 
+# Configurar logging para escribir en tiempo real a un archivo
+def setup_debug_logging():
+    """Configura el logging para debug que escribe en tiempo real a un archivo."""
+    log_file_path = os.path.join(os.path.dirname(__file__), '..', 'logs', 'debugPy.log')
+
+    # Asegurar que el directorio de logs existe
+    os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+
+    # Limpiar el archivo de log al iniciar el script
+    if os.path.exists(log_file_path):
+        try:
+            with open(log_file_path, 'w', encoding='utf-8') as f:
+                f.write('')  # Limpiar el contenido del archivo
+        except Exception as e:
+            print(f"Warning: No se pudo limpiar el archivo de log: {e}")
+
+    # Configurar el logger
+    logger = logging.getLogger('debug_logger')
+    logger.setLevel(logging.DEBUG)
+
+    # Limpiar handlers existentes para evitar duplicados
+    if logger.handlers:
+        logger.handlers.clear()
+
+    # Crear handler para archivo con encoding UTF-8 y escritura inmediata
+    file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
+    file_handler.setLevel(logging.DEBUG)
+
+    # Formato simple sin timestamp extra (ya que debug_print no los incluye)
+    formatter = logging.Formatter('%(message)s')
+    file_handler.setFormatter(formatter)
+
+    logger.addHandler(file_handler)
+
+    return logger
+
+
+# Inicializar el logger de debug
+debug_logger = setup_debug_logging()
+
+
 # Incluir la funcion delete_tags_from_clip aqui
 def delete_tags_from_clip(clip):
     tags = clip.tags()
@@ -83,7 +128,10 @@ XYPlorer_Tags = True
 
 def debug_print(*message):
     if DEBUG:
-        print(message)
+        # Crear el mensaje uniendo todos los argumentos
+        msg = ' '.join(str(arg) for arg in message)
+        print(msg)  # Mantener el print original
+        debug_logger.info(msg)  # Agregar escritura al archivo de log
 
 
 def extract_version_number(version_str):
@@ -783,6 +831,9 @@ class HieroOperations:
                                     sg_status,
                                 )
                                 changes_made = True
+                                # Recordar si el clip estaba offline antes del cambio de versión
+                                was_offline_before_version_change = not clip.source().mediaSource().isMediaPresent()
+
                                 if sg_version_number > version_number:
                                     # comente esta linea para que no agregue tags amarillos
                                     # self.add_custom_tag_to_clip(clip, "Updated Version", sg_description, "icons:TagYellow.png", assignee)
@@ -797,6 +848,24 @@ class HieroOperations:
                                         new_version_number = int(new_version_str)
                                     else:
                                         new_version_number = version_number
+
+                                    # Si el clip estaba offline antes del cambio de versión, intentar cambiar el color nuevamente
+                                    if was_offline_before_version_change and highest_version:
+                                        debug_print(f"Clip estaba offline antes del cambio de versión, intentando cambiar color nuevamente: {clip.name()}")
+                                        # Reintentar cambio de color ahora que el clip debería estar online
+                                        retry_color_change = self.change_clip_color(
+                                            clip,
+                                            new_color_hex,
+                                            task_status_name,
+                                            task_name,
+                                            shot_code,
+                                        )
+                                        if retry_color_change:
+                                            debug_print(f"Color cambiado exitosamente después del cambio de versión: {clip.name()}")
+                                            change = retry_color_change  # Actualizar el mensaje de cambio
+                                        else:
+                                            debug_print(f"No se pudo cambiar color incluso después del cambio de versión: {clip.name()}")
+
                                     # Volver a comparar con la version de SG
                                     if sg_version_number > new_version_number:
                                         self.add_custom_tag_to_clip(
@@ -854,28 +923,89 @@ class HieroOperations:
             if not clip.source().mediaSource().isMediaPresent():
                 debug_print(f"Clip offline, intentando igual cambiar version: {clip.name()}")
 
+            debug_print(f"Obteniendo binItem para clip: {clip.name()}")
             binItem = clip.source().binItem()
             if not binItem:
                 debug_print(f"No se puede obtener binItem para el clip: {clip.name()}")
                 return None
+            debug_print(f"binItem obtenido exitosamente: {binItem.name()}")
 
+            debug_print(f"Obteniendo version activa para clip: {clip.name()}")
             activeVersion = binItem.activeVersion()
             if not activeVersion:
                 debug_print(f"No hay version activa para el clip: {clip.name()}")
                 return None
+            debug_print(f"Version activa obtenida: {activeVersion.name()}")
 
-            debug_print(f"Version activa actual: {activeVersion.name()}")
+            debug_print(f"Creando VersionScanner para clip: {clip.name()}")
             vc = hiero.core.VersionScanner()
-            vc.doScan(activeVersion)
+            debug_print(f"VersionScanner creado, ejecutando doScan...")
+
+            # En Hiero 16 (PySide6), doScan puede colgarse, intentar con timeout
+            try:
+                if hasattr(hiero.core, 'applicationVersion'):
+                    version = hiero.core.applicationVersion()
+                    if version and version.startswith('16'):
+                        debug_print(f"Hiero 16 detectado, omitiendo doScan problemático y usando items() directamente")
+                        # En Hiero 16, evitar doScan que se cuelga y usar items() directamente
+                        # El binItem ya debería tener las versiones cargadas
+                        debug_print(f"Saltando doScan en Hiero 16, usando items() directamente")
+                    else:
+                        # Hiero 15 y anteriores: doScan normal
+                        vc.doScan(activeVersion)
+                        debug_print(f"doScan completado para clip: {clip.name()}")
+                else:
+                    # Fallback: intentar doScan pero con manejo de timeout simple
+                    try:
+                        vc.doScan(activeVersion)
+                        debug_print(f"doScan completado para clip: {clip.name()}")
+                    except Exception as do_scan_error:
+                        debug_print(f"doScan falló, continuando sin scan: {do_scan_error}")
+            except Exception as version_check_error:
+                debug_print(f"Error en version check, intentando doScan: {version_check_error}")
+                try:
+                    vc.doScan(activeVersion)
+                    debug_print(f"doScan completado para clip: {clip.name()}")
+                except Exception as do_scan_error:
+                    debug_print(f"doScan falló, continuando sin scan: {do_scan_error}")
+
+            debug_print(f"Obteniendo version mas alta para binItem: {binItem.name()}")
             highest_version = self.get_highest_version(binItem)
             if highest_version:
-                debug_print(f"Cambiando a la version: {highest_version.name()}")
+                debug_print(f"Version mas alta encontrada: {highest_version.name()}")
+                debug_print(f"Ejecutando setActiveVersion para clip: {clip.name()}")
                 binItem.setActiveVersion(highest_version)
+                debug_print(f"setActiveVersion completado exitosamente para clip: {clip.name()}")
+
+                # Si el clip estaba offline, intentar ponerlo online después del cambio de versión
+                was_offline = not clip.source().mediaSource().isMediaPresent()
+                if was_offline:
+                    debug_print(f"Clip estaba offline, intentando reconectar media después del cambio de versión")
+                    try:
+                        # Intentar reconnectMedia primero (más específico para clips offline)
+                        clip.source().reconnectMedia()
+                        debug_print(f"reconnectMedia ejecutado para clip: {clip.name()}")
+                    except Exception as reconnect_error:
+                        debug_print(f"Error en reconnectMedia, intentando refresh: {reconnect_error}")
+                        try:
+                            # Fallback: usar refresh
+                            clip.source().mediaSource().refresh()
+                            debug_print(f"Media refresh ejecutado como fallback para clip: {clip.name()}")
+                        except Exception as refresh_error:
+                            debug_print(f"Error en media refresh fallback: {refresh_error}")
+
+                    # Verificar si ahora está online
+                    if clip.source().mediaSource().isMediaPresent():
+                        debug_print(f"Clip ahora está online después del cambio de versión: {clip.name()}")
+                    else:
+                        debug_print(f"Clip sigue offline después del cambio de versión: {clip.name()}")
             else:
                 debug_print("No se pudo determinar la version mas alta")
             return highest_version
         except Exception as e:
             debug_print(f"Error cambiando version del clip {clip.name()}: {e}")
+            import traceback
+            debug_print(f"Traceback completo: {traceback.format_exc()}")
             return None
 
     def enable_or_disable_clips(self, selected_clips):
@@ -1045,7 +1175,27 @@ def tag_shot_folder(shot_base_path, tag):
             daemon=True  # Thread daemon para que termine cuando termine el programa principal
         )
         xyplorer_thread.start()
-        debug_print("XYplorer tagging thread started successfully")
+        # En PySide6 (Hiero 16), esperar a que termine el thread para evitar conflictos
+        # con operaciones posteriores como cambio de versión
+        try:
+            import hiero
+            if hasattr(hiero, 'core') and hasattr(hiero.core, 'applicationVersion'):
+                version = hiero.core.applicationVersion()
+                # Si es Hiero 16 o superior (PySide6), esperar al thread
+                if version and version.startswith('16'):
+                    debug_print(f"Hiero 16 detectado, esperando a que termine el tagging XYplorer")
+                    xyplorer_thread.join(timeout=5.0)  # Esperar máximo 5 segundos
+                    if xyplorer_thread.is_alive():
+                        debug_print(f"Timeout esperando al thread XYplorer")
+                    else:
+                        debug_print(f"Thread XYplorer terminado exitosamente")
+                else:
+                    debug_print("XYplorer tagging thread started successfully")
+            else:
+                debug_print("XYplorer tagging thread started successfully")
+        except Exception as version_check_error:
+            debug_print(f"Error checking Hiero version for thread handling: {version_check_error}")
+            debug_print("XYplorer tagging thread started successfully")
     except Exception as e:
         debug_print(f"Error starting XYplorer tagging thread: {e}")
 

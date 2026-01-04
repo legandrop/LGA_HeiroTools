@@ -40,7 +40,7 @@ from LGA_NKS_StyleUtils import (
 
 
 # Variable global para activar o desactivar los prints
-DEBUG = True
+DEBUG = False
 
 
 def debug_print(*message):

@@ -26,7 +26,7 @@ try:
     from LGA_NKS_Projects_Panel import DEBUG, debug_messages
 except ImportError:
     # Fallback si no se puede importar
-    DEBUG = True
+    DEBUG = False
     debug_messages = []
 
 def debug_print(*message):

@@ -14,7 +14,7 @@ import os
 from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 
 # Variable global para activar o desactivar los prints
-DEBUG = True
+DEBUG = False
 
 def debug_print(*message):
     if DEBUG:

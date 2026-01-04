@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Utils"))
 from LGA_NKS_StyleUtils import calculate_dynamic_border, calculate_dynamic_hover
 
 # Variable global para activar o desactivar los prints
-DEBUG = True
+DEBUG = False
 
 # Lista global para almacenar mensajes de debug en hilos separados
 debug_messages = []

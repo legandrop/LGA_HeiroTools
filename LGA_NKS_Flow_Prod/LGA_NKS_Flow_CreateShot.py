@@ -118,7 +118,7 @@ sys.path.insert(0, str(folders_path))
 from LGA_NKS_Flow_CreateShot_Folders import create_folders_for_shot_tasks
 
 
-DEBUG = True
+DEBUG = False
 debug_messages = []
 
 # Sincronizar debug con el módulo centralizado de clips (después de definir DEBUG)

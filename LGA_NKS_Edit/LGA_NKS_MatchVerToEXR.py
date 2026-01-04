@@ -22,7 +22,7 @@ from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 import sys
 
 # Variable global para activar o desactivar los prints
-DEBUG = True
+DEBUG = False
 
 # Importar utilidades para naming (compatibilidad con ambos formatos)
 naming_utils_path = Path(__file__).parent.parent / "LGA_NKS_Flow"

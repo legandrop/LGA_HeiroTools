@@ -23,7 +23,7 @@ from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 import sys
 
 # Variable global para activar o desactivar los prints
-DEBUG = True
+DEBUG = False
 
 # Flag para controlar si se analiza y muestra TC IN en la comparacion
 AnalizeTC = True

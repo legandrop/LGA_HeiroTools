@@ -11,7 +11,7 @@ import hiero.ui
 from LGA_QtAdapter_HieroTools import QtWidgets
 
 # Variable global para activar o desactivar los prints de depuración
-DEBUG = True
+DEBUG = False
 
 def debug_print(*message):
     if DEBUG:

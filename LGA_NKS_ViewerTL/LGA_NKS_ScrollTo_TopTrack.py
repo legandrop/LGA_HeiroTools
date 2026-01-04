@@ -2,7 +2,7 @@ import hiero
 import time
 from LGA_QtAdapter_HieroTools import QtWidgets, QtCore
 
-DEBUG = True
+DEBUG = False
 
 def debug_print(*message):
     if DEBUG:

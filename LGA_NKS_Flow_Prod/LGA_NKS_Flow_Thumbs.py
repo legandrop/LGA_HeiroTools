@@ -32,7 +32,7 @@ from LGA_NKS_Flow_NamingUtils import (
     clean_base_name,
 )
 
-DEBUG = True
+DEBUG = False
 
 
 def debug_print(*message):

@@ -17,7 +17,7 @@ import os
 from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 
 # Variable global para activar o desactivar los prints
-DEBUG = True
+DEBUG = False
 
 # Variable global para compartir estado entre funciones
 _initial_docked_state = False

@@ -11,7 +11,7 @@ ______________________________________________________________________
 
 """
 
-DEBUG = True
+DEBUG = False
 
 def debug_print(*message):
     if DEBUG:

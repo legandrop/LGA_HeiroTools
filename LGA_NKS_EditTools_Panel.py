@@ -37,7 +37,7 @@ import importlib.machinery
 from pathlib import Path
 
 # Variable global para activar o desactivar los prints
-DEBUG = True
+DEBUG = False
 DEBUG_BASIC = True
 
 

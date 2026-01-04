@@ -317,7 +317,7 @@ Prioriza clips del track objetivo, pero incluye shots de otros tracks si no hay 
 
 **`DEBUG = False`**
 - Controla mensajes de debug
-- Modificar: `import LGA_NKS_GetClip as clip_utils; clip_utils.DEBUG = True`
+- Modificar: `import LGA_NKS_GetClip as clip_utils; clip_utils.DEBUG = False`
 
 ### Cómo Usar en Nuevos Scripts
 
