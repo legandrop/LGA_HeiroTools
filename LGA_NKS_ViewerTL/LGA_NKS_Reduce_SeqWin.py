@@ -28,11 +28,12 @@ def imprimir_tamanos(splitter, mensaje):
     debug_print(f"Panel izquierdo: {sizes[0]} píxeles")
     debug_print(f"Panel derecho: {sizes[1]} píxeles")
 
-def main():
-    timeline_editor = hiero.ui.getTimelineEditor(hiero.ui.activeSequence())
-    if not timeline_editor:
-        debug_print("No se pudo obtener el editor de línea de tiempo activo.")
-        return
+def main(timeline_editor=None):
+    if timeline_editor is None:
+        timeline_editor = hiero.ui.getTimelineEditor(hiero.ui.activeSequence())
+        if not timeline_editor:
+            debug_print("No se pudo obtener el editor de línea de tiempo activo.")
+            return
 
     window = timeline_editor.window()
     main_splitter = window.findChild(QtWidgets.QSplitter)

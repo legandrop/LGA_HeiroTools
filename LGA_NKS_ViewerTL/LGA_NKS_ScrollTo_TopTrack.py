@@ -2,17 +2,20 @@ import hiero
 import time
 from LGA_QtAdapter_HieroTools import QtWidgets, QtCore
 
-DEBUG = False
+DEBUG = True
 
 def debug_print(*message):
     if DEBUG:
         print(*message)
 
 
-def obtener_scrollbar_robusto():
+def obtener_scrollbar_robusto(timeline_editor=None):
     """Método robusto para encontrar el scrollbar del timeline (compatible con Nuke 16)"""
     try:
-        t = hiero.ui.getTimelineEditor(hiero.ui.activeSequence())
+        if timeline_editor is None:
+            t = hiero.ui.getTimelineEditor(hiero.ui.activeSequence())
+        else:
+            t = timeline_editor
         if not t:
             return None
 
@@ -49,9 +52,12 @@ def obtener_scrollbar_robusto():
         return None
 
 
-def obtener_limites_scrollbar():
+def obtener_limites_scrollbar(timeline_editor=None):
     try:
-        t = hiero.ui.getTimelineEditor(hiero.ui.activeSequence())
+        if timeline_editor is None:
+            t = hiero.ui.getTimelineEditor(hiero.ui.activeSequence())
+        else:
+            t = timeline_editor
 
         # Primero intentar método original (Nuke 15)
         scrollbar = None
@@ -76,7 +82,7 @@ def obtener_limites_scrollbar():
             debug_print("Scrollbar sospechoso encontrado (valores positivos), intentando método alternativo")
 
             # Intentar método robusto si el original dio valores sospechosos
-            scrollbar_alt = obtener_scrollbar_robusto()
+            scrollbar_alt = obtener_scrollbar_robusto(t)
             if scrollbar_alt and scrollbar_alt != scrollbar:
                 alt_min = scrollbar_alt.minimum()
                 alt_max = scrollbar_alt.maximum()
@@ -108,10 +114,10 @@ def scroll_to_position(scrollbar, position):
         debug_print(f"Ocurrio un error al mover el scrollbar: {e}")
 
 
-def main():
+def main(timeline_editor=None):
     # Obtener los limites y el scrollbar
     tiempo_inicio = time.time()
-    limite_inferior, limite_superior, scrollbar = obtener_limites_scrollbar()
+    limite_inferior, limite_superior, scrollbar = obtener_limites_scrollbar(timeline_editor)
     tiempo_total = time.time() - tiempo_inicio
 
     if limite_inferior is not None and limite_superior is not None:

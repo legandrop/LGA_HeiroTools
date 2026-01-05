@@ -213,16 +213,38 @@ class VersionManager:
         active_version = binItem.activeVersion()
 
         if active_version:
-            debug_print(f"Ejecutando doScan DIRECTAMENTE (sin threading) en version activa: {active_version.name()}")
+            debug_print(f"Ejecutando doScan con SIGNAL-BASED TIMEOUT (sin threading) en version activa: {active_version.name()}")
 
-            # Probar doScan directamente sin threading para descartar problemas de threading
+            # Probar signal-based timeout (sin threading)
+            import signal
+
+            def timeout_handler(signum, frame):
+                raise TimeoutError("doScan timeout (signal-based)")
+
+            # Configurar signal handler
+            old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+
             try:
+                # Setear alarm de 5 segundos
+                signal.alarm(5)
+                debug_print(f"Signal alarm seteado a 5 segundos")
+
+                # Ejecutar doScan
                 vc.doScan(active_version)
-                debug_print(f"doScan completado exitosamente (sin threading)")
+
+                # Si llega aquí, doScan terminó exitosamente
+                signal.alarm(0)  # Cancelar alarm
+                debug_print(f"doScan completado exitosamente dentro del timeout")
+
+            except TimeoutError:
+                debug_print(f"doScan TIMEOUT: se cuelga después de 5 segundos (signal-based)")
+                # Continuar con versiones disponibles (incompletas)
             except Exception as e:
-                debug_print(f"doScan falló con error (sin threading): {e}")
-                # Si falla, continuamos con versiones disponibles (pueden ser incompletas)
-                debug_print(f"Continuando con versiones disponibles después del error de doScan")
+                debug_print(f"doScan falló con error: {e}")
+                signal.alarm(0)  # Cancelar alarm si hay error
+            finally:
+                # Restaurar handler original
+                signal.signal(signal.SIGALRM, old_handler)
 
         # Obtener versiones disponibles (pueden ser incompletas si doScan falló)
         versions = binItem.items()

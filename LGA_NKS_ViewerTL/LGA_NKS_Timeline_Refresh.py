@@ -15,7 +15,7 @@ __________________________________________________________
 import hiero.core
 import hiero.ui
 
-DEBUG = False
+DEBUG = True
 
 def debug_print(*message):
     if DEBUG:
@@ -81,49 +81,98 @@ def restore_viewer_state(viewer, state):
     except Exception as e:
         debug_print(f"Error al restaurar el estado del viewer: {e}")
 
+def get_new_viewer_after_open(old_viewer_object_name):
+    """
+    Obtiene el viewer nuevo después de openInTimeline().
+    Confirmado: currentViewer() después de openInTimeline() devuelve el viewer nuevo.
+    """
+    try:
+        new_viewer = hiero.ui.currentViewer()
+        if new_viewer:
+            # Verificar que sea diferente al viejo comparando objectName()
+            window = new_viewer.window()
+            if window and hasattr(window, 'objectName'):
+                obj_name = window.objectName()
+                if obj_name and obj_name.startswith('uk.co.thefoundry.sequenceviewer'):
+                    if obj_name != old_viewer_object_name:
+                        debug_print(f"✓ Viewer nuevo encontrado con objectName: {obj_name}")
+                        return new_viewer
+                    else:
+                        debug_print(f"⚠️ currentViewer() devolvió viewer viejo (objectName: {obj_name})")
+        return new_viewer  # Devolver aunque no podamos verificar (mejor que None)
+    except Exception as e:
+        debug_print(f"Error obteniendo viewer nuevo: {e}")
+        import traceback
+        debug_print(traceback.format_exc())
+    return None
+
 def main():
     """
-    Cierra el viewer activo y reabre la misma secuencia en un nuevo timeline viewer.
+    Reabre la misma secuencia en un nuevo timeline viewer y retorna los objetos nuevos.
     """
     # Obtener el viewer activo
     active_viewer = hiero.ui.currentViewer()
     if not active_viewer:
         debug_print("No se encontró un viewer activo")
-        return
+        return None, None
 
     debug_print("\n1. Capturando estado del viewer activo...")
     # Guardar el estado del viewer
     viewer_state = get_viewer_state(active_viewer)
     if not viewer_state:
         debug_print("No se pudo capturar el estado del viewer")
-        return
+        return None, None
 
     debug_print("\n2. Guardando información de la secuencia activa...")
     # Guardar la información de la secuencia activa
     active_sequence = active_viewer.player().sequence()
     if not active_sequence:
         debug_print("No se encontró una secuencia activa")
-        return
+        return None, None
 
+    # Guardar objectName() del viewer y timeline viejo
+    old_viewer_window = active_viewer.window()
+    old_viewer_object_name = old_viewer_window.objectName() if (old_viewer_window and hasattr(old_viewer_window, 'objectName')) else None
+    
+    old_timeline = hiero.ui.getTimelineEditor(active_sequence)
+    old_timeline_object_name = None
+    if old_timeline:
+        old_timeline_window = old_timeline.window()
+        old_timeline_object_name = old_timeline_window.objectName() if (old_timeline_window and hasattr(old_timeline_window, 'objectName')) else None
+    
+    debug_print(f"\nViewer viejo objectName: {old_viewer_object_name}")
+    debug_print(f"Timeline viejo objectName: {old_timeline_object_name}")
+
+    debug_print("Comentado: Cerrando viewer activo...")
+    """
     debug_print("\n3. Cerrando viewer activo...")
     # Cerrar el viewer activo
     viewer_window = active_viewer.window()
     if viewer_window:
         viewer_window.close()
+    """
 
     debug_print("\n4. Abriendo nueva secuencia...")
     # Abrir la secuencia en un nuevo timeline
     new_timeline = hiero.ui.openInTimeline(active_sequence)
-    if new_timeline:
-        debug_print("\n5. Obteniendo nuevo viewer...")
-        # Obtener el nuevo viewer y restaurar su estado
-        new_viewer = hiero.ui.currentViewer()
-        if new_viewer:
-            restore_viewer_state(new_viewer, viewer_state)
-        else:
-            debug_print("No se pudo obtener el nuevo viewer")
-    else:
+    if not new_timeline:
         debug_print("No se pudo abrir el nuevo timeline")
+        return None, None
+    
+    debug_print(f"\n5. Timeline nuevo obtenido (ID: {hex(id(new_timeline))})")
+    
+    # Obtener el viewer nuevo usando currentViewer() (confirmado que devuelve el nuevo después de openInTimeline)
+    debug_print("\n6. Obteniendo viewer nuevo...")
+    new_viewer = get_new_viewer_after_open(old_viewer_object_name)
+    
+    if new_viewer:
+        debug_print(f"Viewer nuevo obtenido (ID: {hex(id(new_viewer))})")
+        restore_viewer_state(new_viewer, viewer_state)
+    else:
+        debug_print("⚠️ No se pudo obtener el viewer nuevo")
+    
+    # Retornar los objetos nuevos Y la información del viewer viejo para que el wrapper pueda cerrarlo al final
+    return new_timeline, new_viewer, old_viewer_object_name, old_timeline_object_name
 
 if __name__ == "__main__":
     main()

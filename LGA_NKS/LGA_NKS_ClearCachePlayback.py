@@ -10,6 +10,11 @@ __________________________________________________________
 import hiero.core
 import hiero.ui
 
+DEBUG = True
+
+def debug_print(*message):
+    if DEBUG:
+        print(*message)
 
 def main():
     """
@@ -19,7 +24,7 @@ def main():
     viewer = hiero.ui.currentViewer()
     
     if viewer is None:
-        print("No se encontro un viewer activo.")
+        debug_print("No se encontro un viewer activo.")
         return
         
     try:
@@ -29,9 +34,9 @@ def main():
         # Limpiar el cache de todos los viewers y pausar el caching
         hiero.ui.flushAllViewersCache()
         
-        print("Cache de reproduccion limpiado exitosamente.")
+        debug_print("Cache de reproduccion limpiado exitosamente.")
     except Exception as e:
-        print(f"Error al limpiar el cache de reproduccion: {e}")
+        debug_print(f"Error al limpiar el cache de reproduccion: {e}")
 
 
 if __name__ == "__main__":
