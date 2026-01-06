@@ -137,6 +137,13 @@ class FlowProdPanel(QtWidgets.QWidget):
                 "Cambiar prioridad del shot (alta ↔ normal)",
             ),
             (
+                "Test Teoria 2",
+                self.test_teoria_2,
+                "#4a148c",
+                None,
+                "Ejecutar test de TEORÍA 2 para investigar APIs de Hiero 16",
+            ),
+            (
                 "FileManager",
                 self.open_shot_in_filemanager,
                 "gradient_magenta_violet",
@@ -571,6 +578,35 @@ class FlowProdPanel(QtWidgets.QWidget):
             module.main()
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
+
+    def test_teoria_2(self):
+        """Llama al script Test Teoria 2 para investigar APIs de Hiero 16"""
+        script_path = os.path.join(
+            os.path.dirname(__file__), "+Building_Blocks", "test_teoria_2.py"
+        )
+        if not os.path.exists(script_path):
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Script no encontrado",
+                f"No se encontró el script en la ruta: {script_path}",
+            )
+            return
+        try:
+            import importlib.util
+
+            spec = importlib.util.spec_from_file_location(
+                "test_teoria_2", script_path
+            )
+            if spec is None or spec.loader is None:
+                raise ImportError(
+                    "No se pudo cargar el módulo test_teoria_2.py"
+                )
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            # Llamar a la función main
+            module.main()
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error al ejecutar Test Teoria 2", str(e))
 
 
 # Crear la instancia del panel y agregarlo al windowManager de Hiero

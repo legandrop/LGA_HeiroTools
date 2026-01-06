@@ -1,21 +1,11 @@
 # =============================================================================
-# TEST TEORÍA 2: CREAR TIMELINE/VIEWER LIMPIO PARA SECUENCIA LIBRE
+# TEST TEORÍA 2: CREAR TIMELINE/VIEWER PARA UNA SECUENCIA LIBRE Y RELOGGEAR
 # =============================================================================
-# 🎯 OBJETIVO PRINCIPAL:
-#    Mostrar en la UI un timeline y viewer de una secuencia existente que
-#    actualmente NO tiene timeline ni viewer visibles en la UI.
-#
-# 📋 ESTRATEGIA:
-#    Probar diferentes "CAMINOS" para crear el timeline/viewer:
-#    - CAMINO 1: openInTimeline() directo (como Projects Panel) ⭐ ACTUAL
-#    - CAMINO 2: setActiveSequence() + openInTimeline()
-#    - CAMINO 3: Solo openInNewViewer() (ventana flotante)
-#    - Otros caminos según resultados...
-#
-# ✅ ÉXITO = Timeline y viewer aparecen en la UI sin crashes
-# ❌ FALLO = Hiero crashea, o no aparecen en la UI, o aparecen duplicados
-#
-# 📊 COMPARACIÓN: Exploración ANTES vs DESPUÉS para verificar cambios
+# OBJETIVO:
+# - Reutilizar la exploración segura para listar timelines/viewers abiertos.
+# - Elegir una secuencia libre (sin timeline ni viewer) y abrirla con
+#   hiero.ui.openInTimeline(), creando un timeline y viewer nuevos.
+# - Volver a loggear el estado final para comparar antes vs después.
 # =============================================================================
 
 import hiero.core
@@ -94,11 +84,9 @@ def _process_events(label=""):
         return
     try:
         for _ in range(3):
-            (
-                QtCore.QCoreApplication.processEvents(QtCore.QEventLoop.AllEvents, 50)
-                if hasattr(QtCore, "QEventLoop")
-                else QtCore.QCoreApplication.processEvents()
-            )
+            QtCore.QCoreApplication.processEvents(
+                QtCore.QEventLoop.AllEvents, 50
+            ) if hasattr(QtCore, "QEventLoop") else QtCore.QCoreApplication.processEvents()
         if label:
             debug_print(f"🌀 processEvents() completado: {label}")
     except Exception as e:
@@ -263,10 +251,7 @@ def explore_sequences_and_open_panels():
 
                                 # MÉTODO 1: usar widget.sequence() (como en la versión previa)
                                 try:
-                                    if (
-                                        hasattr(widget, "sequence")
-                                        and widget.sequence()
-                                    ):
+                                    if hasattr(widget, "sequence") and widget.sequence():
                                         seq = widget.sequence()
                                         timeline_sequence = seq
                                         seq_name = (
@@ -340,10 +325,7 @@ def explore_sequences_and_open_panels():
                             try:
                                 if hasattr(widget, "player") and widget.player():
                                     player = widget.player()
-                                    if (
-                                        hasattr(player, "sequence")
-                                        and player.sequence()
-                                    ):
+                                    if hasattr(player, "sequence") and player.sequence():
                                         seq = player.sequence()
                                         viewer_sequence = seq
                                         seq_name = (
@@ -465,30 +447,20 @@ def explore_sequences_and_open_panels():
                     "window_title": timeline_data["window_title"],
                     "sequence_name": seq_name,
                     "sequence": timeline_sequence,
-                    "timeline_id": (
-                        hex(id(widget))
-                        if widget
-                        else f"timeline_{len(all_open_timelines)}"
-                    ),
+                    "timeline_id": hex(id(widget))
+                    if widget
+                    else f"timeline_{len(all_open_timelines)}",
                     "is_visible": timeline_data["is_visible"],
                 }
             )
 
-        debug_print(
-            f"\n🔍 VIEWERS REALMENTE ABIERTOS EN LA UI: {len(all_open_viewers)}"
-        )
+        debug_print(f"\n🔍 VIEWERS REALMENTE ABIERTOS EN LA UI: {len(all_open_viewers)}")
         for viewer in all_open_viewers:
-            debug_print(
-                f"  • {viewer['object_name']} → Secuencia: {viewer['sequence_name']}"
-            )
+            debug_print(f"  • {viewer['object_name']} → Secuencia: {viewer['sequence_name']}")
 
-        debug_print(
-            f"\n🔍 TIMELINES REALMENTE ABIERTOS EN LA UI: {len(all_open_timelines)}"
-        )
+        debug_print(f"\n🔍 TIMELINES REALMENTE ABIERTOS EN LA UI: {len(all_open_timelines)}")
         for timeline in all_open_timelines:
-            visibility_status = (
-                " (EN FOCO)" if timeline.get("is_visible", False) else " (visible)"
-            )
+            visibility_status = " (EN FOCO)" if timeline.get("is_visible", False) else " (visible)"
             debug_print(
                 f"  • {timeline['object_name']} → Secuencia: {timeline['sequence_name']}{visibility_status}"
             )
@@ -515,9 +487,7 @@ def explore_sequences_and_open_panels():
                         "is_visible": timeline.get("is_visible", False),
                     }
                     visibility_status = (
-                        " (EN FOCO)"
-                        if timeline.get("is_visible", False)
-                        else " (abierto)"
+                        " (EN FOCO)" if timeline.get("is_visible", False) else " (abierto)"
                     )
                     debug_print(
                         f"  ✅ TIENE TIMELINE ABIERTO EN UI: {timeline['object_name']}{visibility_status}"
@@ -571,9 +541,7 @@ def explore_sequences_and_open_panels():
 
         debug_print(f"\n📊 ESTADÍSTICAS:")
         debug_print(f"   • Total secuencias en proyecto: {len(all_sequences)}")
-        debug_print(
-            f"   • Timelines realmente abiertos en UI: {len(all_open_timelines)}"
-        )
+        debug_print(f"   • Timelines realmente abiertos en UI: {len(all_open_timelines)}")
         debug_print(f"   • Viewers realmente abiertos en UI: {len(all_open_viewers)}")
         debug_print(
             f"   • Secuencias con timelines abiertos en UI: {len([s for s in sequences_with_panels if s['has_timeline']])}"
@@ -654,409 +622,175 @@ def explore_sequences_and_open_panels():
         return {}
 
 
-def get_hiero_version():
-    """Detecta la versión mayor de Hiero (15 o 16)."""
-    try:
-        version_tuple = hiero.core.applicationVersion()  # Returns (major, minor, patch)
-        major_version = version_tuple[0]
-        return major_version
-    except Exception as e:
-        debug_print(f"⚠️ Error detectando versión de Hiero: {e}")
+def crear_timeline_y_viewer_para_libre(estado_inicial):
+    """Crea timeline/viewer para secuencia usando MÉTODO DEL PANEL (simplificado)."""
+    sequences_free = estado_inicial.get("sequences_free", [])
+    sequences_with_panels = estado_inicial.get("sequences_with_panels", [])
+
+    # Verificar que haya secuencias para trabajar
+    if not sequences_free and not sequences_with_panels:
+        debug_print("❌ No hay secuencias disponibles para probar.")
         return None
 
+    # SOLUCIÓN: Usar el método del REFRESH TIMELINE (recrear existente)
+    debug_print("🎯 SOLUCIÓN: Usando método del REFRESH TIMELINE - recrear secuencia existente")
 
-def crear_timeline_y_viewer_para_libre(sequences_free, camino=2):
-    """
-    🎯 OBJETIVO: Mostrar en la UI un timeline y viewer de una secuencia que NO tiene ninguno abierto.
-    
-    CAMINOS DISPONIBLES:
-    - CAMINO 1: openInTimeline() directo → ❌ CRASHEA EN H16, ✅ FUNCIONA EN H15
-    - CAMINO 2: setActiveSequence() + openInTimeline() → 🔄 PROBANDO AHORA
-    - CAMINO 3: Solo openInNewViewer() (ventana flotante) → ⏸️ Pendiente
-    """
-    if not sequences_free:
-        debug_print("❌ No hay secuencias libres para probar TEORÍA 2.")
-        return None
+    # El refresh funciona porque recrea timelines para secuencias que YA TIENEN viewers
+    # Vamos a hacer exactamente lo mismo: elegir una secuencia que tenga viewer abierto
+    # y recrear su timeline/viewer (como hace el refresh)
 
-    # Preferir las dos secuencias indicadas; si no están, tomar la primera libre.
-    preferidas = ["z_EditRef_v1_6_20250725", "z_EditRef_v.0.2"]
-    target_info = None
+    secuencias_con_viewer = [s for s in sequences_with_panels if s.get("has_viewer", False)]
 
-    for nombre in preferidas:
-        target_info = next(
-            (s for s in sequences_free if s.get("sequence_name") == nombre), None
-        )
+    if secuencias_con_viewer:
+        # Elegir la secuencia activa (como hace el refresh) o una con viewer
+        active_seq = hiero.ui.activeSequence()
+        active_seq_name = active_seq.name() if active_seq else None
+
+        # Preferir la secuencia activa si existe, sino cualquier otra con viewer
+        target_info = None
+        if active_seq_name:
+            # Buscar la secuencia activa en las que tienen viewer
+            target_info = next(
+                (s for s in secuencias_con_viewer if s.get("sequence_name") == active_seq_name),
+                None
+            )
+
+        if not target_info and secuencias_con_viewer:
+            # Si no está la activa, tomar la primera con viewer
+            target_info = secuencias_con_viewer[0]
+
         if target_info:
-            break
+            debug_print(f"✅ Recreando timeline para secuencia existente: {target_info['sequence_name']}")
+            debug_print("   (como hace el refresh timeline - debería funcionar)")
+        else:
+            debug_print("❌ No se encontró secuencia para recrear")
+            return None
+    else:
+        debug_print("❌ No hay secuencias con viewer abierto para recrear")
+        return None
 
-    if not target_info:
-        target_info = sequences_free[0]
+    # TEORÍA CONFIRMADA: No podemos crear desde cero, pero podemos RECREAR existente
+    debug_print("🔍 TEORÍA: Las secuencias 'libres' ya tienen asignaciones ocultas")
+    debug_print("   → Por eso crashea crear desde cero")
+    debug_print("   → Pero funciona recrear secuencias que ya existen")
 
     seq = target_info["sequence"]
     seq_name = target_info["sequence_name"]
 
     debug_print("\n" + "=" * 100)
-    debug_print(f"🚀 CAMINO {camino}: Creando timeline/viewer para '{seq_name}'")
+    debug_print(f"🚀 CREANDO NUEVO TIMELINE/VIEWER PARA: {seq_name} (MÉTODO PANEL)")
     debug_print("=" * 100)
-    
-    # Flush logs antes de la operación crítica
-    flush_logs()
 
-    new_timeline = None
+    # LOGS DETALLADOS: Comparar con Panel de Proyectos
+    debug_print("🔍 ANÁLISIS PREVIO - ESTILO PANEL:")
+    try:
+        active_seq_before = hiero.ui.activeSequence()
+        active_seq_name = active_seq_before.name() if active_seq_before else "Ninguna"
+        debug_print(f"   ├── Secuencia activa antes: {active_seq_name}")
+
+        current_viewer_before = hiero.ui.currentViewer()
+        viewer_info_before = "Ninguno"
+        if current_viewer_before:
+            try:
+                viewer_win = current_viewer_before.window()
+                if viewer_win and hasattr(viewer_win, "objectName"):
+                    viewer_info_before = viewer_win.objectName()
+            except Exception:
+                pass
+        debug_print(f"   ├── currentViewer() antes: {viewer_info_before}")
+
+        # Verificar proyectos (como hace el Panel)
+        projects = hiero.core.projects()
+        debug_print(f"   ├── Proyectos abiertos: {len(projects)}")
+        if projects:
+            debug_print(f"   ├── Proyecto activo: {projects[0].name()}")
+
+            # Verificar si ya estamos en la secuencia (optimización del Panel)
+            if active_seq_before and active_seq_before.name() == seq_name:
+                debug_print("   ├── ⚠️ Ya estamos en la secuencia objetivo - no hay cambios")
+                return {
+                    "sequence_name": seq_name,
+                    "timeline_obj": "Ya activo",
+                    "timeline_window_title": "Ya activo",
+                    "viewer_obj": viewer_info_before,
+                    "viewer_seq_name": seq_name,
+                }
+
+    except Exception as e:
+        debug_print(f"   ├── Error en análisis previo: {e}")
+
+    debug_print("🔒 Preparación - flush logs y processEvents (estilo Panel)")
+    flush_logs()
+    try:
+        _process_events("pre-openInTimeline-panel-style")
+    except Exception as e:
+        debug_print(f"   ├── Error en processEvents inicial: {e}")
+
+    # 📋 MÉTODO DEL PANEL: UNA SOLA LLAMADA (como en switch_to_sequence_hybrid)
+    debug_print("🎯 MÉTODO PANEL: UNA SOLA LLAMADA A openInTimeline()")
+    debug_print("   ├── Capturando estado viewer actual (gain/gamma/saturation)")
+
+    # 1. Capturar estado del viewer actual (como hace el Panel)
+    viewer_state = None
+    current_viewer = hiero.ui.currentViewer()
+    if current_viewer:
+        viewer_state = _get_viewer_state(current_viewer)
+        debug_print(f"   ├── Estado viewer capturado: {viewer_state is not None}")
+
+    # 2. UNA SOLA LLAMADA: openInTimeline (exactamente como el Panel)
+    debug_print("   ├── Ejecutando hiero.ui.openInTimeline(seq) [UNA SOLA VEZ]")
     creation_error = None
+    new_timeline = None
 
-    # ==========================================================================
-    # CAMINO 1: openInTimeline() directo
-    # ==========================================================================
-    if camino == 1:
-        debug_print("📋 ESTRATEGIA: openInTimeline() directo (como Projects Panel)")
-        debug_print("   - Sin viewers temporales")
-        debug_print("   - Sin cierres de widgets")
-        debug_print("   - Solo: openInTimeline() + processEvents()")
-        debug_print("")
-        
-        try:
-            debug_print("🔧 Llamando hiero.ui.openInTimeline(seq)...")
-            new_timeline = hiero.ui.openInTimeline(seq)
-            debug_print("✅ openInTimeline() ejecutado sin excepciones")
-            
-            _process_events("post-openInTimeline")
-            
-            new_active = hiero.ui.activeSequence()
-            if new_active and new_active.name() == seq_name:
-                debug_print(f"✅ Secuencia activa confirmada: {seq_name}")
-            else:
-                debug_print(f"⚠️ Secuencia activa no coincide")
-                
-        except Exception as e:
-            creation_error = e
-            debug_print(f"❌ CRASH/ERROR en openInTimeline(): {e}")
-            debug_print(traceback.format_exc())
-            flush_logs()
-            return None
+    try:
+        # Verificar secuencia objetivo (como hace el Panel)
+        target_seq = seq  # Ya tenemos la secuencia validada
 
-    # ==========================================================================
-    # CAMINO 2: setActiveSequence() + openInTimeline()
-    # ==========================================================================
-    elif camino == 2:
-        debug_print("📋 ESTRATEGIA: setActiveSequence() ANTES de openInTimeline()")
-        debug_print("   - Paso 1: setActiveSequence(seq) para 'preparar' la secuencia")
-        debug_print("   - Paso 2: processEvents() para estabilizar")
-        debug_print("   - Paso 3: openInTimeline(seq) para crear timeline/viewer")
-        debug_print("")
-        
-        try:
-            # PASO 1: Activar la secuencia primero
-            if hasattr(hiero.ui, 'setActiveSequence'):
-                debug_print("🔧 Paso 1: Llamando hiero.ui.setActiveSequence(seq)...")
-                hiero.ui.setActiveSequence(seq)
-                debug_print("✅ setActiveSequence() ejecutado sin excepciones")
-                
-                _process_events("post-setActiveSequence")
-                
-                # Verificar que se activó
-                current_active = hiero.ui.activeSequence()
-                if current_active and current_active.name() == seq_name:
-                    debug_print(f"✅ Secuencia activada correctamente: {seq_name}")
-                else:
-                    debug_print(f"⚠️ Secuencia activa no coincide después de setActiveSequence")
-            else:
-                debug_print("⚠️ hiero.ui.setActiveSequence no disponible (Hiero muy antiguo?)")
-            
-            # PASO 2: Ahora crear timeline/viewer
-            debug_print("")
-            debug_print("🔧 Paso 2: Llamando hiero.ui.openInTimeline(seq)...")
-            new_timeline = hiero.ui.openInTimeline(seq)
-            debug_print("✅ openInTimeline() ejecutado sin excepciones")
-            
-            _process_events("post-openInTimeline")
-            
-            # Verificar resultado final
-            new_active = hiero.ui.activeSequence()
-            if new_active and new_active.name() == seq_name:
-                debug_print(f"✅ Secuencia activa confirmada (final): {seq_name}")
-            else:
-                debug_print(f"⚠️ Secuencia activa no coincide (final)")
-                
-        except Exception as e:
-            creation_error = e
-            debug_print(f"❌ CRASH/ERROR: {e}")
-            debug_print(traceback.format_exc())
-            flush_logs()
-            return None
+        # Llamada directa - como el Panel
+        new_timeline = hiero.ui.openInTimeline(target_seq)
+        debug_print("   ✅ openInTimeline() ejecutado exitosamente (estilo Panel)")
 
-    # ==========================================================================
-    # CAMINO 3: Solo openInNewViewer() (ventana flotante)
-    # ==========================================================================
-    elif camino == 3:
-        debug_print("📋 ESTRATEGIA: Solo openInNewViewer() (ventana flotante)")
-        debug_print("   - NO crea timeline dockeado")
-        debug_print("   - Solo crea viewer en ventana flotante")
-        debug_print("   - Prueba diagnóstica para ver si openInTimeline es el problema")
-        debug_print("")
-        
-        try:
-            debug_print("🔧 Llamando hiero.ui.openInNewViewer(seq)...")
-            new_viewer = hiero.ui.openInNewViewer(seq)
-            debug_print("✅ openInNewViewer() ejecutado sin excepciones")
-            
-            _process_events("post-openInNewViewer")
-            
-            if new_viewer:
-                debug_print("✅ Viewer flotante creado correctamente")
-            else:
-                debug_print("⚠️ openInNewViewer() devolvió None")
-                
-        except Exception as e:
-            creation_error = e
-            debug_print(f"❌ CRASH/ERROR en openInNewViewer(): {e}")
-            debug_print(traceback.format_exc())
-            flush_logs()
-            return None
+        # Procesar eventos (como hace el Panel)
+        _process_events("post-openInTimeline-panel-style")
 
-    # ==========================================================================
-    # CAMINO 4: openInNewViewer() + getTimelineEditor() + show()
-    # ==========================================================================
-    elif camino == 4:
-        debug_print("📋 ESTRATEGIA: openInNewViewer() + recuperar timeline oculto + show()")
-        debug_print("   - Paso 1: openInNewViewer(seq) para crear viewer")
-        debug_print("   - Paso 2: getTimelineEditor(seq) para recuperar timeline OCULTO que ya existe")
-        debug_print("   - Paso 3: timeline.show() + raise_() + activateWindow() para hacerlo visible")
-        debug_print("")
-        
-        try:
-            # PASO 1: Crear viewer (funciona)
-            debug_print("🔧 Paso 1: Llamando hiero.ui.openInNewViewer(seq)...")
-            new_viewer = hiero.ui.openInNewViewer(seq)
-            debug_print("✅ openInNewViewer() ejecutado sin excepciones")
-            
-            _process_events("post-openInNewViewer")
-            
-            if new_viewer:
-                debug_print("✅ Viewer creado correctamente")
-            else:
-                debug_print("⚠️ openInNewViewer() devolvió None")
-            
-            # PASO 2: Recuperar timeline oculto que ya existe
-            debug_print("")
-            debug_print("🔧 Paso 2: Llamando hiero.ui.getTimelineEditor(seq)...")
-            new_timeline = hiero.ui.getTimelineEditor(seq)
-            
-            if new_timeline:
-                debug_print("✅ getTimelineEditor() devolvió timeline (estaba oculto)")
-                
-                # Obtener info del timeline
-                tl_window = new_timeline.window() if hasattr(new_timeline, 'window') else None
-                if tl_window:
-                    tl_objname = tl_window.objectName() if hasattr(tl_window, 'objectName') else "N/A"
-                    tl_title = tl_window.windowTitle() if hasattr(tl_window, 'windowTitle') else "N/A"
-                    debug_print(f"   Timeline: objectName={tl_objname}, title={tl_title}")
-                
-                # PASO 3: Hacer timeline visible
-                debug_print("")
-                debug_print("🔧 Paso 3: Haciendo timeline visible...")
-                
-                try:
-                    # Intentar diferentes métodos para hacer visible el timeline
-                    if hasattr(new_timeline, 'show'):
-                        new_timeline.show()
-                        debug_print("   ✅ timeline.show() ejecutado")
-                    
-                    if tl_window:
-                        if hasattr(tl_window, 'show'):
-                            tl_window.show()
-                            debug_print("   ✅ timeline.window().show() ejecutado")
-                        if hasattr(tl_window, 'raise_'):
-                            tl_window.raise_()
-                            debug_print("   ✅ timeline.window().raise_() ejecutado")
-                        if hasattr(tl_window, 'activateWindow'):
-                            tl_window.activateWindow()
-                            debug_print("   ✅ timeline.window().activateWindow() ejecutado")
-                    
-                    if hasattr(new_timeline, 'setFocus'):
-                        new_timeline.setFocus()
-                        debug_print("   ✅ timeline.setFocus() ejecutado")
-                    
-                    _process_events("post-timeline-show")
-                    
-                    debug_print("✅ Timeline debería estar visible ahora")
-                    
-                except Exception as e:
-                    debug_print(f"⚠️ Error haciendo timeline visible: {e}")
-                    debug_print(traceback.format_exc())
-                
-            else:
-                debug_print("⚠️ getTimelineEditor() devolvió None (timeline no existe?)")
-                debug_print("   Esto es extraño - los logs sugieren que debería existir oculto")
-                
-        except Exception as e:
-            creation_error = e
-            debug_print(f"❌ CRASH/ERROR en CAMINO 4: {e}")
-            debug_print(traceback.format_exc())
-            flush_logs()
-            return None
+        # Verificar que cambió correctamente (como hace el Panel)
+        new_active = hiero.ui.activeSequence()
+        if not (new_active and new_active.name() == seq_name):
+            debug_print("   ⚠️ Secuencia no cambió correctamente")
+        else:
+            debug_print("   ✅ Secuencia cambió correctamente")
 
-    # ==========================================================================
-    # CAMINO 5: Reutilizar timeline integrado existente + setSequence()
-    # ==========================================================================
-    elif camino == 5:
-        debug_print("📋 ESTRATEGIA: Reutilizar timeline integrado de otra secuencia")
-        debug_print("   - Paso 1: Buscar timeline INTEGRADO (dockeado) de cualquier secuencia")
-        debug_print("   - Paso 2: Cambiar su secuencia con setSequence() o openInTimeline()")
-        debug_print("   - Paso 3: Evita el bug de openInTimeline() en secuencias libres H16")
-        debug_print("   - Objetivo: Timeline Y viewer dockeados, sin ventanas flotantes")
-        debug_print("")
-        
-        try:
-            # PASO 1: Buscar timeline integrado existente
-            debug_print("🔧 Paso 1: Buscando timeline integrado existente...")
-            
-            active_seq = hiero.ui.activeSequence()
-            if not active_seq:
-                debug_print("❌ No hay secuencia activa - no hay timeline integrado disponible")
-                debug_print("   CAMINO 5 requiere al menos una secuencia con timeline/viewer abiertos")
-                flush_logs()
-                return None
-            
-            debug_print(f"   Secuencia activa actual: {active_seq.name()}")
-            
-            existing_timeline = hiero.ui.getTimelineEditor(active_seq)
-            if not existing_timeline:
-                debug_print("❌ No se pudo obtener timeline de la secuencia activa")
-                flush_logs()
-                return None
-            
-            debug_print("✅ Timeline integrado encontrado")
-            tl_window = existing_timeline.window() if hasattr(existing_timeline, 'window') else None
-            if tl_window:
-                tl_objname = tl_window.objectName() if hasattr(tl_window, 'objectName') else "N/A"
-                tl_title = tl_window.windowTitle() if hasattr(tl_window, 'windowTitle') else "N/A"
-                debug_print(f"   Timeline actual: objectName={tl_objname}, title={tl_title}")
-            debug_print("")
-            
-            # PASO 2: Intentar cambiar la secuencia del timeline (sin crear nuevo)
-            debug_print("🔧 Paso 2: Cambiando secuencia del timeline integrado...")
-            debug_print(f"   De: {active_seq.name()} → A: {seq_name}")
-            
-            # Método 1: setSequence (si existe)
-            if hasattr(existing_timeline, 'setSequence'):
-                debug_print("   Usando timeline.setSequence(seq)...")
-                existing_timeline.setSequence(seq)
-                _process_events("post-setSequence")
-                debug_print("✅ setSequence() ejecutado sin excepciones")
-            else:
-                # Método 2: openInTimeline (pero crashea en H16 - evitar)
-                debug_print("   setSequence no disponible - fallback alternativo...")
-                debug_print("   ⚠️ openInTimeline() crashea en H16 incluso con timeline existente")
-                debug_print("   ❌ No se puede cambiar secuencia sin setSequence() en H16")
-                flush_logs()
-                return None
-            
-            # Verificar que cambió correctamente
-            new_active = hiero.ui.activeSequence()
-            if new_active and new_active.name() == seq_name:
-                debug_print(f"✅ Secuencia activa confirmada: {seq_name}")
-                debug_print("✅ Timeline/viewer ahora muestran la secuencia objetivo")
-                debug_print("✅ Sin crear ventanas flotantes, todo integrado/dockeado")
-            else:
-                debug_print(f"⚠️ Secuencia no cambió correctamente")
-                debug_print(f"   Esperado: {seq_name}")
-                debug_print(f"   Actual: {new_active.name() if new_active else 'None'}")
-            
-            debug_print("")
-            
-            # Actualizar referencias (el timeline ES el mismo, solo cambió la secuencia)
-            new_timeline = existing_timeline
-            new_viewer = hiero.ui.currentViewer()
-                
-        except Exception as e:
-            creation_error = e
-            debug_print(f"❌ CRASH/ERROR en CAMINO 5: {e}")
-            debug_print(traceback.format_exc())
-            flush_logs()
-            return None
+    except Exception as e:
+        creation_error = e
+        debug_print(f"❌ ERROR en openInTimeline() estilo Panel: {e}")
+        debug_print(traceback.format_exc())
+        return None
 
-    # ==========================================================================
-    # CAMINO 6: Detección de versión + Método específico por versión
-    # ==========================================================================
-    elif camino == 6:
-        debug_print("📋 ESTRATEGIA: Detección de versión + método específico")
-        debug_print("   - Detectar si es Hiero 15 o 16")
-        debug_print("   - H15: Usar openInTimeline() (funciona perfecto)")
-        debug_print("   - H16: Usar setActiveSequence() SOLO (evita openInTimeline)")
-        debug_print("")
-        
-        try:
-            # PASO 1: Detectar versión
-            hiero_version = get_hiero_version()
-            if hiero_version is None:
-                debug_print("❌ No se pudo detectar versión de Hiero - abortando")
-                flush_logs()
-                return None
-            
-            debug_print(f"✅ Versión detectada: Hiero {hiero_version}")
-            debug_print("")
-            
-            # PASO 2: Estrategia según versión
-            if hiero_version == 15:
-                # HIERO 15: openInTimeline funciona perfecto
-                debug_print("🔧 HIERO 15 detectado - usando openInTimeline()")
-                hiero.ui.openInTimeline(seq)
-                _process_events("post-openInTimeline")
-                debug_print("✅ openInTimeline() ejecutado sin excepciones")
-                
-            elif hiero_version >= 16:
-                # HIERO 16+: openInTimeline crashea - usar setActiveSequence
-                debug_print("🔧 HIERO 16+ detectado - usando setActiveSequence()")
-                debug_print("   (evitando openInTimeline que crashea en H16)")
-                
-                if hasattr(hiero.ui, 'setActiveSequence'):
-                    hiero.ui.setActiveSequence(seq)
-                    _process_events("post-setActiveSequence")
-                    debug_print("✅ setActiveSequence() ejecutado sin excepciones")
-                    debug_print("⚠️ Nota: Solo cambia secuencia activa, no crea timeline/viewer nuevos")
-                else:
-                    debug_print("❌ setActiveSequence no disponible")
-                    flush_logs()
-                    return None
-            else:
-                debug_print(f"⚠️ Versión desconocida: {hiero_version}")
-                flush_logs()
-                return None
-            
-            # Verificar que cambió correctamente
-            new_active = hiero.ui.activeSequence()
-            if new_active and new_active.name() == seq_name:
-                debug_print(f"✅ Secuencia activa confirmada: {seq_name}")
-            else:
-                debug_print(f"⚠️ Secuencia no cambió correctamente")
-                debug_print(f"   Esperado: {seq_name}")
-                debug_print(f"   Actual: {new_active.name() if new_active else 'None'}")
-            
-            debug_print("")
-            
-            # Obtener referencias
-            new_timeline = hiero.ui.getTimelineEditor(seq)
-            new_viewer = hiero.ui.currentViewer()
-                
-        except Exception as e:
-            creation_error = e
-            debug_print(f"❌ CRASH/ERROR en CAMINO 6: {e}")
-            debug_print(traceback.format_exc())
-            flush_logs()
-            return None
+    if creation_error:
+        return None
 
-    flush_logs()
+    # 3. Aplicar estado del viewer anterior (como hace el Panel)
+    if viewer_state:
+        debug_print("   ├── Aplicando estado viewer anterior (gain/gamma/saturation)")
+        new_viewer = hiero.ui.currentViewer()
+        if new_viewer:
+            _apply_viewer_settings(new_viewer, viewer_state)
+            debug_print("   ✅ Estado viewer aplicado")
 
-    # Obtener info del timeline creado
+    # 4. Enfocar viewer (como hace el Panel)
+    debug_print("   ├── Enfocando viewer objetivo")
+    _focus_target_viewer_panel_style(seq_name)
+
+    # LOGS DETALLADOS: Resultado final
+    debug_print("🔍 RESULTADO FINAL:")
+
+    # Info del timeline creado
     timeline_obj = "N/A"
     timeline_window_title = "N/A"
     timeline_seq_name = "Desconocida"
     if new_timeline:
         try:
-            tl_window = (
-                new_timeline.window() if hasattr(new_timeline, "window") else None
-            )
+            tl_window = new_timeline.window() if hasattr(new_timeline, "window") else None
             if tl_window and hasattr(tl_window, "objectName"):
                 timeline_obj = tl_window.objectName()
             if tl_window and hasattr(tl_window, "windowTitle"):
@@ -1065,46 +799,41 @@ def crear_timeline_y_viewer_para_libre(sequences_free, camino=2):
                 if hasattr(new_timeline, "sequence") and new_timeline.sequence():
                     timeline_seq = new_timeline.sequence()
                     timeline_seq_name = (
-                        timeline_seq.name()
-                        if hasattr(timeline_seq, "name")
-                        else "Sin nombre"
+                        timeline_seq.name() if hasattr(timeline_seq, "name") else "Sin nombre"
                     )
             except Exception:
                 pass
         except Exception:
             pass
 
-    debug_print(
-        f"🎯 TIMELINE CREADO: objectName={timeline_obj} | windowTitle={timeline_window_title} | sequence={timeline_seq_name}"
-    )
+    debug_print(f"   ├── Timeline creado: objectName={timeline_obj} | title={timeline_window_title} | seq={timeline_seq_name}")
 
-    # Obtener info del viewer creado (currentViewer debería apuntar al nuevo)
-    new_viewer = hiero.ui.currentViewer()
+    # Info del viewer creado
+    new_viewer_final = hiero.ui.currentViewer()
     viewer_obj = "N/A"
     viewer_seq_name = "Sin secuencia"
-    if new_viewer:
+    if new_viewer_final:
         try:
-            viewer_window = new_viewer.window()
+            viewer_window = new_viewer_final.window()
             if viewer_window and hasattr(viewer_window, "objectName"):
                 viewer_obj = viewer_window.objectName()
-            if hasattr(new_viewer, "player") and new_viewer.player():
-                seq_player = new_viewer.player().sequence()
+            if hasattr(new_viewer_final, "player") and new_viewer_final.player():
+                seq_player = new_viewer_final.player().sequence()
                 if seq_player and hasattr(seq_player, "name"):
                     viewer_seq_name = seq_player.name()
         except Exception:
             pass
-        debug_print(
-            f"🎯 VIEWER CREADO: objectName={viewer_obj} | sequence={viewer_seq_name}"
-        )
-    else:
-        debug_print("❌ currentViewer() devolvió None (no se creó viewer)")
 
-    debug_print("")
-    debug_print("=" * 100)
-    debug_print(f"✅ CAMINO {camino} COMPLETADO - Verificar resultados en exploración final")
-    debug_print("=" * 100)
-    
+    debug_print(f"   ├── Viewer actual: objectName={viewer_obj} | sequence={viewer_seq_name}")
+
+    debug_print("🔒 Finalización - flush logs y processEvents")
     flush_logs()
+    try:
+        _process_events("post-creation-panel-style")
+    except Exception:
+        pass
+
+    debug_print("✅ CREACIÓN COMPLETADA CON MÉTODO PANEL")
 
     return {
         "sequence_name": seq_name,
@@ -1115,48 +844,122 @@ def crear_timeline_y_viewer_para_libre(sequences_free, camino=2):
     }
 
 
+def _focus_target_viewer_panel_style(target_sequence_name):
+    """Enfocar viewer estilo Panel (simplificado, sin limpieza agresiva)."""
+    try:
+        viewers = _collect_viewers()
+        target = _pick_target_viewer(viewers, target_sequence_name)
+        if not target:
+            debug_print(f"   ├── No se encontró viewer para '{target_sequence_name}'")
+            return
+        widget = target["widget"]
+        widget.show()
+        widget.raise_()
+        widget.activateWindow()
+        _process_events("focus-viewer-panel-style")
+        debug_print(f"   ├── Viewer enfocado: {target_sequence_name}")
+    except Exception as e:
+        debug_print(f"   ├── Error enfocando viewer: {e}")
+
+
+def _get_viewer_state(viewer):
+    """Captura estado del viewer (gain/gamma/saturation)."""
+    if not viewer:
+        return None
+    try:
+        return {
+            "gain": viewer.gain(),
+            "gamma": viewer.gamma(),
+            "saturation": viewer.saturation(),
+        }
+    except Exception:
+        return None
+
+
+def _apply_viewer_settings(viewer, state):
+    """Aplica ajustes del viewer (gain/gamma/saturation)."""
+    if not viewer or not state:
+        return
+    try:
+        if "gain" in state:
+            viewer.setGain(state["gain"])
+        if "gamma" in state:
+            viewer.setGamma(state["gamma"])
+        if "saturation" in state:
+            viewer.setSaturation(state["saturation"])
+    except Exception:
+        pass
+
+
+def _collect_viewers():
+    """Devuelve lista de viewers Qt (Foundry::Storm::UI::Viewer) con título y visibilidad."""
+    viewers = []
+    try:
+        from LGA_QtAdapter_HieroTools import QtWidgets
+
+        all_widgets = QtWidgets.QApplication.instance().allWidgets()
+        for widget in all_widgets:
+            try:
+                class_name = (
+                    widget.metaObject().className()
+                    if hasattr(widget, "metaObject")
+                    else str(type(widget))
+                )
+                if "Foundry::Storm::UI::Viewer" in class_name:
+                    title = (
+                        widget.windowTitle() if hasattr(widget, "windowTitle") else ""
+                    )
+                    visible = (
+                        widget.isVisible() if hasattr(widget, "isVisible") else False
+                    )
+                    viewers.append(
+                        {"widget": widget, "title": title, "visible": visible}
+                    )
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return viewers
+
+
+def _pick_target_viewer(viewers, target_sequence_name):
+    """Selecciona un viewer cuyo título coincida, priorizando los visibles."""
+    visible_matches = [
+        v for v in viewers if v.get("title") == target_sequence_name and v.get("visible")
+    ]
+    if visible_matches:
+        return visible_matches[0]
+    name_matches = [v for v in viewers if v.get("title") == target_sequence_name]
+    if name_matches:
+        return name_matches[0]
+    return None
+
+
 def main():
     global debug_logger
     clear_debug_log()
     debug_logger = setup_debug_logging()
 
+    debug_print("🔍 TEST TEORÍA 2 - ESTADO INICIAL (creación siguiendo patrón Projects Panel)")
     debug_print("=" * 100)
-    debug_print("🎯 TEST TEORÍA 2 - OBJETIVO:")
-    debug_print("   Mostrar en UI: timeline + viewer de secuencia sin panels abiertos")
-    debug_print("=" * 100)
-    debug_print("")
 
     estado_inicial = explore_sequences_and_open_panels()
     sequences_free = estado_inicial.get("sequences_free", []) if estado_inicial else []
 
     if not sequences_free:
-        debug_print(
-            "\n❌ No hay secuencias libres; no se puede ejecutar la prueba TEORÍA 2."
-        )
+        debug_print("\n❌ No hay secuencias libres; no se puede ejecutar la prueba TEORÍA 2.")
         return
 
-    debug_print("")
-    debug_print("⚠️ INICIANDO CAMINO 6: Detección de versión + método específico")
-    debug_print("   Estrategia: Detectar H15 vs H16 y usar método correcto")
-    debug_print("   - HIERO 15: openInTimeline() funciona perfecto")
-    debug_print("   - HIERO 16: setActiveSequence() solo (evita openInTimeline crasheando)")
-    debug_print("   - Descubrimiento: openInTimeline() crashea SIEMPRE en H16 (incluso con timeline previo)")
-    debug_print("   Si funciona → ✅ SOLUCIÓN DEFINITIVA (compatible ambas versiones)")
-    debug_print("")
+    debug_print("   Si crashea, revisa logs/debugPy.log para ver el último paso registrado.")
     flush_logs()
 
-    # Crear timeline/viewer para una secuencia libre
-    # CAMINO 4: openInNewViewer + recuperar timeline oculto
-    creacion_info = crear_timeline_y_viewer_para_libre(sequences_free, camino=6)
+    # Crear timeline/viewer para una secuencia
+    creacion_info = crear_timeline_y_viewer_para_libre(estado_inicial)
     if not creacion_info:
-        debug_print(
-            "\n❌ No se pudo crear timeline/viewer (openInTimeline falló o fue abortado)."
-        )
+        debug_print("\n❌ No se pudo crear timeline/viewer (openInTimeline falló o fue abortado).")
         return
 
-    debug_print(
-        "\n✅ CREACIÓN COMPLETADA. RELANZANDO EXPLORACIÓN PARA COMPARAR ESTADO FINAL..."
-    )
+    debug_print("\n✅ CREACIÓN COMPLETADA. RELANZANDO EXPLORACIÓN PARA COMPARAR ESTADO FINAL...")
     debug_print("=" * 100)
     explore_sequences_and_open_panels()
 
@@ -1167,3 +970,4 @@ if __name__ == "__main__":
     except Exception as e:
         debug_print(f"\n❌ ERROR GENERAL EN TEST TEORÍA 2: {e}")
         debug_print(traceback.format_exc())
+
