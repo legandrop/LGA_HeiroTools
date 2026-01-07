@@ -101,7 +101,38 @@ except ImportError as e:
     raise ImportError(f"No se pudo importar funciones de LGA_NKS_CheckProjectVersions: {e}")
 
 
-def scan_projects_on_disk(base_path="T:\\"):
+def get_base_scan_path(default_path="T:\\"):
+    """
+    Obtiene la ruta base para escaneo desde PipeSync (AltTPath) si existe y es valida.
+    Si no hay configuracion o la ruta no existe, usa el default.
+    """
+    try:
+        from LGA_NKS_Flow.SecureConfig_Reader import read_secure_config
+    except Exception as e:
+        debug_print(f"⚠️ No se pudo importar SecureConfig_Reader: {e}")
+        return default_path
+
+    config = read_secure_config()
+    if not isinstance(config, dict):
+        debug_print("⚠️ Configuracion segura no disponible; usando default.")
+        return default_path
+
+    app_cfg = config.get("App", {})
+    alt_path = app_cfg.get("AltTPath") if isinstance(app_cfg, dict) else None
+    if not alt_path:
+        debug_print("⚠️ AltTPath no configurado; usando default.")
+        return default_path
+
+    alt_path = os.path.expanduser(str(alt_path))
+    if os.path.exists(alt_path):
+        debug_print(f"✅ Usando AltTPath: {alt_path}")
+        return alt_path
+
+    debug_print(f"⚠️ AltTPath configurado pero no existe: {alt_path}")
+    return default_path
+
+
+def scan_projects_on_disk(base_path=None):
     """
     Escanea el disco buscando proyectos VFX y retorna información de cada uno.
 
@@ -109,7 +140,8 @@ def scan_projects_on_disk(base_path="T:\\"):
     En cada carpeta SUP encuentra el archivo .hrox con la versión más alta.
 
     Args:
-        base_path (str): Ruta base donde buscar proyectos (default: "T:\\")
+        base_path (str|None): Ruta base donde buscar proyectos. Si es None,
+            se usa AltTPath de PipeSync cuando existe, o "T:\\" como fallback.
 
     Returns:
         list: Lista de diccionarios con información de proyectos encontrados.
@@ -121,6 +153,8 @@ def scan_projects_on_disk(base_path="T:\\"):
               - version (str): Versión extraída (ej: "v050")
               - ruta_proyecto (str): Ruta completa de la carpeta SUP
     """
+    if base_path is None:
+        base_path = get_base_scan_path()
     debug_print("🔍 Iniciando escaneo de proyectos en:", base_path)
     proyectos_encontrados = []
     

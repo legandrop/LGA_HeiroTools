@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Panel de Proyectos LGA integrado para Hiero con recarga inteligente.
-- Escanea proyectos en T:\, muestra versiones y secuencias abiertas.
+- Escanea proyectos en AltTPath (PipeSync) o T:\ como fallback.
 - Permite abrir proyectos y secuencias (cross-project) sin perder ajustes de viewer.
 - Incluye botón de reimport/redock para aplicar cambios al vuelo.
  

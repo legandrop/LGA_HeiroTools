@@ -30,7 +30,7 @@ class WorkerSignals(QtCore.QObject):
 class ScanWorker(QtCore.QRunnable):
     """Worker para escanear proyectos en background"""
 
-    def __init__(self, base_path="T:\\"):
+    def __init__(self, base_path=None):
         super(ScanWorker, self).__init__()
         self.base_path = base_path
         self.signals = WorkerSignals()
@@ -38,10 +38,17 @@ class ScanWorker(QtCore.QRunnable):
     def run(self):
         """Ejecuta el escaneo en hilo secundario"""
         debug_print(f"⚙️ ScanWorker.run() ejecutándose en hilo secundario...")
-        debug_print(f"   📍 Base path: {self.base_path}")
+        base_path = self.base_path
+        if base_path is None:
+            try:
+                from LGA_Projects_Panel_ScanProjects import get_base_scan_path
+                base_path = get_base_scan_path()
+            except Exception:
+                base_path = None
+        debug_print(f"   📍 Base path: {base_path}")
         try:
             debug_print("🔍 Ejecutando scan_projects_on_disk()...")
-            proyectos_encontrados = scan_projects_on_disk(self.base_path)
+            proyectos_encontrados = scan_projects_on_disk(base_path)
             debug_print("📂 Ejecutando get_open_projects_info()...")
             proyectos_abiertos = get_open_projects_info()
             debug_print("📡 Emitiendo señal scan_finished...")
