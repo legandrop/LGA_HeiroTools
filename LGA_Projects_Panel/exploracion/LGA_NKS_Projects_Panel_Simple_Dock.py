@@ -1,10 +1,11 @@
 """
-________________________________________________________________
+____________________________________________________________________________________
 
-  LGA_Projects_Panel_Simple_Dock | Lega
+  LGA_NKS_Projects_Panel_Simple_Dock v2.21 | Lega
   Script simple para dockear el panel Projects donde estaba antes
 
-________________________________________________________________
+  v2.21: Mejorada lógica de versiones: búsqueda en anteúltimo bloque y priorización de sufijos (_Mac)
+____________________________________________________________________________________
 """
 
 import hiero.ui

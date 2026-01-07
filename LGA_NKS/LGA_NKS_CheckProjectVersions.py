@@ -34,7 +34,14 @@ def debug_print(*message):
 
 
 def extraer_version(ruta_disco):
-    """Extrae el número de versión de la ruta del archivo en disco"""
+    """Extrae el número de versión de la ruta del archivo en disco
+
+    Busca primero en el último bloque, y si no encuentra, busca en el anteúltimo bloque.
+    Esto permite manejar casos como:
+    - v30_algoMas (30 en último bloque)
+    - v040_Mac (40 en anteúltimo bloque)
+    - v41 (41 en último bloque)
+    """
     if not ruta_disco:
         return "No detectada"
 
@@ -45,15 +52,26 @@ def extraer_version(ruta_disco):
         # Quitar la extensión .hrox
         nombre_sin_extension = os.path.splitext(nombre_archivo)[0]
 
-        # Buscar la parte que comienza con 'v' seguida de números al final del nombre
+        # PRIMERO: Buscar la parte que comienza con 'v' seguida de números al final del nombre
         resultado = re.search(r"(?:_|-)?(v\d+)$", nombre_sin_extension)
         if resultado:
             return resultado.group(1)  # Devuelve 'v###'
 
-        # Si no encuentra 'v', buscar solo números al final después de un guion bajo o guion
+        # SEGUNDO: Si no encuentra 'v' al final, buscar en el ANTEÚLTIMO bloque
+        # Busca patrones como: algo_v040_Mac, donde queremos extraer v040
+        resultado_anteultimo = re.search(r"(?:_|-)(v\d+)(?:_|-)[^\d]+$", nombre_sin_extension)
+        if resultado_anteultimo:
+            return resultado_anteultimo.group(1)  # Devuelve 'v###' del anteúltimo bloque
+
+        # TERCERO: Si no encuentra 'v', buscar solo números al final después de un guion bajo o guion
         resultado = re.search(r"(?:_|-)?(\d+)$", nombre_sin_extension)
         if resultado:
             return "v" + resultado.group(1)  # Añade 'v' a los números encontrados
+
+        # CUARTO: Si no encuentra números al final, buscar en el anteúltimo bloque sin 'v'
+        resultado_anteultimo_sin_v = re.search(r"(?:_|-)(\d+)(?:_|-)[^\d]+$", nombre_sin_extension)
+        if resultado_anteultimo_sin_v:
+            return "v" + resultado_anteultimo_sin_v.group(1)  # Añade 'v' a los números del anteúltimo bloque
 
         return "No detectada"
     except Exception as e:
@@ -61,8 +79,48 @@ def extraer_version(ruta_disco):
         return "Error"
 
 
+def obtener_version_completa(ruta_disco):
+    """Obtiene la versión completa para mostrar, incluyendo sufijos si existen
+
+    A diferencia de extraer_version que solo extrae el número, esta función
+    devuelve la versión completa tal como aparece en el nombre del archivo.
+    Por ejemplo:
+    - "proyecto_v40.hrox" → "v40"
+    - "proyecto_v40_Mac.hrox" → "v40_Mac"
+    """
+    if not ruta_disco:
+        return "No detectada"
+
+    try:
+        # Obtener el nombre del archivo (sin la ruta completa)
+        nombre_archivo = os.path.basename(ruta_disco)
+
+        # Quitar la extensión .hrox
+        nombre_sin_extension = os.path.splitext(nombre_archivo)[0]
+
+        # Buscar patrones de versión con sufijos opcionales
+        # Patrón: v seguido de números, opcionalmente seguido de _ o - y más caracteres
+        patron_version_completa = re.search(r"(v\d+(?:[_-][^\d]+)?)", nombre_sin_extension)
+        if patron_version_completa:
+            return patron_version_completa.group(1)
+
+        # Si no encuentra con v, buscar números con sufijos opcionales
+        patron_sin_v = re.search(r"(\d+(?:[_-][^\d]+)?)", nombre_sin_extension)
+        if patron_sin_v:
+            return "v" + patron_sin_v.group(1)
+
+        return "No detectada"
+    except Exception as e:
+        debug_print(f"Error al obtener versión completa: {str(e)}")
+        return "Error"
+
+
 def comparar_versiones(version1, version2):
-    """Compara dos versiones en formato 'v###' y devuelve la mayor"""
+    """Compara dos versiones en formato 'v###' y devuelve la mayor
+
+    Si los números de versión son iguales, prefiere la versión con sufijo adicional.
+    Por ejemplo: v40_Mac > v40 (porque v40_Mac tiene sufijo '_Mac')
+    """
     try:
         # Extraer solo los números de las versiones
         match1 = re.search(r"v?(\d+)", version1)
@@ -76,10 +134,25 @@ def comparar_versiones(version1, version2):
         num1 = int(match1.group(1))
         num2 = int(match2.group(1))
 
+        # Si los números son diferentes, gana el mayor
         if num1 > num2:
             return version1
-        else:
+        elif num2 > num1:
             return version2
+
+        # Si los números son iguales, prefiere la que tiene sufijo adicional (más larga)
+        # Esto hace que v40_Mac gane sobre v40
+        len1 = len(version1)
+        len2 = len(version2)
+
+        if len1 > len2:
+            return version1
+        elif len2 > len1:
+            return version2
+        else:
+            # Si tienen la misma longitud, devolver cualquiera (comportamiento original)
+            return version1
+
     except Exception as e:
         debug_print(f"Error al comparar versiones {version1} y {version2}: {str(e)}")
         return version1  # En caso de error, devuelve la primera versión

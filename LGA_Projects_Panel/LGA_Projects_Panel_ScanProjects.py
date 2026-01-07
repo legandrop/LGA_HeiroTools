@@ -96,6 +96,7 @@ try:
         comparar_versiones,
         encontrar_version_mas_alta,
         obtener_nombre_base_proyecto,
+        obtener_version_completa,
     )
 except ImportError as e:
     raise ImportError(f"No se pudo importar funciones de LGA_NKS_CheckProjectVersions: {e}")
@@ -208,7 +209,7 @@ def scan_projects_on_disk(base_path=None):
 
                         if version_mas_alta not in ["No detectada", "Error", "No disponible", "No hay otras versiones"]:
                             nombre_base = obtener_nombre_base_proyecto(version_mas_alta)
-                            version = extraer_version(version_mas_alta)
+                            version = obtener_version_completa(version_mas_alta)
                             debug_print(f"         📝 Nombre base: {nombre_base}, Versión: {version}")
 
                             proyectos_encontrados.append({
@@ -227,7 +228,7 @@ def scan_projects_on_disk(base_path=None):
                         hrox_file = hrox_files[0]
                         debug_print(f"      📄 Solo un archivo .hrox: {os.path.basename(hrox_file)}")
                         nombre_base = obtener_nombre_base_proyecto(hrox_file)
-                        version = extraer_version(hrox_file)
+                        version = obtener_version_completa(hrox_file)
                         debug_print(f"         📝 Nombre base: {nombre_base}, Versión: {version}")
 
                         proyectos_encontrados.append({

@@ -1,20 +1,25 @@
 """
-Hiero / Nuke Studio - Switch V3: HÍBRIDO OPTIMIZADO + LIMPIEZA TOTAL + CROSS-PROJECT
-================================================================================
+____________________________________________________________________________________
 
-🎯 SOLUCIÓN GANADORA FINAL:
-- Velocidad optimizada + Estado completo del viewer
-- NO crea duplicados + Mantiene viewer settings completos
-- ✅ Playhead: Preservado automáticamente por Hiero
-- ✅ Gain/Gamma/Saturation: Transferidos desde viewer anterior
-- ✅ UI: Redimensiona ventana + Scroll al top track
-- ✅ LIMPIEZA TOTAL: Cierra TODOS los otros viewers para evitar acumulación
-- ✅ CROSS-PROJECT: Cambia entre proyectos automáticamente
+  LGA_NKS_Projects_Panel_SwitchSequence v2.21 | Lega
+  Hiero / Nuke Studio - Switch V3: HÍBRIDO OPTIMIZADO + LIMPIEZA TOTAL + CROSS-PROJECT
 
-✅ CONFIRMADO: Funciona perfectamente - velocidad 0.63s con limpieza total + cross-project.
+  🎯 SOLUCIÓN GANADORA FINAL:
+  - Velocidad optimizada + Estado completo del viewer
+  - NO crea duplicados + Mantiene viewer settings completos
+  - ✅ Playhead: Preservado automáticamente por Hiero
+  - ✅ Gain/Gamma/Saturation: Transferidos desde viewer anterior
+  - ✅ UI: Redimensiona ventana + Scroll al top track
+  - ✅ LIMPIEZA TOTAL: Cierra TODOS los otros viewers para evitar acumulación
+  - ✅ CROSS-PROJECT: Cambia entre proyectos automáticamente
 
-INTEGRACIÓN EN PANEL DE PROYECTOS:
-from switch_sequence_v3_final import switch_to_sequence_hybrid
+  ✅ CONFIRMADO: Funciona perfectamente - velocidad 0.63s con limpieza total + cross-project.
+
+  v2.21: Mejorada lógica de versiones: búsqueda en anteúltimo bloque y priorización de sufijos (_Mac)
+
+  INTEGRACIÓN EN PANEL DE PROYECTOS:
+  from switch_sequence_v3_final import switch_to_sequence_hybrid
+____________________________________________________________________________________
 """
 
 import hiero.core
