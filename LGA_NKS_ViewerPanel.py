@@ -1,9 +1,11 @@
 """
 ________________________________________________________________
 
-  LGA_ViewerPanel v1.64 | Lega
+  LGA_ViewerPanel v1.66 | Lega
   Panel con herramientas para el viewer y el timeline de Hiero
 
+  v1.66: Botones de prev/next rev para usuarios Lega, Javi y Sebas ahora son dinámicos y se muestran solo para el usuario actual.
+  v1.65: Actualizado el script LGA_NKS_Viewer_Mask.py para usar el aspect ratio especificado
   v1.64: Actualizado para usar estilos dinámicos con bordes y hover para todos los botones
          Agregado tooltip dinámico para todos los botones
          Optimizado espaciado del layout y dimensiones de botones para mejor UX
@@ -31,6 +33,10 @@ from LGA_NKS_StyleUtils import (
     create_tooltip_stylesheet
 )
 
+# Añadir el directorio padre al path para importar módulos de PipeSync
+parent_dir = os.path.dirname(os.path.dirname(__file__))
+sys.path.insert(0, parent_dir)
+
 # Variable global para activar o desactivar los prints
 DEBUG = False
 
@@ -38,6 +44,26 @@ DEBUG = False
 def debug_print(*message):
     if DEBUG:
         print(*message)
+
+
+def obtener_usuario_actual():
+    """
+    Obtiene el usuario actual de PipeSync desde la configuración segura.
+
+    Returns:
+        str: Login del usuario actual, o None si no se puede determinar
+    """
+    try:
+        from LGA_NKS_Flow.SecureConfig_Reader import get_flow_credentials
+
+        url, login, password = get_flow_credentials()
+        if login:
+            debug_print(f"Usuario actual determinado: {login}")
+            return login
+    except Exception as e:
+        debug_print(f"Error obteniendo usuario actual: {e}")
+
+    return None
 
 
 class ViewerPanel(QtWidgets.QWidget):
@@ -51,8 +77,26 @@ class ViewerPanel(QtWidgets.QWidget):
         self.layout.setSpacing(6)  # Reducir espacio entre botones
         self.setLayout(self.layout)
 
-        # Crear botones y agregarlos al layout
-        self.buttons = [
+        # Obtener usuario actual para crear botones dinámicos
+        self.usuario_actual = obtener_usuario_actual()
+
+        # Crear botones dinámicos según el usuario actual
+        self.buttons = self.create_dynamic_buttons()
+
+        self.num_columns = 1  # Inicialmente una columna
+        self.create_buttons()
+
+        # Conectar la senal de cambio de tamano del widget al metodo correspondiente
+        self.adjust_columns_on_resize()
+        self.resizeEvent = self.adjust_columns_on_resize
+
+    def create_dynamic_buttons(self):
+        """
+        Crea la lista de botones dinámicamente según el usuario actual.
+        Solo muestra los botones de navegación del usuario actual.
+        """
+        # Botones comunes (siempre visibles)
+        common_buttons = [
             (
                 "&Viewer | Rec709",
                 self.rec709_viewer,
@@ -95,48 +139,71 @@ class ViewerPanel(QtWidgets.QWidget):
                 "Ctrl+Shift+U",
                 "Ctrl+Shift+U\nEstablece los puntos In y Out de la secuencia basándose\nen el clip más cercano del track EditRef o EditRefClean",
             ),
-            (
-                "Prev Rev Sebas",
-                self.prev_rev_sup,
-                "#bd7f9f",
-                "Ctrl+Shift+,",
-                "Ctrl+Shift+,\nBusca el clip anterior con estado Rev Sebas y ajusta la vista\n(establece In/Out desde EditRef, selecciona clip, ajusta zoom)",
-            ),
-            (
-                "Next Rev Sebas",
-                self.next_rev_sup,
-                "#bd7f9f",
-                "Ctrl+Shift+.",
-                "Ctrl+Shift+.\nBusca el clip siguiente con estado Rev Sebas y ajusta la vista\n(establece In/Out desde EditRef, selecciona clip, ajusta zoom)",
-            ),
-            (
-                "Prev Rev Javi",
-                self.prev_rev_javi,
-                "#9c3e5e",
-                None,
-                "Busca el clip anterior con estado Rev Javi y ajusta la vista\n(establece In/Out desde EditRef, selecciona clip, ajusta zoom)",
-            ),
-            (
-                "Next Rev Javi",
-                self.next_rev_javi,
-                "#9c3e5e",
-                None,
-                "Busca el clip siguiente con estado Rev Javi y ajusta la vista\n(establece In/Out desde EditRef, selecciona clip, ajusta zoom)",
-            ),
-            (
-                "Prev Rev Lega",
-                self.prev_rev_lega,
-                "#69135e",
-                "Ctrl+Alt+Shift+,",
-                "Ctrl+Alt+Shift+,\nBusca el clip anterior con estado Rev Lega y ajusta la vista\n(establece In/Out desde EditRef, selecciona clip, ajusta zoom)",
-            ),
-            (
-                "Next Rev Lega",
-                self.next_rev_lega,
-                "#69135e",
-                "Ctrl+Alt+Shift+.",
-                "Ctrl+Alt+Shift+.\nBusca el clip siguiente con estado Rev Lega y ajusta la vista\n(establece In/Out desde EditRef, selecciona clip, ajusta zoom)",
-            ),
+        ]
+
+        # Botones de usuario (solo del usuario actual)
+        user_buttons = []
+
+        if self.usuario_actual:
+            # Normalizar el email del usuario (tomar parte antes del @)
+            usuario_normalizado = self.usuario_actual.split('@')[0].lower()
+
+            # Manejar caso especial de Sebas
+            if usuario_normalizado == "sebasromano_post":
+                usuario_normalizado = "sebas"
+
+            debug_print(f"Usuario normalizado: {usuario_normalizado}")
+
+            # Configuración de usuarios con sus emails normalizados
+            usuarios_config = {
+                "lega": {
+                    "nombre": "Lega",
+                    "color": "#69135e",
+                    "prev_shortcut": "Ctrl+Alt+Shift+,",
+                    "next_shortcut": "Ctrl+Alt+Shift+.",
+                },
+                "javi": {
+                    "nombre": "Javi",
+                    "color": "#9c3e5e",
+                    "prev_shortcut": "Ctrl+Alt+Shift+,",  # Usar shortcuts de Lega
+                    "next_shortcut": "Ctrl+Alt+Shift+.",  # Usar shortcuts de Lega
+                },
+                "sebas": {
+                    "nombre": "Sebas",
+                    "color": "#bd7f9f",
+                    "prev_shortcut": "Ctrl+Alt+Shift+,",  # Usar shortcuts de Lega
+                    "next_shortcut": "Ctrl+Alt+Shift+.",  # Usar shortcuts de Lega
+                }
+            }
+
+            # Verificar si el usuario está en la configuración
+            if usuario_normalizado in usuarios_config:
+                config = usuarios_config[usuario_normalizado]
+
+                user_buttons.extend([
+                    (
+                        f"Prev Rev {config['nombre']}",
+                        getattr(self, f"prev_rev_{usuario_normalizado}"),
+                        config['color'],
+                        config['prev_shortcut'],
+                        f"{config['prev_shortcut']}\nBusca el clip anterior con estado Rev {config['nombre']} y ajusta la vista\n(establece In/Out desde EditRef, selecciona clip, ajusta zoom)",
+                    ),
+                    (
+                        f"Next Rev {config['nombre']}",
+                        getattr(self, f"next_rev_{usuario_normalizado}"),
+                        config['color'],
+                        config['next_shortcut'],
+                        f"{config['next_shortcut']}\nBusca el clip siguiente con estado Rev {config['nombre']} y ajusta la vista\n(establece In/Out desde EditRef, selecciona clip, ajusta zoom)",
+                    ),
+                ])
+                debug_print(f"Mostrando botones para usuario: {config['nombre']}")
+            else:
+                debug_print(f"Usuario '{usuario_normalizado}' no reconocido en configuración")
+        else:
+            debug_print("No se pudo determinar usuario actual - no se mostrarán botones de usuario")
+
+        # Botones finales (siempre visibles)
+        final_buttons = [
             (
                 "SnapShot",
                 self.snapshot,
@@ -153,12 +220,11 @@ class ViewerPanel(QtWidgets.QWidget):
             ),
         ]
 
-        self.num_columns = 1  # Inicialmente una columna
-        self.create_buttons()
+        # Combinar todos los botones
+        all_buttons = common_buttons + user_buttons + final_buttons
 
-        # Conectar la senal de cambio de tamano del widget al metodo correspondiente
-        self.adjust_columns_on_resize()
-        self.resizeEvent = self.adjust_columns_on_resize
+        debug_print(f"Total de botones creados: {len(all_buttons)}")
+        return all_buttons
 
     def create_buttons(self):
         for index, button_info in enumerate(self.buttons):
@@ -373,6 +439,13 @@ class ViewerPanel(QtWidgets.QWidget):
 
     def next_rev_javi(self):
         self.execute_prevnext_rev("next", "javi")
+
+    # Métodos dinámicos para usuarios - delegan a los métodos existentes
+    def prev_rev_sebas(self):
+        self.execute_prevnext_rev("prev", "sup")  # Sebas usa "sup"
+
+    def next_rev_sebas(self):
+        self.execute_prevnext_rev("next", "sup")  # Sebas usa "sup"
 
     def execute_prevnext_rev(self, direction, rev_type):
         try:
