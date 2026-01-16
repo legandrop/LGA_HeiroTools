@@ -1,8 +1,8 @@
 """
 __________________________________________________________
 
-  LGA_NKS_Viewer_235 v1.2 | Lega
-  Ajusta el overlay del viewer a 2.35:1 y 
+  LGA_NKS_Viewer_Mask v1.3 | Lega
+  Ajusta el overlay del viewer a un aspect ratio específico
   alterna los estilos de mascara entre None, Half y Full
   a la vez que sube en Y al texto Frame del track BurnIn
 __________________________________________________________
@@ -29,7 +29,7 @@ def debug_print(*message):
 # ============================
 
 # Configuracion para la rotacion de estilos de mascara
-ASPECT_RATIO = "2.35:1"  # Aspecto a aplicar al viewer
+# ASPECT_RATIO se establece dinámicamente desde el parámetro de la función
 
 # Definicion de estilos de mascara en orden de rotacion
 MASK_STYLE_ORDER = [
@@ -199,9 +199,12 @@ def toggle_opacity_and_adjust_box(effect_item, new_mask_style):
         except Exception as e:
             debug_print(f"No se pudo ajustar el valor de '{BOX_PROPERTY}': {e}")
 
-def main():
+def main(aspect_ratio="2.35:1"):
     """
     Funcion principal que coordina la rotacion de estilos de mascara y la modificacion del efecto especifico.
+
+    Args:
+        aspect_ratio (str): El aspect ratio a aplicar al viewer (ej: "2.35:1", "2:1", etc.)
     """
     # Rotar el estilo de mascara del viewer
     viewer = hiero.ui.currentViewer()
@@ -215,9 +218,9 @@ def main():
             viewer.setMaskOverlayStyle(new_style)
             debug_print(f"\nEstilo de mascara cambiado de {current_style} a {new_style}")
 
-            # Aplicar siempre el aspecto 2.35:1
-            viewer.setMaskOverlayFromRemote(ASPECT_RATIO)
-            debug_print(f"Aspecto {ASPECT_RATIO} aplicado al viewer")
+            # Aplicar el aspecto especificado
+            viewer.setMaskOverlayFromRemote(aspect_ratio)
+            debug_print(f"Aspecto {aspect_ratio} aplicado al viewer")
 
             # Determinar el nombre del nuevo estilo para logica posterior
             if new_style == hiero.ui.Player.MaskOverlayStyle.eMaskOverlayNone:
@@ -278,4 +281,5 @@ def main():
 
 # Ejecutar el script principal
 if __name__ == "__main__":
-    main()
+    # Si se ejecuta directamente, usar 2.35:1 por defecto para compatibilidad
+    main("2.35:1")

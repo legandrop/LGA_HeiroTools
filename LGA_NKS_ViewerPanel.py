@@ -68,6 +68,13 @@ class ViewerPanel(QtWidgets.QWidget):
                 "Ajusta el overlay del viewer a 2.35:1 y alterna los estilos de máscara\n(None, Half, Full) ajustando el efecto Frame del track BurnIn",
             ),
             (
+                "Viewer | 2:1 ",
+                self.viewer_21,
+                "#311840",
+                None,
+                "Ajusta el overlay del viewer a 2:1 y alterna los estilos de máscara\n(None, Half, Full) ajustando el efecto Frame del track BurnIn",
+            ),
+            (
                 "Refresh Timeline",
                 self.refresh_timeline,
                 "#4c4350",
@@ -250,26 +257,38 @@ class ViewerPanel(QtWidgets.QWidget):
             debug_print(f"Error setting Rec.709 LUT: {e}")
 
     def viewer_235(self):
+        self.run_viewer_mask_script("2.35:1")
+
+    def viewer_21(self):
+        self.run_viewer_mask_script("2:1")
+
+    def run_viewer_mask_script(self, aspect_ratio):
+        """
+        Ejecuta el script genérico de máscara del viewer con el aspect ratio especificado.
+
+        Args:
+            aspect_ratio (str): El aspect ratio a aplicar (ej: "2.35:1", "2:1")
+        """
         try:
             script_path = os.path.join(
-                os.path.dirname(__file__), "LGA_NKS_ViewerTL", "LGA_NKS_Viewer_235.py"
+                os.path.dirname(__file__), "LGA_NKS_ViewerTL", "LGA_NKS_Viewer_Mask.py"
             )
             if os.path.exists(script_path):
                 import importlib.util
 
                 spec = importlib.util.spec_from_file_location(
-                    "LGA_NKS_Viewer_235", script_path
+                    "LGA_NKS_Viewer_Mask", script_path
                 )
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
 
-                # Llamar a la funcion main del script
-                module.main()
-                debug_print("Executed LGA_NKS_Viewer_235 script.")
+                # Llamar a la funcion main del script con el aspect ratio especificado
+                module.main(aspect_ratio)
+                debug_print(f"Executed LGA_NKS_Viewer_Mask script with aspect ratio {aspect_ratio}.")
             else:
                 debug_print(f"Script not found at path: {script_path}")
         except Exception as e:
-            debug_print(f"Error during running Viewer 2.35 script: {e}")
+            debug_print(f"Error during running Viewer Mask script with aspect ratio {aspect_ratio}: {e}")
 
     ###### Refresh timeline
     def refresh_timeline(self):
