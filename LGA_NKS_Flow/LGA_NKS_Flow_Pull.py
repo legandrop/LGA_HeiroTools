@@ -23,6 +23,7 @@ import hiero.ui
 import os
 import re
 import sys
+import time
 import nuke
 import shotgun_api3
 import logging  # Agregar esta importación
@@ -68,6 +69,21 @@ import platform
 import sqlite3
 import threading
 
+# Variable global para almacenar el tiempo de inicio del script
+script_start_time = None
+
+
+# Formatter personalizado para incluir tiempo relativo
+class RelativeTimeFormatter(logging.Formatter):
+    def format(self, record):
+        global script_start_time
+        if script_start_time is None:
+            script_start_time = time.time()
+
+        # Calcular tiempo relativo en segundos con 3 decimales (milisegundos)
+        relative_time = time.time() - script_start_time
+        record.relative_time = f"{relative_time:.3f}s"
+        return super().format(record)
 
 # Configurar logging para escribir en tiempo real a un archivo
 def setup_debug_logging():
@@ -97,8 +113,8 @@ def setup_debug_logging():
     file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
     file_handler.setLevel(logging.DEBUG)
 
-    # Formato simple sin timestamp extra (ya que debug_print no los incluye)
-    formatter = logging.Formatter('%(message)s')
+    # Usar formatter personalizado con tiempo relativo
+    formatter = RelativeTimeFormatter('[%(relative_time)s] %(message)s')
     file_handler.setFormatter(formatter)
 
     logger.addHandler(file_handler)
@@ -127,11 +143,21 @@ XYPlorer_Tags = True
 
 
 def debug_print(*message):
+    global script_start_time
     if DEBUG:
+        # Inicializar tiempo de inicio si no está establecido
+        if script_start_time is None:
+            script_start_time = time.time()
+
         # Crear el mensaje uniendo todos los argumentos
         msg = ' '.join(str(arg) for arg in message)
-        print(msg)  # Mantener el print original
-        debug_logger.info(msg)  # Agregar escritura al archivo de log
+
+        # Calcular tiempo relativo para el print en consola
+        relative_time = time.time() - script_start_time
+        timestamped_msg = f"[{relative_time:.3f}s] {msg}"
+
+        print(timestamped_msg)  # Print con timestamp
+        debug_logger.info(msg)  # El logger ya incluye el timestamp en el archivo
 
 
 def extract_version_number(version_str):
@@ -1214,7 +1240,10 @@ def FPT_Hiero(force_all_clips=False):
         force_all_clips (bool): Si es True, procesa todos los clips independientemente
                                de la selección actual.
     """
-    global app, window, hiero_ops
+    global app, window, hiero_ops, script_start_time
+    # Reiniciar el tiempo de inicio para cada ejecución del pull
+    script_start_time = time.time()
+    debug_print("Iniciando ejecución del pull...")
     # Selecciona la ruta de la base de datos segun el sistema operativo
     if platform.system() == "Windows":
         db_path = r"C:/Portable/LGA/PipeSync/cache/pipesync.db"
