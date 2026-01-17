@@ -1,16 +1,18 @@
 """
 ____________________________________________________________________________________________________________________
 
-  LGA_NKS_Timeline_Refresh_Wrap v1.3 | Lega
-  
+  LGA_NKS_Timeline_Refresh_Wrap v1.4 | Lega
+
   Wrapper que ejecuta una secuencia de scripts para refrescar el timeline manteniendo el nivel de zoom original:
-  
+
   1. Captura el estado actual del timeline (zoom y scroll)
   2. Limpia el cache de reproducción (deshabiliado por el momento)
   3. Refresca el timeline
   4. Ajusta el tamaño de la ventana
   5. Scrollea al track superior
   6. Restaura el estado original (dos intentos) usando los valores exactos del slider y scrollbar
+
+  v1.4: Implementado cierre simultáneo de viewers + timelines para mantener equilibrio delicado de Hiero
 ____________________________________________________________________________________________________________________
 """
 
@@ -200,22 +202,50 @@ def restore_timeline_state(state, timeline_editor=None):
         debug_print(f"Error al restaurar el estado: {e}")
         return False
 
-def find_and_close_old_viewers():
+def find_and_close_old_viewers_and_timelines_safe(old_viewer_object_name=None, old_timeline_object_name=None):
     """
-    Cierra todos los viewers que NO sean el currentViewer().
-    Estrategia: después de openInTimeline(), currentViewer() devuelve el nuevo,
-    así que todos los demás viewers son viejos y pueden cerrarse.
+    Cierra viewers Y timelines viejos de forma SEGURA usando deleteLater() (no close()).
+    Mantiene el EQUILIBRIO DELICADO de Hiero cerrando ambos simultáneamente.
+
+    Estrategia basada en investigación: usar metaObject().className() y comparación de objectName.
+    Documentación: "cerrar viewers + timelines JUNTOS funciona sin crash"
+
+    Args:
+        old_viewer_object_name: objectName del viewer que era activo ANTES del refresh.
+        old_timeline_object_name: objectName del timeline que era activo ANTES del refresh.
+                                Si se proporcionan, solo cierra los widgets específicos.
+                                Si son None, cierra todos los que NO sean los actuales.
     """
     try:
-        # Obtener el viewer actualmente activo (el nuevo)
+        # Obtener viewers/timelines actualmente activos
         current_viewer = hiero.ui.currentViewer()
-        if not current_viewer:
-            debug_print("⚠️ No hay viewer actualmente activo")
-            return False
+        current_viewer_obj_name = ""
+        if current_viewer:
+            try:
+                current_window = current_viewer.window()
+                if current_window and hasattr(current_window, 'objectName'):
+                    current_viewer_obj_name = current_window.objectName()
+            except Exception as e:
+                debug_print(f"Error obteniendo current viewer objectName: {e}")
 
-        debug_print(f"\n🔍 Buscando viewers viejos (todos excepto currentViewer: {hex(id(current_viewer))})")
+        # Obtener timeline activo
+        active_seq = hiero.ui.activeSequence()
+        current_timeline_obj_name = ""
+        if active_seq:
+            try:
+                current_timeline = hiero.ui.getTimelineEditor(active_seq)
+                if current_timeline:
+                    current_window = current_timeline.window()
+                    if current_window and hasattr(current_window, 'objectName'):
+                        current_timeline_obj_name = current_window.objectName()
+            except Exception as e:
+                debug_print(f"Error obteniendo current timeline objectName: {e}")
 
-        # Buscar TODOS los viewers en la aplicación
+        debug_print(f"\n🔍 Buscando viewers y timelines viejos para cerrar simultáneamente")
+        debug_print(f"   Current viewer: {current_viewer_obj_name}")
+        debug_print(f"   Current timeline: {current_timeline_obj_name}")
+
+        # Buscar TODOS los widgets usando metaObject().className()
         from LGA_QtAdapter_HieroTools import QtWidgets
         app = QtWidgets.QApplication.instance()
         if not app:
@@ -224,32 +254,109 @@ def find_and_close_old_viewers():
 
         all_widgets = app.allWidgets()
         old_viewers_found = 0
+        old_timelines_found = 0
         old_viewers_closed = 0
+        old_timelines_closed = 0
+
+        # PRIMERA PASADA: Identificar qué cerrar (sin cerrar aún)
+        widgets_to_close = []
 
         for widget in all_widgets:
-            if isinstance(widget, hiero.ui.Viewer) and widget != current_viewer:
-                old_viewers_found += 1
-                try:
-                    # Obtener info del viewer viejo antes de cerrarlo
-                    old_window = widget.window()
-                    old_obj_name = old_window.objectName() if (old_window and hasattr(old_window, 'objectName')) else 'N/A'
-                    debug_print(f"  📍 Encontrado viewer viejo: {old_obj_name} (ID: {hex(id(widget))})")
+            try:
+                class_name = widget.metaObject().className() if hasattr(widget, 'metaObject') else ""
+                obj_name = widget.objectName() if hasattr(widget, 'objectName') else ""
 
-                    # Intentar cerrar el viewer viejo
-                    old_window.close()
-                    QtCore.QCoreApplication.processEvents()
+                # Filtrar widgets válidos
+                if not obj_name or not obj_name.strip():
+                    continue
 
+                should_close = False
+                widget_type = ""
+
+                # Identificar VIEWERS
+                if "Foundry::Storm::UI::Viewer" in class_name:
+                    widget_type = "viewer"
+                    if 'contactsheet' in obj_name.lower():
+                        continue  # Saltar Contact Sheet
+
+                    if old_viewer_object_name:
+                        # Cerrar viewer específico identificado antes del refresh
+                        should_close = (obj_name == old_viewer_object_name)
+                    else:
+                        # Cerrar todos viewers que NO sean currentViewer
+                        should_close = (obj_name != current_viewer_obj_name)
+
+                # Identificar TIMELINES
+                elif "TimelineEditor" in class_name:
+                    widget_type = "timeline"
+
+                    if old_timeline_object_name:
+                        # Cerrar timeline específico identificado antes del refresh
+                        should_close = (obj_name == old_timeline_object_name)
+                    else:
+                        # Cerrar todos timelines que NO sean el currentTimeline
+                        should_close = (obj_name != current_timeline_obj_name)
+
+                if should_close:
+                    widgets_to_close.append({
+                        'widget': widget,
+                        'object_name': obj_name,
+                        'type': widget_type,
+                        'window_title': widget.windowTitle() if hasattr(widget, 'windowTitle') else ""
+                    })
+
+                    if widget_type == "viewer":
+                        old_viewers_found += 1
+                    elif widget_type == "timeline":
+                        old_timelines_found += 1
+
+            except Exception as e:
+                # Ignorar errores en widgets individuales
+                continue
+
+        # SEGUNDA PASADA: Cerrar simultáneamente (mantener equilibrio)
+        debug_print(f"\n⚖️ CERRANDO SIMULTÁNEAMENTE para mantener equilibrio:")
+        debug_print(f"   Viewers a cerrar: {old_viewers_found}")
+        debug_print(f"   Timelines a cerrar: {old_timelines_found}")
+
+        for item in widgets_to_close:
+            try:
+                widget = item['widget']
+                obj_name = item['object_name']
+                widget_type = item['type']
+                display_name = item['window_title'] or obj_name
+
+                debug_print(f"  🗑️ Cerrando {widget_type}: {display_name} (obj: {obj_name})")
+
+                # Usar deleteLater() - Mantiene el equilibrio del sistema
+                widget.deleteLater()
+
+                if widget_type == "viewer":
                     old_viewers_closed += 1
-                    debug_print(f"  ✅ Cerrado viewer viejo: {old_obj_name}")
+                elif widget_type == "timeline":
+                    old_timelines_closed += 1
 
-                except Exception as e:
-                    debug_print(f"  ❌ Error cerrando viewer viejo {old_obj_name}: {e}")
+            except Exception as e:
+                debug_print(f"  ❌ Error cerrando {item['type']} {item['object_name']}: {e}")
 
-        debug_print(f"\n📊 Resumen: {old_viewers_found} viewers viejos encontrados, {old_viewers_closed} cerrados")
-        return old_viewers_closed > 0
+        # Procesar eventos para que los deleteLater() se ejecuten
+        QtCore.QCoreApplication.processEvents()
+
+        debug_print(f"\n📊 RESUMEN DEL CIERRE SIMULTÁNEO:")
+        debug_print(f"   ✅ Viewers cerrados: {old_viewers_closed}/{old_viewers_found}")
+        debug_print(f"   ✅ Timelines cerrados: {old_timelines_closed}/{old_timelines_found}")
+        debug_print(f"   ⚖️ Equilibrio mantenido: {old_viewers_closed + old_timelines_closed} widgets cerrados juntos")
+
+        success = (old_viewers_closed + old_timelines_closed) > 0
+        if success:
+            debug_print(f"   ✅ Cierre simultáneo exitoso - Equilibrio de Hiero mantenido")
+        else:
+            debug_print(f"   ⚠️ No se encontraron widgets para cerrar")
+
+        return success
 
     except Exception as e:
-        debug_print(f"❌ Error en find_and_close_old_viewers: {e}")
+        debug_print(f"❌ Error en find_and_close_old_viewers_and_timelines_safe: {e}")
         import traceback
         debug_print(traceback.format_exc())
         return False
@@ -296,7 +403,34 @@ def main():
         debug_print(f"Tiempo ejecutando clear cache: {time.time() - start_time:.3f} segundos")
         """
 
-        # 3. Ejecutar refresh y obtener timeline/viewer nuevo
+        # 3. CAPTURAR VIEWER Y TIMELINE ACTIVOS ANTES del refresh (serán los "viejos")
+        old_viewer_object_name = None
+        old_timeline_object_name = None
+
+        active_viewer_before = hiero.ui.currentViewer()
+        if active_viewer_before:
+            try:
+                old_viewer_window = active_viewer_before.window()
+                if old_viewer_window and hasattr(old_viewer_window, 'objectName'):
+                    old_viewer_object_name = old_viewer_window.objectName()
+                    debug_print(f"📍 Viewer activo ANTES del refresh: {old_viewer_object_name}")
+            except Exception as e:
+                debug_print(f"⚠️ No se pudo capturar objectName del viewer activo: {e}")
+
+        # Capturar también el timeline activo antes del refresh
+        active_seq_before = hiero.ui.activeSequence()
+        if active_seq_before:
+            try:
+                old_timeline = hiero.ui.getTimelineEditor(active_seq_before)
+                if old_timeline:
+                    old_timeline_window = old_timeline.window()
+                    if old_timeline_window and hasattr(old_timeline_window, 'objectName'):
+                        old_timeline_object_name = old_timeline_window.objectName()
+                        debug_print(f"📍 Timeline activo ANTES del refresh: {old_timeline_object_name}")
+            except Exception as e:
+                debug_print(f"⚠️ No se pudo capturar objectName del timeline activo: {e}")
+
+        # 4. Ejecutar refresh y obtener timeline/viewer nuevo
         start_time = time.time()
         refresh_module = import_script('LGA_NKS_Timeline_Refresh')
         new_timeline = None
@@ -554,7 +688,28 @@ def main():
                 debug_print("✅ NO HAY TIMELINES PARA CERRAR")
 
             debug_print(f"\n📊 TOTAL: {len(old_viewers)} viewers y {len(old_timelines)} timelines para cerrar")
-            debug_print(f"   ✅ Análisis completado (SIN cerrar nada)")
+            debug_print(f"   ✅ Análisis completado")
+
+            # 8. CERRAR VIEWERS Y TIMELINES VIEJOS SIMULTÁNEAMENTE (EQUILIBRIO)
+            debug_print(f"\n--- ⚖️ CERRANDO VIEWERS + TIMELINES SIMULTÁNEAMENTE ---")
+            debug_print(f"   Para mantener el EQUILIBRIO DELICADO de Hiero")
+
+            if old_viewer_object_name or old_timeline_object_name:
+                debug_print(f"🎯 Cerrando widgets específicos identificados antes del refresh:")
+                debug_print(f"   Viewer: {old_viewer_object_name or 'No identificado'}")
+                debug_print(f"   Timeline: {old_timeline_object_name or 'No identificado'}")
+
+                close_result = find_and_close_old_viewers_and_timelines_safe(
+                    old_viewer_object_name=old_viewer_object_name,
+                    old_timeline_object_name=old_timeline_object_name
+                )
+
+                if close_result:
+                    debug_print(f"✅ Widgets viejos cerrados exitosamente - Equilibrio mantenido")
+                else:
+                    debug_print(f"⚠️ No se pudieron cerrar los widgets viejos")
+            else:
+                debug_print(f"⚠️ No se identificaron widgets viejos específicos, omitiendo cierre automático")
 
         except Exception as e:
             debug_print(f"❌ Error en análisis: {e}")
