@@ -1,11 +1,12 @@
 """
 ____________________________________________________________________________
-  LGA_NKS_Flow_Pull v3.32 | Lega
+  LGA_NKS_Flow_Pull v3.34 | Lega
   Compara los estados de las task Comp de los shots del timeline de Hiero
   con los estados registrados en un archivo JSON basado en Flow PT
   Tambien aplica tags con los colores de los estados en xyplorer
 
 
+  v3.34: Simplificación - doScan funciona correctamente en todas las versiones de Hiero, eliminada lógica condicional innecesaria
   v3.32: Debug_print ahora tambien escribe en un archivo de log para debug.
          Arreglos para Hiero 16 (PySide6): omitir doScan problemático, reconexión automática de clips offline y reintento de cambio de color.
   v3.31: Se permite cambiar la versión de un clip offline incluso si no hay media presente.
@@ -966,34 +967,8 @@ class HieroOperations:
             debug_print(f"Creando VersionScanner para clip: {clip.name()}")
             vc = hiero.core.VersionScanner()
             debug_print(f"VersionScanner creado, ejecutando doScan...")
-
-            # En Hiero 16 (PySide6), doScan puede colgarse, intentar con timeout
-            try:
-                if hasattr(hiero.core, 'applicationVersion'):
-                    version = hiero.core.applicationVersion()
-                    if version and version.startswith('16'):
-                        debug_print(f"Hiero 16 detectado, omitiendo doScan problemático y usando items() directamente")
-                        # En Hiero 16, evitar doScan que se cuelga y usar items() directamente
-                        # El binItem ya debería tener las versiones cargadas
-                        debug_print(f"Saltando doScan en Hiero 16, usando items() directamente")
-                    else:
-                        # Hiero 15 y anteriores: doScan normal
-                        vc.doScan(activeVersion)
-                        debug_print(f"doScan completado para clip: {clip.name()}")
-                else:
-                    # Fallback: intentar doScan pero con manejo de timeout simple
-                    try:
-                        vc.doScan(activeVersion)
-                        debug_print(f"doScan completado para clip: {clip.name()}")
-                    except Exception as do_scan_error:
-                        debug_print(f"doScan falló, continuando sin scan: {do_scan_error}")
-            except Exception as version_check_error:
-                debug_print(f"Error en version check, intentando doScan: {version_check_error}")
-                try:
-                    vc.doScan(activeVersion)
-                    debug_print(f"doScan completado para clip: {clip.name()}")
-                except Exception as do_scan_error:
-                    debug_print(f"doScan falló, continuando sin scan: {do_scan_error}")
+            vc.doScan(activeVersion)
+            debug_print(f"doScan completado para clip: {clip.name()}")
 
             debug_print(f"Obteniendo version mas alta para binItem: {binItem.name()}")
             highest_version = self.get_highest_version(binItem)

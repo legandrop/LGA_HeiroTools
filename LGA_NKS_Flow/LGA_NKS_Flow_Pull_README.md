@@ -180,16 +180,15 @@ Las consultas a base de datos (SG) son **muy eficientes** (~5.3% del tiempo tota
 
 ## Historial de Versiones
 
-### v3.33 (Próxima)
-- Paralelización completa de doScan
-- Arquitectura multithread mejorada
-- Optimización de XYplorer threading
-- UI responsiva durante procesamiento masivo
+### v3.34
+- **Simplificación completa**: Eliminada lógica condicional innecesaria entre Hiero 15/16
+- doScan funciona correctamente en todas las versiones de Hiero
+- Código más simple y mantenible
 
 ### v3.32
 - Sistema de logging con timestamps
 - Debug print mejorado
-- Arreglos para Hiero 16 (PySide6)
+- Arreglos para Hiero 16 (PySide6): omitir doScan problemático
 
 ### v3.31
 - Soporte para versiones offline
