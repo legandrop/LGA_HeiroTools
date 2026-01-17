@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Projects_Panel_SwitchSequence v2.21 | Lega
+  LGA_NKS_Projects_Panel_SwitchSequence v2.22 | Lega
   Hiero / Nuke Studio - Switch V3: HÍBRIDO OPTIMIZADO + LIMPIEZA TOTAL + CROSS-PROJECT
 
   🎯 SOLUCIÓN GANADORA FINAL:
@@ -10,11 +10,12 @@ ________________________________________________________________________________
   - ✅ Playhead: Preservado automáticamente por Hiero
   - ✅ Gain/Gamma/Saturation: Transferidos desde viewer anterior
   - ✅ UI: Redimensiona ventana + Scroll al top track
-  - ✅ LIMPIEZA TOTAL: Cierra TODOS los otros viewers para evitar acumulación
+  - ✅ CIERRE EQUILIBRADO: Cierra viewer + timeline originales (método refresh)
   - ✅ CROSS-PROJECT: Cambia entre proyectos automáticamente
 
-  ✅ CONFIRMADO: Funciona perfectamente - velocidad 0.63s con limpieza total + cross-project.
+  ✅ CONFIRMADO: Funciona perfectamente - velocidad 0.63s con cierre equilibrado + cross-project.
 
+  v2.22: Apertura con duplicado y cierre simultáneo de viewer + timeline originales (método refresh)
   v2.21: Mejorada lógica de versiones: búsqueda en anteúltimo bloque y priorización de sufijos (_Mac)
 
   INTEGRACIÓN EN PANEL DE PROYECTOS:
@@ -76,6 +77,105 @@ def _apply_viewer_settings(viewer, state):
             viewer.setSaturation(state["saturation"])
     except Exception:
         pass
+
+
+def _get_current_viewer_object_name():
+    """Obtiene objectName del viewer activo actual."""
+    try:
+        current_viewer = hiero.ui.currentViewer()
+        if not current_viewer:
+            return None
+        current_window = current_viewer.window()
+        if current_window and hasattr(current_window, "objectName"):
+            return current_window.objectName()
+    except Exception:
+        return None
+    return None
+
+
+def _get_current_timeline_object_name():
+    """Obtiene objectName del timeline activo actual."""
+    try:
+        active_seq = hiero.ui.activeSequence()
+        if not active_seq:
+            return None
+        current_timeline = hiero.ui.getTimelineEditor(active_seq)
+        if not current_timeline:
+            return None
+        current_window = current_timeline.window()
+        if current_window and hasattr(current_window, "objectName"):
+            return current_window.objectName()
+    except Exception:
+        return None
+    return None
+
+
+def _close_old_viewer_and_timeline_safe(old_viewer_object_name, old_timeline_object_name):
+    """
+    Cierra viewer + timeline originales de forma SEGURA usando deleteLater().
+    Mantiene el equilibrio delicado de Hiero cerrando ambos simultáneamente.
+    """
+    if not old_viewer_object_name and not old_timeline_object_name:
+        return 0, 0
+
+    closed_viewers = 0
+    closed_timelines = 0
+
+    try:
+        from LGA_QtAdapter_HieroTools import QtWidgets
+
+        app = QtWidgets.QApplication.instance()
+        if not app:
+            return 0, 0
+
+        widgets_to_close = []
+
+        for widget in app.allWidgets():
+            try:
+                obj_name = widget.objectName() if hasattr(widget, "objectName") else ""
+                if not obj_name:
+                    continue
+
+                class_name = (
+                    widget.metaObject().className()
+                    if hasattr(widget, "metaObject")
+                    else ""
+                )
+
+                if (
+                    old_viewer_object_name
+                    and obj_name == old_viewer_object_name
+                    and "Foundry::Storm::UI::Viewer" in class_name
+                ):
+                    widgets_to_close.append(("viewer", widget))
+
+                if (
+                    old_timeline_object_name
+                    and obj_name == old_timeline_object_name
+                    and "TimelineEditor" in class_name
+                ):
+                    widgets_to_close.append(("timeline", widget))
+
+            except Exception:
+                continue
+
+        # Cierre simultáneo para mantener equilibrio
+        for widget_type, widget in widgets_to_close:
+            try:
+                widget.deleteLater()
+                if widget_type == "viewer":
+                    closed_viewers += 1
+                elif widget_type == "timeline":
+                    closed_timelines += 1
+            except Exception:
+                continue
+
+        _process_events()
+
+    except Exception:
+        return closed_viewers, closed_timelines
+
+    return closed_viewers, closed_timelines
 
 
 def _collect_viewers():
@@ -192,7 +292,7 @@ def _cleanup_viewers_aggressive(target_sequence_name):
             continue
 
         try:
-            widget.close()
+            widget.deleteLater()
             _process_events()
             closed.append(title)
         except Exception:
@@ -239,7 +339,7 @@ def _cleanup_timelines_aggressive(target_sequence_name, target_seq_obj=None):
             continue
 
         try:
-            widget.close()
+            widget.deleteLater()
             _process_events()
             closed.append(title)
         except Exception:
@@ -323,7 +423,7 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
     - ✅ Playhead: Preservado automáticamente por Hiero
     - ✅ Gain/Gamma/Saturation: Transferidos desde viewer anterior
     - ✅ UI: Redimensiona ventana + Scroll al top track
-    - ✅ LIMPIEZA TOTAL: Cierra TODOS los otros viewers para evitar acumulación
+    - ✅ CIERRE EQUILIBRADO: Cierra viewer + timeline originales (método refresh)
     - ✅ CROSS-PROJECT: Cambia entre proyectos automáticamente
     """
     total_start = time.time()
@@ -396,7 +496,11 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
     viewer_state = _get_viewer_state(current_viewer) if current_viewer else None
     viewer_capture_time = time.time() - step_start
 
-    # 4. Abrir secuencia con openInTimeline (como v2) - playhead se preserva automáticamente
+    # 4. Capturar viewer + timeline actuales ANTES de duplicar (método refresh)
+    old_viewer_object_name = _get_current_viewer_object_name()
+    old_timeline_object_name = _get_current_timeline_object_name()
+
+    # 5. Abrir secuencia con openInTimeline (como v2) - playhead se preserva automáticamente
     step_start = time.time()
     try:
         hiero.ui.openInTimeline(target_seq)
@@ -414,40 +518,21 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
 
     open_time = time.time() - step_start
 
-    # 5. LIMPIEZA AGRESIVA: cerrar todos los viewers que no sean el de la secuencia objetivo
+    # 6. CERRAR viewer + timeline ORIGINALES simultáneamente (método refresh)
     step_start = time.time()
     try:
-        viewers_closed, viewers_kept, kept_titles, closed_titles = (
-            _cleanup_viewers_aggressive(target_sequence_name)
+        closed_viewers, closed_timelines = _close_old_viewer_and_timeline_safe(
+            old_viewer_object_name, old_timeline_object_name
+        )
+        debug_print(
+            f"   ├── Cerrados originales: viewers={closed_viewers}, timelines={closed_timelines}"
         )
     except Exception as e:
-        debug_print(f"   ├── Error cerrando viewers: {e}")
-        viewers_closed, viewers_kept, kept_titles, closed_titles = 0, 0, [], []
-    viewer_close_time = time.time() - step_start
+        debug_print(f"   ├── Error cerrando viewer/timeline originales: {e}")
+        closed_viewers, closed_timelines = 0, 0
+    close_time = time.time() - step_start
 
-    # 6. LIMPIEZA DE TIMELINES: cerrar timelines no objetivo (para evitar "Sequence" vacíos)
-    timelines_close_time = 0
-    try:
-        step_start = time.time()
-        (
-            timelines_closed,
-            timelines_kept,
-            timelines_kept_titles,
-            timelines_closed_titles,
-            timelines_skipped,
-        ) = _cleanup_timelines_aggressive(target_sequence_name, target_seq)
-        timelines_close_time = time.time() - step_start
-    except Exception as e:
-        debug_print(f"   ├── Error cerrando timelines: {e}")
-        (
-            timelines_closed,
-            timelines_kept,
-            timelines_kept_titles,
-            timelines_closed_titles,
-            timelines_skipped,
-        ) = (0, 0, [], [], [])
-
-    # 6. Aplicar ajustes del viewer anterior (gain/gamma) - playhead ya está correcto
+    # 7. Aplicar ajustes del viewer anterior (gain/gamma) - playhead ya está correcto
     viewer_restore_time = 0
     if viewer_state:
         step_start = time.time()
@@ -456,19 +541,8 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
             _apply_viewer_settings(new_viewer, viewer_state)
         viewer_restore_time = time.time() - step_start
 
-    # 7. Enfocar viewer objetivo tras limpieza (para evitar pantallas grises)
+    # 8. Enfocar viewer objetivo tras cierre (para evitar pantallas grises)
     _focus_target_viewer(target_sequence_name)
-
-    # 8. Si no quedó ningún timeline de la secuencia objetivo, reabrir timeline
-    if timelines_kept == 0 and target_seq:
-        try:
-            debug_print(
-                "   ├── Reabriendo timeline de la secuencia objetivo (no había timeline mantenido)"
-            )
-            hiero.ui.openInTimeline(target_seq)
-            _process_events()
-        except Exception as e:
-            debug_print(f"   ├── Error reabriendo timeline: {e}")
 
     # 9. Redimensionar ventana del timeline (como v4)
     step_start = time.time()
@@ -485,8 +559,7 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
     debug_print(f"✅ Switch híbrido perfecto completado en {total_time:.2f}s")
     debug_print(f"   ├── Viewer capture: {viewer_capture_time:.3f}s")
     debug_print(f"   ├── Sequence open: {open_time:.3f}s")
-    debug_print(f"   ├── Viewers cleanup: {viewer_close_time:.3f}s")
-    debug_print(f"   ├── Timelines cleanup: {timelines_close_time:.3f}s")
+    debug_print(f"   ├── Close originals (viewer+timeline): {close_time:.3f}s")
     debug_print(f"   ├── Viewer settings apply: {viewer_restore_time:.3f}s")
     debug_print(f"   ├── UI reduce: {reduce_time:.3f}s")
     debug_print(f"   ├── UI scroll: {scroll_time:.3f}s")

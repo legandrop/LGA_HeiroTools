@@ -10,7 +10,7 @@ Módulo auxiliar que implementa la **solución ganadora V3 Híbrida** para cambi
 - ✅ **Velocidad óptima:** 0.49s (más rápido que v4)
 - ✅ **Ajustes completos preservados:** Gain/Gamma/Saturation + Playhead automático
 - ✅ **Comportamiento nativo:** Reemplaza viewer como Hiero nativo
-- ✅ **Sin duplicados:** Lógica viewer-centric inteligente
+- ✅ **Sin duplicados:** Duplica y luego cierra viewer+timeline originales
 - ✅ **UI completa:** Reduce panel + scroll automático
 
 ## API
@@ -35,7 +35,7 @@ switch_to_sequence(target_sequence_name)
 - ✅ **Detección de proyecto:** Identifica automáticamente a qué proyecto pertenece la secuencia
 - ✅ **Preservación completa:** Gain/Gamma/Saturation + Playhead automático
 - ✅ **Optimización UI:** Reduce panel + scroll al top track
-- ✅ **Manejo de duplicados:** Cierra viewers existentes correctamente antes de abrir (evita duplicados)
+- ✅ **Manejo de duplicados:** Duplica y luego cierra viewer+timeline originales (método refresh)
 - ✅ **Logging detallado:** Tiempos de ejecución y estado de operaciones
 
 ## Uso en Panel de Proyectos
@@ -105,10 +105,11 @@ def on_sequence_click(self, sequence_name):
 2. Buscar secuencia objetivo
 3. Verificar si ya está activa (optimización)
 4. Capturar estado del viewer actual
-5. Buscar/cerrar viewer existente duplicado
-6. Abrir nueva secuencia (playhead automático)
-7. Aplicar ajustes preservados
-8. Optimizar UI (reduce + scroll)
+5. Capturar viewer+timeline activos (originales)
+6. Abrir nueva secuencia (duplica, playhead automático)
+7. Cerrar viewer+timeline originales simultáneamente
+8. Aplicar ajustes preservados
+9. Optimizar UI (reduce + scroll)
 ```
 
 ## Logs y Debugging
@@ -118,7 +119,7 @@ def on_sequence_click(self, sequence_name):
 🔄 Switch híbrido a '710-990'...
 ✅ Switch híbrido perfecto completado en 0.49s
    ├── Viewer capture: 0.000s
-   ├── Existing viewer close: 0.000s
+   ├── Close originals (viewer+timeline): 0.000s
    ├── Sequence open: 0.470s
    ├── Viewer settings apply: 0.002s
    ├── UI reduce: 0.002s
