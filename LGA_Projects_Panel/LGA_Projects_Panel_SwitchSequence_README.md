@@ -11,6 +11,7 @@ Módulo auxiliar que implementa la **solución ganadora V3 Híbrida** para cambi
 - ✅ **Ajustes completos preservados:** Gain/Gamma/Saturation + Playhead automático
 - ✅ **Comportamiento nativo:** Reemplaza viewer como Hiero nativo
 - ✅ **Sin duplicados:** Duplica y luego cierra viewer+timeline originales
+- ✅ **Opcional:** Cierra TODOS los viewers+timelines viejos (flag `CLOSE_ALL_TIMELINES`)
 - ✅ **UI completa:** Reduce panel + scroll automático
 
 ## API
@@ -36,6 +37,7 @@ switch_to_sequence(target_sequence_name)
 - ✅ **Preservación completa:** Gain/Gamma/Saturation + Playhead automático
 - ✅ **Optimización UI:** Reduce panel + scroll al top track
 - ✅ **Manejo de duplicados:** Duplica y luego cierra viewer+timeline originales (método refresh)
+- ✅ **Cierre total de viewers+timelines:** Opcional con `CLOSE_ALL_TIMELINES = True`
 - ✅ **Logging detallado:** Tiempos de ejecución y estado de operaciones
 
 ## Uso en Panel de Proyectos
@@ -65,6 +67,12 @@ def on_sequence_click(self, sequence_name):
 - ✅ **Nuke 15/16:** Usa `LGA_QtAdapter_HieroTools` para compatibilidad Qt
 - ✅ **Hiero APIs:** Funciona con todas las versiones de Hiero
 - ✅ **Fallbacks:** Incluye fallbacks para imports de Qt si el adapter no está disponible
+
+## Configuración
+
+### Flag opcional
+- `CLOSE_ALL_TIMELINES = True` → Cierra todos los viewers+timelines viejos dejando solo el nuevo
+- `CLOSE_ALL_TIMELINES = False` → Solo cierra viewer+timeline originales (comportamiento base)
 
 ## Dependencias
 
@@ -108,8 +116,9 @@ def on_sequence_click(self, sequence_name):
 5. Capturar viewer+timeline activos (originales)
 6. Abrir nueva secuencia (duplica, playhead automático)
 7. Cerrar viewer+timeline originales simultáneamente
-8. Aplicar ajustes preservados
-9. Optimizar UI (reduce + scroll)
+8. (Opcional) Cerrar TODOS los viewers+timelines viejos si `CLOSE_ALL_TIMELINES = True`
+9. Aplicar ajustes preservados
+10. Optimizar UI (reduce + scroll)
 ```
 
 ## Logs y Debugging
@@ -124,6 +133,7 @@ def on_sequence_click(self, sequence_name):
    ├── Viewer settings apply: 0.002s
    ├── UI reduce: 0.002s
    ├── UI scroll: 0.001s
+   ├── Close ALL old viewers+timelines: 0.000s (solo si CLOSE_ALL_TIMELINES = True)
    └── Total: 0.49s
   🔧 Aplicando reducción de panel izquierdo...
   📋 Verificando que hay secuencia activa...

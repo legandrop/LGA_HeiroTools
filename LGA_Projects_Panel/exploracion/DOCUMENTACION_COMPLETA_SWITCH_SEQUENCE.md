@@ -10,6 +10,7 @@
 - ✅ **Velocidad óptima:** 0.63s (con cierre equilibrado incluido)
 - ✅ **Sin duplicados:** Duplica y luego cierra viewer+timeline originales
 - ✅ **Cierre equilibrado:** Viewer + timeline originales se cierran simultáneamente
+- ✅ **Opcional:** Cerrar TODOS los viewers+timelines viejos (flag `CLOSE_ALL_TIMELINES`)
 - ✅ **Cross-project:** Cambia entre proyectos automáticamente
 - ✅ **UI completa:** Reduce panel + scroll automático
 
@@ -57,6 +58,9 @@ def switch_to_sequence_hybrid(target_sequence_name):
 
     # 4. Cerrar simultáneamente viewer + timeline ORIGINALES (equilibrio delicado)
     _close_old_viewer_and_timeline_safe(old_viewer_obj, old_timeline_obj)
+
+    # 4b. OPCIONAL: cerrar TODOS los viewers+timelines viejos (flag CLOSE_ALL_TIMELINES)
+    # _close_all_other_viewers_and_timelines_safe(current_viewer_obj, current_timeline_obj)
 
     # 5. Aplicar ajustes transferidos (gain/gamma/saturation)
     _apply_viewer_settings(new_viewer, viewer_state)
@@ -480,6 +484,10 @@ def scroll_to_top_track():
     return False
 ```
 
+**Flag opcional:**
+- `CLOSE_ALL_TIMELINES = True` → Cierra todos los timelines viejos y deja solo el nuevo.
+- `CLOSE_ALL_TIMELINES = False` → Solo cierra viewer+timeline originales (equilibrio base).
+
 ---
 
 ## 🎯 CAPÍTULO 5: LECCIONES APRENDIDAS
@@ -611,6 +619,7 @@ V3 HÍBRIDA - Desglose de 0.63s total (con cierre equilibrado):
 ├── Viewer capture: 0.000s (instantáneo)
 ├── Sequence open: 0.504s (operación principal)
 ├── Close originals (viewer+timeline): 0.093s (equilibrio delicado)
+├── Close ALL old viewers+timelines: 0.000s (solo si CLOSE_ALL_TIMELINES = True)
 ├── Viewer settings apply: 0.001s (muy rápido)
 ├── UI reduce: 0.019s (óptimo)
 ├── UI scroll: 0.009s (óptimo)

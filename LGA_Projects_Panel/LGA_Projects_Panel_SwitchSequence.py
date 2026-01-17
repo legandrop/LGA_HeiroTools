@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Projects_Panel_SwitchSequence v2.22 | Lega
+  LGA_NKS_Projects_Panel_SwitchSequence v2.24 | Lega
   Hiero / Nuke Studio - Switch V3: HÍBRIDO OPTIMIZADO + LIMPIEZA TOTAL + CROSS-PROJECT
 
   🎯 SOLUCIÓN GANADORA FINAL:
@@ -15,6 +15,8 @@ ________________________________________________________________________________
 
   ✅ CONFIRMADO: Funciona perfectamente - velocidad 0.63s con cierre equilibrado + cross-project.
 
+  v2.24: Flag opcional para cerrar viewers + timelines viejos (deja solo el nuevo)
+  v2.23: Flag opcional para cerrar TODOS los timelines viejos (deja solo el nuevo)
   v2.22: Apertura con duplicado y cierre simultáneo de viewer + timeline originales (método refresh)
   v2.21: Mejorada lógica de versiones: búsqueda en anteúltimo bloque y priorización de sufijos (_Mac)
 
@@ -31,6 +33,8 @@ import os
 
 # Variable global para activar o desactivar los prints
 DEBUG = False
+# Si True, cierra TODOS los viewers + timelines viejos y deja solo el nuevo
+CLOSE_ALL_TIMELINES = True
 
 def debug_print(*message):
     if DEBUG:
@@ -160,6 +164,71 @@ def _close_old_viewer_and_timeline_safe(old_viewer_object_name, old_timeline_obj
                 continue
 
         # Cierre simultáneo para mantener equilibrio
+        for widget_type, widget in widgets_to_close:
+            try:
+                widget.deleteLater()
+                if widget_type == "viewer":
+                    closed_viewers += 1
+                elif widget_type == "timeline":
+                    closed_timelines += 1
+            except Exception:
+                continue
+
+        _process_events()
+
+    except Exception:
+        return closed_viewers, closed_timelines
+
+    return closed_viewers, closed_timelines
+
+
+def _close_all_other_viewers_and_timelines_safe(
+    current_viewer_object_name, current_timeline_object_name
+):
+    """
+    Cierra TODOS los viewers + timelines viejos dejando solo los actuales.
+    Usa deleteLater() para evitar crashes en Hiero 16 y mantener equilibrio delicado.
+    """
+    if not current_viewer_object_name and not current_timeline_object_name:
+        return 0, 0
+
+    closed_viewers = 0
+    closed_timelines = 0
+
+    try:
+        from LGA_QtAdapter_HieroTools import QtWidgets
+
+        app = QtWidgets.QApplication.instance()
+        if not app:
+            return 0, 0
+
+        widgets_to_close = []
+
+        for widget in app.allWidgets():
+            try:
+                obj_name = widget.objectName() if hasattr(widget, "objectName") else ""
+                if not obj_name:
+                    continue
+
+                class_name = (
+                    widget.metaObject().className()
+                    if hasattr(widget, "metaObject")
+                    else ""
+                )
+
+                if "Foundry::Storm::UI::Viewer" in class_name:
+                    if "contactsheet" in obj_name.lower():
+                        continue
+                    if current_viewer_object_name and obj_name != current_viewer_object_name:
+                        widgets_to_close.append(("viewer", widget))
+
+                if "TimelineEditor" in class_name:
+                    if current_timeline_object_name and obj_name != current_timeline_object_name:
+                        widgets_to_close.append(("timeline", widget))
+
+            except Exception:
+                continue
+
         for widget_type, widget in widgets_to_close:
             try:
                 widget.deleteLater()
@@ -424,6 +493,7 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
     - ✅ Gain/Gamma/Saturation: Transferidos desde viewer anterior
     - ✅ UI: Redimensiona ventana + Scroll al top track
     - ✅ CIERRE EQUILIBRADO: Cierra viewer + timeline originales (método refresh)
+    - ✅ OPCIONAL: Cierra TODOS los timelines viejos (flag CLOSE_ALL_TIMELINES)
     - ✅ CROSS-PROJECT: Cambia entre proyectos automáticamente
     """
     total_start = time.time()
@@ -554,7 +624,26 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
     scroll_success = scroll_to_top_track()
     scroll_time = time.time() - step_start
 
-    # 11. Resultado final
+    # 11. Cerrar TODOS los viewers + timelines viejos si el flag está activo
+    close_all_widgets_time = 0
+    if CLOSE_ALL_TIMELINES:
+        step_start = time.time()
+        current_viewer_object_name = _get_current_viewer_object_name()
+        current_timeline_object_name = _get_current_timeline_object_name()
+        closed_extra_viewers, closed_extra_timelines = (
+            _close_all_other_viewers_and_timelines_safe(
+                current_viewer_object_name, current_timeline_object_name
+            )
+        )
+        close_all_widgets_time = time.time() - step_start
+        debug_print(
+            f"   ├── Close ALL old viewers: {closed_extra_viewers} cerrados"
+        )
+        debug_print(
+            f"   ├── Close ALL old timelines: {closed_extra_timelines} cerrados"
+        )
+
+    # 12. Resultado final
     total_time = time.time() - total_start
     debug_print(f"✅ Switch híbrido perfecto completado en {total_time:.2f}s")
     debug_print(f"   ├── Viewer capture: {viewer_capture_time:.3f}s")
@@ -563,6 +652,10 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
     debug_print(f"   ├── Viewer settings apply: {viewer_restore_time:.3f}s")
     debug_print(f"   ├── UI reduce: {reduce_time:.3f}s")
     debug_print(f"   ├── UI scroll: {scroll_time:.3f}s")
+    if CLOSE_ALL_TIMELINES:
+        debug_print(
+            f"   ├── Close ALL old viewers+timelines: {close_all_widgets_time:.3f}s"
+        )
     debug_print(f"   └── Total: {total_time:.2f}s")
 
     return True
