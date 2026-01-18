@@ -449,8 +449,8 @@ def _focus_target_viewer(target_sequence_name):
 
 def import_script(script_name):
     """Importa script desde LGA_NKS_ViewerTL."""
-    startup_dir = r"C:\Users\leg4-pc\.nuke\Python\Startup"
-    script_path = os.path.join(startup_dir, "LGA_NKS_ViewerTL", script_name + ".py")
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    script_path = os.path.join(base_dir, "LGA_NKS_ViewerTL", script_name + ".py")
 
     if os.path.exists(script_path):
         spec = importlib.util.spec_from_file_location(script_name, script_path)
@@ -460,24 +460,24 @@ def import_script(script_name):
     return None
 
 
-def reduce_sequence_window():
+def reduce_sequence_window(timeline_editor=None):
     """Reduce panel izquierdo del timeline."""
     try:
         reduce_module = import_script("LGA_NKS_Reduce_SeqWin")
         if reduce_module:
-            reduce_module.main()
+            reduce_module.main(timeline_editor)
             return True
     except Exception:
         pass
     return False
 
 
-def scroll_to_top_track():
+def scroll_to_top_track(timeline_editor=None):
     """Hace scroll al track superior."""
     try:
         scroll_module = import_script("LGA_NKS_ScrollTo_TopTrack")
         if scroll_module:
-            scroll_module.main()
+            scroll_module.main(timeline_editor)
             return True
     except Exception:
         pass
@@ -587,6 +587,7 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
         return False
 
     open_time = time.time() - step_start
+    new_timeline = hiero.ui.getTimelineEditor(new_active) if new_active else None
 
     # 6. CERRAR viewer + timeline ORIGINALES simultáneamente (método refresh)
     step_start = time.time()
@@ -616,12 +617,12 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
 
     # 9. Redimensionar ventana del timeline (como v4)
     step_start = time.time()
-    reduce_success = reduce_sequence_window()
+    reduce_success = reduce_sequence_window(new_timeline)
     reduce_time = time.time() - step_start
 
     # 10. Scrollear al top track (como v4)
     step_start = time.time()
-    scroll_success = scroll_to_top_track()
+    scroll_success = scroll_to_top_track(new_timeline)
     scroll_time = time.time() - step_start
 
     # 11. Cerrar TODOS los viewers + timelines viejos si el flag está activo
