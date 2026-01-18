@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_FlowProd_Panel v1.21 | Lega
+  LGA_NKS_Flow_FlowProd_Panel v1.22 | Lega
   Panel para operaciones de producción con Flow:
   - Revelar clips en Flow
   - Crear shots automáticamente
@@ -10,6 +10,7 @@ ________________________________________________________________________________
   - Integración con FileManager (Open, Download, Upload)
 
 
+  v1.22: Boton Check Shots Exist para chequear si los shots del track comp existen en Flow
   v1.21: Actualizado para usar estilos dinámicos con bordes y hover para todos los botones
          Agregado tooltip dinámico para todos los botones
          
@@ -130,18 +131,18 @@ class FlowProdPanel(QtWidgets.QWidget):
                 "Modificar shot existente en Flow (1 clip a la vez)",
             ),
             (
+                "Check Shots Exist",
+                self.check_timeline_shots,
+                "#2a4d3a",
+                None,
+                "Chequear si los shots del track comp existen en Flow",
+            ),
+            (
                 "Shot Priority",
                 self.toggle_shot_priority_for_selected_clip,
                 "#450101",
                 None,
                 "Cambiar prioridad del shot (alta ↔ normal)",
-            ),
-            (
-                "Test Teoria 2",
-                self.test_teoria_2,
-                "#4a148c",
-                None,
-                "Ejecutar test de TEORÍA 2 para investigar APIs de Hiero 16",
             ),
             (
                 "FileManager",
@@ -579,10 +580,10 @@ class FlowProdPanel(QtWidgets.QWidget):
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
 
-    def test_teoria_2(self):
-        """Llama al script Test Teoria 2 para investigar APIs de Hiero 16"""
+    def check_timeline_shots(self):
+        """Llama al script de chequeo de shots en el timeline."""
         script_path = os.path.join(
-            os.path.dirname(__file__), "+Building_Blocks", "test_teoria_2.py"
+            os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_Flow_CheckTimelineShots.py"
         )
         if not os.path.exists(script_path):
             QtWidgets.QMessageBox.warning(
@@ -595,18 +596,17 @@ class FlowProdPanel(QtWidgets.QWidget):
             import importlib.util
 
             spec = importlib.util.spec_from_file_location(
-                "test_teoria_2", script_path
+                "LGA_NKS_Flow_CheckTimelineShots", script_path
             )
             if spec is None or spec.loader is None:
                 raise ImportError(
-                    "No se pudo cargar el módulo test_teoria_2.py"
+                    "No se pudo cargar el módulo LGA_NKS_Flow_CheckTimelineShots.py"
                 )
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            # Llamar a la función main
             module.main()
         except Exception as e:
-            QtWidgets.QMessageBox.warning(self, "Error al ejecutar Test Teoria 2", str(e))
+            QtWidgets.QMessageBox.warning(self, "Error al ejecutar Check Shots", str(e))
 
 
 # Crear la instancia del panel y agregarlo al windowManager de Hiero
