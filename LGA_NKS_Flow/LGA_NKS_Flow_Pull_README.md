@@ -23,121 +23,18 @@ Script de integración entre Hiero y Flow Production Tracker. Compara los estado
 - Procesa automáticamente todos los clips del track `_comp_EXR`
 - Útil para sincronización completa de secuencias
 
-## Análisis de Rendimiento (Basado en Logs v3.32)
+## Rendimiento actual
 
-### Estadísticas Generales
-- **Tiempo total típico**: ~2.8 segundos para 15 clips
-- **630 entradas de log** procesadas
-- **Tiempo promedio por log**: ~0.004s
+- El tiempo total se reparte en micro‑operaciones por clip (parseo, SG lookup, colores, versionado).
+- Los clips más lentos suelen ser **offline** o con **mismatch** de versión, porque ejecutan `doScan`, `setActiveVersion` y reconexión de media.
+- En macOS, XYplorer no aporta tiempo relevante (no existe); en Windows sigue activo y en thread.
 
-### Operaciones Más Lentas (Top Gaps)
+## Optimizaciones actuales (implementadas en el código)
 
-1. **0.118s** - `doScan completado` (PHLDA_033_070_Chroma_LivingNoche)
-2. **0.064s** - `doScan completado` (PHLDA_052_010_DMP_Binoculares_comp)
-3. **0.062s** - Extracción de versión "No info"
-4. **0.052s** - `doScan completado` (PHLDA_042_010_Add_CasaBouchard)
-5. **0.042s** - Cálculo de ruta base de shot
-6. **0.039s** - Búsqueda de task en shot
-7. **0.037s** - Búsqueda de shot en SG
-8. **0.032s** - Extracción de status de task
-
-### Clips Más Lentos de Procesar
-
-1. **0.458s** - PHLDA_052_010_DMP_Binoculares_comp
-2. **0.396s** - PHLDA_033_070_Chroma_LivingNoche
-3. **0.373s** - PHLDA_033_040_Chroma_LivingNoche
-4. **0.288s** - PHLDA_042_010_Add_CasaBouchard
-5. **0.154s** - PHLDA_033_050_Chroma_LivingNoche
-
-### Análisis Detallado por Operación
-
-#### doScan (ESCANEO DE VERSIONES)
-- **Conteo**: 3 operaciones
-- **Promedio**: 0.084s
-- **Máximo**: 0.122s
-- **Mínimo**: 0.057s
-- **Total**: 0.252s
-- **Porcentaje del tiempo total**: ~9%
-
-#### XYplorer Send (TAGS EN EXPLORER)
-- **Conteo**: 9 operaciones
-- **Promedio**: 0.023s
-- **Máximo**: 0.026s
-- **Mínimo**: 0.018s
-- **Total**: 0.207s
-- **Porcentaje del tiempo total**: ~7.3%
-
-#### SG Shot Lookup (CONSULTAS A BASE DE DATOS)
-- **Conteo**: 15 operaciones
-- **Promedio**: 0.004s
-- **Máximo**: 0.006s
-- **Mínimo**: 0.003s
-- **Total**: 0.060s
-- **Porcentaje del tiempo total**: ~2.1%
-
-#### SG Task Lookup
-- **Conteo**: 15 operaciones
-- **Promedio**: 0.006s
-- **Máximo**: 0.039s
-- **Mínimo**: 0.002s
-- **Total**: 0.090s
-- **Porcentaje del tiempo total**: ~3.2%
-
-#### setActiveVersion
-- **Conteo**: 3 operaciones
-- **Promedio**: 0.008s
-- **Máximo**: 0.009s
-- **Mínimo**: 0.008s
-- **Total**: 0.024s
-- **Porcentaje del tiempo total**: ~0.8%
-
-## Diagnóstico de Cuellos de Botella
-
-### Problema Principal: doScan
-El análisis revela que **doScan es el mayor cuello de botella**, consumiendo ~9% del tiempo total del pull. Esta operación es inherentemente lenta ya que:
-- Escanea el sistema de archivos en busca de versiones
-- Puede tardar hasta 0.122s por clip
-- Se ejecuta secuencialmente, bloqueando la UI
-
-### Problema Secundario: XYplorer
-Las operaciones de XYplorer consumen ~7.3% del tiempo total, aunque ya corren en un thread separado. Sin embargo, pueden interferir con otras operaciones.
-
-### Conclusión
-Las consultas a base de datos (SG) son **muy eficientes** (~5.3% del tiempo total) y no representan un problema. El foco debe estar en paralelizar las operaciones de escaneo y optimizar el manejo de threads.
-
-## Mejoras Implementadas en v3.33
-
-### 1. Paralelización de doScan
-- **Objetivo**: Ejecutar operaciones de doScan en hilos separados y paralelos
-- **Beneficio**: No bloquea la UI principal ni el procesamiento de otros clips
-- **Implementación**:
-  - Cada clip procesa su doScan en un thread dedicado
-  - Múltiples doScan corren simultáneamente
-  - Sincronización final para resultados completos
-
-### 2. Optimización de Threads XYplorer
-- **Objetivo**: Mejorar el aislamiento de operaciones XYplorer
-- **Beneficio**: Reduce interferencias entre operaciones
-- **Implementación**:
-  - Mejor gestión de threads para XYplorer
-  - Queue dedicada para operaciones de tagging
-  - Timeouts mejorados para evitar bloqueos
-
-### 3. Arquitectura Asíncrona Mejorada
-- **Objetivo**: Mantener responsividad de UI durante procesamiento masivo
-- **Beneficio**: Usuario puede continuar trabajando mientras se procesa
-- **Implementación**:
-  - Thread pool para operaciones pesadas
-  - Callbacks para actualizar UI cuando terminan
-  - Indicadores de progreso para operaciones largas
-
-### 4. Sincronización Inteligente
-- **Objetivo**: Garantizar resultados completos antes de mostrar ventana final
-- **Beneficio**: Usuario obtiene resultados finales correctos
-- **Implementación**:
-  - Wait groups para operaciones paralelas
-  - Validación de estado final
-  - Rollback automático en caso de errores
+- **Logging asíncrono** en `LGA_NKS_Flow/LGA_NKS_Flow_Pull.py` → `setup_debug_logging()` usa `QueueHandler/QueueListener` para evitar bloqueos al escribir `logs/debugPy.log`.
+- **Consola opcional** → `debug_print()` solo imprime si `LGA_DEBUG_CONSOLE=1` (por defecto escribe solo en archivo).
+- **XYplorer en macOS** → `tag_shot_folder()` retorna sin crear threads porque XYplorer no existe en macOS. En Windows se mantiene el comportamiento original.
+- **Parser de nombres robusto** → `LGA_NKS_Flow/LGA_NKS_Flow_NamingUtils.py::clean_base_name()` limpia EXR/DPX con secuencias, evitando códigos de shot corruptos.
 
 ## Arquitectura Técnica
 
@@ -177,6 +74,7 @@ Las consultas a base de datos (SG) son **muy eficientes** (~5.3% del tiempo tota
 - Logs disponibles en: `../logs/debugPy.log`
 - Timestamps relativos para análisis de rendimiento
 - Usar script analizador: `+Building_Blocks/LGA_analizar_logs_pull.py`
+- XYplorer: `+Building_Blocks/LGA_analizar_logs_xyplorer.py`
 
 ## Historial de Versiones
 
@@ -201,6 +99,13 @@ Las consultas a base de datos (SG) son **muy eficientes** (~5.3% del tiempo tota
 ## Contribución
 
 Para mejoras o reportes de bugs, contactar al equipo de desarrollo.
+
+## Optimizacion aplicada (10s -> <1s)
+
+- **Cuello principal:** el costo de logging en tiempo real (muchas escrituras por clip).
+- **Solucion:** logging asíncrono + consola opcional (se mantiene el archivo completo en `logs/debugPy.log`).
+- **XYplorer:** en macOS se evita crear threads fallidos; en Windows se conserva la funcionalidad completa.
+- **Resultado:** en el mismo timeline, el pull pasa de ~10s a <1s sin perder funcionalidad.
 
 ---
 **Autor**: LGA Team

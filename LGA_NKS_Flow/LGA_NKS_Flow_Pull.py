@@ -1,11 +1,12 @@
 """
 ____________________________________________________________________________
-  LGA_NKS_Flow_Pull v3.34 | Lega
+  LGA_NKS_Flow_Pull v3.35 | Lega
   Compara los estados de las task Comp de los shots del timeline de Hiero
   con los estados registrados en un archivo JSON basado en Flow PT
   Tambien aplica tags con los colores de los estados en xyplorer
 
 
+  v3.35: Eliminar spameo en consola con LGA_DEBUG_CONSOLE=0
   v3.34: Simplificación - doScan funciona correctamente en todas las versiones de Hiero, eliminada lógica condicional innecesaria
   v3.32: Debug_print ahora tambien escribe en un archivo de log para debug.
          Arreglos para Hiero 16 (PySide6): omitir doScan problemático, reconexión automática de clips offline y reintento de cambio de color.
@@ -28,6 +29,8 @@ import time
 import nuke
 import shotgun_api3
 import logging  # Agregar esta importación
+import queue
+from logging.handlers import QueueHandler, QueueListener
 from pathlib import Path
 
 # Importar utilidades de naming
@@ -73,22 +76,32 @@ import threading
 # Variable global para almacenar el tiempo de inicio del script
 script_start_time = None
 
+# Variable global para trackear threads activos de XYplorer
+active_xyplorer_threads = []
+
+# Listener global para logging asincrono
+debug_log_listener = None
+
+# Evitar spamear el log con el mismo mensaje en macOS
+logged_xyplorer_mac_notice = False
+
 
 # Formatter personalizado para incluir tiempo relativo
 class RelativeTimeFormatter(logging.Formatter):
     def format(self, record):
         global script_start_time
         if script_start_time is None:
-            script_start_time = time.time()
+            script_start_time = record.created
 
         # Calcular tiempo relativo en segundos con 3 decimales (milisegundos)
-        relative_time = time.time() - script_start_time
+        relative_time = record.created - script_start_time
         record.relative_time = f"{relative_time:.3f}s"
         return super().format(record)
 
 # Configurar logging para escribir en tiempo real a un archivo
 def setup_debug_logging():
     """Configura el logging para debug que escribe en tiempo real a un archivo."""
+    global debug_log_listener
     log_file_path = os.path.join(os.path.dirname(__file__), '..', 'logs', 'debugPy.log')
 
     # Asegurar que el directorio de logs existe
@@ -110,7 +123,7 @@ def setup_debug_logging():
     if logger.handlers:
         logger.handlers.clear()
 
-    # Crear handler para archivo con encoding UTF-8 y escritura inmediata
+    # Crear handler para archivo con encoding UTF-8
     file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
     file_handler.setLevel(logging.DEBUG)
 
@@ -118,7 +131,22 @@ def setup_debug_logging():
     formatter = RelativeTimeFormatter('[%(relative_time)s] %(message)s')
     file_handler.setFormatter(formatter)
 
-    logger.addHandler(file_handler)
+    # Usar logging asincrono para reducir bloqueos
+    log_queue = queue.Queue()
+    queue_handler = QueueHandler(log_queue)
+    queue_handler.setLevel(logging.DEBUG)
+    logger.addHandler(queue_handler)
+
+    # Detener listener anterior si existe
+    if debug_log_listener:
+        try:
+            debug_log_listener.stop()
+        except Exception:
+            pass
+
+    debug_log_listener = QueueListener(log_queue, file_handler, respect_handler_level=True)
+    debug_log_listener.daemon = True
+    debug_log_listener.start()
 
     return logger
 
@@ -141,6 +169,8 @@ def delete_tags_from_clip(clip):
 # Variable global para activar o desactivar los prints
 DEBUG = True
 XYPlorer_Tags = True
+# Controla si se imprime en consola (mantiene log en archivo siempre)
+DEBUG_PRINT_CONSOLE = os.getenv("LGA_DEBUG_CONSOLE", "0") == "1"
 
 
 def debug_print(*message):
@@ -157,7 +187,8 @@ def debug_print(*message):
         relative_time = time.time() - script_start_time
         timestamped_msg = f"[{relative_time:.3f}s] {msg}"
 
-        print(timestamped_msg)  # Print con timestamp
+        if DEBUG_PRINT_CONSOLE:
+            print(timestamped_msg)  # Print con timestamp
         debug_logger.info(msg)  # El logger ya incluye el timestamp en el archivo
 
 
@@ -1167,8 +1198,21 @@ def _tag_shot_folder_thread(shot_base_path, tag):
 
 def tag_shot_folder(shot_base_path, tag):
     """Inicia el tagging de XYplorer en un thread separado para no bloquear Hiero."""
+    global active_xyplorer_threads, logged_xyplorer_mac_notice
+
     debug_print(f"tag_shot_folder called with shot_base_path='{shot_base_path}', tag='{tag}' - starting thread")
+
+    # En macOS XYplorer no existe, no crear threads ni intentar tags
+    if platform.system() == 'Darwin':
+        if not logged_xyplorer_mac_notice:
+            debug_print("macOS detectado - XYplorer desactivado (no compatible)")
+            logged_xyplorer_mac_notice = True
+        return
+
     try:
+        # Limpiar threads terminados antes de crear nuevos
+        cleanup_finished_threads()
+
         # Crear y iniciar un thread separado para el tagging de XYplorer
         xyplorer_thread = threading.Thread(
             target=_tag_shot_folder_thread,
@@ -1176,29 +1220,50 @@ def tag_shot_folder(shot_base_path, tag):
             daemon=True  # Thread daemon para que termine cuando termine el programa principal
         )
         xyplorer_thread.start()
-        # En PySide6 (Hiero 16), esperar a que termine el thread para evitar conflictos
-        # con operaciones posteriores como cambio de versión
+
+        # Agregar thread a la lista de threads activos
+        active_xyplorer_threads.append(xyplorer_thread)
+
+        # Determinar si debemos esperar al thread (solo Windows/Linux con Hiero 16+)
+        should_wait = False
+
         try:
             import hiero
             if hasattr(hiero, 'core') and hasattr(hiero.core, 'applicationVersion'):
                 version = hiero.core.applicationVersion()
-                # Si es Hiero 16 o superior (PySide6), esperar al thread
                 if version and version.startswith('16'):
-                    debug_print(f"Hiero 16 detectado, esperando a que termine el tagging XYplorer")
-                    xyplorer_thread.join(timeout=5.0)  # Esperar máximo 5 segundos
-                    if xyplorer_thread.is_alive():
-                        debug_print(f"Timeout esperando al thread XYplorer")
-                    else:
-                        debug_print(f"Thread XYplorer terminado exitosamente")
+                    should_wait = True
+                    debug_print(f"Hiero {version} en {platform.system()}, esperando XYplorer thread (PySide6)")
                 else:
-                    debug_print("XYplorer tagging thread started successfully")
+                    debug_print(f"Hiero {version} en {platform.system()}, XYplorer thread started (PySide2)")
             else:
-                debug_print("XYplorer tagging thread started successfully")
+                debug_print(f"Versión de Hiero no detectable en {platform.system()}, XYplorer thread started")
         except Exception as version_check_error:
-            debug_print(f"Error checking Hiero version for thread handling: {version_check_error}")
-            debug_print("XYplorer tagging thread started successfully")
+            debug_print(f"Error detectando versión Hiero en {platform.system()}: {version_check_error}")
+            debug_print("XYplorer thread started (fallback)")
+
+        # Solo esperar si es necesario
+        if should_wait:
+            xyplorer_thread.join(timeout=5.0)  # Esperar máximo 5 segundos
+            if xyplorer_thread.is_alive():
+                debug_print(f"Timeout esperando al thread XYplorer")
+            else:
+                debug_print(f"Thread XYplorer terminado exitosamente")
+
     except Exception as e:
         debug_print(f"Error starting XYplorer tagging thread: {e}")
+
+
+def cleanup_finished_threads():
+    """Limpia threads de XYplorer que ya terminaron para evitar acumulación."""
+    global active_xyplorer_threads
+
+    # Filtrar threads que aún están vivos
+    active_xyplorer_threads[:] = [t for t in active_xyplorer_threads if t.is_alive()]
+
+    # Log opcional para debugging
+    if len(active_xyplorer_threads) > 5:
+        debug_print(f"Advertencia: {len(active_xyplorer_threads)} threads XYplorer activos (posible acumulación)")
 
 
 ##### Aca termina

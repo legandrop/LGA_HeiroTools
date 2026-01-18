@@ -129,16 +129,16 @@ def clean_base_name(file_name):
     if not file_name:
         return ""
     
-    # Remover extensión de secuencia EXR y DPX
-    base_name = re.sub(r"_%04d\.exr$", "", file_name)
-    base_name = re.sub(r"_\d{4}\.exr$", "", base_name)  # También formato sin %04d
-    base_name = re.sub(r"\.%04d\.dpx$", "", base_name)  # Para archivos DPX
-    
-    # Remover versión al final (_v19, _v001, etc.)
-    base_name = re.sub(r"_v\d+$", "", base_name)
-    
+    # Remover extensión de secuencia EXR/DPX y frames
+    base_name = re.sub(r"_%04d\.(exr|dpx)$", "", file_name, flags=re.IGNORECASE)
+    base_name = re.sub(r"_\d{4}\.(exr|dpx)$", "", base_name, flags=re.IGNORECASE)  # También formato sin %04d
+    base_name = re.sub(r"\.%04d\.(exr|dpx)$", "", base_name, flags=re.IGNORECASE)  # Para archivos DPX con .%04d
+
     # Remover extensión común
     base_name = os.path.splitext(base_name)[0]
+
+    # Remover versión al final (_v19, _v001, etc.)
+    base_name = re.sub(r"_v\d+$", "", base_name)
     
     return base_name
 
