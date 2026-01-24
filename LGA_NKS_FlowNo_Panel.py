@@ -50,6 +50,12 @@ class ColorChangeWidget(QtWidgets.QWidget):
                 "action": "color",
             },
             {
+                "name": "Rev Juano",
+                "color": QtGui.QColor(154, 74, 121),
+                "style": "#9a4a79",
+                "action": "color",
+            },
+            {
                 "name": "Rev_Javi",
                 "color": QtGui.QColor(143, 63, 114),
                 "style": "#9c3e5e",

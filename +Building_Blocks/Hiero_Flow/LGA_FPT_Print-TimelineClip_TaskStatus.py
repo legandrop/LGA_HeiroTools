@@ -14,6 +14,7 @@ class ShotGridManager:
             'corr': 'Corrections', 'progre': 'In Progress', 'noread': 'Not Ready To Start',
             'rev': 'Pending Review', 'pubsh': 'Publish', 'pbshed': 'Published',
             'ready': 'Ready To Start', 'rev_di': 'Review Dir', 'rev_su': 'Review Sup',
+            'revjua': 'Review Juano', 'revjav': 'Review Javi',
             'vwd': 'Viewed', 'check': 'Delivery Checked'
         }
 

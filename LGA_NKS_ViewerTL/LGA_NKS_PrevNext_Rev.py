@@ -3,7 +3,7 @@ ________________________________________________________________________________
 
   LGA_NKS_PrevNext_Rev v1.23 | Lega
 
-  Busca el clip anterior o siguiente con estado Rev Lega, Rev Sebas o Rev Javi
+  Busca el clip anterior o siguiente con estado Rev Lega, Rev Sebas, Rev Juano o Rev Javi
   y ajusta la vista:
   1. Obtiene la posición actual del playhead.
   2. Encuentra el clip más cercano con el color especificado en la dirección indicada.
@@ -48,6 +48,7 @@ def debug_print(*message):
 COLORS = {
     "lega": QtGui.QColor(105, 19, 94),  # #69135e
     "sup": QtGui.QColor(189, 127, 159),  # #bd7f9f
+    "juano": QtGui.QColor(154, 74, 121),  # #9a4a79
     "javi": QtGui.QColor(156, 62, 94),  # #9c3e5e
 }
 

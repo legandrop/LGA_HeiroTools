@@ -812,6 +812,11 @@ class ShotConfigDialog(QDialog):
         reviewer_sebas_cb.setStyleSheet("color: #a7a7a7; padding: 2px;")
         reviewers_checkboxes_layout.addWidget(reviewer_sebas_cb)
 
+        reviewer_juano_cb = QCheckBox("Juano")
+        reviewer_juano_cb.setChecked(True)
+        reviewer_juano_cb.setStyleSheet("color: #a7a7a7; padding: 2px;")
+        reviewers_checkboxes_layout.addWidget(reviewer_juano_cb)
+
         reviewer_javi_cb = QCheckBox("Javi")
         reviewer_javi_cb.setChecked(True)
         reviewer_javi_cb.setStyleSheet("color: #a7a7a7; padding: 2px;")
@@ -822,6 +827,7 @@ class ShotConfigDialog(QDialog):
         
         self.task_widgets[task_name]["reviewer_lega"] = reviewer_lega_cb
         self.task_widgets[task_name]["reviewer_sebas"] = reviewer_sebas_cb
+        self.task_widgets[task_name]["reviewer_juano"] = reviewer_juano_cb
         self.task_widgets[task_name]["reviewer_javi"] = reviewer_javi_cb
         self.task_widgets[task_name]["reviewers_label"] = reviewers_label
         self.task_widgets[task_name]["reviewers_widget"] = reviewers_widget
@@ -877,6 +883,7 @@ class ShotConfigDialog(QDialog):
             "copy_description",
             "reviewer_lega",
             "reviewer_sebas",
+            "reviewer_juano",
             "reviewer_javi",
         ]
         for key in field_keys:
@@ -973,6 +980,7 @@ class ShotConfigDialog(QDialog):
                 "reviewers": {
                     "lega_pugliese": widgets["reviewer_lega"].isChecked(),
                     "sebas_romano": widgets["reviewer_sebas"].isChecked(),
+                    "juano": widgets["reviewer_juano"].isChecked(),
                     "javi_bravo": widgets["reviewer_javi"].isChecked(),
                 }
             }
@@ -1680,6 +1688,8 @@ class ShotGridManager:
                 reviewer_names_to_assign.append("Lega Pugliese")
             if reviewers_config.get("sebas_romano", False):
                 reviewer_names_to_assign.append("Sebas Romano")
+            if reviewers_config.get("juano", False):
+                reviewer_names_to_assign.append("Juano")
             if reviewers_config.get("javi_bravo", False):
                 reviewer_names_to_assign.append("Javi Bravo")
             

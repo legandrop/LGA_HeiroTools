@@ -56,6 +56,7 @@ La ventana para introducir una nota se activa cuando el estado de la tarea se ca
 *   **"Corrs_Lega"** (se traduce a `revleg` en ShotGrid)
 *   **"Rev_Dir"** (se traduce a `rev_di` en ShotGrid)
 *   **"Rev Lega"** (se traduce a `revleg` en ShotGrid)
+*   **"Rev Juano"** (se traduce a `revjua` en ShotGrid)
 *   **"Rev Javi"** (se traduce a `revjav` en ShotGrid)
 *   **"Rev Hold"** (se traduce a `revhld` en ShotGrid)
 
@@ -122,7 +123,7 @@ Después de actualizar exitosamente un estado en ShotGrid y la base de datos loc
 
 2. **Obtención del Tag:** Obtiene el tag de xyplorer correspondiente al estado desde el diccionario `task_status_dict`. Los tags disponibles son:
    - `"Corrections"` para estado `corr`
-   - `"Rev_Sup"` para estados `rev_su` y `revjav`
+   - `"Rev_Sup"` para estados `rev_su`, `revjua` y `revjav`
    - `"Rev_Lega"` para estado `revleg`
    - `"Rev Hold"` para estado `revhld`
    - `"ReviewDir"` para estado `rev_di`

@@ -27,7 +27,7 @@ Este documento define los tipos de tasks estándar que pueden ser creadas autom�
 ### Estados Iniciales
 Todas las tasks se crean con:
 - **Estado inicial:** `noread`
-- **Reviewers:** Lega Pugliese, Sebas Romano, Javi Bravo (todos seleccionados por defecto)
+- **Reviewers:** Lega Pugliese, Sebas Romano, Juano, Javi Bravo (todos seleccionados por defecto)
 
 ### Asignación de Reviewers
 Los reviewers se asignan automáticamente usando el campo `task_reviewers` de ShotGrid:
@@ -35,6 +35,7 @@ Los reviewers se asignan automáticamente usando el campo `task_reviewers` de Sh
 "task_reviewers": [
     {"type": "HumanUser", "id": lega_id},
     {"type": "HumanUser", "id": sebas_id},
+    {"type": "HumanUser", "id": juano_id},
     {"type": "HumanUser", "id": javi_id}
 ]
 ```
@@ -49,7 +50,7 @@ Los reviewers se asignan automáticamente usando el campo `task_reviewers` de Sh
 ### Estados del Workflow
 Las tasks siguen el workflow estándar:
 1. `noread` → `ready` → `ip` → `rev` → `apr`
-2. Estados de revisión: `rev_su` (supervisor), `rev_di` (director)
+2. Estados de revisión: `rev_su` (supervisor), `revjua` (Juano), `revjav` (Javi), `rev_di` (director)
 
 ## Proyectos Analizados
 

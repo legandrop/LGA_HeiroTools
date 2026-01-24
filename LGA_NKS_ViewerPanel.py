@@ -1,9 +1,10 @@
 """
 ________________________________________________________________
 
-  LGA_ViewerPanel v1.66 | Lega
+  LGA_ViewerPanel v1.67 | Lega
   Panel con herramientas para el viewer y el timeline de Hiero
 
+  v1.67: Agregado usuario Juano a botones dinámicos de prev/next rev.
   v1.66: Botones de prev/next rev para usuarios Lega, Javi y Sebas ahora son dinámicos y se muestran solo para el usuario actual.
   v1.65: Actualizado el script LGA_NKS_Viewer_Mask.py para usar el aspect ratio especificado
   v1.64: Actualizado para usar estilos dinámicos con bordes y hover para todos los botones
@@ -171,6 +172,12 @@ class ViewerPanel(QtWidgets.QWidget):
                 "sebas": {
                     "nombre": "Sebas",
                     "color": "#bd7f9f",
+                    "prev_shortcut": "Ctrl+Alt+Shift+,",  # Usar shortcuts de Lega
+                    "next_shortcut": "Ctrl+Alt+Shift+.",  # Usar shortcuts de Lega
+                },
+                "juano": {
+                    "nombre": "Juano",
+                    "color": "#9a4a79",
                     "prev_shortcut": "Ctrl+Alt+Shift+,",  # Usar shortcuts de Lega
                     "next_shortcut": "Ctrl+Alt+Shift+.",  # Usar shortcuts de Lega
                 }
@@ -439,6 +446,12 @@ class ViewerPanel(QtWidgets.QWidget):
 
     def next_rev_javi(self):
         self.execute_prevnext_rev("next", "javi")
+
+    def prev_rev_juano(self):
+        self.execute_prevnext_rev("prev", "juano")
+
+    def next_rev_juano(self):
+        self.execute_prevnext_rev("next", "juano")
 
     # Métodos dinámicos para usuarios - delegan a los métodos existentes
     def prev_rev_sebas(self):

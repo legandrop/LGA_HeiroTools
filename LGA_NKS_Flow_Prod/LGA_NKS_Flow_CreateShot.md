@@ -159,6 +159,7 @@ Cada task tiene su propia fila con:
 - **Reviewers:** Checkboxes horizontales (solo nombres en UI)
   - ☑️ Lega
   - ☑️ Sebas
+  - ☑️ Juano
   - ☑️ Javi
 
 **Comportamiento (v1.29 - Diseño Compacto):**
@@ -187,7 +188,7 @@ Cada task tiene su propia fila con:
 │  [Thumbnail]  [Description]  │  [Sequence]  │  [Status + Priority]           │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │  ☑ 🔵 COMP                                                                    │
-│      Est.Days [2] │ Status ☑Ready │ Desc ☑copy │ Rev: ☑Lega ☑Sebas ☑Javi    │
+│      Est.Days [2] │ Status ☑Ready │ Desc ☑copy │ Rev: ☑Lega ☑Sebas ☑Juano ☑Javi │
 │  (HABILITADA - muestra separador + todas las columnas)                       │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │  ☐ 🔵 ROTO                                                                    │

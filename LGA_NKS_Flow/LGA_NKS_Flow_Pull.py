@@ -216,6 +216,7 @@ class ShotGridManager:
         self.conn = sqlite3.connect(self.db_path)
         self.conn.row_factory = sqlite3.Row
         # Importante: Los colores deben ser en formato hexadecimal con minúsculas
+        # El orden de los valores es: 
         self.task_status_dict = {
             "noread": ("Not Ready To Start", "#000000", None),
             "wts": ("Waiting to start", "#000000", None),
@@ -223,6 +224,7 @@ class ShotGridManager:
             "progre": ("In Progress", "#7d4cff", None),
             "corr": ("Corrections", "#2e77d4", "Corrections"),
             "rev_su": ("Review Sup", "#bd7f9f", "Rev_Sup"),
+            "revjua": ("Review Juano", "#9a4a79", "Rev_Sup"),
             "revjav": ("Review Javi", "#9c3e5e", "Rev_Sup"),
             "revleg": ("Review Lega", "#69135e", "Rev_Lega"),
             "revhld": ("Review Hold", "#933100", "Rev Hold"),
@@ -1050,6 +1052,7 @@ class HieroOperations:
             # Estados de review que deben habilitarse
             review_status_colors = {
                 "#bd7f9f",  # rev_su - Review Sup
+                "#9a4a79",  # revjua - Review Juano
                 "#9c3e5e",  # revjav - Review Javi
                 "#69135e",  # revleg - Review Lega
             }

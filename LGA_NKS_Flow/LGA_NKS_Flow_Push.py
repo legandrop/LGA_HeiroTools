@@ -102,6 +102,7 @@ status_translation = {
     "Corrections": "corr",
     "Corrs_Lega": "revleg",
     "Rev Sebas": "rev_su",
+    "Rev Juano": "revjua",
     "Rev Javi": "revjav",
     "Rev Lega": "revleg",
     "Rev Dir": "rev_di",
@@ -119,6 +120,7 @@ task_status_dict = {
     "progre": ("In Progress", "#7d4cff", None),
     "corr": ("Corrections", "#2e77d4", "Corrections"),
     "rev_su": ("Review Sup", "#bd7f9f", "Rev_Sup"),
+    "revjua": ("Review Juano", "#9a4a79", "Rev_Sup"),
     "revjav": ("Review Javi", "#9c3e5e", "Rev_Sup"),
     "revleg": ("Review Lega", "#69135e", "Rev_Lega"),
     "revhld": ("Review Hold", "#933100", "Rev Hold"),
@@ -2000,7 +2002,7 @@ def Push_Task_Status(
 
     # PRIMERO: Verificar versiones del timeline ANTES de abrir el diálogo de notas
     sg_status = status_translation.get(button_name, None)
-    if sg_status in ["rev_di", "corr", "revleg", "revhld", "revjav"]:
+    if sg_status in ["rev_di", "corr", "revleg", "revhld", "revjua", "revjav"]:
         debug_print("=== Verificando versiones del timeline antes del push ===")
 
         # Obtener versiones del clip seleccionado
@@ -2097,7 +2099,7 @@ def Push_Task_Status(
     message = None
     review_images = []
     should_delete_images = False
-    if sg_status in ["rev_di", "corr", "revleg", "revhld", "revjav"]:
+    if sg_status in ["rev_di", "corr", "revleg", "revhld", "revjua", "revjav"]:
         app = QApplication.instance()
         if app is None:
             app = QApplication([])
@@ -2143,7 +2145,7 @@ def Push_Task_Status(
     # Esto evita congelar la UI mientras se consulta Flow
 
     # Una vez que el usuario ha confirmado (o no hay problema de versiones), proceder con las actualizaciones
-    if sg_status in ["rev_di", "corr", "revleg", "revhld", "revjav"]:
+    if sg_status in ["rev_di", "corr", "revleg", "revhld", "revjua", "revjav"]:
         worker = Worker(
             button_name,
             base_name,
@@ -2273,7 +2275,7 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
 
     # Determinar si necesitamos pedir un mensaje al usuario
     sg_status = status_translation.get(button_name, None)
-    needs_message = sg_status in ["rev_di", "corr", "revleg", "revhld", "revjav"]
+    needs_message = sg_status in ["rev_di", "corr", "revleg", "revhld", "revjua", "revjav"]
 
     # Para múltiples clips con mensaje, usar un mensaje compartido
     shared_message = None
