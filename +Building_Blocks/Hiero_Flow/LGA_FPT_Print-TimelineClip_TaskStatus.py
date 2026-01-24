@@ -9,6 +9,8 @@ class ShotGridManager:
 
     def __init__(self, url, login, password):
         self.sg = shotgun_api3.Shotgun(url, login=login, password=password)
+# El orden de los valores es:
+        # (nombre en Flow/ShotGrid, color_hex[, tag XYplorer])
         self.task_status_dict = {
             'apr': 'Approved', 'enviad': 'Enviado', 'wts': 'Waiting to start',
             'corr': 'Corrections', 'progre': 'In Progress', 'noread': 'Not Ready To Start',
@@ -71,6 +73,8 @@ class HieroOperations:
                             tasks = self.sg_manager.find_task(shot_id, task_name)
                             if tasks:
                                 task_status = tasks[0]['sg_status_list']
+# El orden de los valores es:
+                                # (nombre en Flow/ShotGrid, color_hex[, tag XYplorer])
                                 full_status_name = self.sg_manager.task_status_dict.get(task_status, "Estado desconocido")
                                 print(f"Tarea encontrada: {tasks[0]['content']}, Estado: {full_status_name}")
                             else:

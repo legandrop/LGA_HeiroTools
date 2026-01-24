@@ -112,6 +112,8 @@ class ShotGridManager:
         except Exception as e:
             debug_print(f"Error conectando a DB: {e}")
 
+# El orden de los valores es:
+        # (nombre en Flow/ShotGrid, color_hex[, tag XYplorer])
         self.task_status_dict = {
             "noread": ("Not Ready To Start", "#000000", None),
             "wts": ("Waiting to start", "#000000", None),

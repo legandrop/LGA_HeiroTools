@@ -113,6 +113,8 @@ status_translation = {
 }
 
 # Diccionario de estados con tags de xyplorer (igual que en Pull)
+# El orden de los valores es:
+# (nombre en Flow/ShotGrid, color_hex[, tag XYplorer])
 task_status_dict = {
     "noread": ("Not Ready To Start", "#000000", None),
     "wts": ("Waiting to start", "#000000", None),
@@ -1597,6 +1599,8 @@ class Worker(QRunnable):
                 return
             
             # Buscar el tag en el diccionario
+# El orden de los valores es:
+            # (nombre en Flow/ShotGrid, color_hex[, tag XYplorer])
             task_status_name, new_color_hex, xyplorer_tag = task_status_dict.get(
                 sg_status,
                 ("Estado desconocido", "#000000", None),

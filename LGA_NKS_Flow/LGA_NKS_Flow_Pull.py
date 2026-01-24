@@ -217,6 +217,7 @@ class ShotGridManager:
         self.conn.row_factory = sqlite3.Row
         # Importante: Los colores deben ser en formato hexadecimal con minúsculas
         # El orden de los valores es: 
+        # (nombre en Flow/ShotGrid, color_hex[, tag XYplorer])
         self.task_status_dict = {
             "noread": ("Not Ready To Start", "#000000", None),
             "wts": ("Waiting to start", "#000000", None),
@@ -649,6 +650,8 @@ class HieroOperations:
             if color == color_hex:
                 return status
         # Si no se encuentra en Hiero, buscar en el diccionario de ShotGrid
+# El orden de los valores es:
+        # (nombre en Flow/ShotGrid, color_hex[, tag XYplorer])
         for status, (name, color, tag) in self.sg_manager.task_status_dict.items():
             if color == color_hex:
                 return name
@@ -816,6 +819,8 @@ class HieroOperations:
                             task_status_code = task["task_status"]
                             debug_print(f"task_status_code: '{task_status_code}'")
                             task_status_name, new_color_hex, xyplorer_tag = (
+# El orden de los valores es:
+                                # (nombre en Flow/ShotGrid, color_hex[, tag XYplorer])
                                 sg_manager.task_status_dict.get(
                                     task_status_code,
                                     ("Estado desconocido", "#000000", None),
