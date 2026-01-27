@@ -153,6 +153,14 @@ class ViewerPanel(QtWidgets.QWidget):
             if usuario_normalizado == "sebasromano_post":
                 usuario_normalizado = "sebas"
 
+            # Alias de usuarios (login -> key en usuarios_config)
+            usuario_aliases = {
+                "juanolivares": "juano",
+            }
+            usuario_normalizado = usuario_aliases.get(
+                usuario_normalizado, usuario_normalizado
+            )
+
             debug_print(f"Usuario normalizado: {usuario_normalizado}")
 
             # Configuración de usuarios con sus emails normalizados

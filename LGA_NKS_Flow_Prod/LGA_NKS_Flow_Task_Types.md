@@ -27,7 +27,7 @@ Este documento define los tipos de tasks estándar que pueden ser creadas autom�
 ### Estados Iniciales
 Todas las tasks se crean con:
 - **Estado inicial:** `noread`
-- **Reviewers:** Lega Pugliese, Sebas Romano, Juano, Javi Bravo (todos seleccionados por defecto)
+- **Reviewers:** Lega Pugliese, Sebas Romano, Juan Olivares, Javi Bravo (todos seleccionados por defecto)
 
 ### Asignación de Reviewers
 Los reviewers se asignan automáticamente usando el campo `task_reviewers` de ShotGrid:

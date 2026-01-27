@@ -1689,7 +1689,7 @@ class ShotGridManager:
             if reviewers_config.get("sebas_romano", False):
                 reviewer_names_to_assign.append("Sebas Romano")
             if reviewers_config.get("juano", False):
-                reviewer_names_to_assign.append("Juano")
+                reviewer_names_to_assign.append("Juan Olivares")
             if reviewers_config.get("javi_bravo", False):
                 reviewer_names_to_assign.append("Javi Bravo")
             
