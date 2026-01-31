@@ -160,7 +160,7 @@ tooltip_colors = calculate_dynamic_tooltip(style) # Colores adaptados al botón
 - Definir un umbral de solapamiento (por ejemplo, `SCROLL_OVERLAP_THRESHOLD_PX`) para activar el scroll solo cuando el contenido excede la altura visible por mas de unos pocos pixeles
 - Para columnas en `QGridLayout`, calcular el ancho disponible usando el minimo entre `self.width()`, `scroll_area.width()` y `scroll_area.viewport().width()` para evitar columnas extra por anchos inflados
 - Por defecto, `SCROLLBAR_VISIBLE = False` para mantener la barra oculta (el scroll con rueda sigue funcionando)
-- Paneles actualizados con este sistema: `LGA_NKS_Flow_Assignee_Panel`, `LGA_NKS_Flow_Panel`, `LGA_NKS_EditTools_Panel` y `LGA_NKS_Review_Panel`
+- Paneles actualizados con este sistema: `LGA_NKS_Flow_Assignee_Panel`, `LGA_NKS_Flow_Panel`, `LGA_NKS_Flow_FlowProd_Panel`, `LGA_NKS_ViewerPanel`, `LGA_NKS_EditTools_Panel` y `LGA_NKS_Review_Panel`
 
 ### 5. Módulo de Utilidades de Estilos
 

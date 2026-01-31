@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_FlowProd_Panel v1.22 | Lega
+  LGA_NKS_Flow_FlowProd_Panel v1.23 | Lega
   Panel para operaciones de producción con Flow:
   - Revelar clips en Flow
   - Crear shots automáticamente
@@ -10,6 +10,7 @@ ________________________________________________________________________________
   - Integración con FileManager (Open, Download, Upload)
 
 
+  v1.23: Agregado sistema de scroll, logging a archivo y gap vertical
   v1.22: Boton Check Shots Exist para chequear si los shots del track comp existen en Flow
   v1.21: Actualizado para usar estilos dinámicos con bordes y hover para todos los botones
          Agregado tooltip dinámico para todos los botones
@@ -38,6 +39,10 @@ import hiero.core
 import sys
 import os
 import re
+import logging
+import queue
+import time
+from logging.handlers import QueueHandler, QueueListener
 from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 
 
@@ -74,12 +79,106 @@ from LGA_NKS_Flow_NamingUtils import clean_base_name
 
 
 # Variable global para activar o desactivar los prints
-DEBUG = False
+DEBUG = True
+DEBUG_CONSOLE = False
+DEBUG_LOG = True
+
+script_start_time = None
+debug_log_listener = None
 
 
-def debug_print(*message):
-    if DEBUG:
-        print(*message)
+class RelativeTimeFormatter(logging.Formatter):
+    """Formatter que incluye tiempo relativo desde el inicio del script."""
+
+    def format(self, record):
+        global script_start_time
+        if script_start_time is None:
+            script_start_time = record.created
+        relative_time = record.created - script_start_time
+        record.relative_time = f"{relative_time:.3f}s"
+        return super().format(record)
+
+
+def setup_debug_logging(script_name="FlowProdPanel"):
+    """Configura el logging para escribir SOLO en archivo."""
+    global debug_log_listener
+
+    log_filename = f"DebugPy_{script_name}.log"
+    log_file_path = os.path.join(os.path.dirname(__file__), "logs", log_filename)
+
+    os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+
+    if os.path.exists(log_file_path):
+        try:
+            with open(log_file_path, "w", encoding="utf-8") as f:
+                f.write("")
+        except Exception:
+            pass
+
+    logger_name = f"{script_name.lower()}_logger"
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+
+    if logger.handlers:
+        logger.handlers.clear()
+
+    file_handler = logging.FileHandler(log_file_path, encoding="utf-8")
+    file_handler.setLevel(logging.DEBUG)
+    formatter = RelativeTimeFormatter("[%(relative_time)s] %(message)s")
+    file_handler.setFormatter(formatter)
+
+    log_queue = queue.Queue()
+    queue_handler = QueueHandler(log_queue)
+    queue_handler.setLevel(logging.DEBUG)
+    logger.addHandler(queue_handler)
+
+    if debug_log_listener:
+        try:
+            debug_log_listener.stop()
+        except Exception:
+            pass
+
+    debug_log_listener = QueueListener(
+        log_queue, file_handler, respect_handler_level=True
+    )
+    debug_log_listener.daemon = True
+    debug_log_listener.start()
+
+    return logger
+
+
+debug_logger = setup_debug_logging(script_name="FlowProdPanel")
+
+# Umbral de solapamiento vertical permitido antes de activar scroll
+SCROLL_OVERLAP_THRESHOLD_PX = 6
+# Controla visibilidad de la barra de scroll (True = visible cuando corresponde)
+SCROLLBAR_VISIBLE = False
+
+
+def debug_print(*message, level="info"):
+    global script_start_time
+
+    msg = " ".join(str(arg) for arg in message)
+
+    if DEBUG and DEBUG_LOG:
+        if script_start_time is None:
+            script_start_time = time.time()
+        if level == "debug":
+            debug_logger.debug(msg)
+        elif level == "warning":
+            debug_logger.warning(msg)
+        elif level == "error":
+            debug_logger.error(msg)
+        else:
+            debug_logger.info(msg)
+
+    if DEBUG and DEBUG_CONSOLE:
+        if script_start_time is None:
+            script_start_time = time.time()
+        relative_time = time.time() - script_start_time
+        timestamped_msg = f"[{relative_time:.3f}s] {msg}"
+        print(timestamped_msg)
 
 
 # Importar funciones de utilidad de estilos
@@ -96,9 +195,29 @@ class FlowProdPanel(QtWidgets.QWidget):
         super(FlowProdPanel, self).__init__()
         self.setObjectName("com.lega.FlowProdPanel")
         self.setWindowTitle("Coordination")
+        debug_print("=== FlowProdPanel init ===")
+        self.root_layout = QtWidgets.QVBoxLayout()
+        self.root_layout.setContentsMargins(0, 0, 0, 0)
+        self.root_layout.setSpacing(0)
+        self.setLayout(self.root_layout)
+
+        # Scroll area para evitar solapamiento vertical
+        self.scroll_area = QtWidgets.QScrollArea()
+        self.scroll_area.setFrameShape(QtWidgets.QFrame.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.scroll_area.setWidgetResizable(True)
+        self.root_layout.addWidget(self.scroll_area)
+
+        self.scroll_widget = QtWidgets.QWidget()
+        self.scroll_widget.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred
+        )
         self.layout = QtWidgets.QGridLayout()
-        self.layout.setSpacing(6)  # Reducir espacio entre botones
-        self.setLayout(self.layout)
+        self.layout.setHorizontalSpacing(6)
+        self.layout.setVerticalSpacing(3)
+        self.scroll_widget.setLayout(self.layout)
+        self.scroll_area.setWidget(self.scroll_widget)
 
         # Definir los botones fijos y sus colores/estilos
         self.fixed_buttons = [
@@ -171,13 +290,21 @@ class FlowProdPanel(QtWidgets.QWidget):
         self.buttons = self.fixed_buttons
 
         self.num_columns = 1  # Inicialmente una columna
+        self.button_width_hint = 0
         self.create_buttons()
 
         # Conectar la senal de cambio de tamano del widget al metodo correspondiente
         self.adjust_columns_on_resize()
         self.resizeEvent = self.adjust_columns_on_resize
 
+    def showEvent(self, event):
+        super(FlowProdPanel, self).showEvent(event)
+        # Asegurar tamanos reales al mostrarse el panel
+        self.adjust_columns_on_resize()
+        self.update_scrollbar_policy()
+
     def create_buttons(self):
+        debug_print("=== create_buttons ===")
         # Limpiar el layout actual antes de crear nuevos botones
         while self.layout.count():
             item = self.layout.takeAt(0)
@@ -185,6 +312,7 @@ class FlowProdPanel(QtWidgets.QWidget):
             if widget:
                 widget.deleteLater()
 
+        max_button_width = 0
         for index, button_info in enumerate(self.buttons):
             name = button_info[0]
             handler = button_info[1]
@@ -194,10 +322,11 @@ class FlowProdPanel(QtWidgets.QWidget):
             shortcut = button_info[3] if len(button_info) > 3 else None
             tooltip = button_info[4] if len(button_info) > 4 else None
 
-            # Determinar el estilo del botón
+            # Determinar el estilo del bot?n
             if style == "gradient_magenta_violet":
                 border_color = calculate_dynamic_border(style)
                 hover_colors = calculate_dynamic_hover(style)
+
                 button_stylesheet = f"""
                     QPushButton {{
                         background-color: qlineargradient(
@@ -249,7 +378,7 @@ class FlowProdPanel(QtWidgets.QWidget):
                     }}
                 """
 
-            # Usar CustomButton para el botón "Reveal in Flow" para soportar Shift+Click
+            # Usar CustomButton para el bot?n "Reveal in Flow" para soportar Shift+Click
             if name == "Reveal in Flow":
                 button = CustomButton(name)
                 button.setCustomClickHandler(handler)
@@ -258,21 +387,21 @@ class FlowProdPanel(QtWidgets.QWidget):
                 button = QtWidgets.QPushButton(name)
                 button.clicked.connect(handler)
 
-            # Aplicar estilos del botón
+            # Aplicar estilos del bot?n
             button.setStyleSheet(button_stylesheet)
 
-            # Agregar estilos de tooltip dinámicos si hay tooltip
+            # Agregar estilos de tooltip din?micos si hay tooltip
             if tooltip:
-                # Crear un selector único para este botón usando su objectName
+                # Crear un selector ?nico para este bot?n usando su objectName
                 button_object_name = f"button_{index}"
                 button.setObjectName(button_object_name)
 
-                # Crear stylesheet de tooltip dinámico
+                # Crear stylesheet de tooltip din?mico
                 tooltip_stylesheet = create_tooltip_stylesheet(style)
-                # Modificar el tooltip stylesheet para usar el selector del botón
+                # Modificar el tooltip stylesheet para usar el selector del bot?n
                 tooltip_stylesheet = tooltip_stylesheet.replace("QToolTip", f"#{button_object_name} QToolTip")
 
-                # Combinar estilos del botón con estilos de tooltip
+                # Combinar estilos del bot?n con estilos de tooltip
                 full_stylesheet = button_stylesheet + tooltip_stylesheet
                 button.setStyleSheet(full_stylesheet)
 
@@ -283,32 +412,91 @@ class FlowProdPanel(QtWidgets.QWidget):
             if shortcut:
                 button.setShortcut(QtGui.QKeySequence(shortcut))
 
+            max_button_width = max(max_button_width, button.sizeHint().width())
             row = index // self.num_columns
             column = index % self.num_columns
             self.layout.addWidget(button, row, column)
+
+        if max_button_width > 0:
+            self.button_width_hint = max_button_width
+        debug_print(
+            f"layout: buttons={len(self.buttons)} cols={self.num_columns} width_hint={self.button_width_hint}px"
+        )
 
         # Calcular el numero de filas usadas
         num_rows = (len(self.buttons) + self.num_columns - 1) // self.num_columns
 
         # Anadir el espaciador vertical al final
-        spacer = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacer = QtWidgets.QSpacerItem(
+            20, 20, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
+        )
         self.layout.addItem(spacer, num_rows, 0, 1, self.num_columns)
 
-    def adjust_columns_on_resize(self, event=None):
-        # Obtener el ancho actual del widget
-        panel_width = self.width()
-        button_width = 100  # Ancho aproximado de cada boton
-        min_button_spacing = 10  # Espacio minimo entre botones
+        self.update_scrollbar_policy()
 
-        # Calcular el numero de columnas en funcion del ancho del widget
+    def update_scrollbar_policy(self):
+        content_height = self.layout.sizeHint().height()
+        margins = self.layout.contentsMargins()
+        content_height += margins.top() + margins.bottom()
+
+        viewport_height = self.scroll_area.viewport().height()
+        if viewport_height <= 0:
+            return
+
+        overlap = content_height - viewport_height
+        if not SCROLLBAR_VISIBLE:
+            self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+            self.scroll_widget.setMinimumHeight(0)
+            debug_print(
+                f"scroll: OFF (forced) overlap={overlap}px content={content_height}px viewport={viewport_height}px"
+            )
+            return
+
+        if overlap > SCROLL_OVERLAP_THRESHOLD_PX:
+            self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
+            self.scroll_widget.setMinimumHeight(content_height)
+            debug_print(
+                f"scroll: ON overlap={overlap}px content={content_height}px viewport={viewport_height}px"
+            )
+        else:
+            self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+            self.scroll_widget.setMinimumHeight(0)
+            debug_print(
+                f"scroll: OFF overlap={overlap}px content={content_height}px viewport={viewport_height}px"
+            )
+
+    def adjust_columns_on_resize(self, event=None):
+        viewport_width = self.scroll_area.viewport().width() if self.scroll_area else self.width()
+        scroll_width = self.scroll_area.width() if self.scroll_area else self.width()
+        self_width = self.width()
+        panel_width = min(viewport_width, scroll_width, self_width)
+
+        button_width = self.button_width_hint if self.button_width_hint > 0 else 120
+        spacing = self.layout.horizontalSpacing()
+        if spacing < 0:
+            spacing = self.layout.spacing()
+        margins = self.layout.contentsMargins()
+        available_width = panel_width - (margins.left() + margins.right())
+        min_button_spacing = max(0, spacing)
+
         new_num_columns = max(
-            1, (panel_width + min_button_spacing) // (button_width + min_button_spacing)
+            1,
+            (available_width + min_button_spacing)
+            // (button_width + min_button_spacing),
         )
 
         if new_num_columns != self.num_columns:
             self.num_columns = new_num_columns
-            # Volver a crear los botones con el nuevo numero de columnas
             self.create_buttons()
+        else:
+            self.update_scrollbar_policy()
+
+        debug_print(
+            "resize: "
+            f"panel_width={panel_width}px viewport={viewport_width}px "
+            f"scroll={scroll_width}px self={self_width}px available={available_width}px "
+            f"button_width={button_width}px spacing={min_button_spacing}px cols={self.num_columns}"
+        )
 
     def parse_exr_name(self, exr_name):
         """Extrae el nombre base del archivo EXR usando funciones compartidas de NamingUtils."""
