@@ -21,6 +21,10 @@ import hiero.core
 import sys
 import os
 import json
+import logging
+import queue
+import time
+from logging.handlers import QueueHandler, QueueListener
 from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 
 # Importar función de limpieza de nombres desde NamingUtils
@@ -72,12 +76,103 @@ class CustomButton(QtWidgets.QPushButton):
 
 
 # Variable global para activar o desactivar los prints
-DEBUG = False
+DEBUG = True
+DEBUG_FILE = True
+
+script_start_time = None
+debug_log_listener = None
 
 
-def debug_print(*message):
+class RelativeTimeFormatter(logging.Formatter):
+    """Formatter que incluye tiempo relativo desde el inicio del script."""
+
+    def format(self, record):
+        global script_start_time
+        if script_start_time is None:
+            script_start_time = record.created
+        relative_time = record.created - script_start_time
+        record.relative_time = f"{relative_time:.3f}s"
+        return super().format(record)
+
+
+def setup_debug_logging(script_name="AsigneePanel"):
+    """Configura el logging para escribir SOLO en archivo."""
+    global debug_log_listener
+
+    log_filename = f"DebugPy_{script_name}.log"
+    log_file_path = os.path.join(os.path.dirname(__file__), "logs", log_filename)
+
+    os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+
+    if os.path.exists(log_file_path):
+        try:
+            with open(log_file_path, "w", encoding="utf-8") as f:
+                f.write("")
+        except Exception:
+            pass
+
+    logger_name = f"{script_name.lower()}_logger"
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+
+    if logger.handlers:
+        logger.handlers.clear()
+
+    file_handler = logging.FileHandler(log_file_path, encoding="utf-8")
+    file_handler.setLevel(logging.DEBUG)
+    formatter = RelativeTimeFormatter("[%(relative_time)s] %(message)s")
+    file_handler.setFormatter(formatter)
+
+    log_queue = queue.Queue()
+    queue_handler = QueueHandler(log_queue)
+    queue_handler.setLevel(logging.DEBUG)
+    logger.addHandler(queue_handler)
+
+    if debug_log_listener:
+        try:
+            debug_log_listener.stop()
+        except Exception:
+            pass
+
+    debug_log_listener = QueueListener(
+        log_queue, file_handler, respect_handler_level=True
+    )
+    debug_log_listener.daemon = True
+    debug_log_listener.start()
+
+    return logger
+
+
+debug_logger = setup_debug_logging(script_name="AsigneePanel")
+
+# Umbral de solapamiento vertical permitido antes de activar scroll
+SCROLL_OVERLAP_THRESHOLD_PX = 6
+
+
+def debug_print(*message, level="info"):
+    global script_start_time
+
+    msg = " ".join(str(arg) for arg in message)
+
+    if DEBUG_FILE:
+        if script_start_time is None:
+            script_start_time = time.time()
+        if level == "debug":
+            debug_logger.debug(msg)
+        elif level == "warning":
+            debug_logger.warning(msg)
+        elif level == "error":
+            debug_logger.error(msg)
+        else:
+            debug_logger.info(msg)
+
     if DEBUG:
-        print(*message)
+        if script_start_time is None:
+            script_start_time = time.time()
+        relative_time = time.time() - script_start_time
+        timestamped_msg = f"[{relative_time:.3f}s] {msg}"
+        print(timestamped_msg)
 
 
 class AssigneePanel(QtWidgets.QWidget):
@@ -85,9 +180,28 @@ class AssigneePanel(QtWidgets.QWidget):
         super(AssigneePanel, self).__init__()
         self.setObjectName("com.lega.FPTAssigneePanel")
         self.setWindowTitle("Assignees")
+        debug_print("=== AssigneePanel init ===")
+        self.root_layout = QtWidgets.QVBoxLayout()
+        self.root_layout.setContentsMargins(0, 0, 0, 0)
+        self.root_layout.setSpacing(0)
+        self.setLayout(self.root_layout)
+
+        # Scroll area para evitar solapamiento vertical
+        self.scroll_area = QtWidgets.QScrollArea()
+        self.scroll_area.setFrameShape(QtWidgets.QFrame.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.scroll_area.setWidgetResizable(True)
+        self.root_layout.addWidget(self.scroll_area)
+
+        self.scroll_widget = QtWidgets.QWidget()
+        self.scroll_widget.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred
+        )
         self.layout = QtWidgets.QGridLayout()
         self.layout.setSpacing(6)  # Reducir espacio entre botones
-        self.setLayout(self.layout)
+        self.scroll_widget.setLayout(self.layout)
+        self.scroll_area.setWidget(self.scroll_widget)
 
         # Cargar usuarios desde el archivo JSON
         self.users = self.load_users_from_config()
@@ -118,6 +232,7 @@ class AssigneePanel(QtWidgets.QWidget):
         self.buttons = self.fixed_buttons + self.create_user_buttons()
 
         self.num_columns = 1  # Inicialmente una columna
+        self.button_width_hint = 0
         self.create_buttons()
 
         # Conectar la senal de cambio de tamano del widget al metodo correspondiente
@@ -218,6 +333,7 @@ class AssigneePanel(QtWidgets.QWidget):
         return normal_callback, shift_callback, ctrl_shift_callback
 
     def create_buttons(self):
+        debug_print("=== create_buttons ===")
         # Limpiar el layout actual antes de crear nuevos botones
         while self.layout.count():
             item = self.layout.takeAt(0)
@@ -225,6 +341,7 @@ class AssigneePanel(QtWidgets.QWidget):
             if widget:
                 widget.deleteLater()
 
+        max_button_width = 0
         for index, button_info in enumerate(self.buttons):
             name = button_info[0]
             handler = button_info[1]
@@ -311,32 +428,82 @@ class AssigneePanel(QtWidgets.QWidget):
             if tooltip_text:
                 button.setToolTip(tooltip_text)
 
+            max_button_width = max(max_button_width, button.sizeHint().width())
             row = index // self.num_columns
             column = index % self.num_columns
             self.layout.addWidget(button, row, column)
 
         # Calcular el numero de filas usadas
         num_rows = (len(self.buttons) + self.num_columns - 1) // self.num_columns
+        debug_print(
+            f"layout: buttons={len(self.buttons)} rows={num_rows} cols={self.num_columns}"
+        )
+        if max_button_width > 0:
+            self.button_width_hint = max_button_width
+            debug_print(f"layout: button_width_hint={self.button_width_hint}px")
 
         # Anadir el espaciador vertical al final (espacio reducido entre botones)
         spacer = QtWidgets.QSpacerItem(20, 20, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.layout.addItem(spacer, num_rows, 0, 1, self.num_columns)
 
+        # Ajustar politica de scroll segun el solapamiento permitido
+        self.update_scrollbar_policy()
+
+    def update_scrollbar_policy(self):
+        # Altura real requerida por el contenido
+        content_height = self.layout.sizeHint().height()
+        margins = self.layout.contentsMargins()
+        content_height += margins.top() + margins.bottom()
+
+        viewport_height = self.scroll_area.viewport().height()
+        if viewport_height <= 0:
+            return
+
+        overlap = content_height - viewport_height
+        if overlap > SCROLL_OVERLAP_THRESHOLD_PX:
+            # Activar scroll vertical manteniendo el ancho del viewport
+            self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
+            self.scroll_widget.setMinimumHeight(content_height)
+            debug_print(
+                f"scroll: ON overlap={overlap}px content={content_height}px viewport={viewport_height}px"
+            )
+        else:
+            # Permitir leve compresion sin scroll
+            self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+            self.scroll_widget.setMinimumHeight(0)
+            debug_print(
+                f"scroll: OFF overlap={overlap}px content={content_height}px viewport={viewport_height}px"
+            )
+
     def adjust_columns_on_resize(self, event=None):
         # Obtener el ancho actual del widget
-        panel_width = self.width()
-        button_width = 100  # Ancho aproximado de cada boton
-        min_button_spacing = 10  # Espacio minimo entre botones
+        panel_width = self.scroll_area.viewport().width() if self.scroll_area else self.width()
+        button_width = self.button_width_hint if self.button_width_hint > 0 else 120
+        spacing = self.layout.horizontalSpacing()
+        if spacing < 0:
+            spacing = self.layout.spacing()
+        margins = self.layout.contentsMargins()
+        available_width = panel_width - (margins.left() + margins.right())
+        min_button_spacing = max(0, spacing)
 
         # Calcular el numero de columnas en funcion del ancho del widget
         new_num_columns = max(
-            1, (panel_width + min_button_spacing) // (button_width + min_button_spacing)
+            1,
+            (available_width + min_button_spacing)
+            // (button_width + min_button_spacing),
         )
 
         if new_num_columns != self.num_columns:
             self.num_columns = new_num_columns
             # Volver a crear los botones con el nuevo numero de columnas
             self.create_buttons()
+        else:
+            self.update_scrollbar_policy()
+        debug_print(
+            "resize: "
+            f"panel_width={panel_width}px available={available_width}px "
+            f"button_width={button_width}px spacing={min_button_spacing}px cols={self.num_columns}"
+        )
 
     def parse_exr_name(self, exr_name):
         """Extrae el nombre base del archivo EXR usando funciones compartidas de NamingUtils."""

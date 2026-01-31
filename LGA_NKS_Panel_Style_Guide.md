@@ -155,6 +155,10 @@ tooltip_colors = calculate_dynamic_tooltip(style) # Colores adaptados al botón
 - Documentar identificadores de estilo usados
 - Reinicio de Hiero puede ser necesario para ver cambios
 
+#### Scroll en paneles
+- Usar `QScrollArea` para evitar solapamiento de botones cuando el panel tiene poca altura
+- Definir un umbral de solapamiento (por ejemplo, `SCROLL_OVERLAP_THRESHOLD_PX`) para activar el scroll solo cuando el contenido excede la altura visible por mas de unos pocos pixeles
+
 ### 5. Módulo de Utilidades de Estilos
 
 #### Importación

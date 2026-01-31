@@ -155,6 +155,13 @@ El panel utiliza un **método híbrido inteligente filtrado por track** para det
 - **Shift+Click**: Crea/actualiza políticas IAM de Wasabi para el usuario
 - **Ctrl+Shift+Click**: Abre ventana de gestión de shots asignados en policy de Wasabi
 
+## Scroll y Solapamiento de Botones
+
+Para evitar que los botones se superpongan cuando el panel queda bajo en altura, el panel usa un `QScrollArea` con un umbral de solapamiento configurable:
+
+- **Constante**: `SCROLL_OVERLAP_THRESHOLD_PX`
+- **Comportamiento**: si el contenido excede la altura visible por más de ese umbral, se activa el scroll vertical. Si no, se permite una leve compresión sin scroll.
+
 ## Sincronización con Base de Datos Local
 
 El panel mantiene sincronizada la información entre Flow Production Tracking y la base de datos SQLite local `pipesync.db`:
