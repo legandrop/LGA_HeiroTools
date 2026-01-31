@@ -180,6 +180,7 @@ class ColorChangeWidget(QtWidgets.QWidget):
 
         self.setObjectName("com.lega.FPTPanel")
         self.setWindowTitle("Flow")
+        debug_print("=== FlowPanel init ===")
 
         self.root_layout = QtWidgets.QVBoxLayout()
         self.root_layout.setContentsMargins(0, 0, 0, 0)
@@ -303,6 +304,7 @@ class ColorChangeWidget(QtWidgets.QWidget):
         self.update_scrollbar_policy()
 
     def create_buttons(self):
+        debug_print("=== create_buttons ===")
         while self.layout.count():
             item = self.layout.takeAt(0)
             widget = item.widget()
@@ -392,6 +394,9 @@ class ColorChangeWidget(QtWidgets.QWidget):
 
         if max_button_width > 0:
             self.button_width_hint = max_button_width
+        debug_print(
+            f"layout: buttons={len(self.buttons)} cols={self.num_columns} width_hint={self.button_width_hint}px"
+        )
 
         num_rows = (len(self.buttons) + self.num_columns - 1) // self.num_columns
         spacer = QtWidgets.QSpacerItem(
@@ -415,14 +420,23 @@ class ColorChangeWidget(QtWidgets.QWidget):
         if not SCROLLBAR_VISIBLE:
             self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
             self.scroll_widget.setMinimumHeight(0)
+            debug_print(
+                f"scroll: OFF (forced) overlap={overlap}px content={content_height}px viewport={viewport_height}px"
+            )
             return
 
         if overlap > SCROLL_OVERLAP_THRESHOLD_PX:
             self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
             self.scroll_widget.setMinimumHeight(content_height)
+            debug_print(
+                f"scroll: ON overlap={overlap}px content={content_height}px viewport={viewport_height}px"
+            )
         else:
             self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
             self.scroll_widget.setMinimumHeight(0)
+            debug_print(
+                f"scroll: OFF overlap={overlap}px content={content_height}px viewport={viewport_height}px"
+            )
 
     def run_FPT_pull_with_deselect(self):
 
@@ -890,6 +904,12 @@ class ColorChangeWidget(QtWidgets.QWidget):
             self.create_buttons()
         else:
             self.update_scrollbar_policy()
+        debug_print(
+            "resize: "
+            f"panel_width={panel_width}px viewport={viewport_width}px "
+            f"scroll={scroll_width}px self={self_width}px available={available_width}px "
+            f"button_width={button_width}px spacing={min_button_spacing}px cols={self.num_columns}"
+        )
 
 # Crear la instancia del widget y anadirlo al gestor de ventanas de Hiero
 colorChanger = ColorChangeWidget()
