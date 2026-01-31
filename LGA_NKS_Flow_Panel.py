@@ -1,12 +1,14 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_Panel v2.49 | Lega
+  LGA_NKS_Flow_Panel v2.50 | Lega
   Panel con herramientas que interactuan con las tasks de Flow Production Tracking
   que fueron descargadas previamente con la app LGA_NKS_Flow_Downloader
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
+
+  v2.50: Actualizado para usar scroll bar cuando es necesario
 
   v2.49: Actualizado para usar estilos dinámicos con bordes y hover para todos los botones
          Agregado tooltip dinámico para todos los botones
@@ -41,6 +43,11 @@ from LGA_NKS_StyleUtils import (
 
 # Variable global para activar o desactivar los prints
 DEBUG = False
+
+# Umbral de solapamiento vertical permitido antes de activar scroll
+SCROLL_OVERLAP_THRESHOLD_PX = 6
+# Controla visibilidad de la barra de scroll (True = visible cuando corresponde)
+SCROLLBAR_VISIBLE = True
 
 
 def debug_print(*message):
@@ -79,9 +86,28 @@ class ColorChangeWidget(QtWidgets.QWidget):
         self.setObjectName("com.lega.FPTPanel")
         self.setWindowTitle("Flow")
 
+        self.root_layout = QtWidgets.QVBoxLayout()
+        self.root_layout.setContentsMargins(0, 0, 0, 0)
+        self.root_layout.setSpacing(0)
+        self.setLayout(self.root_layout)
+
+        # Scroll area para evitar solapamiento vertical
+        self.scroll_area = QtWidgets.QScrollArea()
+        self.scroll_area.setFrameShape(QtWidgets.QFrame.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.scroll_area.setWidgetResizable(True)
+        self.root_layout.addWidget(self.scroll_area)
+
+        self.scroll_widget = QtWidgets.QWidget()
+        self.scroll_widget.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred
+        )
         self.layout = QtWidgets.QGridLayout()  # Usamos QGridLayout
-        self.layout.setSpacing(6)  # Reducir espacio entre botones
-        self.setLayout(self.layout)
+        self.layout.setHorizontalSpacing(6)
+        self.layout.setVerticalSpacing(3)
+        self.scroll_widget.setLayout(self.layout)
+        self.scroll_area.setWidget(self.scroll_widget)
 
         # Crear botones y agregarlos al layout con coordenadas especificas
         self.buttons = [
@@ -168,23 +194,37 @@ class ColorChangeWidget(QtWidgets.QWidget):
         ]
 
         self.num_columns = 1  # Inicialmente una columna
+        self.button_width_hint = 0
         self.create_buttons()
 
         # Conectar la senal de cambio de tamano del widget al metodo correspondiente
         self.adjust_columns_on_resize()
         self.resizeEvent = self.adjust_columns_on_resize
 
+    def showEvent(self, event):
+        super(ColorChangeWidget, self).showEvent(event)
+        # Asegurar tamanos reales al mostrarse el panel
+        self.adjust_columns_on_resize()
+        self.update_scrollbar_policy()
+
     def create_buttons(self):
+        while self.layout.count():
+            item = self.layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+
+        max_button_width = 0
         for index, button_info in enumerate(self.buttons):
             name = button_info["name"]
             color = button_info["color"]
             style = button_info["style"]
             action = button_info["action"]
 
-            # Crear un botón personalizado que maneje el Shift+Click
+            # Crear un bot?n personalizado que maneje el Shift+Click
             button = CustomButton(name)
 
-            # Aplicar estilos dinámicos con bordes, hover y tooltips
+            # Aplicar estilos din?micos con bordes, hover y tooltips
             border_color = calculate_dynamic_border(style)
             hover_color = calculate_dynamic_hover(style)
 
@@ -205,7 +245,7 @@ class ColorChangeWidget(QtWidgets.QWidget):
                 }}
             """
 
-            # Agregar estilos de tooltip dinámicos si hay tooltip
+            # Agregar estilos de tooltip din?micos si hay tooltip
             has_tooltip = (
                 action == "fpt_pull" or
                 action == "review_pic" or
@@ -213,16 +253,16 @@ class ColorChangeWidget(QtWidgets.QWidget):
             )
 
             if has_tooltip:
-                # Crear un selector único para este botón usando su objectName
+                # Crear un selector ?nico para este bot?n usando su objectName
                 button_object_name = f"button_{index}"
                 button.setObjectName(button_object_name)
 
-                # Crear stylesheet de tooltip dinámico
+                # Crear stylesheet de tooltip din?mico
                 tooltip_stylesheet = create_tooltip_stylesheet(style)
-                # Modificar el tooltip stylesheet para usar el selector del botón
+                # Modificar el tooltip stylesheet para usar el selector del bot?n
                 tooltip_stylesheet = tooltip_stylesheet.replace("QToolTip", f"#{button_object_name} QToolTip")
 
-                # Combinar estilos del botón con estilos de tooltip
+                # Combinar estilos del bot?n con estilos de tooltip
                 button_stylesheet += tooltip_stylesheet
 
             button.setStyleSheet(button_stylesheet)
@@ -231,7 +271,7 @@ class ColorChangeWidget(QtWidgets.QWidget):
             elif action == "fpt_pull":
                 button.setCustomClickHandler(self.run_FPT_pull_with_deselect)
                 button.setShiftClickHandler(self.run_FPT_pull)
-                # Tooltip que explica las dos funcionalidades del botón Flow Pull
+                # Tooltip que explica las dos funcionalidades del bot?n Flow Pull
                 tooltip_text = (
                     "Click: Pull de todos los shots del timeline\n"
                     "Shift+Click: Pull solo del shot seleccionado"
@@ -240,21 +280,57 @@ class ColorChangeWidget(QtWidgets.QWidget):
             elif action == "review_pic":
                 button.clicked.connect(self.run_review_pic_script)
                 button.setToolTip(
-                    "Crea snapshot del viewer y lo guarda con su número de frame para ser enviado junto con los comentarios"
+                    "Crea snapshot del viewer y lo guarda con su n?mero de frame para ser enviado junto con los comentarios"
                 )
             elif action == "shot_info":
                 button.clicked.connect(self.run_shot_info_script)
                 if "shortcut" in button_info:
                     button.setShortcut(QtGui.QKeySequence(button_info["shortcut"]))
                 button.setToolTip(
-                    "Muestra información del shot y comentarios de las versiones de la task comp"
+                    "Muestra informaci?n del shot y comentarios de las versiones de la task comp"
                 )
 
+            max_button_width = max(max_button_width, button.sizeHint().width())
             row = index // self.num_columns
             column = index % self.num_columns
             self.layout.addWidget(button, row, column)
 
+        if max_button_width > 0:
+            self.button_width_hint = max_button_width
+
+        num_rows = (len(self.buttons) + self.num_columns - 1) // self.num_columns
+        spacer = QtWidgets.QSpacerItem(
+            20, 20, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
+        )
+        self.layout.addItem(spacer, num_rows, 0, 1, self.num_columns)
+
+        self.update_scrollbar_policy()
+
+
+    def update_scrollbar_policy(self):
+        content_height = self.layout.sizeHint().height()
+        margins = self.layout.contentsMargins()
+        content_height += margins.top() + margins.bottom()
+
+        viewport_height = self.scroll_area.viewport().height()
+        if viewport_height <= 0:
+            return
+
+        overlap = content_height - viewport_height
+        if not SCROLLBAR_VISIBLE:
+            self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+            self.scroll_widget.setMinimumHeight(0)
+            return
+
+        if overlap > SCROLL_OVERLAP_THRESHOLD_PX:
+            self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
+            self.scroll_widget.setMinimumHeight(content_height)
+        else:
+            self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+            self.scroll_widget.setMinimumHeight(0)
+
     def run_FPT_pull_with_deselect(self):
+
         """Version del FPT Pull que procesa todos los clips"""
         debug_print("Ejecutando Flow Pull forzando procesamiento de todos los clips...")
 
@@ -695,33 +771,30 @@ class ColorChangeWidget(QtWidgets.QWidget):
             return True
 
     def adjust_columns_on_resize(self, event=None):
-        # Obtener el ancho actual del widget
-        panel_width = self.width()
-        button_width = 100  # Ancho aproximado de cada boton
-        min_button_spacing = 10  # Espacio minimo entre botones
+        viewport_width = self.scroll_area.viewport().width() if self.scroll_area else self.width()
+        scroll_width = self.scroll_area.width() if self.scroll_area else self.width()
+        self_width = self.width()
+        panel_width = min(viewport_width, scroll_width, self_width)
 
-        # Calcular el numero de columnas en funcion del ancho del widget
-        self.num_columns = max(
-            1, (panel_width + min_button_spacing) // (button_width + min_button_spacing)
+        button_width = self.button_width_hint if self.button_width_hint > 0 else 120
+        spacing = self.layout.horizontalSpacing()
+        if spacing < 0:
+            spacing = self.layout.spacing()
+        margins = self.layout.contentsMargins()
+        available_width = panel_width - (margins.left() + margins.right())
+        min_button_spacing = max(0, spacing)
+
+        new_num_columns = max(
+            1,
+            (available_width + min_button_spacing)
+            // (button_width + min_button_spacing),
         )
 
-        # Limpiar el layout actual y eliminar widgets solo si existen
-        while self.layout.count():
-            item = self.layout.takeAt(0)
-            widget = item.widget()
-            if widget:
-                widget.deleteLater()
-
-        # Volver a crear los botones con el nuevo numero de columnas
-        self.create_buttons()
-
-        # Calcular el numero de filas usadas
-        num_rows = (len(self.buttons) + self.num_columns - 1) // self.num_columns
-
-        # Anadir el espaciador vertical
-        spacer = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
-        self.layout.addItem(spacer, num_rows, 0, 1, self.num_columns)
-
+        if new_num_columns != self.num_columns:
+            self.num_columns = new_num_columns
+            self.create_buttons()
+        else:
+            self.update_scrollbar_policy()
 
 # Crear la instancia del widget y anadirlo al gestor de ventanas de Hiero
 colorChanger = ColorChangeWidget()
