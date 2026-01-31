@@ -1,18 +1,16 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_Assignee_Panel v1.53 | Lega
+  LGA_NKS_Flow_Assignee_Panel v1.54 | Lega
   Panel para obtener los asignados de la tarea del clip seleccionado en Flow,
   limpiarlos o sumar asignados a la tarea comp.
 
+  v1.54: Agregado logging a archivo con switches de debug
   v1.53: Actualizado para usar scroll bar cuando es necesario
-
   v1.52: Actualizado para usar estilos dinámicos con bordes y hover para todos los botones
          Agregado tooltip dinámico para todos los botones
-  
-  v1.51: Actualiza la UI para mostrar las tasks y los asignados en Flow. 
+   v1.51: Actualiza la UI para mostrar las tasks y los asignados en Flow. 
          Funciona con todas las tasks disponibles en Flow.
-
   v1.50: Actualizado para ser compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
@@ -80,7 +78,8 @@ class CustomButton(QtWidgets.QPushButton):
 
 # Variable global para activar o desactivar los prints
 DEBUG = True
-DEBUG_FILE = True
+DEBUG_CONSOLE = False
+DEBUG_LOG = True
 
 script_start_time = None
 debug_log_listener = None
@@ -160,7 +159,7 @@ def debug_print(*message, level="info"):
 
     msg = " ".join(str(arg) for arg in message)
 
-    if DEBUG_FILE:
+    if DEBUG and DEBUG_LOG:
         if script_start_time is None:
             script_start_time = time.time()
         if level == "debug":
@@ -172,7 +171,7 @@ def debug_print(*message, level="info"):
         else:
             debug_logger.info(msg)
 
-    if DEBUG:
+    if DEBUG and DEBUG_CONSOLE:
         if script_start_time is None:
             script_start_time = time.time()
         relative_time = time.time() - script_start_time
@@ -214,7 +213,7 @@ class AssigneePanel(QtWidgets.QWidget):
         debug_print(f"Usuarios cargados: {self.users}")
 
         # Sincronizar debug con el módulo de clips
-        clip_utils.DEBUG = DEBUG
+        clip_utils.DEBUG = DEBUG and DEBUG_CONSOLE
 
         # Definir los botones fijos y sus colores/estilos
         self.fixed_buttons = [

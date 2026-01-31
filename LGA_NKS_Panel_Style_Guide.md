@@ -159,6 +159,7 @@ tooltip_colors = calculate_dynamic_tooltip(style) # Colores adaptados al botón
 - Usar `QScrollArea` para evitar solapamiento de botones cuando el panel tiene poca altura
 - Definir un umbral de solapamiento (por ejemplo, `SCROLL_OVERLAP_THRESHOLD_PX`) para activar el scroll solo cuando el contenido excede la altura visible por mas de unos pocos pixeles
 - Para columnas en `QGridLayout`, calcular el ancho disponible usando el minimo entre `self.width()`, `scroll_area.width()` y `scroll_area.viewport().width()` para evitar columnas extra por anchos inflados
+- Por defecto, `SCROLLBAR_VISIBLE = False` para mantener la barra oculta (el scroll con rueda sigue funcionando)
 - Paneles actualizados con este sistema: `LGA_NKS_Flow_Assignee_Panel` y `LGA_NKS_Flow_Panel`
 
 ### 5. Módulo de Utilidades de Estilos

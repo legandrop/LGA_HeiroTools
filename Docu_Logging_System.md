@@ -38,8 +38,9 @@ import time
 
 ```python
 # Variables para controlar el logging
-DEBUG = False          # Para prints en consola (existente)
-DEBUG_FILE = True      # Para logging en archivo (nueva)
+DEBUG = True           # Master switch: habilita todo el sistema de debug
+DEBUG_CONSOLE = False  # Si DEBUG es True, imprime en consola
+DEBUG_LOG = True       # Si DEBUG es True, escribe al archivo .log
 
 # Variables del sistema de logging
 script_start_time = None
@@ -140,14 +141,14 @@ debug_logger = setup_debug_logging(script_name="TuScript")
 
 ```python
 def debug_print(*message, level="info"):
-    """Función de logging mejorada con soporte dual."""
+    """Función de logging mejorada con switches por consola/archivo."""
     global script_start_time
 
     # Crear el mensaje
     msg = " ".join(str(arg) for arg in message)
 
-    # Logging a ARCHIVO (siempre que DEBUG_FILE esté activo)
-    if DEBUG_FILE:
+    # Logging a ARCHIVO (siempre que DEBUG y DEBUG_LOG estén activos)
+    if DEBUG and DEBUG_LOG:
         # Inicializar tiempo si no está hecho
         if script_start_time is None:
             script_start_time = time.time()
@@ -162,8 +163,8 @@ def debug_print(*message, level="info"):
         else:  # info
             debug_logger.info(msg)
 
-    # Logging a CONSOLA (solo si DEBUG está activo)
-    if DEBUG:
+    # Logging a CONSOLA (solo si DEBUG y DEBUG_CONSOLE están activos)
+    if DEBUG and DEBUG_CONSOLE:
         if script_start_time is None:
             script_start_time = time.time()
 
@@ -280,12 +281,14 @@ def procesar_archivo(filepath):
 
 ```python
 # Desarrollo
-DEBUG = True       # Ver en consola
-DEBUG_FILE = True  # También guardar en archivo
+DEBUG = True          # Master ON
+DEBUG_CONSOLE = True  # Ver en consola
+DEBUG_LOG = True      # También guardar en archivo
 
 # Producción
-DEBUG = False      # Consola limpia
-DEBUG_FILE = True  # Solo archivo para debugging
+DEBUG = False         # Master OFF
+DEBUG_CONSOLE = False # Consola limpia
+DEBUG_LOG = True      # Solo archivo para debugging cuando se active DEBUG
 ```
 
 ## 📊 Ejemplo de Output en Log
@@ -328,8 +331,9 @@ import os
 import time
 
 # 2. Pegar variables
-DEBUG = False
-DEBUG_FILE = True
+DEBUG = True
+DEBUG_CONSOLE = False
+DEBUG_LOG = True
 script_start_time = None
 debug_log_listener = None
 
