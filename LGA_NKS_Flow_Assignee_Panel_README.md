@@ -155,12 +155,13 @@ El panel utiliza un **método híbrido inteligente filtrado por track** para det
 - **Shift+Click**: Crea/actualiza políticas IAM de Wasabi para el usuario
 - **Ctrl+Shift+Click**: Abre ventana de gestión de shots asignados en policy de Wasabi
 
-## Scroll y Solapamiento de Botones
+## Scroll, Columnas y Solapamiento de Botones
 
-Para evitar que los botones se superpongan cuando el panel queda bajo en altura, el panel usa un `QScrollArea` con un umbral de solapamiento configurable:
+Para evitar solapamiento vertical sin romper el reordenamiento de columnas, el panel usa un `QScrollArea` con umbral y un cálculo de columnas basado en el ancho real disponible:
 
 - **Constante**: `SCROLL_OVERLAP_THRESHOLD_PX`
 - **Comportamiento**: si el contenido excede la altura visible por más de ese umbral, se activa el scroll vertical. Si no, se permite una leve compresión sin scroll.
+- **Columnas**: el número de columnas se calcula con el ancho mínimo entre `self.width()`, `scroll_area.width()` y `scroll_area.viewport().width()` para evitar anchos “fantasma” que generan columnas extra.
 
 ## Sincronización con Base de Datos Local
 

@@ -202,7 +202,8 @@ class AssigneePanel(QtWidgets.QWidget):
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred
         )
         self.layout = QtWidgets.QGridLayout()
-        self.layout.setSpacing(6)  # Reducir espacio entre botones
+        self.layout.setHorizontalSpacing(6)
+        self.layout.setVerticalSpacing(3)
         self.scroll_widget.setLayout(self.layout)
         self.scroll_area.setWidget(self.scroll_widget)
 
