@@ -1,12 +1,15 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_Assignee_Panel v1.52 | Lega
+  LGA_NKS_Flow_Assignee_Panel v1.53 | Lega
   Panel para obtener los asignados de la tarea del clip seleccionado en Flow,
   limpiarlos o sumar asignados a la tarea comp.
 
+  v1.53: Actualizado para usar scroll bar cuando es necesario
+
   v1.52: Actualizado para usar estilos dinámicos con bordes y hover para todos los botones
          Agregado tooltip dinámico para todos los botones
+  
   v1.51: Actualiza la UI para mostrar las tasks y los asignados en Flow. 
          Funciona con todas las tasks disponibles en Flow.
 
@@ -477,7 +480,10 @@ class AssigneePanel(QtWidgets.QWidget):
 
     def adjust_columns_on_resize(self, event=None):
         # Obtener el ancho actual del widget
-        panel_width = self.scroll_area.viewport().width() if self.scroll_area else self.width()
+        viewport_width = self.scroll_area.viewport().width() if self.scroll_area else self.width()
+        scroll_width = self.scroll_area.width() if self.scroll_area else self.width()
+        self_width = self.width()
+        panel_width = min(viewport_width, scroll_width, self_width)
         button_width = self.button_width_hint if self.button_width_hint > 0 else 120
         spacing = self.layout.horizontalSpacing()
         if spacing < 0:
@@ -501,7 +507,8 @@ class AssigneePanel(QtWidgets.QWidget):
             self.update_scrollbar_policy()
         debug_print(
             "resize: "
-            f"panel_width={panel_width}px available={available_width}px "
+            f"panel_width={panel_width}px viewport={viewport_width}px scroll={scroll_width}px self={self_width}px "
+            f"available={available_width}px "
             f"button_width={button_width}px spacing={min_button_spacing}px cols={self.num_columns}"
         )
 
