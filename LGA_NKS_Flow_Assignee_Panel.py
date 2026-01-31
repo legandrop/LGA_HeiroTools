@@ -151,6 +151,8 @@ debug_logger = setup_debug_logging(script_name="AsigneePanel")
 
 # Umbral de solapamiento vertical permitido antes de activar scroll
 SCROLL_OVERLAP_THRESHOLD_PX = 6
+# Controla visibilidad de la barra de scroll (True = visible cuando corresponde)
+SCROLLBAR_VISIBLE = False
 
 
 def debug_print(*message, level="info"):
@@ -242,6 +244,12 @@ class AssigneePanel(QtWidgets.QWidget):
         # Conectar la senal de cambio de tamano del widget al metodo correspondiente
         self.adjust_columns_on_resize()
         self.resizeEvent = self.adjust_columns_on_resize
+
+    def showEvent(self, event):
+        super(AssigneePanel, self).showEvent(event)
+        # Asegurar tamanos reales al mostrarse el panel
+        self.adjust_columns_on_resize()
+        self.update_scrollbar_policy()
 
     def load_users_from_config(self):
         """Carga la lista de usuarios desde el archivo JSON de configuracion"""
@@ -464,6 +472,14 @@ class AssigneePanel(QtWidgets.QWidget):
             return
 
         overlap = content_height - viewport_height
+        if not SCROLLBAR_VISIBLE:
+            self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+            self.scroll_widget.setMinimumHeight(0)
+            debug_print(
+                f"scroll: OFF (forced) overlap={overlap}px content={content_height}px viewport={viewport_height}px"
+            )
+            return
+
         if overlap > SCROLL_OVERLAP_THRESHOLD_PX:
             # Activar scroll vertical manteniendo el ancho del viewport
             self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)

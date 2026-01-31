@@ -160,6 +160,7 @@ El panel utiliza un **método híbrido inteligente filtrado por track** para det
 Para evitar solapamiento vertical sin romper el reordenamiento de columnas, el panel usa un `QScrollArea` con umbral y un cálculo de columnas basado en el ancho real disponible:
 
 - **Constante**: `SCROLL_OVERLAP_THRESHOLD_PX`
+- **Visibilidad**: `SCROLLBAR_VISIBLE` controla si la barra se muestra. En `False` nunca se ve (pero el scroll con la rueda sigue funcionando). En `True` se muestra cuando corresponde desde el inicio del panel.
 - **Comportamiento**: si el contenido excede la altura visible por más de ese umbral, se activa el scroll vertical. Si no, se permite una leve compresión sin scroll.
 - **Columnas**: el número de columnas se calcula con el ancho mínimo entre `self.width()`, `scroll_area.width()` y `scroll_area.viewport().width()` para evitar anchos “fantasma” que generan columnas extra.
 
