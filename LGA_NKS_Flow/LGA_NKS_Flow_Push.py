@@ -37,8 +37,12 @@ import glob
 import shutil
 import tempfile
 import json
+import logging
+import queue
+from logging.handlers import QueueHandler, QueueListener
 # QtCore classes ahora vienen del adapter (se asignarán después del import)
 import datetime
+import time
 import subprocess  # Importar subprocess para abrir archivos
 import sys
 from pathlib import Path
@@ -140,9 +144,13 @@ task_status_dict = {
 # Variable global para activar/desactivar tags de XYplorer
 XYPlorer_Tags = True
 
-# Variable global para activar o desactivar los prints // En esta version el Debug se imprime al final del script
-DEBUG = False
+# Variables globales de logging (valores por defecto del MD)
+DEBUG = True
+DEBUG_CONSOLE = False
+DEBUG_LOG = True
 DEBUG_RESUMEN = False
+script_start_time = None
+debug_log_listener = None
 debug_messages = []
 resumen_messages = []
 
@@ -153,9 +161,111 @@ except:
     pass  # Si no se importó el módulo, ignorar
 
 
-def debug_print(message):
+class RelativeTimeFormatter(logging.Formatter):
+    """Formatter con hora absoluta y tiempo relativo desde el inicio."""
+
+    def format(self, record):
+        global script_start_time
+        if script_start_time is None:
+            script_start_time = record.created
+
+        relative_time = record.created - script_start_time
+        record.relative_time = f"{relative_time:.3f}s"
+        return super().format(record)
+
+
+def setup_debug_logging(script_name="FlowPush"):
+    """Configura el logging para escribir SOLO en archivo."""
+    global debug_log_listener
+
+    log_filename = f"debugPy_{script_name}.log"
+    log_file_path = os.path.join(
+        os.path.dirname(__file__), "..", "logs", log_filename
+    )
+
+    os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+
+    # Limpieza diaria: si el log no es de hoy, se borra y se agrega encabezado con fecha
+    today_str = datetime.date.today().isoformat()
+    should_reset = True
+    if os.path.exists(log_file_path):
+        try:
+            with open(log_file_path, "r", encoding="utf-8") as f:
+                first_line = f.readline().strip()
+            should_reset = first_line != f"Fecha: {today_str}"
+        except Exception:
+            should_reset = True
+
+    if should_reset:
+        try:
+            with open(log_file_path, "w", encoding="utf-8") as f:
+                f.write(f"Fecha: {today_str}\n")
+        except Exception as e:
+            print(f"Warning: No se pudo resetear el log: {e}")
+
+    logger_name = f"{script_name.lower()}_logger"
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+
+    if logger.handlers:
+        logger.handlers.clear()
+
+    file_handler = logging.FileHandler(log_file_path, encoding="utf-8")
+    file_handler.setLevel(logging.DEBUG)
+    formatter = RelativeTimeFormatter(
+        "[%(asctime)s] [%(relative_time)s] %(message)s", datefmt="%H:%M:%S"
+    )
+    file_handler.setFormatter(formatter)
+
+    log_queue = queue.Queue()
+    queue_handler = QueueHandler(log_queue)
+    queue_handler.setLevel(logging.DEBUG)
+    logger.addHandler(queue_handler)
+
+    if debug_log_listener:
+        try:
+            debug_log_listener.stop()
+        except Exception:
+            pass
+
+    debug_log_listener = QueueListener(
+        log_queue, file_handler, respect_handler_level=True
+    )
+    debug_log_listener.daemon = True
+    debug_log_listener.start()
+
+    return logger
+
+
+debug_logger = setup_debug_logging(script_name="FlowPush")
+
+
+def debug_print(*message, level="info"):
+    global script_start_time
+
+    msg = " ".join(str(arg) for arg in message)
+
     if DEBUG:
-        debug_messages.append(message)
+        debug_messages.append(msg)
+
+    if DEBUG and DEBUG_LOG:
+        if script_start_time is None:
+            script_start_time = time.time()
+        if level == "debug":
+            debug_logger.debug(msg)
+        elif level == "warning":
+            debug_logger.warning(msg)
+        elif level == "error":
+            debug_logger.error(msg)
+        else:
+            debug_logger.info(msg)
+
+    if DEBUG and DEBUG_CONSOLE:
+        if script_start_time is None:
+            script_start_time = time.time()
+        relative_time = time.time() - script_start_time
+        print(f"[{relative_time:.3f}s] {msg}")
 
 
 def debug_resumen_print(message):
@@ -1994,6 +2104,9 @@ def Push_Task_Status(
     button_name, base_name, update_callback=None, original_file_name=None
 ):
     global msg_manager
+    debug_print(
+        f"Push solicitado: estado='{button_name}', shot='{base_name}'"
+    )
 
     # Verificar que tengamos las credenciales disponibles
     sg_url, sg_login, sg_password = get_flow_credentials()
@@ -2184,9 +2297,9 @@ def Push_Task_Status(
 
 
 def print_debug_messages():
-    if DEBUG:
+    if DEBUG and DEBUG_CONSOLE and debug_messages:
         print("\n".join(debug_messages))
-        debug_messages.clear()  # Limpiar mensajes después de imprimir
+    debug_messages.clear()  # Limpiar mensajes después de imprimir
 
 
 def print_resumen():
@@ -2212,6 +2325,7 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
     Returns:
         bool: True si se inició la operación exitosamente, False si se canceló o hubo error
     """
+    debug_print(f"push_from_selected_clips iniciado: estado='{button_name}'")
     # Obtener los clips en el hilo principal ANTES de procesar
     # Usa prioritize_multiple_selection=True para priorizar múltiples clips seleccionados sobre playhead
     # ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
