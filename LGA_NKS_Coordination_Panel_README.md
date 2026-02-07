@@ -1,7 +1,7 @@
-# LGA_NKS_Flow_FlowProd_Panel - Panel de Producción Flow
+# LGA_NKS_Coordination_Panel - Panel de Coordination (Flow)
 
 ## Descripción
-El panel LGA_NKS_Flow_FlowProd_Panel proporciona herramientas esenciales para operaciones de producción con Flow Production Tracking (ShotGrid) desde Hiero/Nuke Studio.
+El panel de Coordination proporciona herramientas esenciales para operaciones de producción con Flow Production Tracking (ShotGrid) desde Hiero/Nuke Studio.
 
 ## Funcionalidades Principales
 
@@ -30,6 +30,26 @@ El panel LGA_NKS_Flow_FlowProd_Panel proporciona herramientas esenciales para op
 - **Restricción**: Solo admite un clip seleccionado a la vez
 - **Comportamiento**: Lee la configuración real del shot en Flow, precarga la misma UI compacta y aplica únicamente las diferencias solicitadas
 
+### 5. Check Shots Exist
+- **Función**: Chequea si los shots del track comp existen en Flow
+- **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CheckTimelineShots.py`
+
+### 6. Shot Priority
+- **Función**: Cambia la prioridad del shot (alta ↔ normal)
+- **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ShotPriority.py`
+
+### 7. FileManager
+- **Función**: Abre la carpeta del shot en FileManager
+- **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_OpenPath.py`
+
+### 8. Download Shot
+- **Función**: Descarga el shot desde Wasabi S3
+- **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_Download.py`
+
+### 9. Upload Shot
+- **Función**: Sube el shot a Wasabi S3
+- **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_Upload.py`
+
 ## Compatibilidad de Nomenclatura
 
 El panel es compatible con ambos sistemas de nomenclatura utilizados en la empresa:
@@ -51,9 +71,15 @@ El sistema detecta automáticamente el formato utilizado sin necesidad de config
 ## Estructura del Panel
 
 ### Botones Disponibles
-1. **Reveal in Flow** - `Ctrl+Shift+F` - Abre la task comp en Chrome
-2. **Thumbnail** - Crea y sube thumbnail del clip seleccionado
-3. **Create Shot** - Crea shots automáticamente en Flow
+1. **Thumbnail** - Crea y sube thumbnail del clip seleccionado
+2. **Create Shot** - Crea shots automáticamente en Flow
+3. **Modify Shot** - Modifica un shot existente en Flow
+4. **Check Shots Exist** - Chequea si los shots del track comp existen en Flow
+5. **Shot Priority** - Cambia la prioridad del shot (alta ↔ normal)
+6. **FileManager** - Abre carpeta del shot en FileManager
+7. **Download Shot** - Descarga el shot desde Wasabi S3
+8. **Upload Shot** - Sube el shot a Wasabi S3
+9. **Reveal in Flow** - `Ctrl+Shift+F` - Abre la task comp en Chrome
 
 ## Requisitos
 
@@ -80,5 +106,10 @@ El sistema detecta automáticamente el formato utilizado sin necesidad de config
 - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ShowInFlow.py` - Funcionalidad de Reveal in Flow
 - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_Thumbs.py` - Funcionalidad de Thumbnails
 - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py` - Funcionalidad de Create Shot
+- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ModifyShot.py` - Funcionalidad de Modify Shot
+- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CheckTimelineShots.py` - Funcionalidad de Check Shots Exist
+- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ShotPriority.py` - Funcionalidad de Shot Priority
+- `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_OpenPath.py` - Funcionalidad de FileManager (Open)
+- `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_Download.py` - Funcionalidad de Download Shot
+- `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_Upload.py` - Funcionalidad de Upload Shot
 - `LGA_NKS_Flow/LGA_NKS_Flow_NamingUtils.py` - Utilidades compartidas de nomenclatura (usado por los scripts de producción)
-

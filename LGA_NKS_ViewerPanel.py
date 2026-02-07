@@ -346,18 +346,18 @@ class ViewerPanel(QtWidgets.QWidget):
         # Botones finales (siempre visibles)
         final_buttons = [
             (
-                "SnapShot",
-                self.snapshot,
-                "#2d5a3d",
-                None,
-                "Crea un snapshot de la imagen actual del viewer\n(cropeada al aspect ratio de la secuencia) y lo copia al portapapeles\nIdeal para enviar por telegram con algun comentario",
-            ),
-            (
                 "Frame Number",
                 self.frame_number_position,
                 "#0e1f3b",
                 "Shift+F",
                 "Shift+F\nMueve el burnin de frame number al área visible\nabajo a la izquierda del viewer",
+            ),
+            (
+                "SnapShot",
+                self.snapshot,
+                "#2d5a3d",
+                None,
+                "Crea un snapshot de la imagen actual del viewer\n(cropeada al aspect ratio de la secuencia) y lo copia al portapapeles\nIdeal para enviar por telegram con algun comentario",
             ),
         ]
 
