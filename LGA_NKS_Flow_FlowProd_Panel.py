@@ -222,13 +222,6 @@ class FlowProdPanel(QtWidgets.QWidget):
         # Definir los botones fijos y sus colores/estilos
         self.fixed_buttons = [
             (
-                "Reveal in Flow",
-                self.show_in_flow_for_selected_clip,
-                "#1f1f1f",
-                "Ctrl+Shift+F",
-                "Click: Abrir task comp en Flow\nShift+Click: Abrir Shot completo en Flow (Ctrl+Shift+F)",
-            ),
-            (
                 "Thumbnail",
                 self.create_thumbnail_for_selected_clip,
                 "#3a2a4d",
@@ -283,6 +276,13 @@ class FlowProdPanel(QtWidgets.QWidget):
                 "gradient_magenta_violet",
                 None,
                 "Subir shot a Wasabi S3",
+            ),
+            (
+                "Reveal in Flow",
+                self.show_in_flow_for_selected_clip,
+                "#1f1f1f",
+                "Ctrl+Shift+F",
+                "Click: Abrir task comp en Flow\nShift+Click: Abrir Shot completo en Flow (Ctrl+Shift+F)",
             ),
         ]
 
