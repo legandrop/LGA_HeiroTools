@@ -102,7 +102,9 @@ class RelativeTimeFormatter(logging.Formatter):
 def setup_debug_logging():
     """Configura el logging para debug que escribe en tiempo real a un archivo."""
     global debug_log_listener
-    log_file_path = os.path.join(os.path.dirname(__file__), '..', 'logs', 'debugPy.log')
+    log_file_path = os.path.join(
+        os.path.dirname(__file__), '..', 'logs', 'debugPy_FlowPull.log'
+    )
 
     # Asegurar que el directorio de logs existe
     os.makedirs(os.path.dirname(log_file_path), exist_ok=True)

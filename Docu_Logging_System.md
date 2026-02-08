@@ -2,7 +2,7 @@
 
 ## 📋 Descripción General
 
-Esta guía documenta cómo implementar un sistema de logging robusto que escribe exclusivamente a un archivo `.log` sin contaminar la consola, con timestamps relativos y limpieza automática del archivo en cada ejecución.
+Esta guía documenta cómo implementar un sistema de logging robusto que escribe exclusivamente a un archivo `.log` sin contaminar la consola. En este repo conviven **dos variantes**: una con timer y limpieza por ejecución, y otra con hora + limpieza diaria.
 
 ## 🎯 Características del Sistema
 
@@ -13,6 +13,35 @@ Esta guía documenta cómo implementar un sistema de logging robusto que escribe
 - ✅ **Múltiples niveles**: DEBUG, INFO, WARNING, ERROR
 - ✅ **Nombres específicos**: `debugPy_NombreScript.log`
 - ✅ **Thread-safe**: Funciona en entornos multi-thread
+
+## 🧭 Sistemas de logging en este repo
+
+### ✅ Sistema A: timer + limpieza por ejecución
+
+- **Formato**: `[0.123s] mensaje`
+- **Limpieza**: borra el `.log` en cada ejecución
+- **Scripts que lo usan**:
+  - `LGA_NKS_Flow/LGA_NKS_Flow_Pull.py` (log: `debugPy_FlowPull.log`)
+  - `LGA_NKS_Flow_Panel.py`
+  - `LGA_NKS_Flow_FlowProd_Panel.py`
+  - `LGA_NKS_ViewerPanel.py`
+  - `LGA_NKS_EditTools_Panel.py`
+  - `LGA_NKS_Review_Panel.py`
+  - `LGA_NKS_Flow_Assignee_Panel.py`
+  - `+Building_Blocks/LGA_NKS_Flow_Pull_DoScan.py`
+  - `+Building_Blocks/LGA_NKS_Flow_Pull_BinItem.py`
+  - `+Building_Blocks/test_funcion_por_funcion.py`
+
+### ✅ Sistema B: hora + limpieza diaria
+
+- **Encabezado**: `Fecha: YYYY-MM-DD` al inicio del archivo
+- **Formato**: `[HH:MM:SS] [0.123s] mensaje`
+- **Limpieza**: si el log es del día actual, agrega; si es de otro día, lo borra
+- **Scripts que lo usan**:
+  - `LGA_NKS_Flow/LGA_NKS_Flow_Push.py` (log: `debugPy_FlowPush.log`)
+  - `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_OpenPath.py`
+  - `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_Download.py`
+  - `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_Upload.py`
 
 ## 📁 Estructura de Archivos
 
