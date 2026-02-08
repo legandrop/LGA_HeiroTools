@@ -6,6 +6,8 @@ Este documento describe la evolución del sistema de nomenclatura utilizado en l
 
 **Nota:** Este proyecto está basado en la experiencia previa del proyecto de Nuke (LGA_ToolPack), donde se implementó exitosamente la compatibilidad de nomenclatura. Ver sección "Referencia: Proyecto Nuke" al final del documento.
 
+**Actualización:** Se incorpora un bloque opcional de **Temporada/Episodio** inmediatamente después del proyecto cuando se trabaja en series (ej: `ERSO_101_060_010`).
+
 ## Sistema de Nomenclatura Actual (Con Campos de Descripción)
 
 ### Estructura del Shotname
@@ -84,6 +86,47 @@ PROYECTO_SEQ_SHOT_TASK_vVERSION.EXT
 - **Shot Code:** `SEQ_SHOT` (ej: `000_140`)
 - **Task:** `TASK` (ej: `comp`)
 
+## Sistema de Nomenclatura para Series (Con Bloque Temporada/Episodio)
+
+### Estructura del Shotname
+El sistema para series agrega un bloque de temporada/episodio antes de la secuencia y el shot:
+
+```
+PROYECTO_TEMP_EP_SEQ_SHOT
+```
+
+**Ejemplo:**
+```
+ERSO_101_060_010
+```
+
+### Con Campos de Descripción
+```
+PROYECTO_TEMP_EP_SEQ_SHOT_DESC1_DESC2
+```
+
+**Ejemplo:**
+```
+ERSO_101_060_010_Chroma_Auto
+```
+
+### Campos y su Significado
+
+| Campo | Posición | Descripción | Ejemplo |
+|-------|----------|-------------|---------|
+| PROYECTO | 1 | Código del proyecto | `ERSO` |
+| TEMP_EP | 2 | Temporada/Episodio (3 dígitos) | `101` |
+| SEQ | 3 | Secuencia interna (3 dígitos) | `060` |
+| SHOT | 4 | Número de shot (3-4 dígitos) | `010` |
+| DESC1 | 5 | Primera descripción | `Chroma` |
+| DESC2 | 6 | Segunda descripción | `Auto` |
+| TASK | 7 | Nombre de la tarea | `comp` |
+| VERSION | 8 | Número de versión | `v19` |
+
+### Uso en Flow/ShotGrid (Series)
+- **Sequence:** `TEMP_EP` (ej: `101`)
+- **Shot Code:** Mantiene el bloque de temporada/episodio dentro del nombre del shot
+
 ## Problemas Identificados en los Scripts de Hiero
 
 ### 1. LGA_NKS_Flow_CreateShot.py (Problema CRÍTICO)
@@ -119,21 +162,28 @@ if len(parts) >= 5:
 
 ## Técnica de Detección Implementada
 
-### 🎯 **Detección Inteligente por Campo 5**
+### 🎯 **Detección Inteligente por Bloques Base**
 
-**Principio:** El campo 5 (índice 4) determina automáticamente el formato del shotname
+**Principio:** Primero se detecta si es serie; luego se determina si hay descripción.
 
 **Lógica:**
 ```
-Si campo_5.startswith('v') AND campo_5[1:].isdigit():
-    → Formato Simplificado (3 campos base)
+Si después del proyecto los 3 bloques siguientes empiezan con dígito:
+    → Formato de serie (base = 4 bloques: PROYECTO_TEMP_EP_SEQ_SHOT)
 Sino:
-    → Formato con Descripción (5 campos base)
+    → Formato estándar (base = 3 bloques: PROYECTO_SEQ_SHOT)
+
+Si existen al menos 2 bloques adicionales tras el bloque base:
+    → Formato con Descripción
+Sino:
+    → Formato Simplificado
 ```
 
 **Casos de Uso:**
-- `MOR_000_140_comp_v19.exr` → Campo 5 = `v19` → **Simplificado** → Shot Code: `MOR_000_140`
-- `MOR_000_140_Chroma_Auto_comp_v19.exr` → Campo 5 = `Auto` → **Con Descripción** → Shot Code: `MOR_000_140_Chroma_Auto`
+- `MOR_000_140_comp_v19.exr` → **Simplificado** → Shot Code: `MOR_000_140`
+- `MOR_000_140_Chroma_Auto_comp_v19.exr` → **Con Descripción** → Shot Code: `MOR_000_140_Chroma_Auto`
+- `ERSO_101_060_010_comp_v05.exr` → **Serie Simplificado** → Shot Code: `ERSO_101_060_010`
+- `ERSO_101_060_010_Chroma_Auto_comp_v05.exr` → **Serie con Descripción** → Shot Code: `ERSO_101_060_010_Chroma_Auto`
 
 **Ventajas:**
 - ✅ **100% preciso** - No hay falsos positivos
@@ -207,14 +257,15 @@ Sino:
 2. **Detección automática:** Cada script detecta automáticamente si hay descripción o no SIN configuración previa
 3. **Código centralizado:** Todas las funciones de naming están en un módulo compartido
 4. **Shot codes correctos:** Se generan códigos de shot correctos para Flow en ambos formatos
-5. **Sin errores:** No se producen errores independientemente del formato del nombre
-6. **Transparente para el usuario:** El usuario no necesita configurar nada, todo funciona automáticamente
+5. **Soporte para series:** Se detecta el bloque TEMP_EP y se usa como secuencia en Flow
+6. **Sin errores:** No se producen errores independientemente del formato del nombre
+7. **Transparente para el usuario:** El usuario no necesita configurar nada, todo funciona automáticamente
 
 ## Estado del Proyecto
 
 ### ✅ Fase 1: Creación del Módulo Compartido - COMPLETADA
 1. ✅ **Creado** `LGA_NKS_Flow_NamingUtils.py`
-   - Función `detect_shotname_format()` - Detecta formato por campo 5
+   - Función `detect_shotname_format()` - Detecta formato por bloques base y serie
    - Función `extract_shot_code()` - Extrae shot_code automáticamente
    - Función `extract_project_name()` - Extrae nombre del proyecto
    - Función `clean_base_name()` - Limpia nombres de archivo

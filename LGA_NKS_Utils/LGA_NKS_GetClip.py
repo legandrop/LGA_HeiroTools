@@ -39,6 +39,7 @@ ________________________________________________________________________________
 
 import hiero.core
 import hiero.ui
+import re
 
 # Control interno del debug para este módulo (no se puede sobrescribir desde fuera)
 _GETCLIP_DEBUG_ENABLED = False
@@ -67,10 +68,41 @@ try:
 except ImportError as e:
     NAMING_UTILS_AVAILABLE = False
     debug_print(f"NamingUtils NO importado, usando fallback: {e}")
+    _VERSION_RE = re.compile(r"^v\d+$", re.IGNORECASE)
+
+    def _strip_version_suffix(parts):
+        if parts and _VERSION_RE.match(parts[-1]):
+            return parts[:-1]
+        return parts
+
+    def _is_numeric_block(value):
+        return bool(value) and value[0].isdigit()
+
+    def _is_series_format(parts):
+        return len(parts) >= 4 and all(_is_numeric_block(p) for p in parts[1:4])
+
+    def _analyze_shotname(base_name):
+        if not base_name:
+            return [], False, False, 0
+        parts = base_name.split("_")
+        core_parts = _strip_version_suffix(parts)
+        if not core_parts:
+            return [], False, False, 0
+        is_series = _is_series_format(core_parts)
+        base_count = 4 if is_series else 3
+        has_description = len(core_parts) >= (base_count + 2)
+        return core_parts, is_series, has_description, base_count
+
     def extract_shot_code(base_name):
         """Fallback básico si no hay módulo naming"""
-        parts = base_name.split("_")
-        return "_".join(parts[:3]) if len(parts) >= 3 else base_name
+        core_parts, _, has_description, base_count = _analyze_shotname(base_name)
+        if not core_parts:
+            return ""
+        desc_count = 2 if has_description else 0
+        target_count = base_count + desc_count
+        if len(core_parts) >= target_count:
+            return "_".join(core_parts[:target_count])
+        return "_".join(core_parts)
 
     def clean_base_name(file_name):
         """Fallback básico si no hay módulo naming"""
@@ -79,11 +111,10 @@ except ImportError as e:
 
     def detect_shotname_format(base_name):
         """Fallback básico si no hay módulo naming"""
-        parts = base_name.split("_")
-        if len(parts) >= 5:
-            field_5 = parts[4]
-            return not (field_5.startswith('v') and field_5[1:].isdigit())
-        return False
+        core_parts, _, has_description, _ = _analyze_shotname(base_name)
+        if not core_parts:
+            return False
+        return has_description
 
 
 def extract_shot_code_from_filename(file_path):

@@ -1,5 +1,17 @@
 import os
 import shotgun_api3
+import sys
+
+# Importar utilidades de naming
+naming_utils_path = os.path.join(os.path.dirname(__file__), "..", "..", "LGA_NKS_Flow")
+if os.path.isdir(naming_utils_path):
+    sys.path.insert(0, os.path.abspath(naming_utils_path))
+try:
+    from LGA_NKS_Flow_NamingUtils import extract_shot_code, extract_project_name, clean_base_name
+except ImportError:
+    extract_shot_code = None
+    extract_project_name = None
+    clean_base_name = None
 
 # Obtener el usuario y la contrasena de las variables de entorno
 sg_url = os.getenv('SHOTGRID_URL')
@@ -16,11 +28,20 @@ sg = shotgun_api3.Shotgun(sg_url, login=sg_login, password=sg_password)
 exr = "EHQALPV_001_010_SombraOvni_Aparece_comp_v05"
 
 # Extraer el codigo del shot del nombre del archivo EXR
-parts = exr.split('_')
-shot_code = '_'.join(parts[:5])  # Esto construira "EHQALPV_001_010_SombraOvni_Aparece"
+base_name = clean_base_name(exr) if clean_base_name else exr
+parts = base_name.split('_')
+shot_code = (
+    extract_shot_code(base_name)
+    if extract_shot_code
+    else '_'.join(parts[:5])
+)
 
 # Encuentra el proyecto por nombre
-project_name = "EHQALPV"  # Asumiendo que el nombre del proyecto es el prefijo comun
+project_name = (
+    extract_project_name(base_name)
+    if extract_project_name
+    else "EHQALPV"
+)
 projects = sg.find("Project", [['name', 'is', project_name]], ['id', 'name'])
 if not projects:
     print("No se encontro el proyecto.")

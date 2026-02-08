@@ -2,6 +2,22 @@ import hiero.core
 import os
 import re
 import shotgun_api3
+import sys
+
+# Importar utilidades de naming
+naming_utils_path = os.path.join(os.path.dirname(__file__), "..", "..", "LGA_NKS_Flow")
+if os.path.isdir(naming_utils_path):
+    sys.path.insert(0, os.path.abspath(naming_utils_path))
+try:
+    from LGA_NKS_Flow_NamingUtils import (
+        extract_shot_code,
+        extract_project_name,
+        clean_base_name,
+    )
+except ImportError:
+    extract_shot_code = None
+    extract_project_name = None
+    clean_base_name = None
 
 
 class ShotGridManager:
@@ -23,9 +39,22 @@ class ShotGridManager:
 
 
 def parse_shot_code(file_name):
-    base_name = re.sub(r"_%04d\.exr$", "", file_name)
+    if clean_base_name:
+        base_name = clean_base_name(file_name)
+    else:
+        base_name = re.sub(r"_%04d\.exr$", "", file_name)
     parts = base_name.split("_")
-    return parts[0], "_".join(parts[:5])  # (project_name, shot_code)
+    project_name = (
+        extract_project_name(base_name)
+        if extract_project_name
+        else (parts[0] if parts else "")
+    )
+    shot_code = (
+        extract_shot_code(base_name)
+        if extract_shot_code
+        else "_".join(parts[:5])
+    )
+    return project_name, shot_code  # (project_name, shot_code)
 
 
 def main():

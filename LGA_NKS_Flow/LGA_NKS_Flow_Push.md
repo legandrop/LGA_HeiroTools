@@ -24,7 +24,7 @@ Su propósito principal es mantener sincronizada la información entre ShotGrid 
 
 El sistema **NO compara nombres completos de versiones**. Utiliza una estrategia basada en relaciones de ShotGrid:
 
-1. **Extracción del Shot Code:** Del nombre del clip extrae `project_name` y `shot_code`.
+1. **Extracción del Shot Code:** Del nombre del clip extrae `project_name` y `shot_code` (incluye soporte para bloque TEMP_EP en series).
 2. **Búsqueda del Shot:** Busca el shot usando `shot_code` en el proyecto correspondiente y obtiene el `shot_id`.
 3. **Búsqueda de Versiones:** Busca **TODAS las versiones** asociadas a ese `shot_id`, incluyendo EXRs, MOVs renombrados y cualquier otro tipo de versión vinculada al mismo shot.
 4. **Filtrado:** Filtra versiones que contengan `_comp_` o `_cmp_` en su código.

@@ -35,6 +35,7 @@ Script de integración entre Hiero y Flow Production Tracker. Compara los estado
 - **Consola opcional** → `debug_print()` solo imprime si `LGA_DEBUG_CONSOLE=1` (por defecto escribe solo en archivo).
 - **XYplorer en macOS** → `tag_shot_folder()` retorna sin crear threads porque XYplorer no existe en macOS. En Windows se mantiene el comportamiento original.
 - **Parser de nombres robusto** → `LGA_NKS_Flow/LGA_NKS_Flow_NamingUtils.py::clean_base_name()` limpia EXR/DPX con secuencias, evitando códigos de shot corruptos.
+- **Series (TEMP_EP)** → el parser reconoce el bloque de temporada/episodio y mantiene el shot code correcto.
 
 ## Arquitectura Técnica
 

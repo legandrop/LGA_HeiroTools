@@ -1,11 +1,13 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_NamingUtils v1.0 | Lega
+  LGA_NKS_Flow_NamingUtils v1.1 | Lega
   Utilidades para detectar y extraer información de nombres de archivos/shots
-  Compatible con ambos sistemas de nomenclatura:
+  Compatible con sistemas de nomenclatura actuales y series:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
+  - PROYECTO_TempEP_SEQ_SHOT_DESC1_DESC2 (6 bloques con descripción)
+  - PROYECTO_TempEP_SEQ_SHOT (4 bloques simplificado)
   
   Scripts que utilizan este módulo:
   - LGA_NKS_Flow_Push.py
@@ -29,37 +31,68 @@ ________________________________________________________________________________
 import re
 import os
 
+_VERSION_RE = re.compile(r"^v\d+$", re.IGNORECASE)
+
+
+def _strip_version_suffix(parts):
+    """Remueve un sufijo de versión tipo v### si está presente."""
+    if parts and _VERSION_RE.match(parts[-1]):
+        return parts[:-1]
+    return parts
+
+
+def _is_numeric_block(value):
+    """True si el bloque comienza con un dígito."""
+    return bool(value) and value[0].isdigit()
+
+
+def _is_series_format(parts):
+    """
+    Detecta formato de serie:
+    Después del proyecto, los 3 bloques siguientes empiezan con dígito.
+    """
+    return len(parts) >= 4 and all(_is_numeric_block(p) for p in parts[1:4])
+
+
+def _analyze_shotname(base_name):
+    """
+    Analiza el shotname y retorna:
+    (core_parts, is_series, has_description, base_count)
+    """
+    if not base_name:
+        return [], False, False, 0
+
+    parts = base_name.split("_")
+    core_parts = _strip_version_suffix(parts)
+    if not core_parts:
+        return [], False, False, 0
+
+    is_series = _is_series_format(core_parts)
+    base_count = 4 if is_series else 3
+    has_description = len(core_parts) >= (base_count + 2)
+
+    return core_parts, is_series, has_description, base_count
+
 
 def detect_shotname_format(base_name):
     """
     Detecta el formato del shotname basado en el nombre base del archivo.
     
-    Técnica de detección por Campo 5:
-    - Si el campo 5 (índice 4) empieza con 'v' seguido de números → formato simplificado (3 bloques)
-    - Si no → formato con descripción (5 bloques)
+    Técnicas de detección:
+    - Si después del proyecto los 3 bloques siguientes empiezan con dígito → formato de serie
+    - Si hay al menos 2 bloques adicionales tras el bloque base → formato con descripción
     
     Args:
         base_name (str): Nombre base del archivo sin extensión ni versión
         
     Returns:
-        bool: True si es formato con descripción (5 bloques), False si es simplificado (3 bloques)
+        bool: True si es formato con descripción (5/6 bloques), False si es simplificado (3/4 bloques)
     """
-    if not base_name:
-        return False  # Por defecto, formato simplificado
-    
-    parts = base_name.split("_")
-    
-    # Verificar si el campo 5 (índice 4) es una versión
-    if len(parts) >= 5:
-        field_5 = parts[4]
-        # Si campo 5 empieza con 'v' seguido de números, es formato simplificado
-        if field_5.startswith('v') and len(field_5) > 1 and field_5[1:].isdigit():
-            return False  # Formato simplificado (3 bloques)
-        else:
-            return True  # Formato con descripción (5 bloques)
-    else:
-        # Menos de 5 campos → formato simplificado
+    core_parts, _, has_description, _ = _analyze_shotname(base_name)
+    if not core_parts:
         return False
+
+    return has_description
 
 
 def extract_shot_code(base_name):
@@ -71,32 +104,19 @@ def extract_shot_code(base_name):
         base_name (str): Nombre base del archivo sin extensión ni versión
         
     Returns:
-        str: Shot code extraído (PROYECTO_SEQ_SHOT o PROYECTO_SEQ_SHOT_DESC1_DESC2)
+        str: Shot code extraído con o sin descripción (incluye variante de serie)
     """
-    if not base_name:
+    core_parts, _, has_description, base_count = _analyze_shotname(base_name)
+    if not core_parts:
         return ""
-    
-    parts = base_name.split("_")
-    
-    # Detectar formato
-    has_description = detect_shotname_format(base_name)
-    
-    if has_description:
-        # Formato con descripción: tomar primeros 5 campos
-        if len(parts) >= 5:
-            shot_code = "_".join(parts[:5])
-        else:
-            # Fallback: usar todos los campos disponibles
-            shot_code = "_".join(parts)
-    else:
-        # Formato simplificado: tomar primeros 3 campos
-        if len(parts) >= 3:
-            shot_code = "_".join(parts[:3])
-        else:
-            # Fallback: usar todos los campos disponibles
-            shot_code = "_".join(parts)
-    
-    return shot_code
+
+    desc_count = 2 if has_description else 0
+    target_count = base_count + desc_count
+
+    if len(core_parts) >= target_count:
+        return "_".join(core_parts[:target_count])
+
+    return "_".join(core_parts)
 
 
 def extract_project_name(base_name):
@@ -153,24 +173,18 @@ def extract_task_name(base_name):
     Returns:
         str: Nombre de la tarea o None si no se encuentra
     """
-    if not base_name:
+    core_parts, _, has_description, base_count = _analyze_shotname(base_name)
+    if not core_parts:
         return None
-    
-    parts = base_name.split("_")
-    
-    # Detectar formato
-    has_description = detect_shotname_format(base_name)
-    
-    if has_description:
-        # Formato con descripción: task está en el campo 6 (índice 5)
-        # Estructura: PROYECTO_SEQ_SHOT_DESC1_DESC2_TASK_vVERSION
-        if len(parts) >= 6:
-            return parts[5]
-    else:
-        # Formato simplificado: task está en el campo 4 (índice 3)
-        # Estructura: PROYECTO_SEQ_SHOT_TASK_vVERSION
-        if len(parts) >= 4:
-            return parts[3]
-    
+
+    # Estructura base:
+    # - Standard: PROYECTO_SEQ_SHOT
+    # - Serie: PROYECTO_TEMP_EP_SEQ_SHOT
+    # Si hay descripción, suma DESC1_DESC2 antes de TASK
+    task_index = base_count + (2 if has_description else 0)
+
+    if len(core_parts) > task_index:
+        return core_parts[task_index]
+
     return None
 
