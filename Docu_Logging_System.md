@@ -279,11 +279,12 @@ def procesar_archivo(filepath):
 
 ### ✅ REGLAS OBLIGATORIAS
 
-1. **Siempre usar `logger.propagate = False`** - Evita salida a consola
+1. **Siempre usar `logger.propagate = False`** - Evita salida a consola CMD (Hiero/Nuke)
 2. **Nombre único del logger** - Usar `{script_name}_logger`
 3. **Limpiar archivo al inicio** - `open(log_file_path, "w").write("")`
 4. **Usar RelativeTimeFormatter** - Timestamps consistentes
 5. **QueueHandler + QueueListener** - Logging asíncrono y thread-safe
+6. **No agregar StreamHandler** - No usar `basicConfig()` ni handlers a consola
 
 ### 🎯 CONVENCIONES RECOMENDADAS
 
@@ -305,6 +306,7 @@ def procesar_archivo(filepath):
 - ❌ Nombres de logger genéricos
 - ❌ No limpiar handlers existentes
 - ❌ Olvidar `propagate = False`
+- ❌ Usar `basicConfig()` o `StreamHandler` en loggers de archivo
 
 ## 🔧 Configuración por Entorno
 

@@ -33,6 +33,8 @@ def setup_debug_logging():
     # Configurar logger
     logger = logging.getLogger('debug_logger')
     logger.setLevel(logging.DEBUG)
+    # 🔑 CLAVE: Desactivar propagación al logger root (consola CMD)
+    logger.propagate = False
     
     # Limpiar handlers existentes
     if logger.handlers:
@@ -62,14 +64,18 @@ def clear_debug_log():
             print(f"Warning: No se pudo limpiar el archivo de log: {e}")
 
 
+# Flags de consola (por defecto apagada)
+DEBUG_CONSOLE = False
+
 # Inicializar logger
 debug_logger = setup_debug_logging()
 
 
 def debug_print(*message):
-    """Función de debug que escribe a consola Y archivo."""
+    """Función de debug que escribe a archivo (con consola opcional)."""
     msg = ' '.join(str(arg) for arg in message)
-    print(msg)  # Consola
+    if DEBUG_CONSOLE:
+        print(msg)  # Consola
     debug_logger.info(msg)  # Archivo (escritura inmediata)
 
 

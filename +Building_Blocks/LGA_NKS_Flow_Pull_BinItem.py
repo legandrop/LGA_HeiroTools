@@ -46,6 +46,8 @@ def setup_debug_logging():
     # Configurar el logger
     logger = logging.getLogger('debug_logger')
     logger.setLevel(logging.DEBUG)
+    # 🔑 CLAVE: Desactivar propagación al logger root (consola CMD)
+    logger.propagate = False
 
     # Limpiar handlers existentes para evitar duplicados
     if logger.handlers:
