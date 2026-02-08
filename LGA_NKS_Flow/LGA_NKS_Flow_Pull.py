@@ -109,13 +109,12 @@ def setup_debug_logging():
     # Asegurar que el directorio de logs existe
     os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
 
-    # Limpiar el archivo de log al iniciar el script
-    if os.path.exists(log_file_path):
-        try:
-            with open(log_file_path, 'w', encoding='utf-8') as f:
-                f.write('')  # Limpiar el contenido del archivo
-        except Exception as e:
-            print(f"Warning: No se pudo limpiar el archivo de log: {e}")
+    # Limpiar el archivo de log al iniciar el script y escribir encabezado
+    try:
+        with open(log_file_path, 'w', encoding='utf-8') as f:
+            f.write(f"Fecha: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+    except Exception as e:
+        print(f"Warning: No se pudo limpiar el archivo de log: {e}")
 
     # Configurar el logger
     logger = logging.getLogger('debug_logger')

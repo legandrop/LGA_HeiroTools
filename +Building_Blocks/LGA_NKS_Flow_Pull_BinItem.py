@@ -13,6 +13,7 @@ import nuke
 import shotgun_api3
 import logging
 import threading
+import time
 from pathlib import Path
 
 # Importar utilidades de naming
@@ -69,12 +70,11 @@ def setup_debug_logging():
 def clear_debug_log():
     """Limpia el archivo de log al iniciar cada ejecución."""
     log_file_path = os.path.join(os.path.dirname(__file__), '..', 'logs', 'debugPy.log')
-    if os.path.exists(log_file_path):
-        try:
-            with open(log_file_path, 'w', encoding='utf-8') as f:
-                f.write('')  # Limpiar el contenido del archivo
-        except Exception as e:
-            print(f"Warning: No se pudo limpiar el archivo de log: {e}")
+    try:
+        with open(log_file_path, 'w', encoding='utf-8') as f:
+            f.write(f"Fecha: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+    except Exception as e:
+        print(f"Warning: No se pudo limpiar el archivo de log: {e}")
 
 
 # Inicializar el logger de debug

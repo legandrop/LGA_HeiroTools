@@ -57,9 +57,13 @@ _________________________________
 """
 
 import hiero.core
+import logging
 import os
+import queue
 import re
 import sys
+import time
+from logging.handlers import QueueHandler, QueueListener
 from pathlib import Path
 from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
 QApplication = QtWidgets.QApplication
@@ -118,26 +122,131 @@ sys.path.insert(0, str(folders_path))
 from LGA_NKS_Flow_CreateShot_Folders import create_folders_for_shot_tasks
 
 
-DEBUG = False
-debug_messages = []
+DEBUG = True
+DEBUG_CONSOLE = False
+DEBUG_LOG = True
+script_start_time = None
+debug_log_listener = None
+debug_logger = None
 
 # Sincronizar debug con el módulo centralizado de clips (después de definir DEBUG)
 if 'clip_utils' in globals():
     clip_utils.DEBUG = DEBUG
 
 
-def debug_print(message):
-    """Imprime un mensaje de debug si la variable DEBUG es True."""
-    if DEBUG:
-        # Limitar mensajes de debug para evitar memory issues
-        if len(debug_messages) < 100:  # Máximo 100 mensajes
-            debug_messages.append(str(message))
+class RelativeTimeFormatter(logging.Formatter):
+    """Formatter que incluye tiempo relativo desde el inicio del script."""
+    def format(self, record):
+        global script_start_time
+        if script_start_time is None:
+            script_start_time = record.created
+
+        relative_time = record.created - script_start_time
+        record.relative_time = f"{relative_time:.3f}s"
+        return super().format(record)
+
+
+def setup_debug_logging(script_name="FlowCreateShot"):
+    """Configura el logging para escribir SOLO en archivo."""
+    global debug_log_listener
+
+    log_filename = f"debugPy_{script_name}.log"
+    log_file_path = os.path.join(
+        os.path.dirname(__file__), "..", "logs", log_filename
+    )
+    os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+
+    try:
+        with open(log_file_path, "w", encoding="utf-8") as f:
+            f.write(f"Fecha: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+    except Exception:
+        pass
+
+    logger_name = f"{script_name.lower()}_logger"
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+
+    if logger.handlers:
+        logger.handlers.clear()
+
+    file_handler = logging.FileHandler(log_file_path, encoding="utf-8")
+    file_handler.setLevel(logging.DEBUG)
+    formatter = RelativeTimeFormatter("[%(relative_time)s] %(message)s")
+    file_handler.setFormatter(formatter)
+
+    log_queue = queue.Queue()
+    queue_handler = QueueHandler(log_queue)
+    queue_handler.setLevel(logging.DEBUG)
+    logger.addHandler(queue_handler)
+
+    if debug_log_listener:
+        try:
+            debug_log_listener.stop()
+        except Exception:
+            pass
+
+    debug_log_listener = QueueListener(
+        log_queue, file_handler, respect_handler_level=True
+    )
+    debug_log_listener.daemon = True
+    debug_log_listener.start()
+
+    return logger
+
+
+debug_logger = setup_debug_logging(script_name="FlowCreateShot")
+
+
+def debug_print(*message, level="info"):
+    """Función de logging con switches por consola/archivo."""
+    global script_start_time
+
+    msg = " ".join(str(arg) for arg in message)
+
+    if DEBUG and DEBUG_LOG and debug_logger:
+        if script_start_time is None:
+            script_start_time = time.time()
+
+        if level == "debug":
+            debug_logger.debug(msg)
+        elif level == "warning":
+            debug_logger.warning(msg)
+        elif level == "error":
+            debug_logger.error(msg)
+        else:
+            debug_logger.info(msg)
+
+    if DEBUG and DEBUG_CONSOLE:
+        if script_start_time is None:
+            script_start_time = time.time()
+        relative_time = time.time() - script_start_time
+        timestamped_msg = f"[{relative_time:.3f}s] {msg}"
+        print(timestamped_msg)
 
 
 def print_debug_messages():
-    if DEBUG and debug_messages:
-        print("\n".join(debug_messages))
-        debug_messages.clear()
+    """Compatibilidad con señales de workers (sin imprimir en consola)."""
+    debug_print("=== Fin de logs del worker ===", level="debug")
+
+
+def cleanup_logging():
+    """Limpia el listener al terminar."""
+    global debug_log_listener
+    if debug_log_listener:
+        try:
+            debug_print("Deteniendo listener de logging...")
+            debug_log_listener.stop()
+            debug_print("Listener detenido")
+        except Exception as e:
+            debug_print(f"Error en cleanup: {e}", level="error")
+
+
+try:
+    import atexit
+    atexit.register(cleanup_logging)
+except Exception:
+    pass
 
 
 def get_active_sequence_name():
@@ -607,7 +716,7 @@ class ShotConfigDialog(QDialog):
         button_layout = QHBoxLayout()
 
         self.cancel_button = QPushButton("Cancel")
-        self.cancel_button.clicked.connect(self.reject)
+        self.cancel_button.clicked.connect(self.handle_cancel)
         self.cancel_button.setStyleSheet(
             """
             QPushButton {
@@ -954,6 +1063,8 @@ class ShotConfigDialog(QDialog):
 
     def accept_config(self):
         """Acepta la configuracion y guarda los valores"""
+        action_label = "Modify Shot" if self.dialog_mode == "modify" else "Create Shot"
+        debug_print(f"Boton '{action_label}' presionado")
         # Configuración base del shot
         self.shot_config = {
             "description": self.description_text.toPlainText(),
@@ -987,6 +1098,11 @@ class ShotConfigDialog(QDialog):
         
         self.shot_config["tasks"] = tasks_config
         self.accept()
+
+    def handle_cancel(self):
+        action_label = "Modify Shot" if self.dialog_mode == "modify" else "Create Shot"
+        debug_print(f"Boton 'Cancel' presionado (modo: {action_label})")
+        self.reject()
 
     def get_config(self):
         """Retorna la configuracion seleccionada"""
@@ -1989,6 +2105,7 @@ class ShotExistenceCheckWorker(QRunnable):
     @Slot()
     def run(self):
         try:
+            debug_print("=== Iniciando chequeo de existencia de shots ===")
             sg_url, sg_login, sg_password = get_flow_credentials_secure()
             if not all([sg_url, sg_login, sg_password]):
                 self.signals.debug_output.emit()
@@ -2021,6 +2138,9 @@ class ShotExistenceCheckWorker(QRunnable):
                         }
                     )
 
+            debug_print(
+                f"Chequeo de existencia finalizado. Existentes: {len(existing)}"
+            )
             self.signals.debug_output.emit()
             self.signals.finished.emit(existing)
         except Exception as e:
@@ -2058,7 +2178,9 @@ def cleanup_thumbnail_file(thumbnail_path):
 def launch_modify_shot_script():
     """Carga el script de Modify Shot y ejecuta su flujo principal."""
     script_path = Path(__file__).with_name("LGA_NKS_Flow_ModifyShot.py")
+    debug_print(f"Intentando lanzar Modify Shot desde: {script_path}")
     if not script_path.exists():
+        debug_print("No se encontró el script Modify Shot", level="warning")
         QMessageBox.warning(
             None,
             "Flow | Modify Shot",
@@ -2075,8 +2197,10 @@ def launch_modify_shot_script():
             raise ImportError("No se pudo cargar el módulo Modify Shot.")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
+        debug_print("Modify Shot cargado correctamente, iniciando flujo")
         module.main()
     except Exception as e:
+        debug_print(f"Error lanzando Modify Shot: {e}", level="error")
         QMessageBox.warning(None, "Flow | Modify Shot", str(e))
 
 
@@ -2098,6 +2222,7 @@ def create_shots_from_selected_clips():
     clips_info = hiero_ops_temp.get_selected_clips_info()
 
     if not clips_info:
+        debug_print("No se encontraron clips seleccionados para crear shots", level="warning")
         QMessageBox.warning(
             None, "Error", "No se encontraron clips seleccionados en Hiero."
         )
@@ -2106,6 +2231,7 @@ def create_shots_from_selected_clips():
     # Obtener nombre de la secuencia activa
     sequence_name = get_active_sequence_name()
     if not sequence_name:
+        debug_print("No se pudo obtener el nombre de la secuencia activa", level="warning")
         QMessageBox.warning(
             None,
             "Error",
@@ -2121,6 +2247,9 @@ def start_shot_existence_check(clips_info, sequence_name):
     """Abre ventana de estado y lanza worker para verificar existencia previa."""
     global _status_window
 
+    debug_print(
+        f"Iniciando pre-chequeo de existencia para {len(clips_info)} clip(s)"
+    )
     _status_window = FlowStatusWindow("crear shot")
     _status_window.show()
     _status_window.show_step_message("Comprobando existencia de los shots en Flow...")
@@ -2140,6 +2269,7 @@ def start_shot_existence_check(clips_info, sequence_name):
 
 def handle_shot_existence_error(message):
     global _status_window
+    debug_print(f"Error en chequeo de existencia: {message}", level="error")
     if _status_window:
         _status_window.show_error(message)
     else:
@@ -2152,12 +2282,16 @@ def handle_shot_existence_result(existing_shots, clips_info, sequence_name):
     if existing_shots:
         shot_names = [item["clip_info"]["shot_code"] for item in existing_shots]
         formatted_list = "<br>".join(sorted(shot_names))
+        debug_print(
+            f"Chequeo de existencia: {len(existing_shots)} shot(s) ya existen"
+        )
 
         if len(clips_info) == 1:
             if _status_window:
                 _status_window.close()
                 _status_window = None
             # Shot único ya existente: abrir Modify Shot directamente
+            debug_print("Shot unico ya existe, lanzando Modify Shot")
             launch_modify_shot_script()
             return
         else:
@@ -2176,6 +2310,7 @@ def handle_shot_existence_result(existing_shots, clips_info, sequence_name):
             return
 
     # Ningún shot existe: cerrar ventana y continuar con el flujo normal
+    debug_print("Ningun shot existe, continuando con Create Shot")
     if _status_window:
         _status_window.close()
         _status_window = None
@@ -2185,13 +2320,16 @@ def handle_shot_existence_result(existing_shots, clips_info, sequence_name):
 
 def show_shot_config_dialog(clips_info, sequence_name):
     """Muestra el dialogo de configuración y lanza la creación."""
+    debug_print("Mostrando dialogo de configuracion de shots")
     config_dialog = ShotConfigDialog(clips_info, sequence_name)
     if config_dialog.exec_() != QDialog.Accepted:
+        debug_print("Dialogo cancelado por el usuario", level="warning")
         config_dialog.cleanup_thumbnail()
         return
 
     shot_config = config_dialog.get_config()
     if not shot_config:
+        debug_print("No se obtuvo configuracion del dialogo", level="warning")
         config_dialog.cleanup_thumbnail()
         return
 

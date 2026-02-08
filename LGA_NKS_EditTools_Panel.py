@@ -71,12 +71,11 @@ def setup_debug_logging(script_name="EditToolsPanel"):
 
     os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
 
-    if os.path.exists(log_file_path):
-        try:
-            with open(log_file_path, "w", encoding="utf-8") as f:
-                f.write("")
-        except Exception:
-            pass
+    try:
+        with open(log_file_path, "w", encoding="utf-8") as f:
+            f.write(f"Fecha: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+    except Exception:
+        pass
 
     logger_name = f"{script_name.lower()}_logger"
     logger = logging.getLogger(logger_name)

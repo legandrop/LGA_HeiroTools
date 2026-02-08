@@ -14,6 +14,7 @@ import hiero.core
 import hiero.ui
 import os
 import logging
+import time
 from LGA_QtAdapter_HieroTools import QtCore
 
 # Secuencia hardcodeada para tests consistentes
@@ -56,12 +57,11 @@ def setup_debug_logging():
 def clear_debug_log():
     """Limpia el archivo de log al iniciar cada ejecución."""
     log_file_path = os.path.join(os.path.dirname(__file__), '..', 'logs', 'debugPy.log')
-    if os.path.exists(log_file_path):
-        try:
-            with open(log_file_path, 'w', encoding='utf-8') as f:
-                f.write('')
-        except Exception as e:
-            print(f"Warning: No se pudo limpiar el archivo de log: {e}")
+    try:
+        with open(log_file_path, 'w', encoding='utf-8') as f:
+            f.write(f"Fecha: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+    except Exception as e:
+        print(f"Warning: No se pudo limpiar el archivo de log: {e}")
 
 
 # Flags de consola (por defecto apagada)

@@ -65,6 +65,9 @@ class LoadShotInfoWorker(QRunnable):
     @Slot()
     def run(self):
         try:
+            debug_print(
+                f"Iniciando carga de informacion del shot: {self.project_name} / {self.shot_code}"
+            )
             sg_url, sg_login, sg_password = get_flow_credentials_secure()
             if not all([sg_url, sg_login, sg_password]):
                 self.signals.debug_output.emit()
@@ -102,6 +105,9 @@ class LoadShotInfoWorker(QRunnable):
                 )
                 return
 
+            debug_print(
+                f"Informacion cargada correctamente para shot '{self.shot_code}'"
+            )
             self.signals.loaded.emit(shot, tasks or [], project_id)
             self.signals.debug_output.emit()
         except Exception as e:
@@ -132,6 +138,9 @@ class ModifyShotWorker(QRunnable):
     @Slot()
     def run(self):
         try:
+            debug_print(
+                f"Iniciando modificacion del shot: {self.clip_info.get('shot_code')}"
+            )
             self.signals.shot_info_ready.emit(
                 self.clip_info["shot_code"], self.clip_info["project_name"]
             )
@@ -293,6 +302,7 @@ def _launch_config_dialog(
     if loader_window:
         loader_window.hide()
 
+    debug_print("Mostrando dialogo de configuracion en modo Modify Shot")
     dialog = ShotConfigDialog(
         clips_info=[clip_info],
         sequence_name=sequence_name,
@@ -307,11 +317,15 @@ def _launch_config_dialog(
     )
 
     if dialog.exec_() != QDialog.Accepted:
+        debug_print("Dialogo Modify Shot cancelado por el usuario", level="warning")
         dialog.cleanup_thumbnail()
         return
 
     shot_config = dialog.get_config()
     dialog.cleanup_thumbnail()
+    if not shot_config:
+        debug_print("No se obtuvo configuracion para Modify Shot", level="warning")
+        return
 
     global _status_window
     _status_window = FlowStatusWindow("modificar shot")
@@ -351,6 +365,7 @@ def _launch_config_dialog(
 
 
 def modify_shot_from_selected_clip():
+    debug_print("=== Iniciando LGA_NKS_Flow_ModifyShot ===")
     app = QApplication.instance()
     if app is None:
         app = QApplication([])
@@ -359,21 +374,25 @@ def modify_shot_from_selected_clip():
     clips_info = hiero_ops_temp.get_selected_clips_info()
 
     if not clips_info:
+        debug_print("No se encontraron clips seleccionados para modificar", level="warning")
         _show_error("No se encontraron clips seleccionados en Hiero.")
         return
 
     if len(clips_info) != 1:
+        debug_print("Modify Shot requiere un solo clip", level="warning")
         _show_error("Modify Shot solo admite un clip seleccionado a la vez.")
         return
 
     clip_info = clips_info[0]
 
     if not clip_info.get("project_name") or not clip_info.get("shot_code"):
+        debug_print("No se pudo extraer proyecto/shot del clip", level="warning")
         _show_error("No se pudo extraer el proyecto o shot del clip seleccionado.")
         return
 
     sequence_name = get_active_sequence_name()
     if not sequence_name:
+        debug_print("No se pudo obtener nombre de secuencia activa", level="warning")
         _show_error(
             "No se pudo obtener el nombre de la secuencia activa en Hiero."
         )

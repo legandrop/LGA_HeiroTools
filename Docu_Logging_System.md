@@ -9,6 +9,7 @@ Esta guía documenta cómo implementar un sistema de logging robusto que escribe
 - ✅ **Solo archivo**: No propaga mensajes a consola
 - ✅ **Timestamps relativos**: Contador desde 0.000s
 - ✅ **Limpieza automática**: Borra el log anterior al iniciar
+- ✅ **Encabezado con fecha y hora**: Primera línea en logs por ejecución
 - ✅ **Logging asíncrono**: No bloquea la ejecución
 - ✅ **Múltiples niveles**: DEBUG, INFO, WARNING, ERROR
 - ✅ **Nombres específicos**: `debugPy_NombreScript.log`
@@ -18,6 +19,7 @@ Esta guía documenta cómo implementar un sistema de logging robusto que escribe
 
 ### ✅ Sistema A: timer + limpieza por ejecución
 
+- **Encabezado**: `Fecha: YYYY-MM-DD HH:MM:SS` al inicio del archivo
 - **Formato**: `[0.123s] mensaje`
 - **Limpieza**: borra el `.log` en cada ejecución
 - **Scripts que lo usan**:
@@ -28,6 +30,10 @@ Esta guía documenta cómo implementar un sistema de logging robusto que escribe
   - `LGA_NKS_EditTools_Panel.py`
   - `LGA_NKS_Review_Panel.py`
   - `LGA_NKS_Flow_Assignee_Panel.py`
+  - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py`
+  - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ModifyShot.py`
+  - `LGA_NKS_Edit/LGA_NKS_OrganizeProject.py`
+  - `LGA_NKS_Edit/LGA_NKS_CleanProject.py`
   - `+Building_Blocks/LGA_NKS_Flow_Pull_DoScan.py`
   - `+Building_Blocks/LGA_NKS_Flow_Pull_BinItem.py`
   - `+Building_Blocks/test_funcion_por_funcion.py`
@@ -42,6 +48,8 @@ Esta guía documenta cómo implementar un sistema de logging robusto que escribe
   - `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_OpenPath.py`
   - `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_Download.py`
   - `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_Upload.py`
+  - `LGA_NKS_Edit/LGA_NKS_Reconnect.py`
+  - `LGA_NKS_Edit/LGA_NKS_SelfReplaceClip.py`
 
 ## 📁 Estructura de Archivos
 
@@ -108,13 +116,12 @@ def setup_debug_logging(script_name="TuScript"):
     # Crear directorio si no existe
     os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
 
-    # LIMPIAR archivo anterior completamente
-    if os.path.exists(log_file_path):
-        try:
-            with open(log_file_path, "w", encoding="utf-8") as f:
-                f.write("")  # Archivo vacío
-        except Exception as e:
-            print(f"Warning: No se pudo limpiar el log: {e}")
+    # LIMPIAR archivo anterior y escribir encabezado con fecha + hora
+    try:
+        with open(log_file_path, "w", encoding="utf-8") as f:
+            f.write(f"Fecha: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+    except Exception as e:
+        print(f"Warning: No se pudo limpiar el log: {e}")
 
     # Configurar logger con nombre único
     logger_name = f"{script_name.lower()}_logger"
@@ -281,10 +288,11 @@ def procesar_archivo(filepath):
 
 1. **Siempre usar `logger.propagate = False`** - Evita salida a consola CMD (Hiero/Nuke)
 2. **Nombre único del logger** - Usar `{script_name}_logger`
-3. **Limpiar archivo al inicio** - `open(log_file_path, "w").write("")`
-4. **Usar RelativeTimeFormatter** - Timestamps consistentes
-5. **QueueHandler + QueueListener** - Logging asíncrono y thread-safe
-6. **No agregar StreamHandler** - No usar `basicConfig()` ni handlers a consola
+3. **Limpiar archivo al inicio** - `open(log_file_path, "w")`
+4. **Encabezado con fecha y hora** - `Fecha: YYYY-MM-DD HH:MM:SS`
+5. **Usar RelativeTimeFormatter** - Timestamps consistentes
+6. **QueueHandler + QueueListener** - Logging asíncrono y thread-safe
+7. **No agregar StreamHandler** - No usar `basicConfig()` ni handlers a consola
 
 ### 🎯 CONVENCIONES RECOMENDADAS
 
@@ -325,6 +333,7 @@ DEBUG_LOG = True      # Solo archivo para debugging cuando se active DEBUG
 ## 📊 Ejemplo de Output en Log
 
 ```
+Fecha: YYYY-MM-DD HH:MM:SS
 [0.001s] === INICIANDO SERVIDOR ===
 [0.002s] Creando socket TCP...
 [0.003s] Socket creado exitosamente
@@ -344,6 +353,7 @@ DEBUG_LOG = True      # Solo archivo para debugging cuando se active DEBUG
 - [ ] `RelativeTimeFormatter` implementado
 - [ ] `setup_debug_logging()` con `propagate = False`
 - [ ] Logger inicializado con nombre único
+- [ ] Encabezado con fecha y hora en primera línea
 - [ ] `debug_print()` mejorada con niveles
 - [ ] Cleanup opcional registrado
 - [ ] Probado que NO aparece en consola
