@@ -44,6 +44,27 @@ FileManager.exe --upload "T:\VFX-TOC\From_Wanka\20250909\Probando"
 .\compilar.bat --upload "T:\VFX-TOC\From_Wanka\20250909\Probando"
 ```
 
+## 🍎 macOS: uso recomendado (app abierta o cerrada)
+
+En macOS, `open -a ... --args` puede ignorar argumentos si la app ya está abierta.
+Para garantizar que el CLI funcione siempre, usar el wrapper:
+
+```bash
+./fm_cli_mac.sh --path "/Volumes/T Viaja/T/VFX-BRDA/010-350/BRDA_040_010"
+./fm_cli_mac.sh --download "/Volumes/T Viaja/T/VFX-BRDA/010-350/BRDA_040_010"
+./fm_cli_mac.sh --upload "/Volumes/T Viaja/T/VFX-BRDA/010-350/BRDA_040_010"
+```
+
+Alternativa directa sin wrapper:
+
+```bash
+open -na /Users/leg4/Desktop/Codin/LGA_FileManager/build/FileManager.app --args --path "/Volumes/T Viaja/T/VFX-BRDA/010-350/BRDA_040_010"
+```
+
+Notas:
+- `fm_cli_mac.sh` usa por defecto `build/FileManager.app` (dev) o `/Applications/FileManager.app` (prod).
+- Para deploy, podés definir `FILEMANAGER_APP_PATH` con la ruta del `.app`.
+
 ## 📝 Reglas importantes
 
 ### ✅ Rutas válidas
@@ -134,25 +155,26 @@ Los scripts ejecutan comandos CLI reales de FileManager:
 - **Download**: `FileManager.exe --download "ruta_del_shot"`
 - **Upload**: `FileManager.exe --upload "ruta_del_shot"`
 
-**Cálculo de ruta del shot**: Los scripts extraen la carpeta del shot tomando las primeras 4 partes de la ruta:
-
-**Estructura**: `unidad/proyecto/grupo/shot/...`
+**Cálculo de ruta del shot**: Los scripts detectan la carpeta del shot con lógica inteligente:
 
 **Algoritmo**:
 1. Normaliza la ruta para manejar separadores mixtos (`/` y `\`)
-2. Divide la ruta en partes usando `/` como separador universal
-3. Toma las primeras 4 partes: `[unidad, proyecto, grupo, shot]`
-4. Une las partes para formar la ruta del shot
+2. Busca primero un patrón de shot (ej: `BRDA_050_010`) y corta la ruta hasta esa carpeta
+3. Si no encuentra patrón, usa una estructura de ruta dependiendo del OS:
+   - macOS: `/Volumes/<volumen>/<drive>/<proyecto>/<grupo>/<shot>`
+   - Windows: `T:/<proyecto>/<grupo>/<shot>`
+4. Si la ruta es corta, usa fallback subiendo carpetas desde el archivo
 
 **Ejemplo**:
 - Ruta completa: `T:/VFX-LC/101/LC_1021_050_Beauty_Senora/Comp/4_publish/LC_1021_050_Beauty_Senora_comp_v014/LC_1021_050_Beauty_Senora_comp_v014_%04d.exr`
-- Partes: `['T:', 'VFX-LC', '101', 'LC_1021_050_Beauty_Senora', 'Comp', '4_publish', 'LC_1021_050_Beauty_Senora_comp_v014', 'LC_1021_050_Beauty_Senora_comp_v014_%04d.exr']`
-- Toma primeras 4: `['T:', 'VFX-LC', '101', 'LC_1021_050_Beauty_Senora']`
-- Extrae: `T:/VFX-LC/101/LC_1021_050_Beauty_Senora` ← **Esta es la carpeta del shot**
+- Detecta `LC_1021_050_Beauty_Senora` y corta en: `T:/VFX-LC/101/LC_1021_050_Beauty_Senora`
 
 **Rutas del ejecutable**:
 - **Producción**: `C:\Portable\LGA\FileManager\FileManager.exe`
 - **Desarrollo**: `C:\Portable\LGA_FileManager\build\FileManager.exe` (cuando `Desarrollo = True`)
+
+**macOS**:
+- Wrapper recomendado: `LGA_NKS_Flow_Prod/fm_cli_mac.sh` (usa `open -na`)
 
 **Lógica de selección automática**:
 - Si `Desarrollo = True` y el archivo existe en la carpeta build → usa desarrollo

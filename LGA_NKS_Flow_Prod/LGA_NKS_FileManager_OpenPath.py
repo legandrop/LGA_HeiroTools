@@ -181,6 +181,11 @@ def get_shot_path(file_path):
 
 def build_filemanager_cmd(shot_path):
     if sys.platform == "darwin":
+        wrapper_path = Path(__file__).parent / "fm_cli_mac.sh"
+        if wrapper_path.exists():
+            debug_print("Usando wrapper fm_cli_mac.sh (macOS)")
+            return ["bash", str(wrapper_path), "--path", shot_path]
+
         dev_app = "/Users/leg4/Desktop/Codin/LGA_FileManager/build/FileManager.app"
         prod_app = "/Applications/FileManager.app"
 
@@ -200,7 +205,8 @@ def build_filemanager_cmd(shot_path):
             debug_print(f"No se encontró FileManager en: {app_path}")
             return None
 
-        return ["open", "-a", app_path, "--args", "--path", shot_path]
+        # -na fuerza entrega de args aunque la app ya esté abierta
+        return ["open", "-na", app_path, "--args", "--path", shot_path]
 
     if Desarrollo:
         dev_exe = r"C:\Portable\LGA_FileManager\build\FileManager.exe"
