@@ -83,6 +83,73 @@ def _apply_viewer_settings(viewer, state):
         pass
 
 
+def _get_available_luts(player):
+    """Devuelve lista de LUTs disponibles si el player lo soporta."""
+    if not player:
+        return None
+    try:
+        if hasattr(player, "LUTs"):
+            luts = player.LUTs()
+            if isinstance(luts, (list, tuple, set)):
+                return list(luts)
+    except Exception:
+        return None
+    return None
+
+
+def _apply_rec709_if_available(viewer):
+    """
+    Aplica LUT ACES/Rec.709 solo si existe.
+    Si no se puede verificar disponibilidad, intenta setearlo y valida.
+    """
+    if not viewer:
+        return False
+    try:
+        player = viewer.player()
+        if not player:
+            return False
+
+        target_lut = "ACES/Rec.709"
+        available_luts = _get_available_luts(player)
+        if available_luts is not None and target_lut not in available_luts:
+            debug_print(f"   ├── LUT '{target_lut}' no disponible, se mantiene actual")
+            return False
+
+        previous_lut = None
+        try:
+            previous_lut = player.LUT()
+        except Exception:
+            previous_lut = None
+
+        try:
+            player.setLUT(target_lut)
+        except Exception as e:
+            debug_print(f"   ├── Error al setear LUT '{target_lut}': {e}")
+            return False
+
+        try:
+            current_lut = player.LUT()
+        except Exception:
+            current_lut = None
+
+        if current_lut and current_lut != target_lut:
+            if previous_lut:
+                try:
+                    player.setLUT(previous_lut)
+                except Exception:
+                    pass
+            debug_print(
+                f"   ├── LUT '{target_lut}' no aplicado (actual: {current_lut})"
+            )
+            return False
+
+        debug_print(f"   ├── LUT aplicado: {target_lut}")
+        return True
+    except Exception as e:
+        debug_print(f"   ├── Error aplicando LUT Rec.709: {e}")
+        return False
+
+
 def _get_current_viewer_object_name():
     """Obtiene objectName del viewer activo actual."""
     try:
@@ -644,7 +711,17 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
             f"   ├── Close ALL old timelines: {closed_extra_timelines} cerrados"
         )
 
-    # 12. Resultado final
+    # 12. Aplicar LUT Rec.709 si existe (evita reset a sRGB)
+    rec709_time = 0
+    rec709_applied = False
+    step_start = time.time()
+    try:
+        rec709_applied = _apply_rec709_if_available(hiero.ui.currentViewer())
+    except Exception as e:
+        debug_print(f"   ├── Error aplicando LUT Rec.709: {e}")
+    rec709_time = time.time() - step_start
+
+    # 13. Resultado final
     total_time = time.time() - total_start
     debug_print(f"✅ Switch híbrido perfecto completado en {total_time:.2f}s")
     debug_print(f"   ├── Viewer capture: {viewer_capture_time:.3f}s")
@@ -653,6 +730,9 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
     debug_print(f"   ├── Viewer settings apply: {viewer_restore_time:.3f}s")
     debug_print(f"   ├── UI reduce: {reduce_time:.3f}s")
     debug_print(f"   ├── UI scroll: {scroll_time:.3f}s")
+    debug_print(
+        f"   ├── Rec.709 apply: {rec709_time:.3f}s | applied={rec709_applied}"
+    )
     if CLOSE_ALL_TIMELINES:
         debug_print(
             f"   ├── Close ALL old viewers+timelines: {close_all_widgets_time:.3f}s"
