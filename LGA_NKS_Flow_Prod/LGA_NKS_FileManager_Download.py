@@ -17,6 +17,7 @@ import queue
 from logging.handlers import QueueHandler, QueueListener
 import datetime
 import time
+import re
 
 # Agregar ruta del módulo utilitario
 utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
@@ -138,6 +139,88 @@ def debug_print(*message, level="info"):
         relative_time = time.time() - script_start_time
         print(f"[{relative_time:.3f}s] {msg}")
 
+
+def get_shot_path(file_path):
+    normalized_path = os.path.normpath(file_path)
+    path_parts = normalized_path.replace("\\", "/").split("/")
+    debug_print(f"Partes de la ruta: {path_parts}")
+
+    # 1) Deteccion por patron de nombre de shot (ej: BRDA_050_010)
+    shot_pattern = re.compile(r"^[A-Za-z0-9]+_[0-9]{3}_[0-9]{3}$")
+    for i in range(len(path_parts) - 1, -1, -1):
+        if shot_pattern.match(path_parts[i]):
+            shot_path = "/".join(path_parts[: i + 1])
+            debug_print(f"Ruta del shot detectada por patron: {shot_path}")
+            return shot_path
+
+    # 2) Deteccion por estructura de ruta (root + proyecto/grupo/shot)
+    root_len = 0
+    if len(path_parts) >= 2 and path_parts[0] == "" and path_parts[1] == "Volumes":
+        root_len = 3  # /Volumes/<volumen>
+        if len(path_parts) > 3 and re.match(r"^[A-Za-z]$", path_parts[3]):
+            root_len = 4  # /Volumes/<volumen>/<drive>
+    elif path_parts and re.match(r"^[A-Za-z]:$", path_parts[0]):
+        root_len = 1  # T:
+    elif len(path_parts) >= 4 and path_parts[0] == "" and path_parts[1] == "":
+        root_len = 4  # //server/share
+    else:
+        root_len = 1 if path_parts and path_parts[0] else 0
+
+    expected_len = root_len + 3
+    if expected_len > 0 and len(path_parts) >= expected_len:
+        shot_path = "/".join(path_parts[:expected_len])
+        debug_print(f"Ruta del shot por estructura: {shot_path}")
+        return shot_path
+
+    # 3) Fallback si no hay suficientes partes
+    debug_print("Ruta no tiene suficientes partes, usando fallback")
+    clip_folder = os.path.dirname(file_path)
+    input_folder = os.path.dirname(clip_folder)
+    return os.path.dirname(input_folder)
+
+
+def build_filemanager_cmd(action_flag, shot_path):
+    if sys.platform == "darwin":
+        wrapper_path = Path(__file__).parent / "fm_cli_mac.sh"
+        if wrapper_path.exists():
+            debug_print("Usando wrapper fm_cli_mac.sh (macOS)")
+            return ["bash", str(wrapper_path), action_flag, shot_path]
+
+        dev_app = "/Users/leg4/Desktop/Codin/LGA_FileManager/build/FileManager.app"
+        prod_app = "/Applications/FileManager.app"
+
+        if Desarrollo and os.path.exists(dev_app):
+            app_path = dev_app
+            debug_print("Usando versión de desarrollo (macOS)")
+        else:
+            app_path = prod_app
+            if Desarrollo:
+                debug_print(
+                    "Versión de desarrollo no encontrada, usando producción (macOS)"
+                )
+            else:
+                debug_print("Usando versión de producción (macOS)")
+
+        if not os.path.exists(app_path):
+            debug_print(f"No se encontró FileManager en: {app_path}")
+            return None
+
+        # -na fuerza entrega de args aunque la app ya esté abierta
+        return ["open", "-na", app_path, "--args", action_flag, shot_path]
+
+    if Desarrollo:
+        dev_exe = r"C:\Portable\LGA_FileManager\build\FileManager.exe"
+        if os.path.exists(dev_exe):
+            filemanager_exe = dev_exe
+            debug_print("Usando versión de desarrollo")
+        else:
+            filemanager_exe = r"C:\Portable\LGA\FileManager\FileManager.exe"
+            debug_print("Versión de desarrollo no encontrada, usando producción")
+    else:
+        filemanager_exe = r"C:\Portable\LGA\FileManager\FileManager.exe"
+
+    return [filemanager_exe, action_flag, shot_path]
+
 def main():
     """Función principal que descarga el shot seleccionado desde Wasabi S3"""
     debug_print("=== FILEMANAGER DOWNLOAD SHOT ===")
@@ -159,36 +242,15 @@ def main():
             # Partimos desde el archivo y subimos hasta encontrar la carpeta del shot
 
             # Normalizar la ruta y dividir por ambos separadores (/ y \)
-            normalized_path = os.path.normpath(file_path)
-            path_parts = normalized_path.replace('\\', '/').split('/')
-            debug_print(f"Partes de la ruta: {path_parts}")
-
-            # La estructura siempre es: unidad/proyecto/grupo/shot/...
-            # Tomar las primeras 4 partes para la carpeta del shot
-            if len(path_parts) >= 4:
-                shot_path = '/'.join(path_parts[:4])
-            else:
-                # Fallback si no hay suficientes partes
-                debug_print("Ruta no tiene suficientes partes, usando fallback")
-                clip_folder = os.path.dirname(file_path)
-                input_folder = os.path.dirname(clip_folder)
-                shot_path = os.path.dirname(input_folder)
+            shot_path = get_shot_path(file_path)
 
             debug_print(f"Ruta del archivo: {file_path}")
             debug_print(f"Ruta del shot: {shot_path}")
 
             # Ejecutar FileManager con --download
-            if Desarrollo:
-                dev_exe = r"C:\Portable\LGA_FileManager\build\FileManager.exe"
-                if os.path.exists(dev_exe):
-                    filemanager_exe = dev_exe
-                    debug_print("Usando versión de desarrollo")
-                else:
-                    filemanager_exe = r"C:\Portable\LGA\FileManager\FileManager.exe"
-                    debug_print("Versión de desarrollo no encontrada, usando producción")
-            else:
-                filemanager_exe = r"C:\Portable\LGA\FileManager\FileManager.exe"
-            cmd = [filemanager_exe, "--download", shot_path]
+            cmd = build_filemanager_cmd("--download", shot_path)
+            if not cmd:
+                return
 
             debug_print(f"Ejecutando: {' '.join(cmd)}")
 
