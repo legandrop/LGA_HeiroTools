@@ -227,8 +227,9 @@ class AssigneePanel(QtWidgets.QWidget):
                 "Clear Assignees",
                 self.clear_assignees_for_selected_clip,
                 "#202233",
-                None,
-                "Elimina los asignados en Flow para las tasks seleccionadas (comp por defecto). Si hay múltiples clips seleccionados, procesa todos; si hay uno solo, usa el playhead.",
+                self.clear_wasabi_policies_for_completed_shots,
+                "Click: Elimina los asignados en Flow para las tasks seleccionadas (comp por defecto). Si hay múltiples clips seleccionados, procesa todos; si hay uno solo, usa el playhead.\n"
+                "Shift+Click: Escanea shots approved/delivery_checked en pipesync.db y permite limpiar sus líneas en policies de Wasabi.",
             ),
         ]
 
@@ -380,11 +381,17 @@ class AssigneePanel(QtWidgets.QWidget):
                 shortcut = button_info[3] if len(button_info) > 3 else None
                 tooltip = button_info[4] if len(button_info) > 4 else None
 
-                button = QtWidgets.QPushButton(name)
-                button.clicked.connect(handler)
+                # Si el 4to argumento es callable, se interpreta como Shift+Click para botón fijo
+                if callable(shortcut):
+                    button = CustomButton(name)
+                    button.setCustomClickHandler(handler)
+                    button.setShiftClickHandler(shortcut)
+                else:
+                    button = QtWidgets.QPushButton(name)
+                    button.clicked.connect(handler)
 
                 # Agregar shortcut si existe
-                if shortcut:
+                if shortcut and not callable(shortcut):
                     button.setShortcut(QtGui.QKeySequence(shortcut))
 
             # Obtener el texto del tooltip para asignarlo después
@@ -813,6 +820,38 @@ class AssigneePanel(QtWidgets.QWidget):
             module.main(wasabi_user)
         except Exception as e:
             debug_print(f"Error ejecutando script de Wasabi Unassign: {e}")
+            QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
+
+    def clear_wasabi_policies_for_completed_shots(self):
+        """Shift+Click en Clear Assignees: abre ventana para limpiar policies por estado de shot en DB."""
+        debug_print("=== clear_wasabi_policies_for_completed_shots llamado ===")
+        script_path = os.path.join(
+            os.path.dirname(__file__),
+            "LGA_NKS_Wasabi",
+            "LGA_NKS_Wasabi_PolicyUnassign_CompletedShots.py",
+        )
+        if not os.path.exists(script_path):
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Script no encontrado",
+                f"No se encontró el script en la ruta: {script_path}",
+            )
+            return
+        try:
+            import importlib.util
+
+            spec = importlib.util.spec_from_file_location(
+                "LGA_NKS_Wasabi_PolicyUnassign_CompletedShots", script_path
+            )
+            if spec is None or spec.loader is None:
+                raise ImportError(
+                    "No se pudo cargar el módulo LGA_NKS_Wasabi_PolicyUnassign_CompletedShots.py"
+                )
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            module.main()
+        except Exception as e:
+            debug_print(f"Error ejecutando script de limpieza global de Wasabi: {e}")
             QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
 
 

@@ -63,6 +63,27 @@ Este módulo automatiza la creación y gestión de políticas de acceso IAM en W
 **Uso directo:**
 - `module.main(username)`: Llamada programática con usuario específico
 
+### `LGA_NKS_Wasabi_PolicyUnassign_CompletedShots.py`
+**Script de limpieza global** que cruza PipeSync DB con policies IAM de Wasabi para limpiar shots terminados.
+
+**Funcionalidad:**
+- Lee `pipesync.db` y toma shots en estados `approved` / `delivery_checked` (aceptando aliases internos `apr` / `check`)
+- Escanea policies locales de Wasabi (`*_policy`) y detecta coincidencias por shot
+- Muestra una ventana con filas:
+  - `Nombre de policy | Nombre de shot | Estado del shot`
+- Todas las filas se cargan con checkbox activo por defecto
+- Botón **Limpiar policies**: elimina prefijos y recursos S3 correspondientes a los shots seleccionados
+- Refresca automáticamente el escaneo después de limpiar
+
+**Uso desde Panel:**
+1. Hacer **Shift+Click** en el botón **Clear Assignees** del panel `LGA_NKS_Flow_Assignee_Panel`
+2. Esperar el escaneo de DB + Wasabi
+3. Revisar/ajustar checkboxes y presionar **Limpiar policies**
+
+**Detalle técnico:**
+- Reutiliza validación y versionado de policies desde `wasabi_policy_utils.py`
+- Crea una nueva versión de policy por policy modificada (seteada como default)
+
 **Ejemplo de procesamiento:**
 ```
 Ruta: T:\VFX-ETDM\103\ETDM_3003_0100_DeAging_Cocina\_input\archivo.exr

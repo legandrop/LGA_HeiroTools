@@ -15,6 +15,13 @@ El panel LGA_NKS_Flow_Assignee_Panel carga dinámicamente la lista de usuarios d
 - **Shift+Click**: Crea/actualiza políticas IAM de Wasabi para el usuario seleccionado
 - **Ctrl+Shift+Click**: Abre ventana de gestión de shots asignados en policy de Wasabi
 
+### 3. Funcionalidad Extendida de Clear Assignees
+- **Click normal**: Limpia assignees en Flow para las tasks seleccionadas
+- **Shift+Click**: Abre una ventana para escanear `pipesync.db` y buscar shots con estado `approved` / `delivery_checked` (incluye aliases DB `apr` y `check`) que todavía estén presentes en policies de Wasabi
+- En la ventana se listan coincidencias en formato:
+  - `Nombre de policy | Nombre de shot | Estado del shot`
+- Todas las filas aparecen con checkbox activo por defecto y el botón **Limpiar policies** elimina las líneas correspondientes en policies para los items seleccionados
+
 ## Archivo de Configuración: LGA_NKS_Flow_Users.json
 
 ```json
@@ -104,6 +111,12 @@ Los scripts llamados por los botones principales ahora actualizan tanto Flow Pro
 #### `LGA_NKS_Flow/LGA_NKS_Flow_Clear_Assignees.py`
 - Elimina todos los asignados de task comp en Flow y limpia asignaciones en DB local
 - Función principal: `clear_task_assignees_from_base_name(base_name)`
+
+#### `LGA_NKS_Wasabi/LGA_NKS_Wasabi_PolicyUnassign_CompletedShots.py`
+- Script llamado por **Shift+Click** en **Clear Assignees**
+- Escanea la DB local para shots terminados (`approved` / `delivery_checked`)
+- Busca coincidencias en policies IAM de Wasabi (`*_policy`)
+- Permite limpiar en lote las líneas de policy para shots seleccionados
 
 ### `create_wasabi_policy_for_user(wasabi_user)`
 - Llama al script de asignación de políticas de Wasabi para usuario específico
