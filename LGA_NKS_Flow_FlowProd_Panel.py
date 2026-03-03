@@ -257,10 +257,10 @@ class FlowProdPanel(QtWidgets.QWidget):
             ),
             (
                 "PipeSync",
-                self.open_shot_in_pipesync,
+                self.create_pipesync_token_file,
                 "gradient_magenta_violet",
                 None,
-                "Abrir carpeta del shot en PipeSync",
+                "Click: Generar archivo .psync\nShift+Click: Abrir carpeta del shot en PipeSync",
             ),
             (
                 "FileManager",
@@ -389,6 +389,10 @@ class FlowProdPanel(QtWidgets.QWidget):
                 button = CustomButton(name)
                 button.setCustomClickHandler(handler)
                 button.setShiftClickHandler(self.show_shot_in_flow_for_selected_clip)
+            elif name == "PipeSync":
+                button = CustomButton(name)
+                button.setCustomClickHandler(self.create_pipesync_token_file)
+                button.setShiftClickHandler(self.open_shot_in_pipesync)
             else:
                 button = QtWidgets.QPushButton(name)
                 button.clicked.connect(handler)
@@ -708,6 +712,34 @@ class FlowProdPanel(QtWidgets.QWidget):
             if spec is None or spec.loader is None:
                 raise ImportError(
                     "No se pudo cargar el módulo LGA_NKS_PipeSync_OpenPath.py"
+                )
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            module.main()
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
+
+    def create_pipesync_token_file(self):
+        """Genera un archivo .psync para compartir el shot"""
+        script_path = os.path.join(
+            os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_PipeSync_CreateToken.py"
+        )
+        if not os.path.exists(script_path):
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Script no encontrado",
+                f"No se encontró el script en la ruta: {script_path}",
+            )
+            return
+        try:
+            import importlib.util
+
+            spec = importlib.util.spec_from_file_location(
+                "LGA_NKS_PipeSync_CreateToken", script_path
+            )
+            if spec is None or spec.loader is None:
+                raise ImportError(
+                    "No se pudo cargar el módulo LGA_NKS_PipeSync_CreateToken.py"
                 )
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)

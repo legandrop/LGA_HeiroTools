@@ -39,8 +39,10 @@ El panel de Coordination proporciona herramientas esenciales para operaciones de
 - **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ShotPriority.py`
 
 ### 7. PipeSync
-- **Función**: Abre el shot en PipeSync (tab FileManager interno) usando CLI `--path`
+- **Función**: Click abre el shot en PipeSync (tab FileManager interno) usando CLI `--path`
+- **Shift+Click**: genera un archivo `<SHOT>.psync` en el escritorio listo para compartir/arrastrar en PipeSync
 - **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_PipeSync_OpenPath.py`
+- **Script Shift**: `LGA_NKS_Flow_Prod/LGA_NKS_PipeSync_CreateToken.py`
 
 ### 8. FileManager
 - **Función**: Abre la carpeta del shot en FileManager
@@ -80,7 +82,7 @@ El sistema detecta automáticamente el formato utilizado sin necesidad de config
 3. **Modify Shot** - Modifica un shot existente en Flow
 4. **Check Shots Exist** - Chequea si los shots del track comp existen en Flow
 5. **Shot Priority** - Cambia la prioridad del shot (alta ↔ normal)
-6. **PipeSync** - Abre la carpeta del shot en PipeSync
+6. **PipeSync** - Click abre PipeSync / Shift genera `.psync`
 7. **FileManager** - Abre carpeta del shot en FileManager
 8. **Download Shot** - Descarga el shot desde Wasabi S3
 9. **Upload Shot** - Sube el shot a Wasabi S3
