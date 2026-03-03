@@ -38,15 +38,19 @@ El panel de Coordination proporciona herramientas esenciales para operaciones de
 - **Función**: Cambia la prioridad del shot (alta ↔ normal)
 - **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ShotPriority.py`
 
-### 7. FileManager
+### 7. PipeSync
+- **Función**: Abre el shot en PipeSync (tab FileManager interno) usando CLI `--path`
+- **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_PipeSync_OpenPath.py`
+
+### 8. FileManager
 - **Función**: Abre la carpeta del shot en FileManager
 - **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_OpenPath.py`
 
-### 8. Download Shot
+### 9. Download Shot
 - **Función**: Descarga el shot desde Wasabi S3
 - **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_Download.py`
 
-### 9. Upload Shot
+### 10. Upload Shot
 - **Función**: Sube el shot a Wasabi S3
 - **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_Upload.py`
 
@@ -76,10 +80,11 @@ El sistema detecta automáticamente el formato utilizado sin necesidad de config
 3. **Modify Shot** - Modifica un shot existente en Flow
 4. **Check Shots Exist** - Chequea si los shots del track comp existen en Flow
 5. **Shot Priority** - Cambia la prioridad del shot (alta ↔ normal)
-6. **FileManager** - Abre carpeta del shot en FileManager
-7. **Download Shot** - Descarga el shot desde Wasabi S3
-8. **Upload Shot** - Sube el shot a Wasabi S3
-9. **Reveal in Flow** - `Ctrl+Shift+F` - Abre la task comp en Chrome
+6. **PipeSync** - Abre la carpeta del shot en PipeSync
+7. **FileManager** - Abre carpeta del shot en FileManager
+8. **Download Shot** - Descarga el shot desde Wasabi S3
+9. **Upload Shot** - Sube el shot a Wasabi S3
+10. **Reveal in Flow** - `Ctrl+Shift+F` - Abre la task comp en Chrome
 
 ## Requisitos
 
@@ -109,6 +114,7 @@ El sistema detecta automáticamente el formato utilizado sin necesidad de config
 - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ModifyShot.py` - Funcionalidad de Modify Shot
 - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CheckTimelineShots.py` - Funcionalidad de Check Shots Exist
 - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ShotPriority.py` - Funcionalidad de Shot Priority
+- `LGA_NKS_Flow_Prod/LGA_NKS_PipeSync_OpenPath.py` - Funcionalidad de PipeSync (Open)
 - `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_OpenPath.py` - Funcionalidad de FileManager (Open)
 - `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_Download.py` - Funcionalidad de Download Shot
 - `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_Upload.py` - Funcionalidad de Upload Shot
