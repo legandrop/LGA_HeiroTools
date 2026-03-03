@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_PipeSync_CreateToken v1.0 | Lega
+  LGA_NKS_PipeSync_CreatePsync v1.0 | Lega
   Genera un archivo .psync portátil con la ruta del shot seleccionado.
   Shift+Click en el panel crea el token en el Desktop listo para compartir.
 ____________________________________________________________________________________
@@ -44,7 +44,7 @@ class RelativeTimeFormatter(logging.Formatter):
         return super().format(record)
 
 
-def setup_debug_logging(script_name="PipeSync_CreateToken"):
+def setup_debug_logging(script_name="PipeSync_CreatePsync"):
     global debug_log_listener
 
     log_filename = f"debugPy_{script_name}.log"

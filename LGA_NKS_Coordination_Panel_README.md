@@ -38,11 +38,9 @@ El panel de Coordination proporciona herramientas esenciales para operaciones de
 - **Función**: Cambia la prioridad del shot (alta ↔ normal)
 - **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ShotPriority.py`
 
-### 7. PipeSync
-- **Función**: Click abre el shot en PipeSync (tab FileManager interno) usando CLI `--path`
-- **Shift+Click**: genera un archivo `<SHOT>.psync` en el escritorio listo para compartir/arrastrar en PipeSync
-- **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_PipeSync_OpenPath.py`
-- **Script Shift**: `LGA_NKS_Flow_Prod/LGA_NKS_PipeSync_CreateToken.py`
+### 7. .Psync
+- **Función**: Genera un archivo `<SHOT>.psync` en el escritorio para compartir y arrastrar dentro de PipeSync
+- **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_PipeSync_CreatePsync.py`
 
 ### 8. FileManager
 - **Función**: Abre la carpeta del shot en FileManager
@@ -82,7 +80,7 @@ El sistema detecta automáticamente el formato utilizado sin necesidad de config
 3. **Modify Shot** - Modifica un shot existente en Flow
 4. **Check Shots Exist** - Chequea si los shots del track comp existen en Flow
 5. **Shot Priority** - Cambia la prioridad del shot (alta ↔ normal)
-6. **PipeSync** - Click abre PipeSync / Shift genera `.psync`
+6. **.Psync** - Genera un archivo `.psync` portable para compartir
 7. **FileManager** - Abre carpeta del shot en FileManager
 8. **Download Shot** - Descarga el shot desde Wasabi S3
 9. **Upload Shot** - Sube el shot a Wasabi S3
@@ -116,6 +114,7 @@ El sistema detecta automáticamente el formato utilizado sin necesidad de config
 - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ModifyShot.py` - Funcionalidad de Modify Shot
 - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CheckTimelineShots.py` - Funcionalidad de Check Shots Exist
 - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ShotPriority.py` - Funcionalidad de Shot Priority
+- `LGA_NKS_Flow_Prod/LGA_NKS_PipeSync_CreatePsync.py` - Generación de archivos `.psync` portables
 - `LGA_NKS_Flow_Prod/LGA_NKS_PipeSync_OpenPath.py` - Funcionalidad de PipeSync (Open)
 - `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_OpenPath.py` - Funcionalidad de FileManager (Open)
 - `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_Download.py` - Funcionalidad de Download Shot
