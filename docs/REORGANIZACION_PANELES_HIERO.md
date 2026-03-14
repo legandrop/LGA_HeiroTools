@@ -130,17 +130,17 @@ Panel:
 
 Hoy carga scripts desde:
 
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ShowInFlow.py`
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_Thumbs.py`
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py`
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ModifyShot.py`
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ShotPriority.py`
-- `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_OpenPath.py`
-- `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_Download.py`
-- `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_Upload.py`
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CheckTimelineShots.py`
-- `LGA_NKS_Flow_Prod/LGA_NKS_PipeSync_OpenPath.py`
-- `LGA_NKS_Flow_Prod/LGA_NKS_PipeSync_CreatePsync.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShowInFlow.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_Thumbs.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ModifyShot.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShotPriority.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_OpenPath.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_Download.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_Upload.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CheckTimelineShots.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_PipeSync_OpenPath.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_PipeSync_CreatePsync.py`
 
 Tambien usa shareds:
 
@@ -335,18 +335,18 @@ Conclusion:
 
 ### Coordination Panel
 
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ShowInFlow.py`
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_Thumbs.py`
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py`
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ModifyShot.py`
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ShotPriority.py`
-- `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_OpenPath.py`
-- `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_Download.py`
-- `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_Upload.py`
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CheckTimelineShots.py`
-- `LGA_NKS_Flow_Prod/LGA_NKS_PipeSync_OpenPath.py`
-- `LGA_NKS_Flow_Prod/LGA_NKS_PipeSync_CreatePsync.py`
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot_Folders.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShowInFlow.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_Thumbs.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ModifyShot.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShotPriority.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_OpenPath.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_Download.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_Upload.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CheckTimelineShots.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_PipeSync_OpenPath.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_PipeSync_CreatePsync.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot_Folders.py`
 
 ### ViewerTL Panel
 
@@ -423,11 +423,11 @@ Conclusion:
   - No lo llama un panel directo.
   - Lo usa `LGA_NKS_Flow/LGA_NKS_Flow_Push.py` del `Flow Panel`.
 
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot_Folders.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot_Folders.py`
   - No lo llama un panel directo.
   - Lo usan:
-    - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py` del `Coordination Panel`
-    - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ModifyShot.py` del `Coordination Panel`
+    - `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.py` del `Coordination Panel`
+    - `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ModifyShot.py` del `Coordination Panel`
 
 - `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh.py`
   - No lo llama un panel directo.
@@ -621,7 +621,7 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
     - `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assignee.py` del `Assignees Panel`
     - `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assign_Assignee.py` del `Assignees Panel`
     - `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Clear_Assignees.py` del `Assignees Panel`
-    - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py` del `Coordination Panel`
+    - `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.py` del `Coordination Panel`
 
 - `LGA_NKS_Flow_Users.json`
   - Lo usan:
@@ -723,44 +723,44 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
 
 ### Coordination Panel
 
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ShowInFlow.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShowInFlow.py`
   - Lo usa `LGA_NKS_Coordination_Panel.py`.
 
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_Thumbs.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_Thumbs.py`
   - Lo usa `LGA_NKS_Coordination_Panel.py`.
 
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.py`
   - Lo usa `LGA_NKS_Coordination_Panel.py`.
-  - A su vez usa `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot_Folders.py`.
+  - A su vez usa `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot_Folders.py`.
 
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ModifyShot.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ModifyShot.py`
   - Lo usa `LGA_NKS_Coordination_Panel.py`.
-  - A su vez usa `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot_Folders.py`.
+  - A su vez usa `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot_Folders.py`.
 
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot_Folders.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot_Folders.py`
   - Lo usan:
-    - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py` del `Coordination Panel`
-    - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ModifyShot.py` del `Coordination Panel`
+    - `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.py` del `Coordination Panel`
+    - `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ModifyShot.py` del `Coordination Panel`
 
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ShotPriority.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShotPriority.py`
   - Lo usa `LGA_NKS_Coordination_Panel.py`.
 
-- `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_OpenPath.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_OpenPath.py`
   - Lo usa `LGA_NKS_Coordination_Panel.py`.
 
-- `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_Download.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_Download.py`
   - Lo usa `LGA_NKS_Coordination_Panel.py`.
 
-- `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_Upload.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_Upload.py`
   - Lo usa `LGA_NKS_Coordination_Panel.py`.
 
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CheckTimelineShots.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CheckTimelineShots.py`
   - Lo usa `LGA_NKS_Coordination_Panel.py`.
 
-- `LGA_NKS_Flow_Prod/LGA_NKS_PipeSync_OpenPath.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_PipeSync_OpenPath.py`
   - Lo usa `LGA_NKS_Coordination_Panel.py`.
 
-- `LGA_NKS_Flow_Prod/LGA_NKS_PipeSync_CreatePsync.py`
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_PipeSync_CreatePsync.py`
   - Lo usa `LGA_NKS_Coordination_Panel.py`.
 
 ### ViewerTL Panel

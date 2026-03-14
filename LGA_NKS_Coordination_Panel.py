@@ -518,7 +518,7 @@ class FlowProdPanel(QtWidgets.QWidget):
         """Llama al script Show in Flow para abrir la task comp en Chrome"""
         debug_print("=== CLICK NORMAL: Show in Flow (Task Comp) ===")
         script_path = os.path.join(
-            os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_Flow_ShowInFlow.py"
+            os.path.dirname(__file__), "LGA_NKS_Coordination_Panel_py", "LGA_NKS_Flow_ShowInFlow.py"
         )
         if not os.path.exists(script_path):
             QtWidgets.QMessageBox.warning(
@@ -550,7 +550,7 @@ class FlowProdPanel(QtWidgets.QWidget):
         """Llama al script Show in Flow para abrir el Shot completo en Chrome (Shift+Click)"""
         debug_print("=== SHIFT+CLICK: Show Shot in Flow (Shot completo) ===")
         script_path = os.path.join(
-            os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_Flow_ShowInFlow.py"
+            os.path.dirname(__file__), "LGA_NKS_Coordination_Panel_py", "LGA_NKS_Flow_ShowInFlow.py"
         )
         if not os.path.exists(script_path):
             QtWidgets.QMessageBox.warning(
@@ -581,7 +581,7 @@ class FlowProdPanel(QtWidgets.QWidget):
     def create_thumbnail_for_selected_clip(self):
         """Llama al script Thumbnail para crear un thumbnail del clip seleccionado"""
         script_path = os.path.join(
-            os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_Flow_Thumbs.py"
+            os.path.dirname(__file__), "LGA_NKS_Coordination_Panel_py", "LGA_NKS_Flow_Thumbs.py"
         )
         if not os.path.exists(script_path):
             QtWidgets.QMessageBox.warning(
@@ -608,7 +608,7 @@ class FlowProdPanel(QtWidgets.QWidget):
     def create_shot_for_selected_clip(self):
         """Llama al script Create Shot para crear shots basado en el clip seleccionado"""
         script_path = os.path.join(
-            os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_Flow_CreateShot.py"
+            os.path.dirname(__file__), "LGA_NKS_Coordination_Panel_py", "LGA_NKS_Flow_CreateShot.py"
         )
         if not os.path.exists(script_path):
             QtWidgets.QMessageBox.warning(
@@ -637,7 +637,7 @@ class FlowProdPanel(QtWidgets.QWidget):
     def modify_shot_for_selected_clip(self):
         """Llama al script Modify Shot para ajustar shots existentes"""
         script_path = os.path.join(
-            os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_Flow_ModifyShot.py"
+            os.path.dirname(__file__), "LGA_NKS_Coordination_Panel_py", "LGA_NKS_Flow_ModifyShot.py"
         )
         if not os.path.exists(script_path):
             QtWidgets.QMessageBox.warning(
@@ -665,7 +665,7 @@ class FlowProdPanel(QtWidgets.QWidget):
     def toggle_shot_priority_for_selected_clip(self):
         """Llama al script Shot Priority para cambiar la prioridad del shot seleccionado"""
         script_path = os.path.join(
-            os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_Flow_ShotPriority.py"
+            os.path.dirname(__file__), "LGA_NKS_Coordination_Panel_py", "LGA_NKS_Flow_ShotPriority.py"
         )
         if not os.path.exists(script_path):
             QtWidgets.QMessageBox.warning(
@@ -694,7 +694,7 @@ class FlowProdPanel(QtWidgets.QWidget):
     def open_shot_in_pipesync(self):
         """Llama al script PipeSync para abrir la carpeta del shot seleccionado"""
         script_path = os.path.join(
-            os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_PipeSync_OpenPath.py"
+            os.path.dirname(__file__), "LGA_NKS_Coordination_Panel_py", "LGA_NKS_PipeSync_OpenPath.py"
         )
         if not os.path.exists(script_path):
             QtWidgets.QMessageBox.warning(
@@ -722,7 +722,7 @@ class FlowProdPanel(QtWidgets.QWidget):
     def create_pipesync_token_file(self):
         """Genera un archivo .psync para compartir el shot"""
         script_path = os.path.join(
-            os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_PipeSync_CreatePsync.py"
+            os.path.dirname(__file__), "LGA_NKS_Coordination_Panel_py", "LGA_NKS_PipeSync_CreatePsync.py"
         )
         if not os.path.exists(script_path):
             QtWidgets.QMessageBox.warning(
@@ -750,7 +750,7 @@ class FlowProdPanel(QtWidgets.QWidget):
     def open_shot_in_filemanager(self):
         """Llama al script FileManager para abrir la carpeta del shot seleccionado"""
         script_path = os.path.join(
-            os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_FileManager_OpenPath.py"
+            os.path.dirname(__file__), "LGA_NKS_Coordination_Panel_py", "LGA_NKS_FileManager_OpenPath.py"
         )
         if not os.path.exists(script_path):
             QtWidgets.QMessageBox.warning(
@@ -779,7 +779,7 @@ class FlowProdPanel(QtWidgets.QWidget):
     def download_shot_from_filemanager(self):
         """Llama al script FileManager para descargar el shot seleccionado"""
         script_path = os.path.join(
-            os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_FileManager_Download.py"
+            os.path.dirname(__file__), "LGA_NKS_Coordination_Panel_py", "LGA_NKS_FileManager_Download.py"
         )
         if not os.path.exists(script_path):
             QtWidgets.QMessageBox.warning(
@@ -808,7 +808,7 @@ class FlowProdPanel(QtWidgets.QWidget):
     def upload_shot_to_filemanager(self):
         """Llama al script FileManager para subir el shot seleccionado"""
         script_path = os.path.join(
-            os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_FileManager_Upload.py"
+            os.path.dirname(__file__), "LGA_NKS_Coordination_Panel_py", "LGA_NKS_FileManager_Upload.py"
         )
         if not os.path.exists(script_path):
             QtWidgets.QMessageBox.warning(
@@ -837,7 +837,7 @@ class FlowProdPanel(QtWidgets.QWidget):
     def check_timeline_shots(self):
         """Llama al script de chequeo de shots en el timeline."""
         script_path = os.path.join(
-            os.path.dirname(__file__), "LGA_NKS_Flow_Prod", "LGA_NKS_Flow_CheckTimelineShots.py"
+            os.path.dirname(__file__), "LGA_NKS_Coordination_Panel_py", "LGA_NKS_Flow_CheckTimelineShots.py"
         )
         if not os.path.exists(script_path):
             QtWidgets.QMessageBox.warning(

@@ -33,7 +33,7 @@ current_dir = Path(__file__).parent
 if str(current_dir) not in sys.path:
     sys.path.insert(0, str(current_dir))
 
-from LGA_NKS_Flow_Prod.LGA_NKS_Flow_CreateShot import (
+from LGA_NKS_Flow_CreateShot import (
     FlowStatusWindow,
     HieroOperations,
     ShotConfigDialog,
@@ -429,4 +429,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
