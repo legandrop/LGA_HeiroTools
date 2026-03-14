@@ -196,15 +196,15 @@ Panel:
 
 Hoy carga scripts desde:
 
-- `LGA_NKS/LGA_NKS_ON_Clips_OFF_v00-Clips.py`
-- `LGA_NKS/LGA_NKS_EXRTrack_Difference.py`
-- `LGA_NKS/LGA_NKS_Compare_Versions.py`
-- `LGA_NKS/LGA_NKS_Compare_Versions_OFF.py`
-- `LGA_NKS/LGA_NKS_RevealInExplorer.py`
-- `LGA_NKS/LGA_NKS_RevealNKS_Project.py`
-- `LGA_NKS/LGA_NKS_RevealNK_Script.py`
-- `LGA_NKS/LGA_NKS_OpenInNukeX.py`
-- `LGA_NKS/LGA_NKS_Clip_DisableEXR.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_ON_Clips_OFF_v00-Clips.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_EXRTrack_Difference.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_Compare_Versions.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_Compare_Versions_OFF.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_RevealInExplorer.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_RevealNKS_Project.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_RevealNK_Script.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_OpenInNukeX.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableEXR.py`
 
 Tambien carga:
 
@@ -363,15 +363,15 @@ Conclusion:
 
 ### Review Panel
 
-- `LGA_NKS/LGA_NKS_ON_Clips_OFF_v00-Clips.py`
-- `LGA_NKS/LGA_NKS_EXRTrack_Difference.py`
-- `LGA_NKS/LGA_NKS_Compare_Versions.py`
-- `LGA_NKS/LGA_NKS_Compare_Versions_OFF.py`
-- `LGA_NKS/LGA_NKS_RevealInExplorer.py`
-- `LGA_NKS/LGA_NKS_RevealNKS_Project.py`
-- `LGA_NKS/LGA_NKS_RevealNK_Script.py`
-- `LGA_NKS/LGA_NKS_OpenInNukeX.py`
-- `LGA_NKS/LGA_NKS_Clip_DisableEXR.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_ON_Clips_OFF_v00-Clips.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_EXRTrack_Difference.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_Compare_Versions.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_Compare_Versions_OFF.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_RevealInExplorer.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_RevealNKS_Project.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_RevealNK_Script.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_OpenInNukeX.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableEXR.py`
 
 ### Projects Panel
 
@@ -823,31 +823,31 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
 
 ### Review Panel
 
-- `LGA_NKS/LGA_NKS_ON_Clips_OFF_v00-Clips.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_ON_Clips_OFF_v00-Clips.py`
   - Lo usa `LGA_NKS_Review_Panel.py`.
 
-- `LGA_NKS/LGA_NKS_EXRTrack_Difference.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_EXRTrack_Difference.py`
   - Lo usa `LGA_NKS_Review_Panel.py`.
 
-- `LGA_NKS/LGA_NKS_Compare_Versions.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_Compare_Versions.py`
   - Lo usa `LGA_NKS_Review_Panel.py`.
 
-- `LGA_NKS/LGA_NKS_Compare_Versions_OFF.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_Compare_Versions_OFF.py`
   - Lo usa `LGA_NKS_Review_Panel.py`.
 
-- `LGA_NKS/LGA_NKS_RevealInExplorer.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_RevealInExplorer.py`
   - Lo usa `LGA_NKS_Review_Panel.py`.
 
-- `LGA_NKS/LGA_NKS_RevealNKS_Project.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_RevealNKS_Project.py`
   - Lo usa `LGA_NKS_Review_Panel.py`.
 
-- `LGA_NKS/LGA_NKS_RevealNK_Script.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_RevealNK_Script.py`
   - Lo usa `LGA_NKS_Review_Panel.py`.
 
-- `LGA_NKS/LGA_NKS_OpenInNukeX.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_OpenInNukeX.py`
   - Lo usa `LGA_NKS_Review_Panel.py`.
 
-- `LGA_NKS/LGA_NKS_Clip_DisableEXR.py`
+- `LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableEXR.py`
   - Lo usa `LGA_NKS_Review_Panel.py`.
 
 ### Projects Panel

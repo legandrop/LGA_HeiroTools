@@ -385,7 +385,7 @@ class ReviewPanel(QtWidgets.QWidget):
 
     # Metodo generico para ejecutar scripts externos
     def execute_external_script(self, script_name):
-        script_path = os.path.join(os.path.dirname(__file__), "LGA_NKS", script_name)
+        script_path = os.path.join(os.path.dirname(__file__), "LGA_NKS_Review_Panel_py", script_name)
         if os.path.exists(script_path):
             try:
                 spec = importlib.util.spec_from_file_location(
@@ -433,7 +433,11 @@ class ReviewPanel(QtWidgets.QWidget):
     
     def execute_EnableOrDisableClips_all_clips(self):
         """Versión que procesa todos los clips del timeline, no solo los seleccionados"""
-        script_path = os.path.join(os.path.dirname(__file__), "LGA_NKS", "LGA_NKS_ON_Clips_OFF_v00-Clips.py")
+        script_path = os.path.join(
+            os.path.dirname(__file__),
+            "LGA_NKS_Review_Panel_py",
+            "LGA_NKS_ON_Clips_OFF_v00-Clips.py",
+        )
         if os.path.exists(script_path):
             try:
                 spec = importlib.util.spec_from_file_location(
