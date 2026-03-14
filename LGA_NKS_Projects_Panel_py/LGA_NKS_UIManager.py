@@ -65,8 +65,8 @@ class UIManager:
         right_column.setSpacing(2)  # Espacio pequeño entre botones
 
         # Configurar iconos para el botón refresh
-        refresh_icon_path = os.path.join(os.path.dirname(__file__), "..", "LGA_Projects_Panel", "refresh.svg")
-        refresh_hover_icon_path = os.path.join(os.path.dirname(__file__), "..", "LGA_Projects_Panel", "refresh_white.svg")
+        refresh_icon_path = os.path.join(os.path.dirname(__file__), "..", "LGA_NKS_Projects_Panel_py", "refresh.svg")
+        refresh_hover_icon_path = os.path.join(os.path.dirname(__file__), "..", "LGA_NKS_Projects_Panel_py", "refresh_white.svg")
 
         panel.refresh_button = QtWidgets.QPushButton()
         panel.refresh_button.setToolTip("Re-escanear proyectos")
@@ -95,8 +95,8 @@ class UIManager:
         right_column.addWidget(panel.refresh_button)
 
         # Botón Settings
-        settings_icon_path = os.path.join(os.path.dirname(__file__), "..", "LGA_Projects_Panel", "settings.svg")
-        settings_hover_icon_path = os.path.join(os.path.dirname(__file__), "..", "LGA_Projects_Panel", "settings_white.svg")
+        settings_icon_path = os.path.join(os.path.dirname(__file__), "..", "LGA_NKS_Projects_Panel_py", "settings.svg")
+        settings_hover_icon_path = os.path.join(os.path.dirname(__file__), "..", "LGA_NKS_Projects_Panel_py", "settings_white.svg")
 
         panel.settings_button = QtWidgets.QPushButton()
         panel.settings_button.setToolTip("Settings")
@@ -120,8 +120,8 @@ class UIManager:
         right_column.addWidget(panel.settings_button)
 
         # Configurar iconos para el botón reimport
-        reimport_icon_path = os.path.join(os.path.dirname(__file__), "..", "LGA_Projects_Panel", "recargar_script.svg")
-        reimport_hover_icon_path = os.path.join(os.path.dirname(__file__), "..", "LGA_Projects_Panel", "recargar_script_white.svg")
+        reimport_icon_path = os.path.join(os.path.dirname(__file__), "..", "LGA_NKS_Projects_Panel_py", "recargar_script.svg")
+        reimport_hover_icon_path = os.path.join(os.path.dirname(__file__), "..", "LGA_NKS_Projects_Panel_py", "recargar_script_white.svg")
 
         # Botón de reimport con iconos SVG (solo si la flag está activada)
         if REIMPORT_BUTTON:

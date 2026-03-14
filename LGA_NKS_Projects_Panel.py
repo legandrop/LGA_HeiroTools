@@ -155,10 +155,10 @@ def get_project_colors(project_name):
 # Buscar y añadir la ruta del módulo de escaneo al sys.path
 projects_panel_path = None
 
-# Método 1: carpeta LGA_Projects_Panel junto a este script
+# Método 1: carpeta LGA_NKS_Projects_Panel_py junto a este script
 try:
     script_dir = Path(__file__).resolve().parent
-    candidate = script_dir / "LGA_Projects_Panel"
+    candidate = script_dir / "LGA_NKS_Projects_Panel_py"
     if (candidate / "LGA_Projects_Panel_ScanProjects.py").exists():
         projects_panel_path = candidate
 except Exception:
@@ -186,8 +186,8 @@ if projects_panel_path is None:
 # Método 3: rutas estándar en .nuke
 if projects_panel_path is None:
     standard_paths = [
-        Path.home() / ".nuke" / "Python" / "Startup" / "LGA_Projects_Panel",
-        Path(os.path.expanduser("~")) / ".nuke" / "Python" / "Startup" / "LGA_Projects_Panel",
+        Path.home() / ".nuke" / "Python" / "Startup" / "LGA_NKS_Projects_Panel_py",
+        Path(os.path.expanduser("~")) / ".nuke" / "Python" / "Startup" / "LGA_NKS_Projects_Panel_py",
     ]
     for test_path in standard_paths:
         if (test_path / "LGA_Projects_Panel_ScanProjects.py").exists():
@@ -228,7 +228,7 @@ except ImportError as e:
 
 # Importar módulo ProjectItem
 try:
-    from LGA_Projects_Panel.LGA_NKS_ProjectItem import ProjectItem, initialize_dependencies
+    from LGA_NKS_Projects_Panel_py.LGA_NKS_ProjectItem import ProjectItem, initialize_dependencies
     # Inicializar dependencias del módulo ProjectItem
     initialize_dependencies(get_project_colors, debug_print, switch_to_sequence)
     debug_print("✅ Módulo LGA_NKS_ProjectItem importado exitosamente")
@@ -238,7 +238,7 @@ except ImportError as e:
 
 # Importar módulo Workers
 try:
-    from LGA_Projects_Panel.LGA_NKS_Workers import WorkerSignals, ScanWorker, initialize_dependencies as initialize_workers_dependencies
+    from LGA_NKS_Projects_Panel_py.LGA_NKS_Workers import WorkerSignals, ScanWorker, initialize_dependencies as initialize_workers_dependencies
     # Inicializar dependencias del módulo Workers
     initialize_workers_dependencies(scan_projects_on_disk, get_open_projects_info, debug_print)
     debug_print("✅ Módulo LGA_NKS_Workers importado exitosamente")
@@ -248,7 +248,7 @@ except ImportError as e:
 
 # Importar módulo UIManager
 try:
-    from LGA_Projects_Panel.LGA_NKS_UIManager import UIManager, initialize_ui_dependencies
+    from LGA_NKS_Projects_Panel_py.LGA_NKS_UIManager import UIManager, initialize_ui_dependencies
     # Inicializar dependencias del módulo UI
     initialize_ui_dependencies(REIMPORT_BUTTON)
     debug_print("✅ Módulo LGA_NKS_UIManager importado exitosamente")
@@ -258,7 +258,7 @@ except ImportError as e:
 
 # Importar módulo ScanManager
 try:
-    from LGA_Projects_Panel.LGA_NKS_ScanManager import ScanManager, initialize_scan_dependencies
+    from LGA_NKS_Projects_Panel_py.LGA_NKS_ScanManager import ScanManager, initialize_scan_dependencies
     # Inicializar dependencias del módulo ScanManager
     initialize_scan_dependencies(ScanWorker, debug_print, print_debug_messages)
     debug_print("✅ Módulo LGA_NKS_ScanManager importado exitosamente")
@@ -268,7 +268,7 @@ except ImportError as e:
 
 # Importar módulo ProjectHandler
 try:
-    from LGA_Projects_Panel.LGA_NKS_ProjectHandler import ProjectHandler, initialize_project_dependencies
+    from LGA_NKS_Projects_Panel_py.LGA_NKS_ProjectHandler import ProjectHandler, initialize_project_dependencies
     # Inicializar dependencias del módulo ProjectHandler
     initialize_project_dependencies(ProjectItem, is_project_open, get_project_sequences, debug_print)
     debug_print("✅ Módulo LGA_NKS_ProjectHandler importado exitosamente")
@@ -348,8 +348,8 @@ class ProjectsPanel(QtWidgets.QWidget):
         right_column.setSpacing(2)  # Espacio pequeño entre botones
 
         # Configurar iconos para el botón refresh
-        refresh_icon_path = os.path.join(os.path.dirname(__file__), "LGA_Projects_Panel", "refresh.svg")
-        refresh_hover_icon_path = os.path.join(os.path.dirname(__file__), "LGA_Projects_Panel", "refresh_white.svg")
+        refresh_icon_path = os.path.join(os.path.dirname(__file__), "LGA_NKS_Projects_Panel_py", "refresh.svg")
+        refresh_hover_icon_path = os.path.join(os.path.dirname(__file__), "LGA_NKS_Projects_Panel_py", "refresh_white.svg")
 
         self.refresh_button = QtWidgets.QPushButton()
         self.refresh_button.setToolTip("Re-escanear proyectos")
@@ -378,8 +378,8 @@ class ProjectsPanel(QtWidgets.QWidget):
         right_column.addWidget(self.refresh_button)
 
         # Configurar iconos para el botón reimport
-        reimport_icon_path = os.path.join(os.path.dirname(__file__), "LGA_Projects_Panel", "recargar_script.svg")
-        reimport_hover_icon_path = os.path.join(os.path.dirname(__file__), "LGA_Projects_Panel", "recargar_script_white.svg")
+        reimport_icon_path = os.path.join(os.path.dirname(__file__), "LGA_NKS_Projects_Panel_py", "recargar_script.svg")
+        reimport_hover_icon_path = os.path.join(os.path.dirname(__file__), "LGA_NKS_Projects_Panel_py", "recargar_script_white.svg")
 
         # Botón de reimport con iconos SVG (solo si la flag está activada)
         if REIMPORT_BUTTON:
@@ -448,7 +448,7 @@ class ProjectsPanel(QtWidgets.QWidget):
             debug_print("✅ Colores recargados desde .ini")
 
             script_path = os.path.join(
-                os.path.dirname(__file__), "LGA_Projects_Panel", "LGA_NKS_Projects_Panel_Smart_Reload.py"
+                os.path.dirname(__file__), "LGA_NKS_Projects_Panel_py", "LGA_NKS_Projects_Panel_Smart_Reload.py"
             )
             if os.path.exists(script_path):
                 import importlib.util
@@ -503,7 +503,7 @@ class ProjectsPanel(QtWidgets.QWidget):
         interval_label = QtWidgets.QLabel("Auto-refresh")
 
         # Ruta para icono SVG de flecha (triángulo sólido)
-        arrow_icon_path = os.path.join(os.path.dirname(__file__), "LGA_Projects_Panel", "down_arrow.svg")
+        arrow_icon_path = os.path.join(os.path.dirname(__file__), "LGA_NKS_Projects_Panel_py", "down_arrow.svg")
         arrow_icon_url = QtCore.QUrl.fromLocalFile(arrow_icon_path).toString()
 
         # Aplicar estilo elegante al dropdown con flecha y separador DENTRO del botón

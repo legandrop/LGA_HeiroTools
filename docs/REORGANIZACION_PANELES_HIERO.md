@@ -54,7 +54,7 @@ El criterio usado es:
 - `LGA_NKS_Utils/`
 - `LGA_NKS_ViewerTL/`
 - `LGA_NKS_Wasabi/`
-- `LGA_Projects_Panel/`
+- `LGA_NKS_Projects_Panel_py/`
 
 Nota: `LGA_NKS_Wasabi/` ya no se considera runtime del panel `Assignees`. El runtime operativo de Wasabi queda dentro de `LGA_NKS_Assignee_Panel_py/`, y `LGA_NKS_Wasabi/` queda como carpeta legacy de documentacion y verificaciones.
 

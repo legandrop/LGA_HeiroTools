@@ -306,12 +306,12 @@ def create_new_panel_anyway(wm):
         # 🔄 RECARGAR MÓDULOS DEPENDIENTES ANTES DE EXEC_MODULE
         debug_print("🔄 Recargando módulos dependientes...")
         modules_to_reload = [
-            'LGA_Projects_Panel.LGA_Projects_Panel_ScanProjects',
-            'LGA_Projects_Panel.LGA_NKS_ProjectItem',
-            'LGA_Projects_Panel.LGA_NKS_ProjectHandler',
-            'LGA_Projects_Panel.LGA_NKS_ScanManager',
-            'LGA_Projects_Panel.LGA_NKS_Workers',
-            'LGA_Projects_Panel.LGA_NKS_UIManager'
+            'LGA_NKS_Projects_Panel_py.LGA_Projects_Panel_ScanProjects',
+            'LGA_NKS_Projects_Panel_py.LGA_NKS_ProjectItem',
+            'LGA_NKS_Projects_Panel_py.LGA_NKS_ProjectHandler',
+            'LGA_NKS_Projects_Panel_py.LGA_NKS_ScanManager',
+            'LGA_NKS_Projects_Panel_py.LGA_NKS_Workers',
+            'LGA_NKS_Projects_Panel_py.LGA_NKS_UIManager'
         ]
 
         for module_name in modules_to_reload:
