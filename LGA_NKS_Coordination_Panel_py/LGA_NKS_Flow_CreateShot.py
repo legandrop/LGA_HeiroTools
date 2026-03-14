@@ -90,12 +90,12 @@ QDoubleValidator = QtGui.QDoubleValidator
 QTimer = QtCore.QTimer
 
 # Agregar la ruta de shotgun_api3 al sys.path
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "LGA_ToolPack"))
-
+shared_dir = Path(__file__).parent.parent / "LGA_NKS_Shared"
+sys.path.insert(0, str(shared_dir))
 import shotgun_api3
 
 # Importar el modulo de configuracion segura
-sys.path.append(str(Path(__file__).parent.parent / "LGA_NKS_Shared"))
+sys.path.append(str(shared_dir))
 from SecureConfig_Reader import get_flow_credentials
 
 # Importar utilidades de naming

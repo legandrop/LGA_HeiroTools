@@ -28,6 +28,7 @@ import webbrowser
 import subprocess
 import base64  # Importar base64
 import binascii  # Importar binascii para la excepcion
+from pathlib import Path
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
 QMessageBox = QtWidgets.QMessageBox
 QDialog = QtWidgets.QDialog
@@ -75,25 +76,13 @@ def get_user_config_dir():
     return config_path
 
 
-# Agregar la ruta de la carpeta shotgun_api3 al sys.path
-# Buscar en la carpeta LGA_ToolPack donde está el shotgun_api3
-toolpack_dir = None
-for root, dirs, files in os.walk(os.path.expanduser("~/.nuke")):
-    if "LGA_ToolPack" in dirs:
-        toolpack_dir = os.path.join(root, "LGA_ToolPack")
-        break
-
-if toolpack_dir:
-    shotgun_api_path = os.path.join(toolpack_dir, "shotgun_api3")
-    if os.path.exists(shotgun_api_path):
-        sys.path.append(shotgun_api_path)
-
-# Ahora importamos shotgun_api3
+# Agregar la ruta de shotgun_api3 desde Shared
+shared_dir = Path(__file__).parent.parent / "LGA_NKS_Shared"
+sys.path.insert(0, str(shared_dir))
 import shotgun_api3
 
 # --- INICIO: Importar el módulo de configuración segura ---
-from pathlib import Path
-sys.path.append(str(Path(__file__).parent.parent / "LGA_NKS_Shared"))
+sys.path.append(str(shared_dir))
 from SecureConfig_Reader import get_flow_credentials
 # --- FIN: Importar el módulo de configuración segura ---
 

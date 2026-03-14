@@ -30,7 +30,6 @@ _____________________________________________________________
 
 import os
 import re
-import shotgun_api3
 import sqlite3
 import platform
 import glob
@@ -52,8 +51,12 @@ import ctypes
 import ctypes.wintypes
 import threading
 
+shared_dir = Path(__file__).parent.parent / "LGA_NKS_Shared"
+sys.path.insert(0, str(shared_dir))
+import shotgun_api3
+
 # Importar shareds de dominio Flow
-flow_shared_dir = Path(__file__).parent.parent / "LGA_NKS_Shared"
+flow_shared_dir = shared_dir
 sys.path.append(str(flow_shared_dir))
 from SecureConfig_Reader import get_flow_credentials
 

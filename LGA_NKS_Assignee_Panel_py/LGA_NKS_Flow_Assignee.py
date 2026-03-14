@@ -19,7 +19,6 @@ import os
 import re
 import sys
 import json
-import shotgun_api3
 # Importar compatibilidad Qt para Hiero Panels
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
 
@@ -47,6 +46,7 @@ QFont = QtGui.QFont
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_dir)
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "LGA_NKS_Shared"))
+import shotgun_api3
 
 from SecureConfig_Reader import get_flow_credentials
 from LGA_NKS_Flow_NamingUtils import (

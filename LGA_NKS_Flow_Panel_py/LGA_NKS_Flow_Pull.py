@@ -27,14 +27,17 @@ import re
 import sys
 import time
 import nuke
-import shotgun_api3
 import logging  # Agregar esta importación
 import queue
 from logging.handlers import QueueHandler, QueueListener
 from pathlib import Path
 
+shared_dir = Path(__file__).parent.parent / "LGA_NKS_Shared"
+sys.path.insert(0, str(shared_dir))
+import shotgun_api3
+
 # Importar utilidades de naming desde shareds de dominio Flow
-flow_shared_dir = Path(__file__).parent.parent / "LGA_NKS_Shared"
+flow_shared_dir = shared_dir
 sys.path.append(str(flow_shared_dir))
 from LGA_NKS_Flow_NamingUtils import (
     extract_shot_code,

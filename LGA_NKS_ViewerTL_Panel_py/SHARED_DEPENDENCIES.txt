@@ -1,0 +1,4 @@
+LGA_NKS_Shared/LGA_QtAdapter_HieroTools.py
+LGA_NKS_Shared/LGA_NKS_GetClip.py
+LGA_NKS_Shared/LGA_NKS_Reduce_SeqWin.py
+LGA_NKS_Shared/LGA_NKS_ScrollTo_TopTrack.py

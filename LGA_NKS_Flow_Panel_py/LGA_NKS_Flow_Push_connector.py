@@ -16,10 +16,10 @@ import shutil
 from pathlib import Path
 
 # Agregar la ruta de shotgun_api3 al sys.path
-# shotgun_api3 está un nivel arriba del directorio del script
 script_dir = os.path.dirname(__file__)
 parent_dir = os.path.dirname(script_dir)  # Un nivel arriba
-shotgun_path = os.path.join(parent_dir, "shotgun_api3")
+shared_dir = os.path.join(parent_dir, "LGA_NKS_Shared")
+shotgun_path = os.path.join(shared_dir, "shotgun_api3")
 
 # Intentar primero un nivel arriba (ubicación correcta)
 if os.path.exists(shotgun_path):
@@ -47,7 +47,7 @@ def debug_print(message):
 
 
 # Importar utilidades de naming desde shareds globales
-flow_shared_dir = os.path.join(parent_dir, "LGA_NKS_Shared")
+flow_shared_dir = shared_dir
 sys.path.insert(0, flow_shared_dir)
 try:
     from LGA_NKS_Flow_NamingUtils import (

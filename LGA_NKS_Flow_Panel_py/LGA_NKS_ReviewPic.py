@@ -213,10 +213,9 @@ def main():
             print(f"✅ ReviewPic guardado: {clip_folder_name}/{filename}")
             debug_print(f"Ruta completa: {full_path}")
 
-            # Ruta al ejecutable de ShareX_ImageEditor_LGA
-            # Se calcula la ruta relativa al directorio del script.
+            # Ruta al ejecutable de ShareX_ImageEditor_LGA privado del Flow Panel.
             editor_dir = os.path.abspath(
-                os.path.join(script_dir, "..", "ShareX_ImageEditor_LGA")
+                os.path.join(script_dir, "ShareX_ImageEditor_LGA")
             )
             editor_path = os.path.join(editor_dir, "ShareX_ImageEditor_LGA.exe")
 
