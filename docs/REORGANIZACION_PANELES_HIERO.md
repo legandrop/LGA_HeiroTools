@@ -591,31 +591,31 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
 
 - `LGA_NKS_Flow_Task_Config.py`
   - Lo usan:
-    - `LGA_NKS_Flow/LGA_NKS_Flow_Assignee.py` del `Flow Assignee Panel`
-    - `LGA_NKS_Flow/LGA_NKS_Flow_Assign_Assignee.py` del `Flow Assignee Panel`
-    - `LGA_NKS_Flow/LGA_NKS_Flow_Clear_Assignees.py` del `Flow Assignee Panel`
-    - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py` del `FlowProd Panel`
+    - `LGA_NKS_Flow/LGA_NKS_Flow_Assignee.py` del `Assignees Panel`
+    - `LGA_NKS_Flow/LGA_NKS_Flow_Assign_Assignee.py` del `Assignees Panel`
+    - `LGA_NKS_Flow/LGA_NKS_Flow_Clear_Assignees.py` del `Assignees Panel`
+    - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py` del `Coordination Panel`
 
 - `LGA_NKS_Flow_Users.json`
   - Lo usan:
-    - `LGA_NKS_Assignee_Panel.py` del `Flow Assignee Panel`
-    - `LGA_NKS_Flow/LGA_NKS_Flow_Assignee.py` del `Flow Assignee Panel`
-    - `LGA_NKS_Flow/LGA_NKS_Flow_Assign_Assignee.py` del `Flow Assignee Panel`
-    - `LGA_NKS_Flow/LGA_NKS_Flow_Clear_Assignees.py` del `Flow Assignee Panel`
-    - `LGA_NKS_Wasabi/LGA_NKS_Wasabi_PolicyAssign.py` usado por `Flow Assignee Panel`
-    - `LGA_NKS_Wasabi/LGA_NKS_Wasabi_PolicyUnassign.py` usado por `Flow Assignee Panel`
+    - `LGA_NKS_Assignee_Panel.py` del `Assignees Panel`
+    - `LGA_NKS_Flow/LGA_NKS_Flow_Assignee.py` del `Assignees Panel`
+    - `LGA_NKS_Flow/LGA_NKS_Flow_Assign_Assignee.py` del `Assignees Panel`
+    - `LGA_NKS_Flow/LGA_NKS_Flow_Clear_Assignees.py` del `Assignees Panel`
+    - `LGA_NKS_Wasabi/LGA_NKS_Wasabi_PolicyAssign.py` usado por `Assignees Panel`
+    - `LGA_NKS_Wasabi/LGA_NKS_Wasabi_PolicyUnassign.py` usado por `Assignees Panel`
 
 - `LGA_NKS_Flow/LGA_NKS_Flow_NamingUtils.py`
   - Lo usan:
     - `LGA_NKS_Flow_Panel.py` del `Flow Panel`
-    - `LGA_NKS_Assignee_Panel.py` del `Flow Assignee Panel`
-    - `LGA_NKS_Coordination_Panel.py` del `FlowProd Panel`
-    - `LGA_NKS_Edit_Panel.py` del `EditTools Panel`
+    - `LGA_NKS_Assignee_Panel.py` del `Assignees Panel`
+    - `LGA_NKS_Coordination_Panel.py` del `Coordination Panel`
+    - `LGA_NKS_Edit_Panel.py` del `Edit Panel`
     - varios scripts de `LGA_NKS_Edit/`
 
 - `LGA_NKS_Flow/SecureConfig_Reader.py`
   - Lo usan:
-    - `LGA_NKS_ViewerTL_Panel.py` del `Viewer Panel`
+    - `LGA_NKS_ViewerTL_Panel.py` del `ViewerTL Panel`
     - scripts de `LGA_NKS_Flow/`
     - scripts de `LGA_NKS_Wasabi/`
 
@@ -626,19 +626,19 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
 
 - `LGA_NKS_Utils/LGA_NKS_StyleUtils.py`
   - Lo usan:
-    - `LGA_NKS_ClipColor_Panel.py` del `Color Panel`
+    - `LGA_NKS_ClipColor_Panel.py` del `ClipColor Panel`
     - `LGA_NKS_Projects_Panel.py` del `Projects Panel`
     - `LGA_NKS_Review_Panel.py` del `Review Panel`
-    - `LGA_NKS_ViewerTL_Panel.py` del `Viewer Panel`
+    - `LGA_NKS_ViewerTL_Panel.py` del `ViewerTL Panel`
     - `LGA_NKS_Flow_Panel.py` del `Flow Panel`
-    - `LGA_NKS_Assignee_Panel.py` del `Flow Assignee Panel`
-    - `LGA_NKS_Coordination_Panel.py` del `FlowProd Panel`
-    - `LGA_NKS_Edit_Panel.py` del `EditTools Panel`
+    - `LGA_NKS_Assignee_Panel.py` del `Assignees Panel`
+    - `LGA_NKS_Coordination_Panel.py` del `Coordination Panel`
+    - `LGA_NKS_Edit_Panel.py` del `Edit Panel`
 
 - `LGA_NKS_Utils/LGA_NKS_GetClip.py`
   - Lo usan:
     - `LGA_NKS_Flow_Panel.py` del `Flow Panel`
-    - `LGA_NKS_Assignee_Panel.py` del `Flow Assignee Panel`
+    - `LGA_NKS_Assignee_Panel.py` del `Assignees Panel`
     - varios scripts de `LGA_NKS_Edit/`
     - varios scripts de `LGA_NKS_Flow_Prod/`
     - algunos scripts de `LGA_NKS/`
@@ -648,12 +648,12 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
 - `LGA_NKS_Flow/LGA_NKS_Delete_ClipTags.py`
   - Lo usan:
     - `LGA_NKS_Flow_Panel.py` del `Flow Panel`
-    - `LGA_NKS_Edit_Panel.py` del `EditTools Panel`
+    - `LGA_NKS_Edit_Panel.py` del `Edit Panel`
     - `LGA_NKS_NoFPT_Panel.py` lo intenta usar con nombre legacy
 
 - `LGA_NKS_Edit/LGA_NKS_SelfReplaceClip.py`
   - Lo usan:
-    - `LGA_NKS_Edit_Panel.py` del `EditTools Panel`
+    - `LGA_NKS_Edit_Panel.py` del `Edit Panel`
     - `LGA_NKS_Review_Panel.py` del `Review Panel`
 
 ### Flow Panel
@@ -674,7 +674,7 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
 - `LGA_NKS_Flow/LGA_NKS_ReviewPic.py`
   - Lo usa `LGA_NKS_Flow_Panel.py`.
 
-### Flow Assignee Panel
+### Assignees Panel
 
 - `LGA_NKS_Flow/LGA_NKS_Flow_Assignee.py`
   - Lo usa `LGA_NKS_Assignee_Panel.py`.
@@ -694,7 +694,7 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
 - `LGA_NKS_Wasabi/LGA_NKS_Wasabi_PolicyUnassign_CompletedShots.py`
   - Lo usa `LGA_NKS_Assignee_Panel.py`.
 
-### FlowProd Panel
+### Coordination Panel
 
 - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ShowInFlow.py`
   - Lo usa `LGA_NKS_Coordination_Panel.py`.
@@ -712,8 +712,8 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
 
 - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot_Folders.py`
   - Lo usan:
-    - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py` del `FlowProd Panel`
-    - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ModifyShot.py` del `FlowProd Panel`
+    - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py` del `Coordination Panel`
+    - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ModifyShot.py` del `Coordination Panel`
 
 - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ShotPriority.py`
   - Lo usa `LGA_NKS_Coordination_Panel.py`.
@@ -736,7 +736,7 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
 - `LGA_NKS_Flow_Prod/LGA_NKS_PipeSync_CreatePsync.py`
   - Lo usa `LGA_NKS_Coordination_Panel.py`.
 
-### Viewer Panel
+### ViewerTL Panel
 
 - `LGA_NKS_ViewerTL/LGA_NKS_Viewer_Mask.py`
   - Lo usa `LGA_NKS_ViewerTL_Panel.py`.
@@ -748,11 +748,11 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
     - `LGA_NKS_ViewerTL/LGA_NKS_Reduce_SeqWin.py`
 
 - `LGA_NKS_ViewerTL/LGA_NKS_Timeline_Refresh.py`
-  - Lo usa `LGA_NKS_ViewerTL/LGA_NKS_Timeline_Refresh_Wrap.py` del `Viewer Panel`.
+  - Lo usa `LGA_NKS_ViewerTL/LGA_NKS_Timeline_Refresh_Wrap.py` del `ViewerTL Panel`.
 
 - `LGA_NKS_ViewerTL/LGA_NKS_Reduce_SeqWin.py`
   - Lo usan:
-    - `LGA_NKS_ViewerTL/LGA_NKS_Timeline_Refresh_Wrap.py` del `Viewer Panel`
+    - `LGA_NKS_ViewerTL/LGA_NKS_Timeline_Refresh_Wrap.py` del `ViewerTL Panel`
     - `LGA_Projects_Panel/LGA_Projects_Panel_SwitchSequence.py` del `Projects Panel`
 
 - `LGA_NKS_ViewerTL/LGA_NKS_ScrollTo_TopTrack.py`
@@ -772,9 +772,9 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
   - A su vez usa `LGA_NKS_ViewerTL/LGA_NKS_FrameNumber_Create.py`.
 
 - `LGA_NKS_ViewerTL/LGA_NKS_FrameNumber_Create.py`
-  - Lo usa `LGA_NKS_ViewerTL/LGA_NKS_FrameNumber.py` del `Viewer Panel`.
+  - Lo usa `LGA_NKS_ViewerTL/LGA_NKS_FrameNumber.py` del `ViewerTL Panel`.
 
-### EditTools Panel
+### Edit Panel
 
 - `LGA_NKS_Edit/LGA_NKS_ColorTransforms.py`
   - Lo usa `LGA_NKS_Edit_Panel.py`.
