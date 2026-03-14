@@ -52,8 +52,9 @@ import ctypes
 import ctypes.wintypes
 import threading
 
-# Importar el módulo de configuración segura
-sys.path.append(str(Path(__file__).parent))
+# Importar shareds de dominio Flow
+flow_shared_dir = Path(__file__).parent.parent / "LGA_NKS_Flow"
+sys.path.append(str(flow_shared_dir))
 from SecureConfig_Reader import get_flow_credentials
 
 # Importar utilidades de naming

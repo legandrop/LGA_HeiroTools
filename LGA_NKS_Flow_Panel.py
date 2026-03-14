@@ -448,7 +448,7 @@ class ColorChangeWidget(QtWidgets.QWidget):
             project.beginUndo("Run External Script")
             try:
                 script_path = os.path.join(
-                    os.path.dirname(__file__), "LGA_NKS_Flow", "LGA_NKS_Flow_Pull.py"
+                    os.path.dirname(__file__), "LGA_NKS_Flow_Panel_py", "LGA_NKS_Flow_Pull.py"
                 )
                 if os.path.exists(script_path):
                     try:
@@ -478,7 +478,7 @@ class ColorChangeWidget(QtWidgets.QWidget):
             try:
                 # Importar y ejecutar el script de la subcarpeta
                 script_path = os.path.join(
-                    os.path.dirname(__file__), "LGA_NKS_Flow", "LGA_NKS_Flow_Pull.py"
+                    os.path.dirname(__file__), "LGA_NKS_Flow_Panel_py", "LGA_NKS_Flow_Pull.py"
                 )
                 if os.path.exists(script_path):
                     try:
@@ -507,7 +507,7 @@ class ColorChangeWidget(QtWidgets.QWidget):
             try:
                 script_path = os.path.join(
                     os.path.dirname(__file__),
-                    "LGA_NKS_Flow",
+                    "LGA_NKS_Flow_Panel_py",
                     "LGA_NKS_Flow_Shot_info.py",
                 )
                 if os.path.exists(script_path):
@@ -582,7 +582,7 @@ class ColorChangeWidget(QtWidgets.QWidget):
     def run_review_pic_script(self):
         try:
             script_path = os.path.join(
-                os.path.dirname(__file__), "LGA_NKS_Flow", "LGA_NKS_ReviewPic.py"
+                    os.path.dirname(__file__), "LGA_NKS_Flow_Panel_py", "LGA_NKS_ReviewPic.py"
             )
             if os.path.exists(script_path):
                 import importlib.util
@@ -660,7 +660,7 @@ class ColorChangeWidget(QtWidgets.QWidget):
         try:
             # Importar y ejecutar el script de push
             script_path = os.path.join(
-                os.path.dirname(__file__), "LGA_NKS_Flow", "LGA_NKS_Flow_Push.py"
+                os.path.dirname(__file__), "LGA_NKS_Flow_Panel_py", "LGA_NKS_Flow_Push.py"
             )
             if os.path.exists(script_path):
                 try:
@@ -699,7 +699,7 @@ class ColorChangeWidget(QtWidgets.QWidget):
         try:
             # Importar el módulo Push para usar el método centralizado
             script_path = os.path.join(
-                os.path.dirname(__file__), "LGA_NKS_Flow", "LGA_NKS_Flow_Push.py"
+                os.path.dirname(__file__), "LGA_NKS_Flow_Panel_py", "LGA_NKS_Flow_Push.py"
             )
             if not os.path.exists(script_path):
                 debug_print(f"Script no encontrado en la ruta: {script_path}")

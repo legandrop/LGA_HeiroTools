@@ -33,8 +33,9 @@ import queue
 from logging.handlers import QueueHandler, QueueListener
 from pathlib import Path
 
-# Importar utilidades de naming
-sys.path.append(str(Path(__file__).parent))
+# Importar utilidades de naming desde shareds de dominio Flow
+flow_shared_dir = Path(__file__).parent.parent / "LGA_NKS_Flow"
+sys.path.append(str(flow_shared_dir))
 from LGA_NKS_Flow_NamingUtils import (
     extract_shot_code,
     extract_project_name,

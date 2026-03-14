@@ -76,10 +76,10 @@ Panel:
 
 Hoy carga scripts desde:
 
-- `LGA_NKS_Flow/LGA_NKS_Flow_Pull.py`
-- `LGA_NKS_Flow/LGA_NKS_Flow_Push.py`
-- `LGA_NKS_Flow/LGA_NKS_Flow_Shot_info.py`
-- `LGA_NKS_Flow/LGA_NKS_ReviewPic.py`
+- `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py`
+- `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py`
+- `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Shot_info.py`
+- `LGA_NKS_Flow_Panel_py/LGA_NKS_ReviewPic.py`
 - `LGA_NKS_SharedActions/LGA_NKS_Delete_ClipTags.py`
 
 Tambien usa shareds:
@@ -318,11 +318,11 @@ Conclusion:
 
 ### Flow Panel
 
-- `LGA_NKS_Flow/LGA_NKS_Flow_Pull.py`
-- `LGA_NKS_Flow/LGA_NKS_Flow_Push.py`
-- `LGA_NKS_Flow/LGA_NKS_Flow_Push_connector.py`
-- `LGA_NKS_Flow/LGA_NKS_Flow_Shot_info.py`
-- `LGA_NKS_Flow/LGA_NKS_ReviewPic.py`
+- `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py`
+- `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py`
+- `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push_connector.py`
+- `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Shot_info.py`
+- `LGA_NKS_Flow_Panel_py/LGA_NKS_ReviewPic.py`
 
 ### Assignees Panel
 
@@ -419,9 +419,9 @@ Conclusion:
 
 ### Helpers internos que tambien hay que contemplar
 
-- `LGA_NKS_Flow/LGA_NKS_Flow_Push_connector.py`
+- `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push_connector.py`
   - No lo llama un panel directo.
-  - Lo usa `LGA_NKS_Flow/LGA_NKS_Flow_Push.py` del `Flow Panel`.
+  - Lo usa `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py` del `Flow Panel`.
 
 - `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot_Folders.py`
   - No lo llama un panel directo.
@@ -685,20 +685,20 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
 
 ### Flow Panel
 
-- `LGA_NKS_Flow/LGA_NKS_Flow_Pull.py`
+- `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py`
   - Lo usa `LGA_NKS_Flow_Panel.py`.
 
-- `LGA_NKS_Flow/LGA_NKS_Flow_Push.py`
+- `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py`
   - Lo usa `LGA_NKS_Flow_Panel.py`.
-  - A su vez usa `LGA_NKS_Flow/LGA_NKS_Flow_Push_connector.py`.
+  - A su vez usa `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push_connector.py`.
 
-- `LGA_NKS_Flow/LGA_NKS_Flow_Push_connector.py`
-  - Lo usa `LGA_NKS_Flow/LGA_NKS_Flow_Push.py` del `Flow Panel`.
+- `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push_connector.py`
+  - Lo usa `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py` del `Flow Panel`.
 
-- `LGA_NKS_Flow/LGA_NKS_Flow_Shot_info.py`
+- `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Shot_info.py`
   - Lo usa `LGA_NKS_Flow_Panel.py`.
 
-- `LGA_NKS_Flow/LGA_NKS_ReviewPic.py`
+- `LGA_NKS_Flow_Panel_py/LGA_NKS_ReviewPic.py`
   - Lo usa `LGA_NKS_Flow_Panel.py`.
 
 ### Assignees Panel
