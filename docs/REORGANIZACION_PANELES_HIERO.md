@@ -65,7 +65,7 @@ Hoy carga scripts desde:
 
 Tambien usa shareds:
 
-- `LGA_NKS_Flow_NamingUtils.py`
+- `LGA_NKS_Flow/LGA_NKS_Flow_NamingUtils.py`
 - `LGA_NKS_Utils/LGA_NKS_StyleUtils.py`
 - `LGA_NKS_Utils/LGA_NKS_GetClip.py`
 
@@ -86,7 +86,7 @@ Hoy carga scripts desde:
 
 Tambien usa shareds:
 
-- `LGA_NKS_Flow_NamingUtils.py`
+- `LGA_NKS_Flow/LGA_NKS_Flow_NamingUtils.py`
 - `LGA_NKS_Utils/LGA_NKS_GetClip.py`
 - `LGA_NKS_Utils/LGA_NKS_StyleUtils.py`
 - `LGA_NKS_Flow_Users.json`
@@ -114,7 +114,7 @@ Hoy carga scripts desde:
 
 Tambien usa shareds:
 
-- `LGA_NKS_Flow_NamingUtils.py`
+- `LGA_NKS_Flow/LGA_NKS_Flow_NamingUtils.py`
 - `LGA_NKS_Utils/LGA_NKS_StyleUtils.py`
 - `LGA_NKS_Flow_Task_Config.py` indirectamente via `LGA_NKS_Flow_CreateShot.py`
 
@@ -259,7 +259,7 @@ Conclusion:
 
 ### Shared de dominio Flow
 
-- `LGA_NKS_Flow_NamingUtils.py`
+- `LGA_NKS_Flow/LGA_NKS_Flow_NamingUtils.py`
 - `LGA_NKS_Flow_Task_Config.py`
 - `LGA_NKS_Flow_Users.json`
 - `LGA_NKS_Flow/SecureConfig_Reader.py`
@@ -275,12 +275,17 @@ Conclusion:
   - Usado por `EditTools Panel`
   - Usado por `Review Panel`
 
+- `LGA_NKS_ViewerTL/LGA_NKS_Reduce_SeqWin.py`
+  - Usado por `Viewer Panel`
+  - Usado por `Projects Panel`
+
 ## Scripts privados de un solo panel
 
 ### Flow Panel
 
 - `LGA_NKS_Flow/LGA_NKS_Flow_Pull.py`
 - `LGA_NKS_Flow/LGA_NKS_Flow_Push.py`
+- `LGA_NKS_Flow/LGA_NKS_Flow_Push_connector.py`
 - `LGA_NKS_Flow/LGA_NKS_Flow_Shot_info.py`
 - `LGA_NKS_Flow/LGA_NKS_ReviewPic.py`
 
@@ -289,6 +294,9 @@ Conclusion:
 - `LGA_NKS_Flow/LGA_NKS_Flow_Assignee.py`
 - `LGA_NKS_Flow/LGA_NKS_Flow_Assign_Assignee.py`
 - `LGA_NKS_Flow/LGA_NKS_Flow_Clear_Assignees.py`
+- `LGA_NKS_Wasabi/LGA_NKS_Wasabi_PolicyAssign.py`
+- `LGA_NKS_Wasabi/LGA_NKS_Wasabi_PolicyUnassign.py`
+- `LGA_NKS_Wasabi/LGA_NKS_Wasabi_PolicyUnassign_CompletedShots.py`
 
 ### FlowProd Panel
 
@@ -309,6 +317,7 @@ Conclusion:
 
 - `LGA_NKS_ViewerTL/LGA_NKS_Viewer_Mask.py`
 - `LGA_NKS_ViewerTL/LGA_NKS_Timeline_Refresh_Wrap.py`
+- `LGA_NKS_ViewerTL/LGA_NKS_Timeline_Refresh.py`
 - `LGA_NKS_ViewerTL/LGA_NKS_ScrollTo_TopTrack.py`
 - `LGA_NKS_ViewerTL/LGA_NKS_InOut_Editref.py`
 - `LGA_NKS_ViewerTL/LGA_NKS_PrevNext_Rev.py`
@@ -422,6 +431,7 @@ Startup/
     LGA_QtAdapter_HieroTools.py
     LGA_NKS_StyleUtils.py
     LGA_NKS_GetClip.py
+    LGA_NKS_Reduce_SeqWin.py
 
   LGA_NKS_Flow_Shared/
     LGA_NKS_Flow_NamingUtils.py
@@ -432,6 +442,7 @@ Startup/
   LGA_NKS_Flow_Panel_scripts/
     LGA_NKS_Flow_Pull.py
     LGA_NKS_Flow_Push.py
+    LGA_NKS_Flow_Push_connector.py
     LGA_NKS_Flow_Shot_info.py
     LGA_NKS_ReviewPic.py
 
@@ -439,6 +450,9 @@ Startup/
     LGA_NKS_Flow_Assignee.py
     LGA_NKS_Flow_Assign_Assignee.py
     LGA_NKS_Flow_Clear_Assignees.py
+    LGA_NKS_Wasabi_PolicyAssign.py
+    LGA_NKS_Wasabi_PolicyUnassign.py
+    LGA_NKS_Wasabi_PolicyUnassign_CompletedShots.py
 
   LGA_NKS_Flow_FlowProd_Panel_scripts/
     LGA_NKS_Flow_ShowInFlow.py
@@ -457,6 +471,7 @@ Startup/
   LGA_NKS_ViewerPanel_scripts/
     LGA_NKS_Viewer_Mask.py
     LGA_NKS_Timeline_Refresh_Wrap.py
+    LGA_NKS_Timeline_Refresh.py
     LGA_NKS_ScrollTo_TopTrack.py
     LGA_NKS_InOut_Editref.py
     LGA_NKS_PrevNext_Rev.py
@@ -535,6 +550,21 @@ Porque hoy ya no es privado de EditTools:
 
 - Lo usa `EditTools Panel`
 - Lo usa `Review Panel`
+
+### Por que `LGA_NKS_Reduce_SeqWin.py` va a `LGA_NKS_Shared/`
+
+Porque no es privado del `Viewer Panel`:
+
+- Lo usa `Viewer Panel`
+- Lo usa `Projects Panel`
+
+### Por que los scripts Wasabi van a `Flow_Assignee_Panel_scripts`
+
+Porque hoy los invoca directamente solo `LGA_NKS_Flow_Assignee_Panel.py`:
+
+- `LGA_NKS_Wasabi_PolicyAssign.py`
+- `LGA_NKS_Wasabi_PolicyUnassign.py`
+- `LGA_NKS_Wasabi_PolicyUnassign_CompletedShots.py`
 
 ## Matriz archivo -> quien lo usa
 
@@ -840,4 +870,8 @@ Todos los movimientos y renombres deberian hacerse con:
 git mv origen destino
 ```
 
-Y luego actualizar imports y rutas en los paneles.
+Y luego actualizar:
+
+- imports directos en paneles
+- imports entre scripts movidos
+- cargas dinamicas por nombre o ruta (`spec_from_file_location`, helpers `import_script`, `os.path.join` a `.py` y `.json`)
