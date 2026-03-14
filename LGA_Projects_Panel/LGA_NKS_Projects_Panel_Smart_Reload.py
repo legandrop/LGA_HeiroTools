@@ -15,7 +15,7 @@ import hiero.ui
 import hiero.core
 import sys
 import os
-from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 
 # Variable global para activar o desactivar los prints
 DEBUG = False

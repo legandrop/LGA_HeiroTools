@@ -282,7 +282,7 @@ def explore_hidden_viewers():
     print("=" * 80)
 
     try:
-        from LGA_QtAdapter_HieroTools import QtWidgets
+        from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets
 
         # Buscar todos los widgets de viewer
         all_widgets = QtWidgets.QApplication.instance().allWidgets()

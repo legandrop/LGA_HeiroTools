@@ -7,7 +7,7 @@
 # 3) Set Version for all Shots > OPTION to update the version in all shots where the Clip is used in the Project.
 
 import hiero.core
-from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QAction
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QAction
 
 def whereAmI(self, searchType='TrackItem'):
   """returns a list of TrackItem or Sequnece objects in the Project which contain this Clip. 

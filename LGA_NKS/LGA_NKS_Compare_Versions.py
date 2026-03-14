@@ -12,7 +12,7 @@ ______________________________________________________________________
 
 import hiero.core
 import hiero.ui
-from LGA_QtAdapter_HieroTools import QtGui
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtGui
 from pathlib import Path
 import sys
 
@@ -20,7 +20,7 @@ import sys
 utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
 if utils_path.exists():
     sys.path.insert(0, str(utils_path))
-    from LGA_NKS_GetClip import TRACK_comp_EXR
+    from LGA_NKS_Shared.LGA_NKS_GetClip import TRACK_comp_EXR
 else:
     # Fallback si no se encuentra el módulo
     TRACK_comp_EXR = "_comp_"

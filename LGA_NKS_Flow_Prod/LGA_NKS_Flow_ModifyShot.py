@@ -16,7 +16,7 @@ ________________________________________________________________________________
 ____________________________________________________________________________________
 """
 
-from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
 QApplication = QtWidgets.QApplication
 QMessageBox = QtWidgets.QMessageBox
 QDialog = QtWidgets.QDialog

@@ -14,7 +14,7 @@ sys.path.insert(0, parent_dir)
 # Importar módulos necesarios
 import hiero.ui
 import hiero.core
-from LGA_QtAdapter_HieroTools import QtWidgets, QtCore
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtCore
 
 DEBUG = True
 

@@ -59,7 +59,7 @@ def explore_sequences_and_open_panels():
         def find_timelines_in_main_windows():
             """Buscar timelines abiertos en la UI de Hiero (mismo método que timelines_UI_activos.py)"""
             try:
-                from LGA_QtAdapter_HieroTools import QtWidgets
+                from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets
 
                 app = QtWidgets.QApplication.instance()
                 if not app:
@@ -140,7 +140,7 @@ def explore_sequences_and_open_panels():
         # Mapa auxiliar: objectName de timeline -> info de secuencia (usando la lógica antigua que sí devolvía el nombre)
         timeline_seq_lookup = {}
         try:
-            from LGA_QtAdapter_HieroTools import QtWidgets
+            from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets
             app = QtWidgets.QApplication.instance()
             if app:
                 all_widgets = app.allWidgets()
@@ -192,7 +192,7 @@ def explore_sequences_and_open_panels():
 
         # Obtener viewers (mantener lógica existente por ahora)
         try:
-            from LGA_QtAdapter_HieroTools import QtWidgets
+            from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets
             app = QtWidgets.QApplication.instance()
             if app:
                 all_widgets = app.allWidgets()

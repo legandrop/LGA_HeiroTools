@@ -1,6 +1,6 @@
 import hiero
 import time
-from LGA_QtAdapter_HieroTools import QtWidgets, QtCore
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtCore
 
 DEBUG = True
 

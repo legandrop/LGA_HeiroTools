@@ -18,7 +18,7 @@ import hiero.ui
 import os
 import importlib.util
 import time
-from LGA_QtAdapter_HieroTools import QtWidgets, QtCore
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtCore
 
 def get_timeline_state():
     """

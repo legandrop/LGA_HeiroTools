@@ -15,7 +15,7 @@ import hiero.ui
 import os
 import logging
 import time
-from LGA_QtAdapter_HieroTools import QtCore
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtCore
 
 # Secuencia hardcodeada para tests consistentes
 TARGET_SEQUENCE_NAME = "010-350"

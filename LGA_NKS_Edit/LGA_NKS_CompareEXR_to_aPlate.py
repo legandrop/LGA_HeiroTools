@@ -19,7 +19,7 @@ import re
 from pathlib import Path
 import hiero.core
 import hiero.ui
-from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 import sys
 
 # Variable global para activar o desactivar los prints
@@ -42,10 +42,10 @@ def debug_print(*message):
 utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
 if utils_path.exists():
     sys.path.insert(0, str(utils_path))
-    from LGA_NKS_GetClip import get_clips_to_process
+    from LGA_NKS_Shared.LGA_NKS_GetClip import get_clips_to_process
 
     # Sincronizar el debug con el módulo utilitario
-    import LGA_NKS_GetClip as clip_utils
+    from LGA_NKS_Shared import LGA_NKS_GetClip as clip_utils
 
     clip_utils.DEBUG = DEBUG
 else:
@@ -479,7 +479,7 @@ class HieroOperations:
             return False
 
         # Obtener el track principal usando el módulo centralizado para obtener su nombre
-        import LGA_NKS_GetClip as clip_utils
+        from LGA_NKS_Shared import LGA_NKS_GetClip as clip_utils
 
         track_name = clip_utils.TRACK_comp_EXR
         self.track_name = track_name  # Guardar para uso en la GUI

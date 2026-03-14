@@ -1,5 +1,5 @@
 import hiero.core
-from LGA_QtAdapter_HieroTools import QtWidgets, QtCore, QAction
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtCore, QAction
 from hiero.core import events
 
 """

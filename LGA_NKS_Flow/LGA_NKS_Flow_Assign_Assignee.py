@@ -26,7 +26,7 @@ import sqlite3
 import platform
 import shotgun_api3
 # Importar compatibilidad Qt para Hiero Panels
-from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
 
 # Reasignar clases para compatibilidad con código existente
 QRunnable = QtCore.QRunnable

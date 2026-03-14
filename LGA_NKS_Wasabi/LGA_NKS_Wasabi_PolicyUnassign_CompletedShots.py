@@ -11,7 +11,7 @@ import os
 import sqlite3
 import sys
 
-from LGA_QtAdapter_HieroTools import QtCore, QtGui, QtWidgets
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtCore, QtGui, QtWidgets
 
 QApplication = QtWidgets.QApplication
 QDialog = QtWidgets.QDialog

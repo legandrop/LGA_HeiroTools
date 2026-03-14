@@ -461,7 +461,7 @@ def get_clip_to_process(track_name=None, prioritize_multiple_selection=False):
                         # Importar compatibilidad Qt
                         import sys
                         sys.path.insert(0, r"C:\Users\leg4-pc\.nuke\Python\Startup")
-                        from LGA_QtAdapter_HieroTools import QtWidgets, QtCore
+                        from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtCore
                         QMessageBox = QtWidgets.QMessageBox
                         Qt = QtCore.Qt
 
@@ -535,7 +535,7 @@ def get_clip_to_process(track_name=None, prioritize_multiple_selection=False):
                     # Importar compatibilidad Qt
                     import sys
                     sys.path.insert(0, r"C:\Users\leg4-pc\.nuke\Python\Startup")
-                    from LGA_QtAdapter_HieroTools import QtWidgets
+                    from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets
                     QMessageBox = QtWidgets.QMessageBox
                     QMessageBox.warning(
                         None,
@@ -565,7 +565,7 @@ def get_clip_to_process(track_name=None, prioritize_multiple_selection=False):
         # Importar compatibilidad Qt
         import sys
         sys.path.insert(0, r"C:\Users\leg4-pc\.nuke\Python\Startup")
-        from LGA_QtAdapter_HieroTools import QtWidgets
+        from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets
         QMessageBox = QtWidgets.QMessageBox
         QMessageBox.information(
             None,

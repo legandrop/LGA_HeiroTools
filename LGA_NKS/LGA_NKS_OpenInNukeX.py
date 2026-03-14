@@ -15,7 +15,7 @@ import os
 import re
 import subprocess
 import socket
-from LGA_QtAdapter_HieroTools import QtWidgets, QtCore
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtCore
 
 DEBUG = False
 

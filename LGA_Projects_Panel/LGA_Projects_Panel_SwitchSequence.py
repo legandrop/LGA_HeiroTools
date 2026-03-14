@@ -41,7 +41,7 @@ def debug_print(*message):
         print(*message)
 
 # Qt import (según entorno)
-from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
 
 
 def _process_events():
@@ -193,7 +193,7 @@ def _close_old_viewer_and_timeline_safe(old_viewer_object_name, old_timeline_obj
     closed_timelines = 0
 
     try:
-        from LGA_QtAdapter_HieroTools import QtWidgets
+        from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets
 
         app = QtWidgets.QApplication.instance()
         if not app:
@@ -263,7 +263,7 @@ def _close_all_other_viewers_and_timelines_safe(
     closed_timelines = 0
 
     try:
-        from LGA_QtAdapter_HieroTools import QtWidgets
+        from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets
 
         app = QtWidgets.QApplication.instance()
         if not app:
@@ -318,7 +318,7 @@ def _collect_viewers():
     """Devuelve lista de viewers Qt (Foundry::Storm::UI::Viewer) con título y visibilidad."""
     viewers = []
     try:
-        from LGA_QtAdapter_HieroTools import QtWidgets
+        from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets
 
         all_widgets = QtWidgets.QApplication.instance().allWidgets()
         for widget in all_widgets:
@@ -366,7 +366,7 @@ def _collect_timelines():
     """Devuelve lista de timelines Qt (TimelineEditor) con título, visibilidad y secuencia asociada (si disponible)."""
     timelines = []
     try:
-        from LGA_QtAdapter_HieroTools import QtWidgets
+        from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets
 
         all_widgets = QtWidgets.QApplication.instance().allWidgets()
         for widget in all_widgets:

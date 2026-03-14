@@ -205,7 +205,7 @@ def _change_sequence_in_existing_timeline(target_seq):
 def _find_viewer_widgets():
     """Encuentra todos los widgets de viewer en la aplicación."""
     try:
-        from LGA_QtAdapter_HieroTools import QtWidgets
+        from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets
         all_widgets = QtWidgets.QApplication.instance().allWidgets()
 
         viewer_widgets = []

@@ -37,7 +37,7 @@ def _process_events():
 def _find_viewer_widgets():
     """Encuentra todos los widgets de viewer."""
     try:
-        from LGA_QtAdapter_HieroTools import QtWidgets
+        from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets
         all_widgets = QtWidgets.QApplication.instance().allWidgets()
 
         viewer_widgets = []
@@ -185,7 +185,7 @@ def test_focus_method_3_find_and_click():
     print("=" * 50)
 
     try:
-        from LGA_QtAdapter_HieroTools import QtWidgets
+        from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets
 
         _debug_viewer_states("INICIAL")
 

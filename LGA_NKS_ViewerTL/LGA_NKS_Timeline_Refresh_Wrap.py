@@ -20,7 +20,7 @@ import hiero.core
 import hiero.ui
 import os
 import importlib.util
-from LGA_QtAdapter_HieroTools import QtWidgets, QtCore
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtCore
 import time
 
 # Variable global para activar o desactivar los prints
@@ -246,7 +246,7 @@ def find_and_close_old_viewers_and_timelines_safe(old_viewer_object_name=None, o
         debug_print(f"   Current timeline: {current_timeline_obj_name}")
 
         # Buscar TODOS los widgets usando metaObject().className()
-        from LGA_QtAdapter_HieroTools import QtWidgets
+        from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets
         app = QtWidgets.QApplication.instance()
         if not app:
             debug_print("No se pudo obtener la instancia de QApplication")
@@ -493,7 +493,7 @@ def main():
 
         try:
             # Recopilar viewers actuales
-            from LGA_QtAdapter_HieroTools import QtWidgets
+            from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets
             app = QtWidgets.QApplication.instance()
             if not app:
                 debug_print("❌ No QApplication")

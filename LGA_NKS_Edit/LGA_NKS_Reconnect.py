@@ -33,7 +33,7 @@ import queue
 import datetime
 import time
 from logging.handlers import QueueHandler, QueueListener
-from LGA_QtAdapter_HieroTools import QtGui
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtGui
 
 # Eliminamos la importaci?n del SelfReplace
 # import LGA_NKS_SelfReplaceClip as self_replace

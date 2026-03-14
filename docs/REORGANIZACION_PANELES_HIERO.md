@@ -879,6 +879,68 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
 4. Separar `LGA_NKS/` en `LGA_NKS_Review_Panel_py/` y `SharedActions`
 5. Mover `StyleUtils`, `GetClip` y `QtAdapter` a una carpeta shared unica
 
+## Etapas sugeridas de implementacion
+
+### Etapa 1. Shareds globales de bajo riesgo [completada]
+
+- [x] Mover `LGA_QtAdapter_HieroTools.py` a `LGA_NKS_Shared/`
+- [x] Mover `LGA_NKS_StyleUtils.py` a `LGA_NKS_Shared/`
+- [x] Mover `LGA_NKS_GetClip.py` a `LGA_NKS_Shared/`
+- [x] Actualizar imports directos y dejar wrappers de compatibilidad temporal donde convenga
+- [x] Probar apertura y acciones basicas de los paneles que consumen estos shareds
+
+### Etapa 2. Paneles de bajo acoplamiento
+
+- Migrar `LGA_NKS_ClipColor_Panel.py`
+- Migrar `LGA_NKS_Review_Panel.py`
+- Migrar `LGA_NKS_ViewerTL_Panel.py`
+- Mover sus privados a carpetas `_py`
+- Validar que cada panel abra y ejecute sus acciones principales
+
+### Etapa 3. Edit Panel y shared actions
+
+- Migrar `LGA_NKS_Edit_Panel.py`
+- Separar `LGA_NKS_SelfReplaceClip.py` y `LGA_NKS_Delete_ClipTags.py` como shared actions reales
+- Probar acciones de edit y las que comparte con Review y Flow
+
+### Etapa 4. Assignees Panel
+
+- Migrar `LGA_NKS_Assignee_Panel.py`
+- Mover sus privados de Flow y Wasabi a `LGA_NKS_Assignee_Panel_py/`
+- Validar lectura de users/config y ejecucion de acciones Flow/Wasabi
+
+### Etapa 5. Coordination Panel
+
+- Migrar `LGA_NKS_Coordination_Panel.py`
+- Mover sus privados a `LGA_NKS_Coordination_Panel_py/`
+- Validar helpers internos como `LGA_NKS_Flow_CreateShot_Folders.py`
+
+### Etapa 6. Flow Panel
+
+- Migrar `LGA_NKS_Flow_Panel.py`
+- Mover sus privados a `LGA_NKS_Flow_Panel_py/`
+- Validar `Pull`, `Push`, `Shot_info`, `ReviewPic` y `LGA_NKS_Flow_Push_connector.py`
+
+### Etapa 7. NoFPT Panel
+
+- Resolver primero las referencias legacy rotas
+- Recién despues migrar `LGA_NKS_NoFPT_Panel.py`
+
+### Etapa 8. Projects Panel
+
+- Dejar `LGA_NKS_Projects_Panel.py` para el final
+- Migrarlo cuando el resto del esquema ya este estable
+- Validar sus dependencias cruzadas y `LGA_NKS_Reduce_SeqWin.py`
+
+## Regla de implementacion por etapa
+
+En cada etapa conviene:
+
+1. mover un panel o grupo chico de shareds
+2. actualizar imports y cargas dinamicas
+3. probar manualmente en Hiero ese alcance acotado
+4. recien despues seguir con la etapa siguiente
+
 ## Regla para ejecucion
 
 Todos los movimientos y renombres deberian hacerse con:

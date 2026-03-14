@@ -13,7 +13,7 @@ import re
 import os
 import glob
 import datetime
-from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 
 # Configuración del temporizador (en minutos)
 INTERVALO_TEMPORIZADOR = 4

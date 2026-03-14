@@ -17,7 +17,7 @@ import hiero.core
 import os
 import sys
 from pathlib import Path
-from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
 QMessageBox = QtWidgets.QMessageBox
 QApplication = QtWidgets.QApplication
 
@@ -41,7 +41,7 @@ from LGA_NKS_Flow_NamingUtils import (
 utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
 if utils_path.exists():
     sys.path.insert(0, str(utils_path))
-    from LGA_NKS_GetClip import get_clips_to_process
+    from LGA_NKS_Shared.LGA_NKS_GetClip import get_clips_to_process
 
 
 DEBUG = False

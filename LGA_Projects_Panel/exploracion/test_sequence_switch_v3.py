@@ -71,7 +71,7 @@ def _collect_viewers():
     """Devuelve lista de viewers Qt (Foundry::Storm::UI::Viewer) con título y visibilidad."""
     viewers = []
     try:
-        from LGA_QtAdapter_HieroTools import QtWidgets
+        from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets
         all_widgets = QtWidgets.QApplication.instance().allWidgets()
         for widget in all_widgets:
             try:

@@ -8,7 +8,7 @@ ______________________________________________________________________
 """
 
 import hiero.ui
-from LGA_QtAdapter_HieroTools import QtWidgets
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets
 
 # Variable global para activar o desactivar los prints de depuración
 DEBUG = False

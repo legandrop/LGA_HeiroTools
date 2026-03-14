@@ -33,7 +33,7 @@ def debug_print(*message):
     """Función de debug que almacena en lista para hilos o imprime inmediatamente en hilo principal"""
     if DEBUG:
         # Importar para detectar si estamos en el hilo principal
-        from LGA_QtAdapter_HieroTools import QtCore
+        from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtCore
 
         message_str = " ".join(str(m) for m in message)
 

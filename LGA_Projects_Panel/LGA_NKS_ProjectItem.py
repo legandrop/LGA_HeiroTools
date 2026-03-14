@@ -9,7 +9,7 @@ if 'LGA_NKS_ProjectItem' in sys.modules:
     import importlib
     importlib.reload(sys.modules['LGA_NKS_ProjectItem'])
 
-from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt, horizontal_advance
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt, horizontal_advance
 
 # Importar funciones necesarias del módulo principal
 # Estas serán importadas desde el archivo principal cuando se importe este módulo

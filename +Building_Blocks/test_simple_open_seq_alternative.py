@@ -12,7 +12,7 @@
 
 import hiero.core
 import hiero.ui
-from LGA_QtAdapter_HieroTools import QtCore
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtCore
 
 def _process_events():
     """EXACTAMENTE como Projects Panel."""
@@ -230,7 +230,7 @@ def test_option_d_analyze_existing():
     print("🔍 Buscando timelines existentes y funcionales...")
     
     try:
-        from LGA_QtAdapter_HieroTools import QtWidgets
+        from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets
         app = QtWidgets.QApplication.instance()
         if not app:
             print("❌ No hay QApplication")

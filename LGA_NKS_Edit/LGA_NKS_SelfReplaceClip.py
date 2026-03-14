@@ -147,7 +147,7 @@ try:
         sys.path.insert(0, parent_dir)
         debug_print(f"Agregado al path: {parent_dir}")
 
-    from LGA_QtAdapter_HieroTools import QtGui
+    from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtGui
     debug_print("LGA_QtAdapter_HieroTools importado correctamente")
 except ImportError as e:
     debug_print(f"Error importando LGA_QtAdapter_HieroTools: {e}")

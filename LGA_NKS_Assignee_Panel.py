@@ -26,7 +26,7 @@ import logging
 import queue
 import time
 from logging.handlers import QueueHandler, QueueListener
-from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 
 # Importar función de limpieza de nombres desde NamingUtils
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Flow"))
@@ -34,11 +34,11 @@ from LGA_NKS_Flow_NamingUtils import clean_base_name
 
 # Importar módulo utilitario para selección de clips
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Utils"))
-from LGA_NKS_GetClip import get_clips_to_process
-import LGA_NKS_GetClip as clip_utils
+from LGA_NKS_Shared.LGA_NKS_GetClip import get_clips_to_process
+from LGA_NKS_Shared import LGA_NKS_GetClip as clip_utils
 
 # Importar funciones de utilidad de estilos
-from LGA_NKS_StyleUtils import (
+from LGA_NKS_Shared.LGA_NKS_StyleUtils import (
     calculate_dynamic_border,
     calculate_dynamic_hover,
     create_tooltip_stylesheet

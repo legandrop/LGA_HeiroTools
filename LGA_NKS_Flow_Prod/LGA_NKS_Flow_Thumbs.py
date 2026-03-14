@@ -19,7 +19,7 @@ import re
 import sys
 import time
 from pathlib import Path
-from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
 QApplication = QtWidgets.QApplication
 QRect = QtCore.QRect
 QTimer = QtCore.QTimer

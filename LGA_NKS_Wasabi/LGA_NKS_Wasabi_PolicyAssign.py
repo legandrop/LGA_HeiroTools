@@ -13,7 +13,7 @@ import json
 import hiero.core
 import hiero.ui
 # Importar compatibilidad Qt para Hiero Panels
-from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 
 # Reasignar clases para compatibilidad con código existente
 QApplication = QtWidgets.QApplication

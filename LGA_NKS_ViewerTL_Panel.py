@@ -29,11 +29,11 @@ import logging
 import queue
 import time
 from logging.handlers import QueueHandler, QueueListener
-from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 
 # Importar funciones de utilidad de estilos
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Utils"))
-from LGA_NKS_StyleUtils import (
+from LGA_NKS_Shared.LGA_NKS_StyleUtils import (
     calculate_dynamic_border,
     calculate_dynamic_hover,
     create_tooltip_stylesheet

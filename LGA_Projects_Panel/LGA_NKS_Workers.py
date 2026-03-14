@@ -2,7 +2,7 @@
 Workers para operaciones en background en el panel de proyectos LGA.
 """
 
-from LGA_QtAdapter_HieroTools import QtCore
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtCore
 
 # Importar funciones necesarias del módulo principal
 # Estas serán importadas desde el archivo principal cuando se importe este módulo

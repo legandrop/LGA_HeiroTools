@@ -3,7 +3,7 @@ Gestor de interfaz de usuario para el panel de proyectos LGA.
 """
 
 import os
-from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
 
 # Importar variable global
 # Esta será importada desde el archivo principal cuando se importe este módulo

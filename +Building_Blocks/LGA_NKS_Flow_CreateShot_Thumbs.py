@@ -21,7 +21,7 @@ import re
 import sys
 from pathlib import Path
 # Importar compatibilidad Qt para Hiero Panels
-from LGA_QtAdapter_HieroTools import QtWidgets, QtCore
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtCore
 
 # Reasignar clases para compatibilidad con código existente
 QApplication = QtWidgets.QApplication

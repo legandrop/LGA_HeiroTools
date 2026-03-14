@@ -24,7 +24,7 @@ import subprocess
 import platform
 from pathlib import Path
 # Importar compatibilidad Qt para Hiero Panels
-from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, QShortcut, QApplication
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, QShortcut, QApplication
 
 # Usar directamente las clases del adapter (ya manejan compatibilidad PySide2/6)
 QCoreApplication = QApplication  # Para compatibilidad
@@ -57,8 +57,8 @@ HAS_CLIP_UTILS = False
 if utils_path.exists():
     try:
         sys.path.insert(0, str(utils_path))
-        from LGA_NKS_GetClip import get_clip_to_process, get_selected_clips
-        import LGA_NKS_GetClip as clip_utils
+        from LGA_NKS_Shared.LGA_NKS_GetClip import get_clip_to_process, get_selected_clips
+        from LGA_NKS_Shared import LGA_NKS_GetClip as clip_utils
         HAS_CLIP_UTILS = True
     except ImportError as e:
         debug_print(f"Error importando módulo LGA_NKS_GetClip: {e}")

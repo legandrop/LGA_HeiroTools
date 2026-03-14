@@ -17,7 +17,7 @@ __________________________________________________________
 
 import hiero.core
 import hiero.ui
-from LGA_QtAdapter_HieroTools import QtCore
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtCore
 from pathlib import Path
 import sys
 
@@ -28,7 +28,7 @@ utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
 if utils_path.exists():
     sys.path.insert(0, str(utils_path))
     try:
-        import LGA_NKS_GetClip as clip_utils
+        from LGA_NKS_Shared import LGA_NKS_GetClip as clip_utils
         find_clip_at_playhead_in_track = clip_utils.find_clip_at_playhead_in_track
         get_clip_to_process = clip_utils.get_clip_to_process
     except ImportError:

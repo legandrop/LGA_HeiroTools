@@ -4,7 +4,7 @@ Gestor de manejo de proyectos para el panel de proyectos LGA.
 """
 
 import os
-from LGA_QtAdapter_HieroTools import QtWidgets, QtCore
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtCore
 import hiero.core
 
 # Importar funciones necesarias del módulo principal

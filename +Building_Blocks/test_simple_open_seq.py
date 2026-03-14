@@ -4,7 +4,7 @@
 
 import hiero.core
 import hiero.ui
-from LGA_QtAdapter_HieroTools import QtCore
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtCore
 
 def _process_events():
     """EXACTAMENTE como Projects Panel."""

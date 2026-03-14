@@ -23,8 +23,8 @@ import re
 utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
 if utils_path.exists():
     sys.path.insert(0, str(utils_path))
-    from LGA_NKS_GetClip import get_clip_to_process
-    import LGA_NKS_GetClip as clip_utils
+    from LGA_NKS_Shared.LGA_NKS_GetClip import get_clip_to_process
+    from LGA_NKS_Shared import LGA_NKS_GetClip as clip_utils
 
 DEBUG = True
 DEBUG_CONSOLE = False

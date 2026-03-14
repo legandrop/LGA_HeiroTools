@@ -2,7 +2,7 @@
 # If you wish for this code to be run on startup, copy it to your <HIERO_PATH>/Startup directory.
 
 from hiero.ui import findMenuAction
-from LGA_QtAdapter_HieroTools import QtGui
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtGui
 
 # myMenuItem = findMenuAction('Reconnect Media...')
 # myMenuItem.setShortcut(QtGui.QKeySequence('Alt+M'))

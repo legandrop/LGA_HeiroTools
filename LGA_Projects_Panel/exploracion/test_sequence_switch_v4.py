@@ -69,7 +69,7 @@ def _restore_viewer_state(viewer, state):
 def _find_viewer_for_sequence(sequence_name):
     """Busca widget viewer para la secuencia especificada."""
     try:
-        from LGA_QtAdapter_HieroTools import QtWidgets
+        from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets
         all_widgets = QtWidgets.QApplication.instance().allWidgets()
 
         for widget in all_widgets:

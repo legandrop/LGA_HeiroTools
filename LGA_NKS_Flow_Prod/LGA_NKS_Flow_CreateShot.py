@@ -65,7 +65,7 @@ import sys
 import time
 from logging.handlers import QueueHandler, QueueListener
 from pathlib import Path
-from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
 QApplication = QtWidgets.QApplication
 QMessageBox = QtWidgets.QMessageBox
 QDialog = QtWidgets.QDialog
@@ -110,8 +110,8 @@ from pathlib import Path
 utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
 if utils_path.exists():
     sys.path.insert(0, str(utils_path))
-    from LGA_NKS_GetClip import get_clips_to_process, get_clip_to_process
-    import LGA_NKS_GetClip as clip_utils
+    from LGA_NKS_Shared.LGA_NKS_GetClip import get_clips_to_process, get_clip_to_process
+    from LGA_NKS_Shared import LGA_NKS_GetClip as clip_utils
     # La sincronización de DEBUG se hace después de su definición (ver más abajo)
 
 from LGA_NKS_Flow_Task_Config import AVAILABLE_TASKS

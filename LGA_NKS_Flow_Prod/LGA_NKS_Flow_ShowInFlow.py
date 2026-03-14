@@ -28,7 +28,7 @@ import webbrowser
 import subprocess
 import base64  # Importar base64
 import binascii  # Importar binascii para la excepcion
-from LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
 QMessageBox = QtWidgets.QMessageBox
 QDialog = QtWidgets.QDialog
 QVBoxLayout = QtWidgets.QVBoxLayout
@@ -108,9 +108,9 @@ from LGA_NKS_Flow_NamingUtils import (
 utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
 if utils_path.exists():
     sys.path.insert(0, str(utils_path))
-    from LGA_NKS_GetClip import get_clips_to_process
+    from LGA_NKS_Shared.LGA_NKS_GetClip import get_clips_to_process
     # Sincronizar el debug con el módulo utilitario
-    import LGA_NKS_GetClip as clip_utils
+    from LGA_NKS_Shared import LGA_NKS_GetClip as clip_utils
     clip_utils.DEBUG = DEBUG
 else:
     debug_print("ERROR: No se encontró el módulo LGA_NKS_GetClip")
