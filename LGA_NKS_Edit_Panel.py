@@ -468,7 +468,7 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
             # Importar y ejecutar el script desde la carpeta LGA_NKS_Edit
             script_path = os.path.join(
                 os.path.dirname(__file__),
-                "LGA_NKS_Edit",
+                "LGA_NKS_Edit_Panel_py",
                 "LGA_NKS_ColorTransforms.py",
             )
             if os.path.exists(script_path):
@@ -501,7 +501,7 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
             # Importar y ejecutar el script desde la carpeta LGA_NKS_Edit
             script_path = os.path.join(
                 os.path.dirname(__file__),
-                "LGA_NKS_Edit",
+                "LGA_NKS_Edit_Panel_py",
                 "LGA_NKS_ColorTransforms.py",
             )
             if os.path.exists(script_path):
@@ -534,7 +534,7 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
             # Importar y ejecutar el script desde la carpeta LGA_NKS_Edit
             script_path = os.path.join(
                 os.path.dirname(__file__),
-                "LGA_NKS_Edit",
+                "LGA_NKS_Edit_Panel_py",
                 "LGA_NKS_ColorTransforms.py",
             )
             if os.path.exists(script_path):
@@ -878,6 +878,22 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
         # Intentamos varias rutas posibles para encontrar el script
         script_paths = [
             os.path.join(
+                os.path.dirname(__file__), "LGA_NKS_Edit_Panel_py", script_name
+            ),
+            os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "LGA_NKS_Edit_Panel_py",
+                script_name,
+            ),
+            os.path.join(
+                os.path.dirname(__file__), "LGA_NKS_SharedActions", script_name
+            ),
+            os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "LGA_NKS_SharedActions",
+                script_name,
+            ),
+            os.path.join(
                 os.path.dirname(__file__), "LGA_NKS", script_name
             ),  # Ruta estándar
             os.path.join(
@@ -944,6 +960,22 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
     def execute_external_script(self, script_name):
         # Intentamos varias rutas posibles para encontrar el script
         script_paths = [
+            os.path.join(
+                os.path.dirname(__file__), "LGA_NKS_Edit_Panel_py", script_name
+            ),
+            os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "LGA_NKS_Edit_Panel_py",
+                script_name,
+            ),
+            os.path.join(
+                os.path.dirname(__file__), "LGA_NKS_SharedActions", script_name
+            ),
+            os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "LGA_NKS_SharedActions",
+                script_name,
+            ),
             os.path.join(
                 os.path.dirname(__file__), "LGA_NKS", script_name
             ),  # Ruta estándar
@@ -1035,7 +1067,7 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
                             # Importar y ejecutar el script de la subcarpeta para cada clip valido
                             script_path = os.path.join(
                                 os.path.dirname(__file__),
-                                "LGA_NKS_Flow",
+                                "LGA_NKS_SharedActions",
                                 "LGA_NKS_Delete_ClipTags.py",
                             )
                             if os.path.exists(script_path):
@@ -1086,7 +1118,7 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
             # Importar y ejecutar el script desde la carpeta LGA_NKS_Edit
             script_path = os.path.join(
                 os.path.dirname(__file__),
-                "LGA_NKS_Edit",
+                "LGA_NKS_Edit_Panel_py",
                 "LGA_NKS_MatchVerToEXR.py",
             )
             debug_print_b(f"DEBUG: Script path: {script_path}")
@@ -1131,7 +1163,7 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
             # Importar y ejecutar el script desde la carpeta LGA_NKS_Edit
             script_path = os.path.join(
                 os.path.dirname(__file__),
-                "LGA_NKS_Edit",
+                "LGA_NKS_Edit_Panel_py",
                 "LGA_NKS_CompareVerToEditref.py",
             )
             if os.path.exists(script_path):
@@ -1179,7 +1211,7 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
             # Importar y ejecutar el script desde la carpeta LGA_NKS_Edit
             script_path = os.path.join(
                 os.path.dirname(__file__),
-                "LGA_NKS_Edit",
+                "LGA_NKS_Edit_Panel_py",
                 "LGA_NKS_CompareEXR_to_aPlate.py",
             )
             debug_print_b(f"DEBUG: Script path: {script_path}")

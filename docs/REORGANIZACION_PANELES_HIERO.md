@@ -78,7 +78,7 @@ Hoy carga scripts desde:
 - `LGA_NKS_Flow/LGA_NKS_Flow_Push.py`
 - `LGA_NKS_Flow/LGA_NKS_Flow_Shot_info.py`
 - `LGA_NKS_Flow/LGA_NKS_ReviewPic.py`
-- `LGA_NKS_Flow/LGA_NKS_Delete_ClipTags.py`
+- `LGA_NKS_SharedActions/LGA_NKS_Delete_ClipTags.py`
 
 Tambien usa shareds:
 
@@ -164,24 +164,24 @@ Panel:
 
 Hoy carga scripts desde:
 
-- `LGA_NKS_Edit/LGA_NKS_ColorTransforms.py`
-- `LGA_NKS_Edit/LGA_NKS_FixColorspaces.py`
-- `LGA_NKS_Edit/LGA_NKS_CreateNewTrack.py`
-- `LGA_NKS_Edit/LGA_NKS_OrganizeProject.py`
-- `LGA_NKS_Edit/LGA_NKS_SetShotName.py`
-- `LGA_NKS_Edit/LGA_NKS_Trim_In.py`
-- `LGA_NKS_Edit/LGA_NKS_Trim_Out.py`
-- `LGA_NKS_Edit/LGA_NKS_Reconnect.py`
-- `LGA_NKS_Edit/LGA_NKS_CleanProject.py`
-- `LGA_NKS_Edit/LGA_NKS_mediaMissingFrames.py`
-- `LGA_NKS_Edit/LGA_NKS_MatchVerToEXR.py`
-- `LGA_NKS_Edit/LGA_NKS_CompareVerToEditref.py`
-- `LGA_NKS_Edit/LGA_NKS_CompareEXR_to_aPlate.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_ColorTransforms.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_FixColorspaces.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_CreateNewTrack.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_OrganizeProject.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_SetShotName.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_Trim_In.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_Trim_Out.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_Reconnect.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_CleanProject.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_mediaMissingFrames.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_MatchVerToEXR.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_CompareVerToEditref.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_CompareEXR_to_aPlate.py`
 
 Tambien carga shareds fuera de esa carpeta:
 
-- `LGA_NKS_Flow/LGA_NKS_Delete_ClipTags.py`
-- `LGA_NKS_Edit/LGA_NKS_SelfReplaceClip.py`
+- `LGA_NKS_SharedActions/LGA_NKS_Delete_ClipTags.py`
+- `LGA_NKS_SharedActions/LGA_NKS_SelfReplaceClip.py`
 
 Tambien usa shareds:
 
@@ -208,7 +208,7 @@ Hoy carga scripts desde:
 
 Tambien carga:
 
-- `LGA_NKS_Edit/LGA_NKS_SelfReplaceClip.py`
+- `LGA_NKS_SharedActions/LGA_NKS_SelfReplaceClip.py`
 
 Tambien usa shareds:
 
@@ -283,12 +283,13 @@ Conclusion:
 
 ### Shared de acciones
 
-- `LGA_NKS_Flow/LGA_NKS_Delete_ClipTags.py`
+- `LGA_NKS_SharedActions/LGA_NKS_Delete_ClipTags.py`
+- `LGA_NKS_SharedActions/LGA_NKS_Delete_ClipTags.py`
   - Usado por `Flow Panel`
   - Usado por `Edit Panel`
   - `NoFPT Panel` intenta usar su variante legacy
 
-- `LGA_NKS_Edit/LGA_NKS_SelfReplaceClip.py`
+- `LGA_NKS_SharedActions/LGA_NKS_SelfReplaceClip.py`
   - Usado por `Edit Panel`
   - Usado por `Review Panel`
 
@@ -347,19 +348,19 @@ Conclusion:
 
 ### Edit Panel
 
-- `LGA_NKS_Edit/LGA_NKS_ColorTransforms.py`
-- `LGA_NKS_Edit/LGA_NKS_FixColorspaces.py`
-- `LGA_NKS_Edit/LGA_NKS_CreateNewTrack.py`
-- `LGA_NKS_Edit/LGA_NKS_OrganizeProject.py`
-- `LGA_NKS_Edit/LGA_NKS_SetShotName.py`
-- `LGA_NKS_Edit/LGA_NKS_Trim_In.py`
-- `LGA_NKS_Edit/LGA_NKS_Trim_Out.py`
-- `LGA_NKS_Edit/LGA_NKS_Reconnect.py`
-- `LGA_NKS_Edit/LGA_NKS_CleanProject.py`
-- `LGA_NKS_Edit/LGA_NKS_mediaMissingFrames.py`
-- `LGA_NKS_Edit/LGA_NKS_MatchVerToEXR.py`
-- `LGA_NKS_Edit/LGA_NKS_CompareVerToEditref.py`
-- `LGA_NKS_Edit/LGA_NKS_CompareEXR_to_aPlate.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_ColorTransforms.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_FixColorspaces.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_CreateNewTrack.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_OrganizeProject.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_SetShotName.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_Trim_In.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_Trim_Out.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_Reconnect.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_CleanProject.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_mediaMissingFrames.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_MatchVerToEXR.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_CompareVerToEditref.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_CompareEXR_to_aPlate.py`
 
 ### Review Panel
 
@@ -571,6 +572,8 @@ Porque hoy ya no es privado de Edit:
 - Lo usa `Edit Panel`
 - Lo usa `Review Panel`
 
+Ambos deberian vivir en `LGA_NKS_SharedActions/`.
+
 ### Por que `LGA_NKS_Reduce_SeqWin.py` va a `LGA_NKS_Shared/`
 
 Porque no es privado del `ViewerTL Panel`:
@@ -648,13 +651,13 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
 
 ### Shared actions
 
-- `LGA_NKS_Flow/LGA_NKS_Delete_ClipTags.py`
+- `LGA_NKS_SharedActions/LGA_NKS_Delete_ClipTags.py`
   - Lo usan:
     - `LGA_NKS_Flow_Panel.py` del `Flow Panel`
     - `LGA_NKS_Edit_Panel.py` del `Edit Panel`
     - `LGA_NKS_NoFPT_Panel.py` lo intenta usar con nombre legacy
 
-- `LGA_NKS_Edit/LGA_NKS_SelfReplaceClip.py`
+- `LGA_NKS_SharedActions/LGA_NKS_SelfReplaceClip.py`
   - Lo usan:
     - `LGA_NKS_Edit_Panel.py` del `Edit Panel`
     - `LGA_NKS_Review_Panel.py` del `Review Panel`
@@ -782,43 +785,43 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
 
 ### Edit Panel
 
-- `LGA_NKS_Edit/LGA_NKS_ColorTransforms.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_ColorTransforms.py`
   - Lo usa `LGA_NKS_Edit_Panel.py`.
 
-- `LGA_NKS_Edit/LGA_NKS_FixColorspaces.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_FixColorspaces.py`
   - Lo usa `LGA_NKS_Edit_Panel.py`.
 
-- `LGA_NKS_Edit/LGA_NKS_CreateNewTrack.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_CreateNewTrack.py`
   - Lo usa `LGA_NKS_Edit_Panel.py`.
 
-- `LGA_NKS_Edit/LGA_NKS_OrganizeProject.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_OrganizeProject.py`
   - Lo usa `LGA_NKS_Edit_Panel.py`.
 
-- `LGA_NKS_Edit/LGA_NKS_SetShotName.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_SetShotName.py`
   - Lo usa `LGA_NKS_Edit_Panel.py`.
 
-- `LGA_NKS_Edit/LGA_NKS_Trim_In.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_Trim_In.py`
   - Lo usa `LGA_NKS_Edit_Panel.py`.
 
-- `LGA_NKS_Edit/LGA_NKS_Trim_Out.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_Trim_Out.py`
   - Lo usa `LGA_NKS_Edit_Panel.py`.
 
-- `LGA_NKS_Edit/LGA_NKS_Reconnect.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_Reconnect.py`
   - Lo usa `LGA_NKS_Edit_Panel.py`.
 
-- `LGA_NKS_Edit/LGA_NKS_CleanProject.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_CleanProject.py`
   - Lo usa `LGA_NKS_Edit_Panel.py`.
 
-- `LGA_NKS_Edit/LGA_NKS_mediaMissingFrames.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_mediaMissingFrames.py`
   - Lo usa `LGA_NKS_Edit_Panel.py`.
 
-- `LGA_NKS_Edit/LGA_NKS_MatchVerToEXR.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_MatchVerToEXR.py`
   - Lo usa `LGA_NKS_Edit_Panel.py`.
 
-- `LGA_NKS_Edit/LGA_NKS_CompareVerToEditref.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_CompareVerToEditref.py`
   - Lo usa `LGA_NKS_Edit_Panel.py`.
 
-- `LGA_NKS_Edit/LGA_NKS_CompareEXR_to_aPlate.py`
+- `LGA_NKS_Edit_Panel_py/LGA_NKS_CompareEXR_to_aPlate.py`
   - Lo usa `LGA_NKS_Edit_Panel.py`.
 
 ### Review Panel

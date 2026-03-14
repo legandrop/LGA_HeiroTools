@@ -405,7 +405,7 @@ class ReviewPanel(QtWidgets.QWidget):
             debug_print(f"Script no encontrado en la ruta: {script_path}")
 
     def execute_external_script_from_edit(self, script_name):
-        script_path = os.path.join(os.path.dirname(__file__), "LGA_NKS_Edit", script_name)
+        script_path = os.path.join(os.path.dirname(__file__), "LGA_NKS_SharedActions", script_name)
         if os.path.exists(script_path):
             try:
                 spec = importlib.util.spec_from_file_location(

@@ -546,7 +546,7 @@ class ColorChangeWidget(QtWidgets.QWidget):
                             # Importar y ejecutar el script de la subcarpeta para cada clip valido
                             script_path = os.path.join(
                                 os.path.dirname(__file__),
-                                "LGA_NKS_Flow",
+                                "LGA_NKS_SharedActions",
                                 "LGA_NKS_Delete_ClipTags.py",
                             )
                             if os.path.exists(script_path):
