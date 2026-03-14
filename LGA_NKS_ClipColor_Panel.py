@@ -132,3 +132,9 @@ class ColorChangeWidget(QtWidgets.QWidget):
         except Exception as e:
             # print(f"\nError during operation: {e}")
             pass
+
+
+# Crear la instancia del panel y agregarlo al windowManager de Hiero
+colorChanger = ColorChangeWidget()
+wm = hiero.ui.windowManager()
+wm.addWindow(colorChanger)
