@@ -1,3 +1,5 @@
+> **Regla de documentacion**: este archivo describe el estado actual del codigo. No es un historial de cambios, changelog ni bitacora temporal.
+
 # Cómo obtener Links de Imágenes y Frame Numbers de Review Attachments en ShotGrid
 
 ## Resumen

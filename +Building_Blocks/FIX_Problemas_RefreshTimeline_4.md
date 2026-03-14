@@ -1,3 +1,5 @@
+> **Regla de documentacion**: este archivo describe el estado actual del codigo. No es un historial de cambios, changelog ni bitacora temporal.
+
 # 🎯 FIX_Problemas_RefreshTimeline_4.md
 
 ## ☠️ BUG CRÍTICO EN HIERO 16 - INVESTIGACIÓN COMPLETA

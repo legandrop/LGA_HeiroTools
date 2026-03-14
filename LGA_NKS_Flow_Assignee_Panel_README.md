@@ -1,3 +1,5 @@
+> **Regla de documentacion**: este archivo describe el estado actual del codigo. No es un historial de cambios, changelog ni bitacora temporal.
+
 # LGA_NKS_Flow_Assignee_Panel - Configuración Dinámica de Usuarios
 
 ## Descripción
@@ -122,13 +124,13 @@ Los scripts llamados por los botones principales ahora actualizan tanto Flow Pro
 - Llama al script de asignación de políticas de Wasabi para usuario específico
 - Pasa el parámetro `wasabi_user` al script
 - El script se encarga de mostrar ventana de estado y procesamiento
-- Ubicación: `Python/Startup/LGA_NKS_Flow_Assignee_Panel.py`
+- Ubicación: `Python/Startup/LGA_NKS_Assignee_Panel.py`
 
 ### `unassign_wasabi_policy_for_user(wasabi_user)`
 - Llama al script de gestión de shots de Wasabi para usuario específico
 - Abre ventana con lista de shots asignados en la policy del usuario
 - Permite eliminar shots individuales con interfaz visual
-- Ubicación: `Python/Startup/LGA_NKS_Flow_Assignee_Panel.py`
+- Ubicación: `Python/Startup/LGA_NKS_Assignee_Panel.py`
 
 ### `reload_config()`
 - Recarga la configuración sin reiniciar Hiero

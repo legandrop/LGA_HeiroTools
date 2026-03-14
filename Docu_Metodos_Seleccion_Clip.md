@@ -1,3 +1,5 @@
+> **Regla de documentacion**: este archivo describe el estado actual del codigo. No es un historial de cambios, changelog ni bitacora temporal.
+
 # Métodos de Selección de Clip en Scripts LGA_NKS
 
 Este documento describe los dos métodos principales utilizados en los scripts para determinar sobre qué clip se está actuando.
@@ -30,8 +32,8 @@ Este método utiliza los clips que están actualmente seleccionados en el timeli
 - **`LGA_NKS_Flow/LGA_NKS_Flow_CreateShot.py`** (línea 136) - `selected_clips = timeline_editor.selection()`
 
 #### Paneles:
-- [x] **`LGA_NKS_Flow_Assignee_Panel.py`** - Usa `get_clips_to_process()` del módulo `LGA_NKS_GetClip` con `prioritize_multiple_selection=True` (método híbrido: selección múltiple prioritaria, playhead para selección simple)
-- **`LGA_NKS_Flow_FlowProd_Panel.py`** - Llama a scripts que usan selección
+- [x] **`LGA_NKS_Assignee_Panel.py`** - Usa `get_clips_to_process()` del módulo `LGA_NKS_GetClip` con `prioritize_multiple_selection=True` (método híbrido: selección múltiple prioritaria, playhead para selección simple)
+- **`LGA_NKS_Coordination_Panel.py`** - Llama a scripts que usan selección
 
 #### Scripts de NKS:
 - **`LGA_NKS/LGA_NKS_Trim_In.py`** (línea 396) - `selected_clips = te.selection()`
@@ -46,7 +48,7 @@ Este método utiliza los clips que están actualmente seleccionados en el timeli
 - **`LGA_NKS/LGA_NKS_ON_Clips_OFF_v00-Clips.py`** - Procesa clips seleccionados o todos
 
 #### Paneles de EditTools:
-- **`LGA_NKS_EditTools_Panel.py`** - Múltiples funciones usan `selected_clips = te.selection()`
+- **`LGA_NKS_Edit_Panel.py`** - Múltiples funciones usan `selected_clips = te.selection()`
 
 ---
 
@@ -84,7 +86,7 @@ Este método obtiene la posición actual del playhead (`viewer.time()`) y busca 
 - [x] **`LGA_NKS_Flow/LGA_NKS_Flow_Shot_info.py`** - Usa módulo centralizado `LGA_NKS_GetClip` con `track_name=None` (NO permite selecciones múltiples)
 - [x] **`LGA_NKS_Flow/LGA_NKS_Flow_Push.py`** - Usa módulo centralizado `LGA_NKS_GetClip` con `track_name=None` en función `push_from_selected_clips()` (permite selecciones múltiples, con límite de 4 clips requiere confirmación)
 - [x] **`LGA_NKS_Flow/LGA_NKS_Flow_ShowInFlow.py`** - Usa módulo centralizado `LGA_NKS_GetClip` con `track_name=None` (permite selecciones múltiples)
-- [x] **`LGA_NKS_Flow_Assignee_Panel.py`** - Usa `get_clips_to_process()` del módulo `LGA_NKS_GetClip` con `prioritize_multiple_selection=True` (método híbrido: selección múltiple prioritaria, playhead para selección simple)
+- [x] **`LGA_NKS_Assignee_Panel.py`** - Usa `get_clips_to_process()` del módulo `LGA_NKS_GetClip` con `prioritize_multiple_selection=True` (método híbrido: selección múltiple prioritaria, playhead para selección simple)
 - [x] **`LGA_NKS_Flow/LGA_NKS_ReviewPic.py`** - Usa módulo centralizado `LGA_NKS_GetClip` con `track_name=None` (NO permite selecciones múltiples)
 - [x] **`LGA_NKS/LGA_NKS_Clip_DisableEXR.py`** - Usa módulo centralizado `LGA_NKS_GetClip` (NO permite selecciones múltiples)
 - [x] **`LGA_NKS_Edit/LGA_NKS_CompareEXR_to_aPlate.py`** - Usa módulo centralizado `LGA_NKS_GetClip` (permite selecciones múltiples)
@@ -380,7 +382,7 @@ for clip in clips:
 #### `get_clips_to_process(track_name=None, prioritize_multiple_selection=False)`
 **Procesamiento de múltiples clips (siempre devuelve lista)**
 
-- **`LGA_NKS_Flow_Assignee_Panel.py`** - `track_name=None`, `prioritize_multiple_selection=True` (método híbrido prioritario)
+- **`LGA_NKS_Assignee_Panel.py`** - `track_name=None`, `prioritize_multiple_selection=True` (método híbrido prioritario)
 - **`LGA_NKS_Flow/LGA_NKS_Flow_ShowInFlow.py`** - `track_name=None`, `prioritize_multiple_selection=True`
 - **`LGA_NKS_Flow/LGA_NKS_Flow_Push.py`** - `push_from_selected_clips()` usa `track_name=None`, `prioritize_multiple_selection=True`
 - **`LGA_NKS_Edit/LGA_NKS_CompareEXR_to_aPlate.py`** - `track_name=None`, permite selecciones múltiples
@@ -408,7 +410,7 @@ for clip in clips:
 - **`LGA_NKS/LGA_NKS_SelfReplaceClip.py`** - `selected_clips = te.selection()`
 - **`LGA_NKS/LGA_NKS_Reconnect.py`** - `selected_clips = te.selection()`
 - **`LGA_NKS/LGA_NKS_ON_Clips_OFF_v00-Clips.py`** - Procesa clips seleccionados o todos
-- **`LGA_NKS_EditTools_Panel.py`** - Múltiples funciones usan `selected_clips = te.selection()`
+- **`LGA_NKS_Edit_Panel.py`** - Múltiples funciones usan `selected_clips = te.selection()`
 
 ---
 

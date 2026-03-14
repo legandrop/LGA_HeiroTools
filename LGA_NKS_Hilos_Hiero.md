@@ -1,3 +1,5 @@
+> **Regla de documentacion**: este archivo describe el estado actual del codigo. No es un historial de cambios, changelog ni bitacora temporal.
+
 # Trabajo con Hilos en Hiero - Guía de Referencia
 
 Este documento explica cómo trabajar correctamente con hilos en scripts de Hiero/Nuke Studio para evitar bloquear el hilo principal de la UI.

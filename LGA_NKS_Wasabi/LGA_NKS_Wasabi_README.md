@@ -1,3 +1,5 @@
+> **Regla de documentacion**: este archivo describe el estado actual del codigo. No es un historial de cambios, changelog ni bitacora temporal.
+
 # LGA NKS Wasabi - Gestión Automática de Políticas IAM
 
 Este módulo automatiza la creación y gestión de políticas de acceso IAM en Wasabi basándose en los clips seleccionados en Hiero.

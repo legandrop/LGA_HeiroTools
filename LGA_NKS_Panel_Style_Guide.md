@@ -1,3 +1,5 @@
+> **Regla de documentacion**: este archivo describe el estado actual del codigo. No es un historial de cambios, changelog ni bitacora temporal.
+
 # Guía: Sistema de Estilos Personalizados para Paneles Hiero
 
 ## Sistema de Estilos Avanzado

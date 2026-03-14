@@ -1,3 +1,5 @@
+> **Regla de documentacion**: este archivo describe el estado actual del codigo. No es un historial de cambios, changelog ni bitacora temporal.
+
 # Módulo LGA_Projects_Panel_SwitchSequence
 
 ## Resumen

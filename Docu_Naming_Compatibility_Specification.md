@@ -1,3 +1,5 @@
+> **Regla de documentacion**: este archivo describe el estado actual del codigo. No es un historial de cambios, changelog ni bitacora temporal.
+
 # Especificación de Compatibilidad de Nomenclatura - LGA_NKS_Flow (Hiero/Nuke Studio)
 
 ## Introducción

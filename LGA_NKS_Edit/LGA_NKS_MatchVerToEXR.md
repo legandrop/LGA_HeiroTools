@@ -1,3 +1,5 @@
+> **Regla de documentacion**: este archivo describe el estado actual del codigo. No es un historial de cambios, changelog ni bitacora temporal.
+
 # LGA_NKS_MatchVerToEXR
 
 Herramienta para sincronizar versiones entre tracks `_comp_` y `_rev_` en Hiero/Nuke Studio.
@@ -13,7 +15,7 @@ Busca la versión actual de los clips del track `_comp_` (configurado en `TRACK_
 ## Archivos principales
 
 - **Script principal:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit\LGA_NKS_MatchVerToEXR.py`
-- **Panel de control:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_EditTools_Panel.py`
+- **Panel de control:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel.py`
 
 ## Acceso
 

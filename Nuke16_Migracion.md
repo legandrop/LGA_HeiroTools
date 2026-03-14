@@ -1,3 +1,5 @@
+> **Regla de documentacion**: este archivo describe el estado actual del codigo. No es un historial de cambios, changelog ni bitacora temporal.
+
 # Plan de migración Nuke 15 → Nuke 16 (PySide2 → PySide6) - Hiero Panels
 
 ## Estrategia
@@ -10,14 +12,14 @@
 ## Paneles Principales (requieren migración completa)
 
 ### Paneles de UI principales
-- [x] `LGA_NKS_Color_Panel.py` — Panel de colores de clips (PySide2.QtWidgets, PySide2.QtGui)
-- [x] `LGA_NKS_EditTools_Panel.py` — Panel de herramientas de edición (PySide2.QtWidgets, PySide2.QtGui, PySide2.QtCore)
-- [x] `LGA_NKS_Flow_Assignee_Panel.py` — Panel de asignación de usuarios Flow (PySide2.QtWidgets, PySide2.QtGui, PySide2.QtCore)
-- [x] `LGA_NKS_Flow_FlowProd_Panel.py` — Panel de producción Flow (PySide2.QtWidgets, PySide2.QtGui, PySide2.QtCore)
+- [x] `LGA_NKS_ClipColor_Panel.py` — Panel de colores de clips (PySide2.QtWidgets, PySide2.QtGui)
+- [x] `LGA_NKS_Edit_Panel.py` — Panel de herramientas de edición (PySide2.QtWidgets, PySide2.QtGui, PySide2.QtCore)
+- [x] `LGA_NKS_Assignee_Panel.py` — Panel de asignación de usuarios Flow (PySide2.QtWidgets, PySide2.QtGui, PySide2.QtCore)
+- [x] `LGA_NKS_Coordination_Panel.py` — Panel de producción Flow (PySide2.QtWidgets, PySide2.QtGui, PySide2.QtCore)
 - [x] `LGA_NKS_Flow_Panel.py` — Panel principal Flow (PySide2.QtWidgets, PySide2.QtGui, PySide2.QtCore)
 - [x] `LGA_NKS_Review_Panel.py` — Panel de revisión (PySide2.QtWidgets, PySide2.QtGui, PySide2.QtCore)
-- [x] `LGA_NKS_ViewerPanel.py` — Panel de viewer (PySide2.QtWidgets, PySide2.QtGui, PySide2.QtCore)
-- [x] `LGA_NKS_FlowNo_Panel.py` — Panel Flow alternativo (PySide2.QtWidgets, PySide2.QtGui)
+- [x] `LGA_NKS_ViewerTL_Panel.py` — Panel de viewer (PySide2.QtWidgets, PySide2.QtGui, PySide2.QtCore)
+- [x] `LGA_NKS_NoFPT_Panel.py` — Panel Flow alternativo (PySide2.QtWidgets, PySide2.QtGui)
 
 ### Archivos adicionales migrados (scripts auxiliares)
 - [x] `LGA_NKS_Shortcuts.py` — Atajos de teclado (migrado a LGA_QtAdapter_HieroTools)
@@ -128,8 +130,8 @@
    - `set_layout_margin(layout, margin)` - márgenes de layout compatibles Qt5/Qt6
 
 2. **Migrar paneles principales** (orden recomendado):
-   - Empezar con paneles simples como `LGA_NKS_Color_Panel.py`
-   - Continuar con `LGA_NKS_ViewerPanel.py`
+   - Empezar con paneles simples como `LGA_NKS_ClipColor_Panel.py`
+   - Continuar con `LGA_NKS_ViewerTL_Panel.py`
    - Luego paneles complejos como `LGA_NKS_Flow_Panel.py`
 
 3. **Migrar scripts de funcionalidad**:
@@ -170,7 +172,7 @@ Algunos scripts pueden usar APIs de fuente que cambiaron.
 ### Problema resuelto: API del Undo System
 **Problema identificado:** En versiones recientes, `project.undoStack()` ya no existe.
 
-**Ejemplo con `LGA_NKS_EditTools_Panel.py`:**
+**Ejemplo con `LGA_NKS_Edit_Panel.py`:**
 - **❌ Código problemático (API antigua):**
   ```python
   project.beginUndo("Operation")

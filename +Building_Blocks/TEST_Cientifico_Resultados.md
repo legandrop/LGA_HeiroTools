@@ -1,3 +1,5 @@
+> **Regla de documentacion**: este archivo describe el estado actual del codigo. No es un historial de cambios, changelog ni bitacora temporal.
+
 # TEST CIENTÍFICO - RESULTADOS POR FUNCIÓN
 
 **Fecha:** 5 Enero 2026  

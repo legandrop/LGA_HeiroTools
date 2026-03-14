@@ -1,3 +1,5 @@
+> **Regla de documentacion**: este archivo describe el estado actual del codigo. No es un historial de cambios, changelog ni bitacora temporal.
+
 # 🚀 Guía del Sistema de Logging Avanzado
 
 ## 📋 Descripción General
@@ -25,11 +27,11 @@ Esta guía documenta cómo implementar un sistema de logging robusto que escribe
 - **Scripts que lo usan**:
   - `LGA_NKS_Flow/LGA_NKS_Flow_Pull.py` (log: `debugPy_FlowPull.log`)
   - `LGA_NKS_Flow_Panel.py`
-  - `LGA_NKS_Flow_FlowProd_Panel.py`
-  - `LGA_NKS_ViewerPanel.py`
-  - `LGA_NKS_EditTools_Panel.py`
+  - `LGA_NKS_Coordination_Panel.py`
+  - `LGA_NKS_ViewerTL_Panel.py`
+  - `LGA_NKS_Edit_Panel.py`
   - `LGA_NKS_Review_Panel.py`
-  - `LGA_NKS_Flow_Assignee_Panel.py`
+  - `LGA_NKS_Assignee_Panel.py`
   - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py`
   - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ModifyShot.py`
   - `LGA_NKS_Edit/LGA_NKS_OrganizeProject.py`
