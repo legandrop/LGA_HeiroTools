@@ -264,9 +264,10 @@ No depende de una carpeta privada propia.
 
 ### 9. NoFPT Panel
 
-Panel:
+Estado actual:
 
-- `LGA_NKS_NoFPT_Panel.py`
+- Archivado en `+Building_Blocks/LGA_NKS_NoFPT_Panel.py`
+- Ya no forma parte del startup operativo
 
 Problema actual:
 
@@ -277,7 +278,7 @@ Esa carpeta no existe actualmente en el repo.
 
 Conclusion:
 
-- `LGA_NKS_NoFPT_Panel.py` esta referenciando nombres y ubicaciones legacy.
+- Queda archivado como panel legacy no operativo.
 
 ## Scripts compartidos detectados
 
@@ -953,8 +954,8 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
 
 ### Etapa 7. NoFPT Panel
 
-- Resolver primero las referencias legacy rotas
-- Recién despues migrar `LGA_NKS_NoFPT_Panel.py`
+- Archivado en `+Building_Blocks/`
+- No se migra como parte del runtime actual
 
 ### Etapa 8. Projects Panel
 
