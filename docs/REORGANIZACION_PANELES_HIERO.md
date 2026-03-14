@@ -29,7 +29,6 @@ El criterio usado es:
 - `LGA_NKS_Review_Panel.py`
 - `LGA_NKS_Projects_Panel.py`
 - `LGA_NKS_ClipColor_Panel.py`
-- `LGA_NKS_NoFPT_Panel.py`
 
 ### Mapa de nombres canonicos de panel
 
@@ -50,9 +49,9 @@ El criterio usado es:
 - `LGA_NKS/`
 - `LGA_NKS_Edit/`
 - `LGA_NKS_Flow/`
-- `LGA_NKS_Flow_Prod/`
-- `LGA_NKS_Utils/`
-- `LGA_NKS_ViewerTL/`
+- `LGA_NKS_Shared/`
+- `LGA_NKS_Coordination_Panel_py/`
+- `LGA_NKS_ViewerTL_Panel_py/`
 - `LGA_NKS_Wasabi/`
 - `LGA_NKS_Projects_Panel_py/`
 
@@ -80,13 +79,13 @@ Hoy carga scripts desde:
 - `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py`
 - `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Shot_info.py`
 - `LGA_NKS_Flow_Panel_py/LGA_NKS_ReviewPic.py`
-- `LGA_NKS_SharedActions/LGA_NKS_Delete_ClipTags.py`
+- `LGA_NKS_Shared/LGA_NKS_Delete_ClipTags.py`
 
 Tambien usa shareds:
 
-- `LGA_NKS_Flow/LGA_NKS_Flow_NamingUtils.py`
-- `LGA_NKS_Utils/LGA_NKS_StyleUtils.py`
-- `LGA_NKS_Utils/LGA_NKS_GetClip.py`
+- `LGA_NKS_Shared/LGA_NKS_Flow_NamingUtils.py`
+- `LGA_NKS_Shared/LGA_NKS_StyleUtils.py`
+- `LGA_NKS_Shared/LGA_NKS_GetClip.py`
 
 ### 2. Assignees Panel
 
@@ -116,9 +115,9 @@ Y sus dependencias runtime de Wasabi tambien viven ahi:
 
 Tambien usa shareds:
 
-- `LGA_NKS_Flow/LGA_NKS_Flow_NamingUtils.py`
-- `LGA_NKS_Utils/LGA_NKS_GetClip.py`
-- `LGA_NKS_Utils/LGA_NKS_StyleUtils.py`
+- `LGA_NKS_Shared/LGA_NKS_Flow_NamingUtils.py`
+- `LGA_NKS_Shared/LGA_NKS_GetClip.py`
+- `LGA_NKS_Shared/LGA_NKS_StyleUtils.py`
 - `LGA_NKS_Flow_Users.json`
 - `LGA_NKS_Flow_Task_Config.py`
 
@@ -144,8 +143,8 @@ Hoy carga scripts desde:
 
 Tambien usa shareds:
 
-- `LGA_NKS_Flow/LGA_NKS_Flow_NamingUtils.py`
-- `LGA_NKS_Utils/LGA_NKS_StyleUtils.py`
+- `LGA_NKS_Shared/LGA_NKS_Flow_NamingUtils.py`
+- `LGA_NKS_Shared/LGA_NKS_StyleUtils.py`
 - `LGA_NKS_Flow_Task_Config.py` indirectamente via `LGA_NKS_Flow_CreateShot.py`
 
 ### 4. ViewerTL Panel
@@ -166,8 +165,8 @@ Hoy carga scripts desde:
 
 Tambien usa shareds:
 
-- `LGA_NKS_Utils/LGA_NKS_StyleUtils.py`
-- `LGA_NKS_Flow/SecureConfig_Reader.py`
+- `LGA_NKS_Shared/LGA_NKS_StyleUtils.py`
+- `LGA_NKS_Shared/SecureConfig_Reader.py`
 
 ### 5. Edit Panel
 
@@ -193,13 +192,13 @@ Hoy carga scripts desde:
 
 Tambien carga shareds fuera de esa carpeta:
 
-- `LGA_NKS_SharedActions/LGA_NKS_Delete_ClipTags.py`
-- `LGA_NKS_SharedActions/LGA_NKS_SelfReplaceClip.py`
+- `LGA_NKS_Shared/LGA_NKS_Delete_ClipTags.py`
+- `LGA_NKS_Shared/LGA_NKS_SelfReplaceClip.py`
 
 Tambien usa shareds:
 
-- `LGA_NKS_Flow_NamingUtils.py`
-- `LGA_NKS_Utils/LGA_NKS_StyleUtils.py`
+- `LGA_NKS_Shared/LGA_NKS_Flow_NamingUtils.py`
+- `LGA_NKS_Shared/LGA_NKS_StyleUtils.py`
 
 ### 6. Review Panel
 
@@ -221,11 +220,11 @@ Hoy carga scripts desde:
 
 Tambien carga:
 
-- `LGA_NKS_SharedActions/LGA_NKS_SelfReplaceClip.py`
+- `LGA_NKS_Shared/LGA_NKS_SelfReplaceClip.py`
 
 Tambien usa shareds:
 
-- `LGA_NKS_Utils/LGA_NKS_StyleUtils.py`
+- `LGA_NKS_Shared/LGA_NKS_StyleUtils.py`
 
 ### 7. Projects Panel
 
@@ -235,19 +234,19 @@ Panel:
 
 Hoy carga scripts y recursos desde:
 
-- `LGA_Projects_Panel/LGA_Projects_Panel_ScanProjects.py`
-- `LGA_Projects_Panel/LGA_Projects_Panel_SwitchSequence.py`
-- `LGA_Projects_Panel/LGA_NKS_ProjectItem.py`
-- `LGA_Projects_Panel/LGA_NKS_Workers.py`
-- `LGA_Projects_Panel/LGA_NKS_UIManager.py`
-- `LGA_Projects_Panel/LGA_NKS_ScanManager.py`
-- `LGA_Projects_Panel/LGA_NKS_ProjectHandler.py`
-- `LGA_Projects_Panel/LGA_NKS_Projects_Panel_Smart_Reload.py`
-- `LGA_Projects_Panel/*.svg`
+- `LGA_NKS_Projects_Panel_py/LGA_Projects_Panel_ScanProjects.py`
+- `LGA_NKS_Projects_Panel_py/LGA_Projects_Panel_SwitchSequence.py`
+- `LGA_NKS_Projects_Panel_py/LGA_NKS_ProjectItem.py`
+- `LGA_NKS_Projects_Panel_py/LGA_NKS_Workers.py`
+- `LGA_NKS_Projects_Panel_py/LGA_NKS_UIManager.py`
+- `LGA_NKS_Projects_Panel_py/LGA_NKS_ScanManager.py`
+- `LGA_NKS_Projects_Panel_py/LGA_NKS_ProjectHandler.py`
+- `LGA_NKS_Projects_Panel_py/LGA_NKS_Projects_Panel_Smart_Reload.py`
+- `LGA_NKS_Projects_Panel_py/*.svg`
 
 Tambien usa shareds:
 
-- `LGA_NKS_Utils/LGA_NKS_StyleUtils.py`
+- `LGA_NKS_Shared/LGA_NKS_StyleUtils.py`
 - `LGA_NKS_Projects_Panel.ini`
 
 ### 8. ClipColor Panel
@@ -258,7 +257,7 @@ Panel:
 
 Hoy usa shareds:
 
-- `LGA_NKS_Utils/LGA_NKS_StyleUtils.py`
+- `LGA_NKS_Shared/LGA_NKS_StyleUtils.py`
 
 No depende de una carpeta privada propia.
 
@@ -285,25 +284,25 @@ Conclusion:
 ### Shared generales
 
 - `LGA_QtAdapter_HieroTools.py`
-- `LGA_NKS_Utils/LGA_NKS_StyleUtils.py`
-- `LGA_NKS_Utils/LGA_NKS_GetClip.py`
+- `LGA_NKS_Shared/LGA_NKS_StyleUtils.py`
+- `LGA_NKS_Shared/LGA_NKS_GetClip.py`
 
 ### Shared de dominio Flow
 
-- `LGA_NKS_Flow/LGA_NKS_Flow_NamingUtils.py`
+- `LGA_NKS_Shared/LGA_NKS_Flow_NamingUtils.py`
 - `LGA_NKS_Flow_Task_Config.py`
 - `LGA_NKS_Flow_Users.json`
-- `LGA_NKS_Flow/SecureConfig_Reader.py`
+- `LGA_NKS_Shared/SecureConfig_Reader.py`
 
 ### Shared de acciones
 
-- `LGA_NKS_SharedActions/LGA_NKS_Delete_ClipTags.py`
-- `LGA_NKS_SharedActions/LGA_NKS_Delete_ClipTags.py`
+- `LGA_NKS_Shared/LGA_NKS_Delete_ClipTags.py`
+- `LGA_NKS_Shared/LGA_NKS_Delete_ClipTags.py`
   - Usado por `Flow Panel`
   - Usado por `Edit Panel`
   - `NoFPT Panel` intenta usar su variante legacy
 
-- `LGA_NKS_SharedActions/LGA_NKS_SelfReplaceClip.py`
+- `LGA_NKS_Shared/LGA_NKS_SelfReplaceClip.py`
   - Usado por `Edit Panel`
   - Usado por `Review Panel`
 
@@ -390,29 +389,29 @@ Conclusion:
 
 ### Projects Panel
 
-- `LGA_Projects_Panel/LGA_Projects_Panel_ScanProjects.py`
-- `LGA_Projects_Panel/LGA_Projects_Panel_SwitchSequence.py`
-- `LGA_Projects_Panel/LGA_NKS_ProjectItem.py`
-- `LGA_Projects_Panel/LGA_NKS_Workers.py`
-- `LGA_Projects_Panel/LGA_NKS_UIManager.py`
-- `LGA_Projects_Panel/LGA_NKS_ScanManager.py`
-- `LGA_Projects_Panel/LGA_NKS_ProjectHandler.py`
-- `LGA_Projects_Panel/LGA_NKS_Projects_Panel_Smart_Reload.py`
-- `LGA_Projects_Panel/*.svg`
+- `LGA_NKS_Projects_Panel_py/LGA_Projects_Panel_ScanProjects.py`
+- `LGA_NKS_Projects_Panel_py/LGA_Projects_Panel_SwitchSequence.py`
+- `LGA_NKS_Projects_Panel_py/LGA_NKS_ProjectItem.py`
+- `LGA_NKS_Projects_Panel_py/LGA_NKS_Workers.py`
+- `LGA_NKS_Projects_Panel_py/LGA_NKS_UIManager.py`
+- `LGA_NKS_Projects_Panel_py/LGA_NKS_ScanManager.py`
+- `LGA_NKS_Projects_Panel_py/LGA_NKS_ProjectHandler.py`
+- `LGA_NKS_Projects_Panel_py/LGA_NKS_Projects_Panel_Smart_Reload.py`
+- `LGA_NKS_Projects_Panel_py/*.svg`
 
 ## Problemas detectados
 
 ### Naming inconsistente entre panel y carpeta
 
-- `LGA_NKS_Projects_Panel.py` usa carpeta `LGA_Projects_Panel/`
-- `LGA_NKS_ViewerTL_Panel.py` usa carpeta `LGA_NKS_ViewerTL/`
-- `LGA_NKS_Coordination_Panel.py` usa carpeta `LGA_NKS_Flow_Prod/`
-- `LGA_NKS_Review_Panel.py` usa carpeta generica `LGA_NKS/`
+- `LGA_NKS_Projects_Panel.py` usa carpeta `LGA_NKS_Projects_Panel_py/`
+- `LGA_NKS_ViewerTL_Panel.py` usa carpeta `LGA_NKS_ViewerTL_Panel_py/`
+- `LGA_NKS_Coordination_Panel.py` usa carpeta `LGA_NKS_Coordination_Panel_py/`
+- `LGA_NKS_Review_Panel.py` usa carpeta `LGA_NKS_Review_Panel_py/`
 
 ### Carpetas que parecen privadas pero no lo son
 
-- `LGA_NKS_Flow/` contiene privados del Flow Panel, privados del Assignee Panel y shareds de dominio Flow.
-- `LGA_NKS_Edit/` contiene mayormente privados de EditTools, pero tambien `LGA_NKS_SelfReplaceClip.py` que lo usa Review.
+- `LGA_NKS_Shared/` concentra todos los modulos compartidos usados por multiples paneles.
+- `LGA_NKS/` ya no contiene shareds activos; ahora conserva solo scripts legacy/no migrados.
 
 ### Legacy roto
 
@@ -438,7 +437,7 @@ Conclusion:
   - No lo llama un panel directo.
   - Lo usan:
     - `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh_Wrap.py` del `ViewerTL Panel`
-    - `LGA_Projects_Panel/LGA_Projects_Panel_SwitchSequence.py` del `Projects Panel`
+    - `LGA_NKS_Projects_Panel_py/LGA_Projects_Panel_SwitchSequence.py` del `Projects Panel`
 
 ## Propuesta de reorganizacion
 
@@ -468,7 +467,7 @@ Startup/
     LGA_NKS_GetClip.py
     LGA_NKS_Reduce_SeqWin.py
 
-  LGA_NKS_Flow_Shared/
+  LGA_NKS_Shared/
     LGA_NKS_Flow_NamingUtils.py
     LGA_NKS_Flow_Task_Config.py
     LGA_NKS_Flow_Users.json
@@ -547,7 +546,7 @@ Startup/
     LGA_NKS_OpenInNukeX.py
     LGA_NKS_Clip_DisableEXR.py
 
-  LGA_NKS_SharedActions/
+  LGA_NKS_Shared/
     LGA_NKS_Delete_ClipTags.py
     LGA_NKS_SelfReplaceClip.py
     LGA_NKS_ScrollTo_TopTrack.py
@@ -594,7 +593,7 @@ Porque hoy ya no es privado de Edit:
 - Lo usa `Edit Panel`
 - Lo usa `Review Panel`
 
-Ambos deberian vivir en `LGA_NKS_SharedActions/`.
+Ambos deberian vivir en `LGA_NKS_Shared/`.
 
 ### Por que `LGA_NKS_Reduce_SeqWin.py` va a `LGA_NKS_Shared/`
 
@@ -633,7 +632,7 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
     - `LGA_NKS_Assignee_Panel_py/LGA_NKS_Wasabi_PolicyAssign.py` usado por `Assignees Panel`
     - `LGA_NKS_Assignee_Panel_py/LGA_NKS_Wasabi_PolicyUnassign.py` usado por `Assignees Panel`
 
-- `LGA_NKS_Flow/LGA_NKS_Flow_NamingUtils.py`
+- `LGA_NKS_Shared/LGA_NKS_Flow_NamingUtils.py`
   - Lo usan:
     - `LGA_NKS_Flow_Panel.py` del `Flow Panel`
     - `LGA_NKS_Assignee_Panel.py` del `Assignees Panel`
@@ -641,18 +640,19 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
     - `LGA_NKS_Edit_Panel.py` del `Edit Panel`
     - varios scripts de `LGA_NKS_Edit/`
 
-- `LGA_NKS_Flow/SecureConfig_Reader.py`
+- `LGA_NKS_Shared/SecureConfig_Reader.py`
   - Lo usan:
     - `LGA_NKS_ViewerTL_Panel.py` del `ViewerTL Panel`
-    - scripts de `LGA_NKS_Flow/`
-    - scripts de `LGA_NKS_Wasabi/`
+    - scripts de `LGA_NKS_Flow_Panel_py/`
+    - scripts de `LGA_NKS_Assignee_Panel_py/`
+    - scripts de `LGA_NKS_Coordination_Panel_py/`
 
 ### Shared generales
 
 - `LGA_QtAdapter_HieroTools.py`
   - Lo usan todos los paneles principales y la mayoria de los scripts auxiliares.
 
-- `LGA_NKS_Utils/LGA_NKS_StyleUtils.py`
+- `LGA_NKS_Shared/LGA_NKS_StyleUtils.py`
   - Lo usan:
     - `LGA_NKS_ClipColor_Panel.py` del `ClipColor Panel`
     - `LGA_NKS_Projects_Panel.py` del `Projects Panel`
@@ -663,23 +663,23 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
     - `LGA_NKS_Coordination_Panel.py` del `Coordination Panel`
     - `LGA_NKS_Edit_Panel.py` del `Edit Panel`
 
-- `LGA_NKS_Utils/LGA_NKS_GetClip.py`
+- `LGA_NKS_Shared/LGA_NKS_GetClip.py`
   - Lo usan:
     - `LGA_NKS_Flow_Panel.py` del `Flow Panel`
     - `LGA_NKS_Assignee_Panel.py` del `Assignees Panel`
     - varios scripts de `LGA_NKS_Edit/`
-    - varios scripts de `LGA_NKS_Flow_Prod/`
+    - varios scripts de `LGA_NKS_Coordination_Panel_py/`
     - algunos scripts de `LGA_NKS/`
 
 ### Shared actions
 
-- `LGA_NKS_SharedActions/LGA_NKS_Delete_ClipTags.py`
+- `LGA_NKS_Shared/LGA_NKS_Delete_ClipTags.py`
   - Lo usan:
     - `LGA_NKS_Flow_Panel.py` del `Flow Panel`
     - `LGA_NKS_Edit_Panel.py` del `Edit Panel`
     - `LGA_NKS_NoFPT_Panel.py` lo intenta usar con nombre legacy
 
-- `LGA_NKS_SharedActions/LGA_NKS_SelfReplaceClip.py`
+- `LGA_NKS_Shared/LGA_NKS_SelfReplaceClip.py`
   - Lo usan:
     - `LGA_NKS_Edit_Panel.py` del `Edit Panel`
     - `LGA_NKS_Review_Panel.py` del `Review Panel`
@@ -782,12 +782,12 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
 - `LGA_NKS_Shared/LGA_NKS_Reduce_SeqWin.py`
   - Lo usan:
     - `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh_Wrap.py` del `ViewerTL Panel`
-    - `LGA_Projects_Panel/LGA_Projects_Panel_SwitchSequence.py` del `Projects Panel`
+    - `LGA_NKS_Projects_Panel_py/LGA_Projects_Panel_SwitchSequence.py` del `Projects Panel`
 
 - `LGA_NKS_Shared/LGA_NKS_ScrollTo_TopTrack.py`
   - Lo usan:
     - `LGA_NKS_ViewerTL_Panel.py` del `ViewerTL Panel`
-    - `LGA_Projects_Panel/LGA_Projects_Panel_SwitchSequence.py` del `Projects Panel`
+    - `LGA_NKS_Projects_Panel_py/LGA_Projects_Panel_SwitchSequence.py` del `Projects Panel`
 
 - `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_InOut_Editref.py`
   - Lo usa `LGA_NKS_ViewerTL_Panel.py`.
@@ -877,37 +877,37 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
 
 ### Projects Panel
 
-- `LGA_Projects_Panel/LGA_Projects_Panel_ScanProjects.py`
+- `LGA_NKS_Projects_Panel_py/LGA_Projects_Panel_ScanProjects.py`
   - Lo usa `LGA_NKS_Projects_Panel.py`.
 
-- `LGA_Projects_Panel/LGA_Projects_Panel_SwitchSequence.py`
+- `LGA_NKS_Projects_Panel_py/LGA_Projects_Panel_SwitchSequence.py`
   - Lo usa `LGA_NKS_Projects_Panel.py`.
   - A su vez usa `LGA_NKS_Shared/LGA_NKS_Reduce_SeqWin.py`.
 
-- `LGA_Projects_Panel/LGA_NKS_ProjectItem.py`
+- `LGA_NKS_Projects_Panel_py/LGA_NKS_ProjectItem.py`
   - Lo usa `LGA_NKS_Projects_Panel.py`.
 
-- `LGA_Projects_Panel/LGA_NKS_Workers.py`
+- `LGA_NKS_Projects_Panel_py/LGA_NKS_Workers.py`
   - Lo usa `LGA_NKS_Projects_Panel.py`.
 
-- `LGA_Projects_Panel/LGA_NKS_UIManager.py`
+- `LGA_NKS_Projects_Panel_py/LGA_NKS_UIManager.py`
   - Lo usa `LGA_NKS_Projects_Panel.py`.
 
-- `LGA_Projects_Panel/LGA_NKS_ScanManager.py`
+- `LGA_NKS_Projects_Panel_py/LGA_NKS_ScanManager.py`
   - Lo usa `LGA_NKS_Projects_Panel.py`.
 
-- `LGA_Projects_Panel/LGA_NKS_ProjectHandler.py`
+- `LGA_NKS_Projects_Panel_py/LGA_NKS_ProjectHandler.py`
   - Lo usa `LGA_NKS_Projects_Panel.py`.
 
-- `LGA_Projects_Panel/LGA_NKS_Projects_Panel_Smart_Reload.py`
+- `LGA_NKS_Projects_Panel_py/LGA_NKS_Projects_Panel_Smart_Reload.py`
   - Lo usa `LGA_NKS_Projects_Panel.py`.
 
 ## Prioridad sugerida para implementar despues
 
-1. Resolver el legacy roto de `LGA_NKS_NoFPT_Panel.py`
-2. Separar shareds reales de `LGA_NKS_Flow/`
-3. Renombrar carpetas privadas para que coincidan con el panel
-4. Separar `LGA_NKS/` en `LGA_NKS_Review_Panel_py/` y `SharedActions`
+1. Revisar docs y READMEs legacy que todavia mencionan rutas anteriores
+2. Limpiar restos no operativos de `LGA_NKS_Flow/` si ya no hacen falta en runtime
+3. Renombrar carpetas privadas para que coincidan con el panel cuando aparezcan nuevos casos
+4. Mantener `+Building_Blocks/` como archivo de legacy, no como runtime
 5. Mover `StyleUtils`, `GetClip` y `QtAdapter` a una carpeta shared unica
 
 ## Etapas sugeridas de implementacion

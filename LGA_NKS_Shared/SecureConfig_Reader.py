@@ -1,3 +1,20 @@
+"""
+Usado por runtime activo:
+- LGA_NKS_ViewerTL_Panel.py
+- LGA_NKS_Projects_Panel_py/LGA_Projects_Panel_ScanProjects.py
+- LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py
+- LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assignee.py
+- LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assign_Assignee.py
+- LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Clear_Assignees.py
+- LGA_NKS_Assignee_Panel_py/LGA_NKS_Wasabi_PolicyAssign.py
+- LGA_NKS_Assignee_Panel_py/LGA_NKS_Wasabi_PolicyUnassign.py
+- LGA_NKS_Assignee_Panel_py/LGA_NKS_Wasabi_PolicyUnassign_CompletedShots.py
+- LGA_NKS_Assignee_Panel_py/wasabi_policy_utils.py
+- LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShowInFlow.py
+- LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.py
+- LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShotPriority.py
+"""
+
 import sys
 import os
 import json

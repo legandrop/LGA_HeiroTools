@@ -35,11 +35,11 @@ from pathlib import Path
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 
 # Importar utilidades de naming
-sys.path.append(str(Path(__file__).parent / "LGA_NKS_Flow"))
+sys.path.append(str(Path(__file__).parent / "LGA_NKS_Shared"))
 from LGA_NKS_Flow_NamingUtils import clean_base_name
 
 # Importar funciones de utilidad de estilos
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Utils"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Shared"))
 from LGA_NKS_Shared.LGA_NKS_StyleUtils import (
     calculate_dynamic_border,
     calculate_dynamic_hover,
@@ -546,7 +546,7 @@ class ColorChangeWidget(QtWidgets.QWidget):
                             # Importar y ejecutar el script de la subcarpeta para cada clip valido
                             script_path = os.path.join(
                                 os.path.dirname(__file__),
-                                "LGA_NKS_SharedActions",
+                                "LGA_NKS_Shared",
                                 "LGA_NKS_Delete_ClipTags.py",
                             )
                             if os.path.exists(script_path):
@@ -720,9 +720,9 @@ class ColorChangeWidget(QtWidgets.QWidget):
             # Importar el módulo utilitario para obtener clips
             from pathlib import Path
 
-            utils_path = Path(__file__).parent / "LGA_NKS_Utils"
+            utils_path = Path(__file__).parent / "LGA_NKS_Shared"
             if not utils_path.exists():
-                debug_print("ERROR: No se encontró el módulo LGA_NKS_Utils")
+                debug_print("ERROR: No se encontró el módulo LGA_NKS_Shared")
                 return
 
             import sys
@@ -812,7 +812,7 @@ class ColorChangeWidget(QtWidgets.QWidget):
             # Importar el módulo utilitario para obtener clips
             from pathlib import Path
 
-            utils_path = Path(__file__).parent / "LGA_NKS_Utils"
+            utils_path = Path(__file__).parent / "LGA_NKS_Shared"
             if not utils_path.exists():
                 # Fallback al método antiguo si no existe el módulo
                 seq = hiero.ui.activeSequence()

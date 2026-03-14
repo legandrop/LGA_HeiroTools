@@ -47,7 +47,14 @@ def debug_print(*message):
 
 # Importar funciones de manejo de versiones desde código existente
 lga_nks_path = None
+script_dir = Path(__file__).resolve().parent
+
+if (script_dir / "LGA_NKS_CheckProjectVersions.py").exists():
+    lga_nks_path = script_dir
+
 for path_str in sys.path:
+    if lga_nks_path is not None:
+        break
     try:
         path = Path(path_str)
         test_file = path / "LGA_NKS_CheckProjectVersions.py"
@@ -108,7 +115,7 @@ def get_base_scan_path(default_path="T:\\"):
     Si no hay configuracion o la ruta no existe, usa el default.
     """
     try:
-        from LGA_NKS_Flow.SecureConfig_Reader import read_secure_config
+        from LGA_NKS_Shared.SecureConfig_Reader import read_secure_config
     except Exception as e:
         debug_print(f"⚠️ No se pudo importar SecureConfig_Reader: {e}")
         return default_path

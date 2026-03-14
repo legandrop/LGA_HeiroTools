@@ -46,7 +46,7 @@ from LGA_NKS_Flow_CreateShot import (
 )
 
 # Importar utilidades de naming
-sys.path.append(str(Path(__file__).parent.parent / "LGA_NKS_Flow"))
+sys.path.append(str(Path(__file__).parent.parent / "LGA_NKS_Shared"))
 from LGA_NKS_Flow_NamingUtils import (
     extract_project_name,
     extract_shot_code,
@@ -54,7 +54,7 @@ from LGA_NKS_Flow_NamingUtils import (
 )
 
 # Importar variable de track centralizada
-utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
+utils_path = Path(__file__).parent.parent / "LGA_NKS_Shared"
 if utils_path.exists():
     sys.path.insert(0, str(utils_path))
     from LGA_NKS_Shared.LGA_NKS_GetClip import TRACK_comp_EXR

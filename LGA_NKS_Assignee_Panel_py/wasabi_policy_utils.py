@@ -14,7 +14,7 @@ from boto3 import Session
 
 # Agregar la ruta para importar SecureConfig_Reader
 parent_dir = os.path.dirname(os.path.dirname(__file__))
-sys.path.insert(0, os.path.join(parent_dir, "LGA_NKS_Flow"))
+sys.path.insert(0, os.path.join(parent_dir, "LGA_NKS_Shared"))
 
 from SecureConfig_Reader import get_s3_credentials
 

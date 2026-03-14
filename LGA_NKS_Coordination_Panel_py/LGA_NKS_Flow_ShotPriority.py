@@ -27,7 +27,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "LGA_ToolPac
 import shotgun_api3
 
 # Importar el modulo de configuracion segura
-sys.path.append(str(Path(__file__).parent.parent / "LGA_NKS_Flow"))
+sys.path.append(str(Path(__file__).parent.parent / "LGA_NKS_Shared"))
 from SecureConfig_Reader import get_flow_credentials
 
 # Importar utilidades de naming
@@ -38,7 +38,7 @@ from LGA_NKS_Flow_NamingUtils import (
 )
 
 # Importar módulo centralizado para obtener clips
-utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
+utils_path = Path(__file__).parent.parent / "LGA_NKS_Shared"
 if utils_path.exists():
     sys.path.insert(0, str(utils_path))
     from LGA_NKS_Shared.LGA_NKS_GetClip import get_clips_to_process
@@ -303,4 +303,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

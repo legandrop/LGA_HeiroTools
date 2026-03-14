@@ -48,6 +48,7 @@ QFont = QtGui.QFont
 # Agregar la ruta actual al sys.path para importar SecureConfig_Reader
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_dir)
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "LGA_NKS_Shared"))
 
 from SecureConfig_Reader import get_flow_credentials
 from LGA_NKS_Flow_NamingUtils import (

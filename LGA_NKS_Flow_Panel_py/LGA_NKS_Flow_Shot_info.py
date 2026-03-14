@@ -44,7 +44,7 @@ QLabel = QtWidgets.QLabel
 QFrame = QtWidgets.QFrame
 
 # Importar utilidades de naming desde shareds de dominio Flow
-flow_shared_dir = Path(__file__).parent.parent / "LGA_NKS_Flow"
+flow_shared_dir = Path(__file__).parent.parent / "LGA_NKS_Shared"
 sys.path.append(str(flow_shared_dir))
 from LGA_NKS_Flow_NamingUtils import (
     extract_shot_code,
@@ -53,7 +53,7 @@ from LGA_NKS_Flow_NamingUtils import (
 )
 
 # Importar módulo utilitario para obtener clips
-utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
+utils_path = Path(__file__).parent.parent / "LGA_NKS_Shared"
 HAS_CLIP_UTILS = False
 if utils_path.exists():
     try:

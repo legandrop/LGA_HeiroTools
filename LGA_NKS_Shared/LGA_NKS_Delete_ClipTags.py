@@ -2,6 +2,9 @@
 _______________________________________________________
 
   LGA_NKS_Delete_ClipTags v1.1 | Lega
+  Usado por runtime activo:
+  - LGA_NKS_Edit_Panel.py
+  - LGA_NKS_Flow_Panel.py
   Borra los tags del clip seleccionado
 _______________________________________________________
 

@@ -46,8 +46,8 @@ def debug_print(message):
         print(message, file=sys.stderr)
 
 
-# Importar utilidades de naming desde shareds de dominio Flow
-flow_shared_dir = os.path.join(parent_dir, "LGA_NKS_Flow")
+# Importar utilidades de naming desde shareds globales
+flow_shared_dir = os.path.join(parent_dir, "LGA_NKS_Shared")
 sys.path.insert(0, flow_shared_dir)
 try:
     from LGA_NKS_Flow_NamingUtils import (

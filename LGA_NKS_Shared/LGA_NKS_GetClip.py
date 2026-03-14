@@ -2,6 +2,31 @@
 ____________________________________________________________________________________
 
   LGA_NKS_GetClip v1.81 | Lega
+  Usado por runtime activo:
+  - LGA_NKS_Assignee_Panel.py
+  - LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_Download.py
+  - LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_OpenPath.py
+  - LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_Upload.py
+  - LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CheckTimelineShots.py
+  - LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.py
+  - LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShotPriority.py
+  - LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShowInFlow.py
+  - LGA_NKS_Coordination_Panel_py/LGA_NKS_PipeSync_CreatePsync.py
+  - LGA_NKS_Coordination_Panel_py/LGA_NKS_PipeSync_OpenPath.py
+  - LGA_NKS_Edit_Panel_py/LGA_NKS_CompareEXR_to_aPlate.py
+  - LGA_NKS_Edit_Panel_py/LGA_NKS_CompareVerToEditref.py
+  - LGA_NKS_Edit_Panel_py/LGA_NKS_MatchVerToEXR.py
+  - LGA_NKS_Flow_Panel.py
+  - LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py
+  - LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py
+  - LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Shot_info.py
+  - LGA_NKS_Flow_Panel_py/LGA_NKS_ReviewPic.py
+  - LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableEXR.py
+  - LGA_NKS_Review_Panel_py/LGA_NKS_Compare_Versions.py
+  - LGA_NKS_Review_Panel_py/LGA_NKS_Compare_Versions_OFF.py
+  - LGA_NKS_Review_Panel_py/LGA_NKS_EXRTrack_Difference.py
+  - LGA_NKS_ViewerTL_Panel_py/LGA_NKS_InOut_Editref.py
+  - LGA_NKS_ViewerTL_Panel_py/LGA_NKS_PrevNext_Rev.py
   Utilidades para obtener clips del timeline de Hiero/Nuke Studio
 
   Método híbrido inteligente completo:
@@ -62,7 +87,7 @@ TRACK_comp_REV = "_rev_"  # Es el track que contiene a los MOV o MXF con el rend
 
 # Intentar importar funciones de naming para comparación inteligente de shots
 try:
-    from LGA_NKS_Flow_NamingUtils import extract_shot_code, clean_base_name, detect_shotname_format
+    from LGA_NKS_Shared.LGA_NKS_Flow_NamingUtils import extract_shot_code, clean_base_name, detect_shotname_format
     NAMING_UTILS_AVAILABLE = True
     debug_print("NamingUtils importado correctamente")
 except ImportError as e:

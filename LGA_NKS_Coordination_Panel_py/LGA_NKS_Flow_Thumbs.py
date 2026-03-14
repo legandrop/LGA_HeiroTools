@@ -25,7 +25,7 @@ QRect = QtCore.QRect
 QTimer = QtCore.QTimer
 
 # Importar utilidades de naming
-sys.path.append(str(Path(__file__).parent.parent / "LGA_NKS_Flow"))
+sys.path.append(str(Path(__file__).parent.parent / "LGA_NKS_Shared"))
 from LGA_NKS_Flow_NamingUtils import (
     extract_shot_code,
     extract_project_name,

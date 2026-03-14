@@ -20,7 +20,7 @@ import time
 import re
 
 # Agregar ruta del módulo utilitario
-utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
+utils_path = Path(__file__).parent.parent / "LGA_NKS_Shared"
 if utils_path.exists():
     sys.path.insert(0, str(utils_path))
     from LGA_NKS_Shared.LGA_NKS_GetClip import get_clip_to_process

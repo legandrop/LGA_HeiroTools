@@ -148,7 +148,7 @@ def debug_print_b(*message, level="info"):
 
 
 # Importar utilidades de naming centralizadas
-naming_utils_path = Path(__file__).parent / "LGA_NKS_Flow"
+naming_utils_path = Path(__file__).parent / "LGA_NKS_Shared"
 if naming_utils_path.exists():
     sys.path.insert(0, str(naming_utils_path))
     try:
@@ -164,7 +164,7 @@ else:
     HAS_NAMING_UTILS = False
 
 # Importar funciones de utilidad de estilos
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Utils"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Shared"))
 from LGA_NKS_Shared.LGA_NKS_StyleUtils import (
     calculate_dynamic_border,
     calculate_dynamic_hover,
@@ -886,11 +886,11 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
                 script_name,
             ),
             os.path.join(
-                os.path.dirname(__file__), "LGA_NKS_SharedActions", script_name
+                os.path.dirname(__file__), "LGA_NKS_Shared", script_name
             ),
             os.path.join(
                 os.path.dirname(os.path.abspath(__file__)),
-                "LGA_NKS_SharedActions",
+                "LGA_NKS_Shared",
                 script_name,
             ),
             os.path.join(
@@ -969,11 +969,11 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
                 script_name,
             ),
             os.path.join(
-                os.path.dirname(__file__), "LGA_NKS_SharedActions", script_name
+                os.path.dirname(__file__), "LGA_NKS_Shared", script_name
             ),
             os.path.join(
                 os.path.dirname(os.path.abspath(__file__)),
-                "LGA_NKS_SharedActions",
+                "LGA_NKS_Shared",
                 script_name,
             ),
             os.path.join(
@@ -1067,7 +1067,7 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
                             # Importar y ejecutar el script de la subcarpeta para cada clip valido
                             script_path = os.path.join(
                                 os.path.dirname(__file__),
-                                "LGA_NKS_SharedActions",
+                                "LGA_NKS_Shared",
                                 "LGA_NKS_Delete_ClipTags.py",
                             )
                             if os.path.exists(script_path):

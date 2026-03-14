@@ -19,7 +19,7 @@ def debug_print(*message):
         print(*message)
 
 # Importar utilidades de naming centralizadas
-naming_utils_path = Path(__file__).parent.parent / "LGA_NKS_Flow"
+naming_utils_path = Path(__file__).parent.parent / "LGA_NKS_Shared"
 if naming_utils_path.exists():
     sys.path.insert(0, str(naming_utils_path))
     try:

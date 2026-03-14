@@ -8,23 +8,29 @@ ________________________________________________________________________________
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
   - PROYECTO_TempEP_SEQ_SHOT_DESC1_DESC2 (6 bloques con descripción)
   - PROYECTO_TempEP_SEQ_SHOT (4 bloques simplificado)
-  
-  Scripts que utilizan este módulo:
-  - LGA_NKS_Flow_Push.py
-  - LGA_NKS_Flow_Push_connector.py
-  - LGA_NKS_Flow_Pull.py
-  - LGA_NKS_Flow_Thumbs.py
-  - LGA_NKS_Flow_CreateShot_Thumbs.py
-  - LGA_NKS_Flow_Shot_info.py
-  - LGA_NKS_Flow_CreateShot.py
+
+  Usado por runtime activo:
   - LGA_NKS_Flow_Panel.py
-  - LGA_NKS_Flow_Assign_Assignee.py
-  - LGA_NKS_Flow_Assignee.py
-  - LGA_NKS_Flow_Clear_Assignees.py
-  - LGA_NKS_CompareEXR_to_aPlate.py
-  - LGA_NKS_CompareVerToEditref.py
-  - LGA_NKS_MatchVerToEXR.py
+  - LGA_NKS_Assignee_Panel.py
+  - LGA_NKS_Coordination_Panel.py
   - LGA_NKS_Edit_Panel.py
+  - LGA_NKS_Shared/LGA_NKS_GetClip.py
+  - LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py
+  - LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py
+  - LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push_connector.py
+  - LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Shot_info.py
+  - LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assignee.py
+  - LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assign_Assignee.py
+  - LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Clear_Assignees.py
+  - LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShowInFlow.py
+  - LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_Thumbs.py
+  - LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.py
+  - LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CheckTimelineShots.py
+  - LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShotPriority.py
+  - LGA_NKS_Edit_Panel_py/LGA_NKS_MatchVerToEXR.py
+  - LGA_NKS_Edit_Panel_py/LGA_NKS_SetShotName.py
+  - LGA_NKS_Edit_Panel_py/LGA_NKS_CompareVerToEditref.py
+  - LGA_NKS_Edit_Panel_py/LGA_NKS_CompareEXR_to_aPlate.py
 ____________________________________________________________________________________
 """
 

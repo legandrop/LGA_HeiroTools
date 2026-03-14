@@ -1,6 +1,36 @@
 """
 Compatibilidad Qt para Hiero Panels - Nuke 15/16.
 
+Usado por runtime activo:
+- LGA_NKS_Assignee_Panel.py
+- LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assignee.py
+- LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assign_Assignee.py
+- LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Clear_Assignees.py
+- LGA_NKS_Assignee_Panel_py/LGA_NKS_Wasabi_PolicyAssign.py
+- LGA_NKS_Assignee_Panel_py/LGA_NKS_Wasabi_PolicyUnassign.py
+- LGA_NKS_Assignee_Panel_py/LGA_NKS_Wasabi_PolicyUnassign_CompletedShots.py
+- LGA_NKS_ClipColor_Panel.py
+- LGA_NKS_Coordination_Panel.py
+- LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CheckTimelineShots.py
+- LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.py
+- LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ModifyShot.py
+- LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShotPriority.py
+- LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShowInFlow.py
+- LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_Thumbs.py
+- LGA_NKS_Edit_Panel.py
+- LGA_NKS_Flow_Panel.py
+- LGA_NKS_Projects_Panel.py
+- LGA_NKS_Projects_Panel_py/LGA_Projects_Panel_ScanProjects.py
+- LGA_NKS_Projects_Panel_py/LGA_Projects_Panel_SwitchSequence.py
+- LGA_NKS_Review_Panel.py
+- LGA_NKS_Shared/LGA_NKS_Reduce_SeqWin.py
+- LGA_NKS_Shared/LGA_NKS_ScrollTo_TopTrack.py
+- LGA_NKS_ViewerTL_Panel.py
+- LGA_NKS_ViewerTL_Panel_py/LGA_NKS_InOut_Editref.py
+- LGA_NKS_ViewerTL_Panel_py/LGA_NKS_PrevNext_Rev.py
+- LGA_NKS_ViewerTL_Panel_py/LGA_NKS_SnapShot.py
+- LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh_Wrap.py
+
 Incluye compatibilidad para:
 - QShortcut (movido de QtWidgets a QtGui en Qt6)
 - horizontal_advance() para métricas de fuente

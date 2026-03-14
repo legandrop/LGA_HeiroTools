@@ -93,7 +93,7 @@ import shotgun_api3
 
 # --- INICIO: Importar el módulo de configuración segura ---
 from pathlib import Path
-sys.path.append(str(Path(__file__).parent.parent / "LGA_NKS_Flow"))
+sys.path.append(str(Path(__file__).parent.parent / "LGA_NKS_Shared"))
 from SecureConfig_Reader import get_flow_credentials
 # --- FIN: Importar el módulo de configuración segura ---
 
@@ -105,7 +105,7 @@ from LGA_NKS_Flow_NamingUtils import (
 )
 
 # Importar utilidades para obtener clips
-utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
+utils_path = Path(__file__).parent.parent / "LGA_NKS_Shared"
 if utils_path.exists():
     sys.path.insert(0, str(utils_path))
     from LGA_NKS_Shared.LGA_NKS_GetClip import get_clips_to_process

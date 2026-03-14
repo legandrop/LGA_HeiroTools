@@ -34,7 +34,7 @@ from logging.handlers import QueueHandler, QueueListener
 from pathlib import Path
 
 # Importar utilidades de naming desde shareds de dominio Flow
-flow_shared_dir = Path(__file__).parent.parent / "LGA_NKS_Flow"
+flow_shared_dir = Path(__file__).parent.parent / "LGA_NKS_Shared"
 sys.path.append(str(flow_shared_dir))
 from LGA_NKS_Flow_NamingUtils import (
     extract_shot_code,
@@ -44,7 +44,7 @@ from LGA_NKS_Flow_NamingUtils import (
 )
 
 # Importar utilidades para obtener clips
-utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
+utils_path = Path(__file__).parent.parent / "LGA_NKS_Shared"
 if utils_path.exists():
     sys.path.insert(0, str(utils_path))
     from LGA_NKS_Shared.LGA_NKS_GetClip import TRACK_comp_EXR

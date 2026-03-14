@@ -1,5 +1,16 @@
-# LGA_NKS_StyleUtils.py
 """
+LGA_NKS_StyleUtils.py
+
+Usado por runtime activo:
+- LGA_NKS_Assignee_Panel.py
+- LGA_NKS_ClipColor_Panel.py
+- LGA_NKS_Coordination_Panel.py
+- LGA_NKS_Edit_Panel.py
+- LGA_NKS_Flow_Panel.py
+- LGA_NKS_Projects_Panel.py
+- LGA_NKS_Review_Panel.py
+- LGA_NKS_ViewerTL_Panel.py
+
 Utilidades para estilos dinámicos de botones en paneles Hiero.
 Incluye funciones para conversión de colores, cálculo de bordes dinámicos y gradientes.
 """

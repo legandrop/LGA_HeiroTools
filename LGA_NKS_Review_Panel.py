@@ -29,7 +29,7 @@ from logging.handlers import QueueHandler, QueueListener
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 
 # Importar funciones de utilidad de estilos
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Utils"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Shared"))
 from LGA_NKS_Shared.LGA_NKS_StyleUtils import (
     calculate_dynamic_border,
     calculate_dynamic_hover,
@@ -405,7 +405,7 @@ class ReviewPanel(QtWidgets.QWidget):
             debug_print(f"Script no encontrado en la ruta: {script_path}")
 
     def execute_external_script_from_edit(self, script_name):
-        script_path = os.path.join(os.path.dirname(__file__), "LGA_NKS_SharedActions", script_name)
+        script_path = os.path.join(os.path.dirname(__file__), "LGA_NKS_Shared", script_name)
         if os.path.exists(script_path):
             try:
                 spec = importlib.util.spec_from_file_location(

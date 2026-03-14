@@ -2,6 +2,9 @@
 ______________________________________________________________________
 
   LGA_NKS_SelfReplaceClip v1.21 | Lega
+  Usado por runtime activo:
+  - LGA_NKS_Edit_Panel.py
+  - LGA_NKS_Review_Panel.py
   Reconnect automático con el mismo clip, corrige desplazamiento de frames,
   mueve versión original al bin 'Conform' y restaura color original.
   

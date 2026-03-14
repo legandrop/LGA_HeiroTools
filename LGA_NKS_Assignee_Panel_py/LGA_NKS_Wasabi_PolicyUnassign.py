@@ -39,7 +39,7 @@ QFont = QtGui.QFont
 # Mantener el runtime Wasabi autocontenido dentro de Assignees.
 current_dir = os.path.dirname(os.path.abspath(__file__))
 startup_dir = os.path.dirname(os.path.dirname(__file__))
-flow_shared_dir = os.path.join(startup_dir, "LGA_NKS_Flow")
+flow_shared_dir = os.path.join(startup_dir, "LGA_NKS_Shared")
 
 sys.path.insert(0, current_dir)
 sys.path.insert(0, flow_shared_dir)

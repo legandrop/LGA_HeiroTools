@@ -25,7 +25,7 @@ import sys
 DEBUG = False
 
 # Importar utilidades para naming (compatibilidad con ambos formatos)
-naming_utils_path = Path(__file__).parent.parent / "LGA_NKS_Flow"
+naming_utils_path = Path(__file__).parent.parent / "LGA_NKS_Shared"
 if naming_utils_path.exists():
     sys.path.insert(0, str(naming_utils_path))
     try:
@@ -40,12 +40,12 @@ if naming_utils_path.exists():
         clean_base_name = None
 else:
     if DEBUG:
-        print("ERROR: No se encontró el directorio LGA_NKS_Flow")
+        print("ERROR: No se encontró el directorio LGA_NKS_Shared")
     extract_shot_code = None
     clean_base_name = None
 
 # Importar utilidades para obtener clips y variables centralizadas para nombres de tracks
-utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
+utils_path = Path(__file__).parent.parent / "LGA_NKS_Shared"
 if utils_path.exists():
     sys.path.insert(0, str(utils_path))
     try:
@@ -64,7 +64,7 @@ if utils_path.exists():
         get_clips_to_process = None
 else:
     if DEBUG:
-        print("ERROR: No se encontró el directorio LGA_NKS_Utils")
+        print("ERROR: No se encontró el directorio LGA_NKS_Shared")
     TRACK_comp_EXR = "_comp_"  # Fallback
     TRACK_comp_REV = "_rev_"  # Fallback
     get_clips_to_process = None

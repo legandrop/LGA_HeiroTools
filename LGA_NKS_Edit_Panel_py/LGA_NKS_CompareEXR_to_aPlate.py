@@ -39,7 +39,7 @@ def debug_print(*message):
 
 
 # Importar utilidades para obtener clips
-utils_path = Path(__file__).parent.parent / "LGA_NKS_Utils"
+utils_path = Path(__file__).parent.parent / "LGA_NKS_Shared"
 if utils_path.exists():
     sys.path.insert(0, str(utils_path))
     from LGA_NKS_Shared.LGA_NKS_GetClip import get_clips_to_process
@@ -52,7 +52,7 @@ else:
     debug_print("ERROR: No se encontró el módulo LGA_NKS_GetClip")
 
 # Importar utilidades para naming (compatibilidad con ambos formatos)
-naming_utils_path = Path(__file__).parent.parent / "LGA_NKS_Flow"
+naming_utils_path = Path(__file__).parent.parent / "LGA_NKS_Shared"
 if naming_utils_path.exists():
     sys.path.insert(0, str(naming_utils_path))
     try:
@@ -65,7 +65,7 @@ if naming_utils_path.exists():
         extract_shot_code = None
         clean_base_name = None
 else:
-    debug_print("ERROR: No se encontró el directorio LGA_NKS_Flow")
+    debug_print("ERROR: No se encontró el directorio LGA_NKS_Shared")
     extract_shot_code = None
     clean_base_name = None
 
