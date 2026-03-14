@@ -114,7 +114,7 @@ if utils_path.exists():
     from LGA_NKS_Shared import LGA_NKS_GetClip as clip_utils
     # La sincronización de DEBUG se hace después de su definición (ver más abajo)
 
-from LGA_NKS_Flow_Task_Config import AVAILABLE_TASKS
+from LGA_NKS_Shared.LGA_NKS_Flow_Task_Config import AVAILABLE_TASKS
 
 # Importar módulo de creación de carpetas
 folders_path = Path(__file__).parent

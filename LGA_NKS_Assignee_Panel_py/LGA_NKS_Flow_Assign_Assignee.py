@@ -60,7 +60,7 @@ from LGA_NKS_Flow_NamingUtils import (
     extract_project_name,
     extract_task_name,
 )
-from LGA_NKS_Flow_Task_Config import (
+from LGA_NKS_Shared.LGA_NKS_Flow_Task_Config import (
     DEFAULT_TASK_NAME,
     get_task_color,
     sort_tasks_by_pipeline,

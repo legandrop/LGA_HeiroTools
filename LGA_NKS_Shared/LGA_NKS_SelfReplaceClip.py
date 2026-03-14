@@ -140,16 +140,14 @@ debug_print("Iniciando LGA_NKS_SelfReplaceClip.py...")
 
 debug_print(f"Python path incluye Startup: {'Python/Startup' in str(sys.path)}")
 debug_print(f"Directorio actual: {os.getcwd()}")
-debug_print(f"Archivo LGA_QtAdapter_HieroTools.py existe: {os.path.exists('../LGA_QtAdapter_HieroTools.py')}")
+adapter_path = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "LGA_QtAdapter_HieroTools.py",
+)
+debug_print(f"Archivo real LGA_NKS_Shared/LGA_QtAdapter_HieroTools.py existe: {os.path.exists(adapter_path)}")
 
 # Importar LGA_QtAdapter_HieroTools con fallback
 try:
-    # Agregar el directorio padre al path para encontrar LGA_QtAdapter_HieroTools.py
-    parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    if parent_dir not in sys.path:
-        sys.path.insert(0, parent_dir)
-        debug_print(f"Agregado al path: {parent_dir}")
-
     from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtGui
     debug_print("LGA_QtAdapter_HieroTools importado correctamente")
 except ImportError as e:

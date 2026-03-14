@@ -8,7 +8,7 @@ A workaround for Bug ID 576670 in the Nuke Studio Timeline Viewer
 
 import nuke
 
-nuke.tprint("adding %s" % __name__)
+#nuke.tprint("adding %s" % __name__)
 
 
 class ExampleAction(QAction):

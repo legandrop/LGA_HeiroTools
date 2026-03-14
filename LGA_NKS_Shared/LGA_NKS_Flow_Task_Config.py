@@ -2,6 +2,11 @@
 ________________________________________________________________
 
   LGA_NKS_Flow_Task_Config v1.24 | Lega
+  Usado por runtime activo:
+  - LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assignee.py
+  - LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assign_Assignee.py
+  - LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Clear_Assignees.py
+  - LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.py
 
     Configuración centralizada de tasks del pipeline usadas por los paneles de Flow.
     La lista está sincronizada con los scripts de creación/modificación de shots y

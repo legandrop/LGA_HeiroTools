@@ -1,5 +1,8 @@
-LGA_NKS_Shared/LGA_QtAdapter_HieroTools.py
-LGA_NKS_Shared/LGA_NKS_GetClip.py
-LGA_NKS_Shared/LGA_NKS_Flow_NamingUtils.py
-LGA_NKS_Shared/SecureConfig_Reader.py
-LGA_NKS_Shared/shotgun_api3/
+Panel: LGA_NKS_Coordination_Panel.py
+Shared dependencies:
+- LGA_NKS_Shared/LGA_QtAdapter_HieroTools.py
+- LGA_NKS_Shared/LGA_NKS_GetClip.py
+- LGA_NKS_Shared/LGA_NKS_Flow_NamingUtils.py
+- LGA_NKS_Shared/LGA_NKS_Flow_Task_Config.py
+- LGA_NKS_Shared/SecureConfig_Reader.py
+- LGA_NKS_Shared/shotgun_api3/

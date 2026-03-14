@@ -1,4 +1,6 @@
-LGA_NKS_Shared/LGA_QtAdapter_HieroTools.py
-LGA_NKS_Shared/SecureConfig_Reader.py
-LGA_NKS_Shared/LGA_NKS_Reduce_SeqWin.py
-LGA_NKS_Shared/LGA_NKS_ScrollTo_TopTrack.py
+Panel: LGA_NKS_Projects_Panel.py
+Shared dependencies:
+- LGA_NKS_Shared/LGA_QtAdapter_HieroTools.py
+- LGA_NKS_Shared/SecureConfig_Reader.py
+- LGA_NKS_Shared/LGA_NKS_Reduce_SeqWin.py
+- LGA_NKS_Shared/LGA_NKS_ScrollTo_TopTrack.py
