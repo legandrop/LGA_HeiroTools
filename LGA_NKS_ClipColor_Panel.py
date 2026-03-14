@@ -8,12 +8,8 @@ _________________________
 
 import hiero.ui
 import hiero.core
-import sys
-import os
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui
 
-# Importar funciones de utilidad de estilos
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Utils"))
 from LGA_NKS_Shared.LGA_NKS_StyleUtils import calculate_dynamic_border, calculate_dynamic_hover
 
 
@@ -136,9 +132,3 @@ class ColorChangeWidget(QtWidgets.QWidget):
         except Exception as e:
             # print(f"\nError during operation: {e}")
             pass
-
-
-# Crear la instancia del widget y anadirlo al gestor de ventanas de Hiero
-colorChanger = ColorChangeWidget()
-wm = hiero.ui.windowManager()
-wm.addWindow(colorChanger)

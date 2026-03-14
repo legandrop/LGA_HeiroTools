@@ -143,13 +143,13 @@ Panel:
 
 Hoy carga scripts desde:
 
-- `LGA_NKS_ViewerTL/LGA_NKS_Viewer_Mask.py`
-- `LGA_NKS_ViewerTL/LGA_NKS_Timeline_Refresh_Wrap.py`
+- `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Viewer_Mask.py`
+- `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh_Wrap.py`
 - `LGA_NKS_ViewerTL/LGA_NKS_ScrollTo_TopTrack.py`
-- `LGA_NKS_ViewerTL/LGA_NKS_InOut_Editref.py`
-- `LGA_NKS_ViewerTL/LGA_NKS_PrevNext_Rev.py`
-- `LGA_NKS_ViewerTL/LGA_NKS_SnapShot.py`
-- `LGA_NKS_ViewerTL/LGA_NKS_FrameNumber.py`
+- `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_InOut_Editref.py`
+- `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_PrevNext_Rev.py`
+- `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_SnapShot.py`
+- `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_FrameNumber.py`
 
 Tambien usa shareds:
 
@@ -296,6 +296,10 @@ Conclusion:
   - Usado por `ViewerTL Panel`
   - Usado por `Projects Panel`
 
+- `LGA_NKS_ViewerTL/LGA_NKS_ScrollTo_TopTrack.py`
+  - Usado por `ViewerTL Panel`
+  - Usado por `Projects Panel`
+
 ## Scripts privados de un solo panel
 
 ### Flow Panel
@@ -332,15 +336,14 @@ Conclusion:
 
 ### ViewerTL Panel
 
-- `LGA_NKS_ViewerTL/LGA_NKS_Viewer_Mask.py`
-- `LGA_NKS_ViewerTL/LGA_NKS_Timeline_Refresh_Wrap.py`
-- `LGA_NKS_ViewerTL/LGA_NKS_Timeline_Refresh.py`
-- `LGA_NKS_ViewerTL/LGA_NKS_ScrollTo_TopTrack.py`
-- `LGA_NKS_ViewerTL/LGA_NKS_InOut_Editref.py`
-- `LGA_NKS_ViewerTL/LGA_NKS_PrevNext_Rev.py`
-- `LGA_NKS_ViewerTL/LGA_NKS_SnapShot.py`
-- `LGA_NKS_ViewerTL/LGA_NKS_FrameNumber.py`
-- `LGA_NKS_ViewerTL/LGA_NKS_FrameNumber_Create.py`
+- `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Viewer_Mask.py`
+- `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh_Wrap.py`
+- `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh.py`
+- `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_InOut_Editref.py`
+- `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_PrevNext_Rev.py`
+- `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_SnapShot.py`
+- `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_FrameNumber.py`
+- `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_FrameNumber_Create.py`
 
 ### Edit Panel
 
@@ -412,14 +415,14 @@ Conclusion:
     - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py` del `Coordination Panel`
     - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ModifyShot.py` del `Coordination Panel`
 
-- `LGA_NKS_ViewerTL/LGA_NKS_Timeline_Refresh.py`
+- `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh.py`
   - No lo llama un panel directo.
-  - Lo usa `LGA_NKS_ViewerTL/LGA_NKS_Timeline_Refresh_Wrap.py` del `ViewerTL Panel`.
+  - Lo usa `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh_Wrap.py` del `ViewerTL Panel`.
 
 - `LGA_NKS_ViewerTL/LGA_NKS_Reduce_SeqWin.py`
   - No lo llama un panel directo.
   - Lo usan:
-    - `LGA_NKS_ViewerTL/LGA_NKS_Timeline_Refresh_Wrap.py` del `ViewerTL Panel`
+    - `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh_Wrap.py` del `ViewerTL Panel`
     - `LGA_Projects_Panel/LGA_Projects_Panel_SwitchSequence.py` del `Projects Panel`
 
 ## Propuesta de reorganizacion
@@ -489,7 +492,6 @@ Startup/
     LGA_NKS_Viewer_Mask.py
     LGA_NKS_Timeline_Refresh_Wrap.py
     LGA_NKS_Timeline_Refresh.py
-    LGA_NKS_ScrollTo_TopTrack.py
     LGA_NKS_InOut_Editref.py
     LGA_NKS_PrevNext_Rev.py
     LGA_NKS_SnapShot.py
@@ -525,6 +527,7 @@ Startup/
   LGA_NKS_SharedActions/
     LGA_NKS_Delete_ClipTags.py
     LGA_NKS_SelfReplaceClip.py
+    LGA_NKS_ScrollTo_TopTrack.py
 
   LGA_NKS_Projects_Panel_py/
     LGA_Projects_Panel_ScanProjects.py
@@ -738,41 +741,44 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
 
 ### ViewerTL Panel
 
-- `LGA_NKS_ViewerTL/LGA_NKS_Viewer_Mask.py`
+- `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Viewer_Mask.py`
   - Lo usa `LGA_NKS_ViewerTL_Panel.py`.
 
-- `LGA_NKS_ViewerTL/LGA_NKS_Timeline_Refresh_Wrap.py`
+- `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh_Wrap.py`
   - Lo usa `LGA_NKS_ViewerTL_Panel.py`.
   - A su vez usa:
-    - `LGA_NKS_ViewerTL/LGA_NKS_Timeline_Refresh.py`
+    - `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh.py`
     - `LGA_NKS_ViewerTL/LGA_NKS_Reduce_SeqWin.py`
+    - `LGA_NKS_ViewerTL/LGA_NKS_ScrollTo_TopTrack.py`
 
-- `LGA_NKS_ViewerTL/LGA_NKS_Timeline_Refresh.py`
-  - Lo usa `LGA_NKS_ViewerTL/LGA_NKS_Timeline_Refresh_Wrap.py` del `ViewerTL Panel`.
+- `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh.py`
+  - Lo usa `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh_Wrap.py` del `ViewerTL Panel`.
 
 - `LGA_NKS_ViewerTL/LGA_NKS_Reduce_SeqWin.py`
   - Lo usan:
-    - `LGA_NKS_ViewerTL/LGA_NKS_Timeline_Refresh_Wrap.py` del `ViewerTL Panel`
+    - `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh_Wrap.py` del `ViewerTL Panel`
     - `LGA_Projects_Panel/LGA_Projects_Panel_SwitchSequence.py` del `Projects Panel`
 
 - `LGA_NKS_ViewerTL/LGA_NKS_ScrollTo_TopTrack.py`
+  - Lo usan:
+    - `LGA_NKS_ViewerTL_Panel.py` del `ViewerTL Panel`
+    - `LGA_Projects_Panel/LGA_Projects_Panel_SwitchSequence.py` del `Projects Panel`
+
+- `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_InOut_Editref.py`
   - Lo usa `LGA_NKS_ViewerTL_Panel.py`.
 
-- `LGA_NKS_ViewerTL/LGA_NKS_InOut_Editref.py`
+- `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_PrevNext_Rev.py`
   - Lo usa `LGA_NKS_ViewerTL_Panel.py`.
 
-- `LGA_NKS_ViewerTL/LGA_NKS_PrevNext_Rev.py`
+- `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_SnapShot.py`
   - Lo usa `LGA_NKS_ViewerTL_Panel.py`.
 
-- `LGA_NKS_ViewerTL/LGA_NKS_SnapShot.py`
+- `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_FrameNumber.py`
   - Lo usa `LGA_NKS_ViewerTL_Panel.py`.
+  - A su vez usa `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_FrameNumber_Create.py`.
 
-- `LGA_NKS_ViewerTL/LGA_NKS_FrameNumber.py`
-  - Lo usa `LGA_NKS_ViewerTL_Panel.py`.
-  - A su vez usa `LGA_NKS_ViewerTL/LGA_NKS_FrameNumber_Create.py`.
-
-- `LGA_NKS_ViewerTL/LGA_NKS_FrameNumber_Create.py`
-  - Lo usa `LGA_NKS_ViewerTL/LGA_NKS_FrameNumber.py` del `ViewerTL Panel`.
+- `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_FrameNumber_Create.py`
+  - Lo usa `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_FrameNumber.py` del `ViewerTL Panel`.
 
 ### Edit Panel
 
@@ -891,10 +897,10 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
 
 ### Etapa 2. Paneles de bajo acoplamiento
 
-- Migrar `LGA_NKS_ClipColor_Panel.py`
+- Revisar `LGA_NKS_ClipColor_Panel.py` y dejarlo sin cambios estructurales salvo que aparezcan dependencias privadas nuevas
 - Migrar `LGA_NKS_Review_Panel.py`
 - Migrar `LGA_NKS_ViewerTL_Panel.py`
-- Mover sus privados a carpetas `_py`
+- Crear carpetas `_py` solo cuando el panel llame scripts externos privados
 - Validar que cada panel abra y ejecute sus acciones principales
 
 ### Etapa 3. Edit Panel y shared actions

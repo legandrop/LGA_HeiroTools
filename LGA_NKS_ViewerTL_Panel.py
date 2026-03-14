@@ -528,7 +528,7 @@ class ViewerPanel(QtWidgets.QWidget):
         """
         try:
             script_path = os.path.join(
-                os.path.dirname(__file__), "LGA_NKS_ViewerTL", "LGA_NKS_Viewer_Mask.py"
+                os.path.dirname(__file__), "LGA_NKS_ViewerTL_Panel_py", "LGA_NKS_Viewer_Mask.py"
             )
             if os.path.exists(script_path):
                 import importlib.util
@@ -551,7 +551,7 @@ class ViewerPanel(QtWidgets.QWidget):
     def refresh_timeline(self):
         try:
             script_path = os.path.join(
-                os.path.dirname(__file__), "LGA_NKS_ViewerTL", "LGA_NKS_Timeline_Refresh_Wrap.py"
+                os.path.dirname(__file__), "LGA_NKS_ViewerTL_Panel_py", "LGA_NKS_Timeline_Refresh_Wrap.py"
             )
             if os.path.exists(script_path):
                 import importlib.util
@@ -594,7 +594,7 @@ class ViewerPanel(QtWidgets.QWidget):
     def in_out_editref(self):
         try:
             script_path = os.path.join(
-                os.path.dirname(__file__), "LGA_NKS_ViewerTL", "LGA_NKS_InOut_Editref.py"
+                os.path.dirname(__file__), "LGA_NKS_ViewerTL_Panel_py", "LGA_NKS_InOut_Editref.py"
             )
             if os.path.exists(script_path):
                 import importlib.util
@@ -647,7 +647,7 @@ class ViewerPanel(QtWidgets.QWidget):
     def execute_prevnext_rev(self, direction, rev_type):
         try:
             script_path = os.path.join(
-                os.path.dirname(__file__), "LGA_NKS_ViewerTL", "LGA_NKS_PrevNext_Rev.py"
+                os.path.dirname(__file__), "LGA_NKS_ViewerTL_Panel_py", "LGA_NKS_PrevNext_Rev.py"
             )
             if os.path.exists(script_path):
                 import importlib.util
@@ -670,7 +670,7 @@ class ViewerPanel(QtWidgets.QWidget):
     def snapshot(self):
         try:
             script_path = os.path.join(
-                os.path.dirname(__file__), "LGA_NKS_ViewerTL", "LGA_NKS_SnapShot.py"
+                os.path.dirname(__file__), "LGA_NKS_ViewerTL_Panel_py", "LGA_NKS_SnapShot.py"
             )
             if os.path.exists(script_path):
                 import importlib.util
@@ -693,7 +693,7 @@ class ViewerPanel(QtWidgets.QWidget):
     def frame_number_position(self):
         try:
             script_path = os.path.join(
-                os.path.dirname(__file__), "LGA_NKS_ViewerTL", "LGA_NKS_FrameNumber.py"
+                os.path.dirname(__file__), "LGA_NKS_ViewerTL_Panel_py", "LGA_NKS_FrameNumber.py"
             )
             if os.path.exists(script_path):
                 import importlib.util

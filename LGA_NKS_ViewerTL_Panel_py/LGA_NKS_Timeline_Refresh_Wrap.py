@@ -363,17 +363,26 @@ def find_and_close_old_viewers_and_timelines_safe(old_viewer_object_name=None, o
 
 def import_script(script_name):
     """
-    Importa un script desde la carpeta LGA_NKS
+    Importa un script desde la carpeta privada del panel y, si no existe,
+    hace fallback a los shareds del viewer.
     """
-    script_path = os.path.join(os.path.dirname(__file__), script_name + '.py')
-    if os.path.exists(script_path):
-        spec = importlib.util.spec_from_file_location(script_name, script_path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return module
-    else:
-        debug_print(f"Script no encontrado: {script_path}")
-        return None
+    candidate_paths = [
+        os.path.join(os.path.dirname(__file__), script_name + '.py'),
+        os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "LGA_NKS_ViewerTL",
+            script_name + '.py',
+        ),
+    ]
+    for script_path in candidate_paths:
+        if os.path.exists(script_path):
+            spec = importlib.util.spec_from_file_location(script_name, script_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            return module
+
+    debug_print(f"Script no encontrado: {candidate_paths[0]}")
+    return None
 
 def main():
     """

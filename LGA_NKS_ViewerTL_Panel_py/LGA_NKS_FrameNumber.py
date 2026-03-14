@@ -184,7 +184,7 @@ def print_box_values():
         # Intentar crear el soft effect si no existe ninguno que empiece con "Frame_Only"
         debug_print(f"\n🔧 Intentando crear el soft effect '{CLIP_NAME}'...")
         try:
-            from LGA_NKS_ViewerTL.LGA_NKS_FrameNumber_Create import (
+            from LGA_NKS_ViewerTL_Panel_py.LGA_NKS_FrameNumber_Create import (
                 create_frame_only_effect,
             )
 
