@@ -515,9 +515,9 @@ def _focus_target_viewer(target_sequence_name):
 
 
 def import_script(script_name):
-    """Importa script desde LGA_NKS_ViewerTL."""
+    """Importa script shared usado por Switch Sequence."""
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    script_path = os.path.join(base_dir, "LGA_NKS_ViewerTL", script_name + ".py")
+    script_path = os.path.join(base_dir, "LGA_NKS_Shared", script_name + ".py")
 
     if os.path.exists(script_path):
         spec = importlib.util.spec_from_file_location(script_name, script_path)

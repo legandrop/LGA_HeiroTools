@@ -31,13 +31,13 @@ QObject = QtCore.QObject
 
 QFont = QtGui.QFont
 
-# Agregar la ruta actual al sys.path para que Python encuentre las dependencias locales
+# Mantener el runtime Wasabi autocontenido dentro de Assignees.
 current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, current_dir)
+startup_dir = os.path.dirname(os.path.dirname(__file__))
+flow_shared_dir = os.path.join(startup_dir, "LGA_NKS_Flow")
 
-# Agregar la ruta para importar SecureConfig_Reader
-parent_dir = os.path.dirname(os.path.dirname(__file__))
-sys.path.insert(0, os.path.join(parent_dir, "LGA_NKS_Flow"))
+sys.path.insert(0, current_dir)
+sys.path.insert(0, flow_shared_dir)
 
 import boto3
 from boto3 import Session

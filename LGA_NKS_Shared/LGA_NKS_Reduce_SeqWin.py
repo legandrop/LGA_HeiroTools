@@ -5,6 +5,10 @@ ______________________________________________________________________
   Ajusta el tamaño del panel izquierdo del timeline editor de Hiero
 ______________________________________________________________________
 
+  Usado por:
+  - /Users/leg4/.nuke/Python/Startup/LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh_Wrap.py
+  - /Users/leg4/.nuke/Python/Startup/LGA_Projects_Panel/LGA_Projects_Panel_SwitchSequence.py
+
 """
 
 import hiero.ui

@@ -574,7 +574,7 @@ class ViewerPanel(QtWidgets.QWidget):
     def top_track(self):
         # Ruta al script dentro de la subcarpeta LGA_NKS
         script_path = os.path.join(
-            os.path.dirname(__file__), "LGA_NKS_ViewerTL", "LGA_NKS_ScrollTo_TopTrack.py"
+            os.path.dirname(__file__), "LGA_NKS_Shared", "LGA_NKS_ScrollTo_TopTrack.py"
         )
         if os.path.exists(script_path):
             import importlib.util

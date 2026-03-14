@@ -1,3 +1,10 @@
+"""
+Usado por:
+- /Users/leg4/.nuke/Python/Startup/LGA_NKS_ViewerTL_Panel.py
+- /Users/leg4/.nuke/Python/Startup/LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh_Wrap.py
+- /Users/leg4/.nuke/Python/Startup/LGA_Projects_Panel/LGA_Projects_Panel_SwitchSequence.py
+"""
+
 import hiero
 import time
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtCore

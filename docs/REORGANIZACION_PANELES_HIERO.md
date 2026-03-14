@@ -56,6 +56,8 @@ El criterio usado es:
 - `LGA_NKS_Wasabi/`
 - `LGA_Projects_Panel/`
 
+Nota: `LGA_NKS_Wasabi/` ya no se considera runtime del panel `Assignees`. El runtime operativo de Wasabi queda dentro de `LGA_NKS_Assignee_Panel_py/`, y `LGA_NKS_Wasabi/` queda como carpeta legacy de documentacion y verificaciones.
+
 ### Shareds actuales sueltos en raiz
 
 - `LGA_QtAdapter_HieroTools.py`
@@ -94,12 +96,23 @@ Panel:
 
 Hoy carga scripts desde:
 
-- `LGA_NKS_Flow/LGA_NKS_Flow_Assignee.py`
-- `LGA_NKS_Flow/LGA_NKS_Flow_Assign_Assignee.py`
-- `LGA_NKS_Flow/LGA_NKS_Flow_Clear_Assignees.py`
-- `LGA_NKS_Wasabi/LGA_NKS_Wasabi_PolicyAssign.py`
-- `LGA_NKS_Wasabi/LGA_NKS_Wasabi_PolicyUnassign.py`
-- `LGA_NKS_Wasabi/LGA_NKS_Wasabi_PolicyUnassign_CompletedShots.py`
+- `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assignee.py`
+- `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assign_Assignee.py`
+- `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Clear_Assignees.py`
+- `LGA_NKS_Assignee_Panel_py/LGA_NKS_Wasabi_PolicyAssign.py`
+- `LGA_NKS_Assignee_Panel_py/LGA_NKS_Wasabi_PolicyUnassign.py`
+- `LGA_NKS_Assignee_Panel_py/LGA_NKS_Wasabi_PolicyUnassign_CompletedShots.py`
+
+Y sus dependencias runtime de Wasabi tambien viven ahi:
+
+- `LGA_NKS_Assignee_Panel_py/wasabi_policy_utils.py`
+- `LGA_NKS_Assignee_Panel_py/boto3/`
+- `LGA_NKS_Assignee_Panel_py/botocore/`
+- `LGA_NKS_Assignee_Panel_py/dateutil/`
+- `LGA_NKS_Assignee_Panel_py/jmespath/`
+- `LGA_NKS_Assignee_Panel_py/s3transfer/`
+- `LGA_NKS_Assignee_Panel_py/urllib3/`
+- `LGA_NKS_Assignee_Panel_py/six.py`
 
 Tambien usa shareds:
 
@@ -145,7 +158,7 @@ Hoy carga scripts desde:
 
 - `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Viewer_Mask.py`
 - `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh_Wrap.py`
-- `LGA_NKS_ViewerTL/LGA_NKS_ScrollTo_TopTrack.py`
+- `LGA_NKS_Shared/LGA_NKS_ScrollTo_TopTrack.py`
 - `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_InOut_Editref.py`
 - `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_PrevNext_Rev.py`
 - `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_SnapShot.py`
@@ -293,11 +306,11 @@ Conclusion:
   - Usado por `Edit Panel`
   - Usado por `Review Panel`
 
-- `LGA_NKS_ViewerTL/LGA_NKS_Reduce_SeqWin.py`
+- `LGA_NKS_Shared/LGA_NKS_Reduce_SeqWin.py`
   - Usado por `ViewerTL Panel`
   - Usado por `Projects Panel`
 
-- `LGA_NKS_ViewerTL/LGA_NKS_ScrollTo_TopTrack.py`
+- `LGA_NKS_Shared/LGA_NKS_ScrollTo_TopTrack.py`
   - Usado por `ViewerTL Panel`
   - Usado por `Projects Panel`
 
@@ -313,12 +326,12 @@ Conclusion:
 
 ### Assignees Panel
 
-- `LGA_NKS_Flow/LGA_NKS_Flow_Assignee.py`
-- `LGA_NKS_Flow/LGA_NKS_Flow_Assign_Assignee.py`
-- `LGA_NKS_Flow/LGA_NKS_Flow_Clear_Assignees.py`
-- `LGA_NKS_Wasabi/LGA_NKS_Wasabi_PolicyAssign.py`
-- `LGA_NKS_Wasabi/LGA_NKS_Wasabi_PolicyUnassign.py`
-- `LGA_NKS_Wasabi/LGA_NKS_Wasabi_PolicyUnassign_CompletedShots.py`
+- `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assignee.py`
+- `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assign_Assignee.py`
+- `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Clear_Assignees.py`
+- `LGA_NKS_Assignee_Panel_py/LGA_NKS_Wasabi_PolicyAssign.py`
+- `LGA_NKS_Assignee_Panel_py/LGA_NKS_Wasabi_PolicyUnassign.py`
+- `LGA_NKS_Assignee_Panel_py/LGA_NKS_Wasabi_PolicyUnassign_CompletedShots.py`
 
 ### Coordination Panel
 
@@ -420,7 +433,7 @@ Conclusion:
   - No lo llama un panel directo.
   - Lo usa `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh_Wrap.py` del `ViewerTL Panel`.
 
-- `LGA_NKS_ViewerTL/LGA_NKS_Reduce_SeqWin.py`
+- `LGA_NKS_Shared/LGA_NKS_Reduce_SeqWin.py`
   - No lo llama un panel directo.
   - Lo usan:
     - `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh_Wrap.py` del `ViewerTL Panel`
@@ -474,6 +487,14 @@ Startup/
     LGA_NKS_Wasabi_PolicyAssign.py
     LGA_NKS_Wasabi_PolicyUnassign.py
     LGA_NKS_Wasabi_PolicyUnassign_CompletedShots.py
+    wasabi_policy_utils.py
+    boto3/
+    botocore/
+    dateutil/
+    jmespath/
+    s3transfer/
+    urllib3/
+    six.py
 
   LGA_NKS_Coordination_Panel_py/
     LGA_NKS_Flow_ShowInFlow.py
@@ -597,19 +618,19 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
 
 - `LGA_NKS_Flow_Task_Config.py`
   - Lo usan:
-    - `LGA_NKS_Flow/LGA_NKS_Flow_Assignee.py` del `Assignees Panel`
-    - `LGA_NKS_Flow/LGA_NKS_Flow_Assign_Assignee.py` del `Assignees Panel`
-    - `LGA_NKS_Flow/LGA_NKS_Flow_Clear_Assignees.py` del `Assignees Panel`
+    - `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assignee.py` del `Assignees Panel`
+    - `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assign_Assignee.py` del `Assignees Panel`
+    - `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Clear_Assignees.py` del `Assignees Panel`
     - `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py` del `Coordination Panel`
 
 - `LGA_NKS_Flow_Users.json`
   - Lo usan:
     - `LGA_NKS_Assignee_Panel.py` del `Assignees Panel`
-    - `LGA_NKS_Flow/LGA_NKS_Flow_Assignee.py` del `Assignees Panel`
-    - `LGA_NKS_Flow/LGA_NKS_Flow_Assign_Assignee.py` del `Assignees Panel`
-    - `LGA_NKS_Flow/LGA_NKS_Flow_Clear_Assignees.py` del `Assignees Panel`
-    - `LGA_NKS_Wasabi/LGA_NKS_Wasabi_PolicyAssign.py` usado por `Assignees Panel`
-    - `LGA_NKS_Wasabi/LGA_NKS_Wasabi_PolicyUnassign.py` usado por `Assignees Panel`
+    - `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assignee.py` del `Assignees Panel`
+    - `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assign_Assignee.py` del `Assignees Panel`
+    - `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Clear_Assignees.py` del `Assignees Panel`
+    - `LGA_NKS_Assignee_Panel_py/LGA_NKS_Wasabi_PolicyAssign.py` usado por `Assignees Panel`
+    - `LGA_NKS_Assignee_Panel_py/LGA_NKS_Wasabi_PolicyUnassign.py` usado por `Assignees Panel`
 
 - `LGA_NKS_Flow/LGA_NKS_Flow_NamingUtils.py`
   - Lo usan:
@@ -682,22 +703,22 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
 
 ### Assignees Panel
 
-- `LGA_NKS_Flow/LGA_NKS_Flow_Assignee.py`
+- `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assignee.py`
   - Lo usa `LGA_NKS_Assignee_Panel.py`.
 
-- `LGA_NKS_Flow/LGA_NKS_Flow_Assign_Assignee.py`
+- `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assign_Assignee.py`
   - Lo usa `LGA_NKS_Assignee_Panel.py`.
 
-- `LGA_NKS_Flow/LGA_NKS_Flow_Clear_Assignees.py`
+- `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Clear_Assignees.py`
   - Lo usa `LGA_NKS_Assignee_Panel.py`.
 
-- `LGA_NKS_Wasabi/LGA_NKS_Wasabi_PolicyAssign.py`
+- `LGA_NKS_Assignee_Panel_py/LGA_NKS_Wasabi_PolicyAssign.py`
   - Lo usa `LGA_NKS_Assignee_Panel.py`.
 
-- `LGA_NKS_Wasabi/LGA_NKS_Wasabi_PolicyUnassign.py`
+- `LGA_NKS_Assignee_Panel_py/LGA_NKS_Wasabi_PolicyUnassign.py`
   - Lo usa `LGA_NKS_Assignee_Panel.py`.
 
-- `LGA_NKS_Wasabi/LGA_NKS_Wasabi_PolicyUnassign_CompletedShots.py`
+- `LGA_NKS_Assignee_Panel_py/LGA_NKS_Wasabi_PolicyUnassign_CompletedShots.py`
   - Lo usa `LGA_NKS_Assignee_Panel.py`.
 
 ### Coordination Panel
@@ -751,18 +772,18 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
   - Lo usa `LGA_NKS_ViewerTL_Panel.py`.
   - A su vez usa:
     - `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh.py`
-    - `LGA_NKS_ViewerTL/LGA_NKS_Reduce_SeqWin.py`
-    - `LGA_NKS_ViewerTL/LGA_NKS_ScrollTo_TopTrack.py`
+    - `LGA_NKS_Shared/LGA_NKS_Reduce_SeqWin.py`
+    - `LGA_NKS_Shared/LGA_NKS_ScrollTo_TopTrack.py`
 
 - `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh.py`
   - Lo usa `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh_Wrap.py` del `ViewerTL Panel`.
 
-- `LGA_NKS_ViewerTL/LGA_NKS_Reduce_SeqWin.py`
+- `LGA_NKS_Shared/LGA_NKS_Reduce_SeqWin.py`
   - Lo usan:
     - `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh_Wrap.py` del `ViewerTL Panel`
     - `LGA_Projects_Panel/LGA_Projects_Panel_SwitchSequence.py` del `Projects Panel`
 
-- `LGA_NKS_ViewerTL/LGA_NKS_ScrollTo_TopTrack.py`
+- `LGA_NKS_Shared/LGA_NKS_ScrollTo_TopTrack.py`
   - Lo usan:
     - `LGA_NKS_ViewerTL_Panel.py` del `ViewerTL Panel`
     - `LGA_Projects_Panel/LGA_Projects_Panel_SwitchSequence.py` del `Projects Panel`
@@ -860,7 +881,7 @@ Esta seccion agrega el nivel fino: para cada `.py` relevante se indica si lo lla
 
 - `LGA_Projects_Panel/LGA_Projects_Panel_SwitchSequence.py`
   - Lo usa `LGA_NKS_Projects_Panel.py`.
-  - A su vez usa `LGA_NKS_ViewerTL/LGA_NKS_Reduce_SeqWin.py`.
+  - A su vez usa `LGA_NKS_Shared/LGA_NKS_Reduce_SeqWin.py`.
 
 - `LGA_Projects_Panel/LGA_NKS_ProjectItem.py`
   - Lo usa `LGA_NKS_Projects_Panel.py`.

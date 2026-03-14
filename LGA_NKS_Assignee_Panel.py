@@ -576,7 +576,9 @@ class AssigneePanel(QtWidgets.QWidget):
     def call_assignee_script(self, base_name):
         # Importar y ejecutar la funcion del script LGA_NKS_Flow_Assignee.py directamente
         script_path = os.path.join(
-            os.path.dirname(__file__), "LGA_NKS_Flow", "LGA_NKS_Flow_Assignee.py"
+            os.path.dirname(__file__),
+            "LGA_NKS_Assignee_Panel_py",
+            "LGA_NKS_Flow_Assignee.py",
         )
         if not os.path.exists(script_path):
             QtWidgets.QMessageBox.warning(
@@ -637,7 +639,9 @@ class AssigneePanel(QtWidgets.QWidget):
 
     def call_clear_assignees_script(self, base_name):
         script_path = os.path.join(
-            os.path.dirname(__file__), "LGA_NKS_Flow", "LGA_NKS_Flow_Clear_Assignees.py"
+            os.path.dirname(__file__),
+            "LGA_NKS_Assignee_Panel_py",
+            "LGA_NKS_Flow_Clear_Assignees.py",
         )
         if not os.path.exists(script_path):
             QtWidgets.QMessageBox.warning(
@@ -717,7 +721,9 @@ class AssigneePanel(QtWidgets.QWidget):
         debug_print(f"Tipo de user_name: {type(user_name)}")
 
         script_path = os.path.join(
-            os.path.dirname(__file__), "LGA_NKS_Flow", "LGA_NKS_Flow_Assign_Assignee.py"
+            os.path.dirname(__file__),
+            "LGA_NKS_Assignee_Panel_py",
+            "LGA_NKS_Flow_Assign_Assignee.py",
         )
         debug_print(f"Script path: {script_path}")
 
@@ -757,7 +763,7 @@ class AssigneePanel(QtWidgets.QWidget):
         )
         script_path = os.path.join(
             os.path.dirname(__file__),
-            "LGA_NKS_Wasabi",
+            "LGA_NKS_Assignee_Panel_py",
             "LGA_NKS_Wasabi_PolicyAssign.py",
         )
         if not os.path.exists(script_path):
@@ -793,7 +799,7 @@ class AssigneePanel(QtWidgets.QWidget):
         )
         script_path = os.path.join(
             os.path.dirname(__file__),
-            "LGA_NKS_Wasabi",
+            "LGA_NKS_Assignee_Panel_py",
             "LGA_NKS_Wasabi_PolicyUnassign.py",
         )
         if not os.path.exists(script_path):
@@ -827,7 +833,7 @@ class AssigneePanel(QtWidgets.QWidget):
         debug_print("=== clear_wasabi_policies_for_completed_shots llamado ===")
         script_path = os.path.join(
             os.path.dirname(__file__),
-            "LGA_NKS_Wasabi",
+            "LGA_NKS_Assignee_Panel_py",
             "LGA_NKS_Wasabi_PolicyUnassign_CompletedShots.py",
         )
         if not os.path.exists(script_path):
