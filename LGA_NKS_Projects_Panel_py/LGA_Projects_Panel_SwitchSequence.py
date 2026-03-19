@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Projects_Panel_SwitchSequence v2.24 | Lega
+  LGA_NKS_Projects_Panel_SwitchSequence v2.25 | Lega
   Hiero / Nuke Studio - Switch V3: HÍBRIDO OPTIMIZADO + LIMPIEZA TOTAL + CROSS-PROJECT
 
   🎯 SOLUCIÓN GANADORA FINAL:
@@ -15,6 +15,8 @@ ________________________________________________________________________________
 
   ✅ CONFIRMADO: Funciona perfectamente - velocidad 0.63s con cierre equilibrado + cross-project.
 
+  v2.25: Agregado timeline pre-cleanup sobre la secuencia nueva.
+         Elimina tracks NukeVFX y extiende BurnIn antes de los ajustes finales de UI.
   v2.24: Flag opcional para cerrar viewers + timelines viejos (deja solo el nuevo)
   v2.23: Flag opcional para cerrar TODOS los timelines viejos (deja solo el nuevo)
   v2.22: Apertura con duplicado y cierre simultáneo de viewer + timeline originales (método refresh)
@@ -670,7 +672,20 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
         closed_viewers, closed_timelines = 0, 0
     close_time = time.time() - step_start
 
-    # 7. Aplicar ajustes del viewer anterior (gain/gamma) - playhead ya está correcto
+    # 7. Ejecutar pre-cleanup sobre la secuencia nueva antes de ajustes finales de UI
+    step_start = time.time()
+    try:
+        precleanup_module = import_script("LGA_NKS_Timeline_PreCleanup")
+        if precleanup_module:
+            precleanup_result = precleanup_module.main()
+            debug_print(f"   ├── Timeline pre-cleanup: {precleanup_result}")
+        else:
+            debug_print("   ├── No se pudo importar LGA_NKS_Timeline_PreCleanup")
+    except Exception as e:
+        debug_print(f"   ├── Error ejecutando timeline pre-cleanup: {e}")
+    precleanup_time = time.time() - step_start
+
+    # 8. Aplicar ajustes del viewer anterior (gain/gamma) - playhead ya está correcto
     viewer_restore_time = 0
     if viewer_state:
         step_start = time.time()
@@ -679,20 +694,20 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
             _apply_viewer_settings(new_viewer, viewer_state)
         viewer_restore_time = time.time() - step_start
 
-    # 8. Enfocar viewer objetivo tras cierre (para evitar pantallas grises)
+    # 9. Enfocar viewer objetivo tras cierre (para evitar pantallas grises)
     _focus_target_viewer(target_sequence_name)
 
-    # 9. Redimensionar ventana del timeline (como v4)
+    # 10. Redimensionar ventana del timeline (como v4)
     step_start = time.time()
     reduce_success = reduce_sequence_window(new_timeline)
     reduce_time = time.time() - step_start
 
-    # 10. Scrollear al top track (como v4)
+    # 11. Scrollear al top track (como v4)
     step_start = time.time()
     scroll_success = scroll_to_top_track(new_timeline)
     scroll_time = time.time() - step_start
 
-    # 11. Cerrar TODOS los viewers + timelines viejos si el flag está activo
+    # 12. Cerrar TODOS los viewers + timelines viejos si el flag está activo
     close_all_widgets_time = 0
     if CLOSE_ALL_TIMELINES:
         step_start = time.time()
@@ -711,7 +726,7 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
             f"   ├── Close ALL old timelines: {closed_extra_timelines} cerrados"
         )
 
-    # 12. Aplicar LUT Rec.709 si existe (evita reset a sRGB)
+    # 13. Aplicar LUT Rec.709 si existe (evita reset a sRGB)
     rec709_time = 0
     rec709_applied = False
     step_start = time.time()
@@ -721,12 +736,13 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
         debug_print(f"   ├── Error aplicando LUT Rec.709: {e}")
     rec709_time = time.time() - step_start
 
-    # 13. Resultado final
+    # 14. Resultado final
     total_time = time.time() - total_start
     debug_print(f"✅ Switch híbrido perfecto completado en {total_time:.2f}s")
     debug_print(f"   ├── Viewer capture: {viewer_capture_time:.3f}s")
     debug_print(f"   ├── Sequence open: {open_time:.3f}s")
     debug_print(f"   ├── Close originals (viewer+timeline): {close_time:.3f}s")
+    debug_print(f"   ├── Timeline pre-cleanup: {precleanup_time:.3f}s")
     debug_print(f"   ├── Viewer settings apply: {viewer_restore_time:.3f}s")
     debug_print(f"   ├── UI reduce: {reduce_time:.3f}s")
     debug_print(f"   ├── UI scroll: {scroll_time:.3f}s")

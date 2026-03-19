@@ -165,6 +165,7 @@ Hoy carga scripts desde:
 
 Tambien usa shareds:
 
+- `LGA_NKS_Shared/LGA_NKS_Timeline_PreCleanup.py`
 - `LGA_NKS_Shared/LGA_NKS_StyleUtils.py`
 - `LGA_NKS_Shared/SecureConfig_Reader.py`
 
@@ -246,6 +247,7 @@ Hoy carga scripts y recursos desde:
 
 Tambien usa shareds:
 
+- `LGA_NKS_Shared/LGA_NKS_Timeline_PreCleanup.py`
 - `LGA_NKS_Shared/LGA_NKS_StyleUtils.py`
 - `LGA_NKS_Projects_Panel.ini`
 

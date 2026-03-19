@@ -17,7 +17,8 @@
 - `LGA_Projects_Panel/LGA_NKS_ScanManager.py` — Clase `ScanManager` para gestión de operaciones de escaneo.
 - `LGA_Projects_Panel/LGA_NKS_ProjectHandler.py` — Clase `ProjectHandler` para manejo de proyectos y apertura. `on_update_project_click()` actualiza proyectos.
 - `LGA_Projects_Panel/LGA_Projects_Panel_ScanProjects.py` — `scan_projects_on_disk()`, `get_open_projects_info()`, `is_project_open()`, `get_project_sequences()`, `get_projects_with_newer_versions()`.
-- `LGA_Projects_Panel/LGA_Projects_Panel_SwitchSequence.py` — `switch_to_sequence_hybrid()` (V3 híbrida: preserva gain/gamma/saturation/playhead, optimiza UI y funciona cross-project).
+- `LGA_Projects_Panel/LGA_Projects_Panel_SwitchSequence.py` — `switch_to_sequence_hybrid()` (V3 híbrida: preserva gain/gamma/saturation/playhead, optimiza UI, hace pre-cleanup del timeline nuevo y funciona cross-project).
+- `LGA_NKS_Shared/LGA_NKS_Timeline_PreCleanup.py` — `main()`, `remove_nukevfx_tracks()`, `extend_burnin_to_last_visible()`. Limpieza compartida de timeline para ViewerTL y Projects Panel.
 - `LGA_Projects_Panel/LGA_NKS_Projects_Panel_Smart_Reload.py` — `main()` recarga y redockea el panel (botón ♻).
 - `LGA_NKS_Projects_Panel.ini` — Configuración (colores por proyecto y auto-refresh interval para re-escaneos periódicos).
 - Qt adapter: `LGA_QtAdapter_HieroTools.py` (imports obligatorios). Doc ampliada en `Docu_LGA_QtAdapter.md`.
@@ -28,6 +29,7 @@
 - Proyectos: se listan alfabéticamente con versión más alta. Click abre con `hiero.core.openProject()`.
 - **Update automático**: proyectos abiertos muestran botón 🔼 cuando existe versión más nueva en disco. Click actualiza automáticamente.
 - Secuencias: solo de proyectos abiertos. Click llama `switch_to_sequence_hybrid()` y usa `hiero.ui.openInTimeline()` con el objeto `Sequence` (cambio de proyecto automático si aplica).
+- En el cambio de secuencia se ejecuta un pre-cleanup sobre el timeline nuevo antes de los ajustes finales de UI: elimina tracks NukeVFX y extiende BurnIn hasta el último clip visible.
 - Contadores: etiqueta inferior muestra totales de proyectos encontrados y abiertos.
 - Reimport: botón `♻` ejecuta el smart reload externo para probar cambios sin reiniciar Hiero.
 
