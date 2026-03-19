@@ -1,18 +1,22 @@
 """
 ____________________________________________________________________________________________________________________
 
-  LGA_NKS_Timeline_Refresh_Wrap v1.4 | Lega
+  LGA_NKS_Timeline_Refresh_Wrap v1.41 | Lega
 
   Wrapper que ejecuta una secuencia de scripts para refrescar el timeline manteniendo el nivel de zoom original:
 
-  1. Captura el estado actual del timeline (zoom y scroll)
-  2. Limpia el cache de reproducción (deshabiliado por el momento)
-  3. Refresca el timeline
-  4. Ajusta el tamaño de la ventana
-  5. Scrollea al track superior
-  6. Restaura el estado original (dos intentos) usando los valores exactos del slider y scrollbar
+  1. Elimina tracks con tag icon 'icons:NukeVFX.png' del timeline activo
+  2. Extiende los efectos de BurnIn hasta el último clip visible con imagen
+  3. Captura el estado actual del timeline (zoom y scroll)
+  4. Limpia el cache de reproducción (deshabilitado por el momento)
+  5. Refresca el timeline
+  6. Ajusta el tamaño de la ventana
+  7. Scrollea al track superior
+  8. Restaura el estado original (dos intentos) usando los valores exactos del slider y scrollbar
 
-  v1.4: Implementado cierre simultáneo de viewers + timelines para mantener equilibrio delicado de Hiero
+  v1.41: Agregado pre-cleanup del timeline antes del refresh.
+         Elimina tracks con tag icon 'icons:NukeVFX.png' y extiende BurnIn hasta el último clip visible.
+  v1.40: Implementado cierre simultáneo de viewers + timelines para mantener equilibrio delicado de Hiero
 ____________________________________________________________________________________________________________________
 """
 
@@ -390,8 +394,21 @@ def main():
     """
     try:
         start_total = time.time()
+
+        # 1. Limpieza previa del timeline actual
+        start_time = time.time()
+        precleanup_module = import_script('LGA_NKS_Timeline_PreCleanup')
+        if precleanup_module:
+            try:
+                precleanup_result = precleanup_module.main()
+                debug_print(f"Resultado pre-cleanup: {precleanup_result}")
+            except Exception as e:
+                debug_print(f"Error ejecutando pre-cleanup: {e}")
+        else:
+            debug_print("No se pudo importar LGA_NKS_Timeline_PreCleanup.")
+        debug_print(f"Tiempo ejecutando pre-cleanup: {time.time() - start_time:.3f} segundos")
         
-        # 1. Capturar estado inicial
+        # 2. Capturar estado inicial
         start_time = time.time()
         original_state = get_timeline_state()
         if original_state is None:
@@ -401,7 +418,7 @@ def main():
         debug_print(original_state)
         debug_print(f"Tiempo capturando estado inicial: {time.time() - start_time:.3f} segundos")
 
-        # 2. Ejecutar Clear Cache Playback
+        # 3. Ejecutar Clear Cache Playback
         """
         start_time = time.time()
         cache_module = import_script('LGA_NKS_ClearCachePlayback')
@@ -412,7 +429,7 @@ def main():
         debug_print(f"Tiempo ejecutando clear cache: {time.time() - start_time:.3f} segundos")
         """
 
-        # 3. CAPTURAR VIEWER Y TIMELINE ACTIVOS ANTES del refresh (serán los "viejos")
+        # 4. CAPTURAR VIEWER Y TIMELINE ACTIVOS ANTES del refresh (serán los "viejos")
         old_viewer_object_name = None
         old_timeline_object_name = None
 
@@ -439,7 +456,7 @@ def main():
             except Exception as e:
                 debug_print(f"⚠️ No se pudo capturar objectName del timeline activo: {e}")
 
-        # 4. Ejecutar refresh y obtener timeline/viewer nuevo
+        # 5. Ejecutar refresh y obtener timeline/viewer nuevo
         start_time = time.time()
         refresh_module = import_script('LGA_NKS_Timeline_Refresh')
         new_timeline = None
