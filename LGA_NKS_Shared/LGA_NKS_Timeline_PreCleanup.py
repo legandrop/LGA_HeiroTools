@@ -1,15 +1,15 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Timeline_PreCleanup v1.01 | Lega
+  LGA_NKS_Timeline_PreCleanup v1.02 | Lega
   Limpieza previa del timeline para Refresh Timeline y Switch Sequence.
   Elimina tracks NukeVFX y extiende los efectos de BurnIn
-  hasta el ultimo clip visible con imagen.
+  hasta el ultimo clip real del timeline, incluso si esta offline.
 
   v1.01: Agregado hook de debug handler para reutilizar el logger del panel que lo invoque
   v1.00: Version inicial. Elimina tracks con tag icon 'icons:NukeVFX.png'
          y extiende los efectos del track BurnIn hasta el timelineOut
-         del ultimo clip visible.
+         del ultimo clip real del timeline.
 ____________________________________________________________________________________
 """
 
@@ -77,20 +77,13 @@ def remove_nukevfx_tracks(seq):
     return len(tracks_to_remove)
 
 
-def clip_has_visible_media(item):
+def clip_counts_for_timeline_extent(item):
     if isinstance(item, hiero.core.EffectTrackItem):
         return False
 
-    source = safe_call(item, "source")
-    if not source:
-        return False
-
-    media_source = safe_call(source, "mediaSource")
-    if not media_source:
-        return False
-
-    media_present = safe_call(media_source, "isMediaPresent")
-    if media_present is False:
+    timeline_in = safe_call(item, "timelineIn")
+    timeline_out = safe_call(item, "timelineOut")
+    if timeline_in is None or timeline_out is None:
         return False
 
     return True
@@ -106,7 +99,7 @@ def get_last_visible_timeline_out(seq):
             continue
 
         for item in items:
-            if not clip_has_visible_media(item):
+            if not clip_counts_for_timeline_extent(item):
                 continue
 
             timeline_out = safe_call(item, "timelineOut")
@@ -154,7 +147,7 @@ def extend_burnin_to_last_visible(seq):
 
     target_timeline_out = get_last_visible_timeline_out(seq)
     if target_timeline_out is None:
-        debug_print("No se pudo calcular el ultimo timelineOut visible.")
+        debug_print("No se pudo calcular el ultimo timelineOut del timeline.")
         return 0
 
     adjusted_count = 0

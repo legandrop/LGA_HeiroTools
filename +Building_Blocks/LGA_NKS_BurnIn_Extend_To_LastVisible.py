@@ -1,6 +1,6 @@
 """
 Extiende los soft effects del track BurnIn hasta el timelineOut del ultimo clip
-visible con imagen en la secuencia activa.
+real del timeline en la secuencia activa, aunque este offline.
 
 Este script SI modifica el timeline.
 """
@@ -138,20 +138,13 @@ def tc_label(frame, fps, seq_tc_start):
     return f"{frames_to_tc(tc_frame, fps)} (frame {frame})"
 
 
-def clip_has_visible_media(item):
+def clip_counts_for_timeline_extent(item):
     if isinstance(item, hiero.core.EffectTrackItem):
         return False
 
-    source = safe_call(item, "source")
-    if not source:
-        return False
-
-    media_source = safe_call(source, "mediaSource")
-    if not media_source:
-        return False
-
-    media_present = safe_call(media_source, "isMediaPresent")
-    if media_present is False:
+    timeline_in = safe_call(item, "timelineIn")
+    timeline_out = safe_call(item, "timelineOut")
+    if timeline_in is None or timeline_out is None:
         return False
 
     return True
@@ -169,7 +162,7 @@ def get_last_visible_clip(seq):
             continue
 
         for item in items:
-            if not clip_has_visible_media(item):
+            if not clip_counts_for_timeline_extent(item):
                 continue
 
             timeline_out = safe_call(item, "timelineOut")
@@ -240,7 +233,7 @@ def main():
 
     last_track, last_item, target_timeline_out = get_last_visible_clip(seq)
     if last_item is None or target_timeline_out is None:
-        print("No se pudo encontrar un ultimo clip visible con imagen.")
+        print("No se pudo encontrar un ultimo clip real del timeline.")
         return
 
     target_last_visible = target_timeline_out - 1
@@ -248,11 +241,11 @@ def main():
     print(f"Secuencia activa: {safe_call(seq, 'name', '<sin nombre>')}")
     print(f"Track BurnIn: {safe_call(burnin_track, 'name', '<sin nombre>')}")
     print(
-        f"Ultimo clip visible: {safe_call(last_item, 'name', '<sin nombre>')} "
+        f"Ultimo clip del timeline: {safe_call(last_item, 'name', '<sin nombre>')} "
         f"en track {safe_call(last_track, 'name', '<sin nombre>')}"
     )
     print(f"timelineOut objetivo: {tc_label(target_timeline_out, fps, seq_tc_start)}")
-    print(f"ultimo TC con imagen: {tc_label(target_last_visible, fps, seq_tc_start)}")
+    print(f"ultimo frame util: {tc_label(target_last_visible, fps, seq_tc_start)}")
     print("")
 
     project = get_active_project()
