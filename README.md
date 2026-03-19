@@ -69,7 +69,7 @@ Tools for assigning artists to Flow tasks and managing related Wasabi access pol
   Click: removes assignees in Flow for the selected tasks, with comp used by default. If multiple clips are selected, it processes all of them; if only one clip is selected, it uses the playhead.  
   Shift+Click: scans approved / delivery_checked shots in `pipesync.db` and lets you clean their lines from Wasabi policies.
 - **Dynamic user buttons**  
-  User buttons are generated from `LGA_NKS_Flow_Users.json`.  
+  User buttons are generated from `LGA_NKS_Flow_Users.json` when it exists locally, or from `LGA_NKS_Flow_Users_dist.json` in distributed/public setups.  
   Click: assigns the user to the selected tasks in Flow Production Tracking.  
   Shift+Click: creates or updates Wasabi IAM policies for that user.  
   Ctrl+Shift+Click: opens a window to manage the shots currently assigned to that user's Wasabi policy.

@@ -22,6 +22,7 @@ import sqlite3
 import platform
 # Importar compatibilidad Qt para Hiero Panels
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
+from LGA_NKS_Shared.LGA_NKS_Flow_Users_Config import get_flow_users_config_path
 
 # Reasignar clases para compatibilidad con código existente
 QRunnable = QtCore.QRunnable
@@ -202,8 +203,8 @@ def get_user_info_from_config(user_name=None):
     """
     try:
         if user_name:
-            config_path = os.path.join(
-                os.path.dirname(os.path.dirname(__file__)), "LGA_NKS_Flow_Users.json"
+            config_path = get_flow_users_config_path(
+                os.path.dirname(os.path.dirname(__file__))
             )
 
             if os.path.exists(config_path):

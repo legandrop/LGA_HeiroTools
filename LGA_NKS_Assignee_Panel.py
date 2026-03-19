@@ -36,6 +36,10 @@ from LGA_NKS_Flow_NamingUtils import clean_base_name
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Shared"))
 from LGA_NKS_Shared.LGA_NKS_GetClip import get_clips_to_process
 from LGA_NKS_Shared import LGA_NKS_GetClip as clip_utils
+from LGA_NKS_Shared.LGA_NKS_Flow_Users_Config import (
+    get_flow_users_config_paths,
+    load_flow_users_config,
+)
 
 # Importar funciones de utilidad de estilos
 from LGA_NKS_Shared.LGA_NKS_StyleUtils import (
@@ -252,17 +256,18 @@ class AssigneePanel(QtWidgets.QWidget):
 
     def load_users_from_config(self):
         """Carga la lista de usuarios desde el archivo JSON de configuracion"""
-        config_path = os.path.join(os.path.dirname(__file__), "LGA_NKS_Flow_Users.json")
+        startup_dir = os.path.dirname(__file__)
+        local_config_path, _ = get_flow_users_config_paths(startup_dir)
         try:
-            if os.path.exists(config_path):
-                with open(config_path, "r", encoding="utf-8") as f:
-                    config = json.load(f)
-                    return config.get("users", [])
-            else:
-                debug_print(f"Archivo de configuracion no encontrado: {config_path}")
-                # Crear archivo de configuracion por defecto si no existe
-                self.create_default_config(config_path)
-                return self.load_users_from_config()  # Intentar cargar nuevamente
+            config, config_path = load_flow_users_config(startup_dir)
+            if config is not None:
+                debug_print(f"Archivo de configuracion cargado: {config_path}")
+                return config.get("users", [])
+
+            debug_print(f"Archivo de configuracion no encontrado: {local_config_path}")
+            # Crear archivo de configuracion local por defecto si no existe nada
+            self.create_default_config(local_config_path)
+            return self.load_users_from_config()  # Intentar cargar nuevamente
         except Exception as e:
             debug_print(f"Error al cargar configuracion de usuarios: {e}")
             return []

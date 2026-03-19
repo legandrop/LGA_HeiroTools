@@ -4,12 +4,13 @@
 # LGA_NKS_Flow_Assignee_Panel - Configuración Dinámica de Usuarios
 
 ## Descripción
-El panel LGA_NKS_Flow_Assignee_Panel carga dinámicamente la lista de usuarios desde el archivo `LGA_NKS_Flow_Users.json`, permitiendo agregar, modificar o eliminar usuarios sin necesidad de editar el código fuente.
+El panel LGA_NKS_Flow_Assignee_Panel carga dinámicamente la lista de usuarios desde `LGA_NKS_Flow_Users.json` si existe localmente; si no, usa `LGA_NKS_Flow_Users_dist.json` como configuración distribuible, permitiendo agregar, modificar o eliminar usuarios sin necesidad de editar el código fuente.
 
 ## Funcionalidades Principales
 
 ### 1. Configuración Dinámica de Usuarios
-- Los usuarios se cargan desde `Python/Startup/LGA_NKS_Flow_Users.json`
+- Los usuarios se cargan desde `Python/Startup/LGA_NKS_Flow_Users.json` si existe localmente
+- Si no existe ese archivo local, se usa `Python/Startup/LGA_NKS_Flow_Users_dist.json`
 - Cada usuario tiene nombre, color y usuario de Wasabi configurables
 - El sistema crea automáticamente el archivo de configuración si no existe
 
@@ -25,7 +26,7 @@ El panel LGA_NKS_Flow_Assignee_Panel carga dinámicamente la lista de usuarios d
   - `Nombre de policy | Nombre de shot | Estado del shot`
 - Todas las filas aparecen con checkbox activo por defecto y el botón **Limpiar policies** elimina las líneas correspondientes en policies para los items seleccionados
 
-## Archivo de Configuración: LGA_NKS_Flow_Users.json
+## Archivo de Configuración: LGA_NKS_Flow_Users.json / LGA_NKS_Flow_Users_dist.json
 
 ```json
 {
