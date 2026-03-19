@@ -1,11 +1,12 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Timeline_PreCleanup v1.00 | Lega
+  LGA_NKS_Timeline_PreCleanup v1.01 | Lega
   Limpieza previa del timeline para Refresh Timeline y Switch Sequence.
   Elimina tracks NukeVFX y extiende los efectos de BurnIn
   hasta el ultimo clip visible con imagen.
 
+  v1.01: Agregado hook de debug handler para reutilizar el logger del panel que lo invoque
   v1.00: Version inicial. Elimina tracks con tag icon 'icons:NukeVFX.png'
          y extiende los efectos del track BurnIn hasta el timelineOut
          del ultimo clip visible.
@@ -19,9 +20,19 @@ import hiero.ui
 TARGET_BURNIN_TRACK = "BurnIn"
 TARGET_NUKEVFX_ICON = "icons:NukeVFX.png"
 
+_debug_handler = None
+
 
 def debug_print(*message):
-    print(*message)
+    if _debug_handler:
+        _debug_handler(*message)
+    else:
+        print(*message)
+
+
+def set_debug_handler(handler):
+    global _debug_handler
+    _debug_handler = handler
 
 
 def safe_call(obj, attr_name, default=None):

@@ -1,8 +1,17 @@
 """
+____________________________________________________________________________________
+
+  LGA_NKS_ScrollTo_TopTrack v1.01 | Lega
+  Utilidad para llevar el timeline al track superior.
+
+  v1.01: Agregado hook de debug handler para reutilizar el logger del panel que lo invoque
+  v1.00: Utilidad original de scroll vertical para timeline
+
 Usado por runtime activo:
 - LGA_NKS_ViewerTL_Panel.py
 - LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh_Wrap.py
 - LGA_NKS_Projects_Panel_py/LGA_Projects_Panel_SwitchSequence.py
+____________________________________________________________________________________
 """
 
 import hiero
@@ -10,10 +19,18 @@ import time
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtCore
 
 DEBUG = True
+_debug_handler = None
 
 def debug_print(*message):
-    if DEBUG:
+    if _debug_handler:
+        _debug_handler(*message)
+    elif DEBUG:
         print(*message)
+
+
+def set_debug_handler(handler):
+    global _debug_handler
+    _debug_handler = handler
 
 
 def obtener_scrollbar_robusto(timeline_editor=None):

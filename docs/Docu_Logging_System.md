@@ -25,6 +25,7 @@ Esta guía documenta cómo implementar un sistema de logging robusto que escribe
 - **Encabezado**: `Fecha: YYYY-MM-DD HH:MM:SS` al inicio del archivo
 - **Formato**: `[0.123s] mensaje`
 - **Limpieza**: borra el `.log` en cada ejecución
+- **Variante Projects Panel**: durante `switch_to_sequence_hybrid()` el log se reinicia una sola vez al inicio de cada cambio de timeline
 - **Scripts que lo usan**:
   - `LGA_NKS_Flow/LGA_NKS_Flow_Pull.py` (log: `debugPy_FlowPull.log`)
   - `LGA_NKS_Flow_Panel.py`
@@ -40,6 +41,13 @@ Esta guía documenta cómo implementar un sistema de logging robusto que escribe
   - `+Building_Blocks/LGA_NKS_Flow_Pull_DoScan.py`
   - `+Building_Blocks/LGA_NKS_Flow_Pull_BinItem.py`
   - `+Building_Blocks/test_funcion_por_funcion.py`
+  - `LGA_NKS_Projects_Panel.py` (log: `DebugPy_ProjectsPanel.log`)
+  - `LGA_NKS_Projects_Panel_py/LGA_Projects_Panel_ScanProjects.py`
+  - `LGA_NKS_Projects_Panel_py/LGA_NKS_CheckProjectVersions.py`
+  - `LGA_NKS_Projects_Panel_py/LGA_NKS_Projects_Panel_Smart_Reload.py`
+  - `LGA_NKS_Projects_Panel_py/LGA_Projects_Panel_SwitchSequence.py`
+  - `LGA_NKS_Shared/LGA_NKS_Timeline_PreCleanup.py` (cuando es invocado desde Projects Panel)
+  - `LGA_NKS_Shared/LGA_NKS_ScrollTo_TopTrack.py` (cuando es invocado desde Projects Panel)
 
 ### ✅ Sistema B: hora + limpieza diaria
 
@@ -53,6 +61,17 @@ Esta guía documenta cómo implementar un sistema de logging robusto que escribe
   - `LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_Upload.py`
   - `LGA_NKS_Edit/LGA_NKS_Reconnect.py`
   - `LGA_NKS_Edit/LGA_NKS_SelfReplaceClip.py`
+
+## 🧩 Caso especial: Projects Panel
+
+- Helper compartido: `LGA_NKS_Projects_Panel_py/LGA_NKS_ProjectsPanel_Logging.py`
+- Flags por defecto:
+  - `DEBUG = True`
+  - `DEBUG_CONSOLE = False`
+  - `DEBUG_LOG = True`
+- Archivo de salida: `logs/DebugPy_ProjectsPanel.log`
+- El `.log` se reinicia al comenzar cada `switch_to_sequence_hybrid()`
+- `LGA_NKS_Timeline_PreCleanup.py` y `LGA_NKS_ScrollTo_TopTrack.py` reutilizan ese mismo logger cuando son llamados desde Projects Panel
 
 ## 📁 Estructura de Archivos
 

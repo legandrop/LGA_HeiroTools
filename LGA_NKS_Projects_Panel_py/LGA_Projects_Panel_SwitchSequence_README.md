@@ -16,6 +16,7 @@ Módulo auxiliar que implementa la **solución ganadora V3 Híbrida** para cambi
 - ✅ **Sin duplicados:** Duplica y luego cierra viewer+timeline originales
 - ✅ **Opcional:** Cierra TODOS los viewers+timelines viejos (flag `CLOSE_ALL_TIMELINES`)
 - ✅ **UI completa:** Reduce panel + scroll automático
+- ✅ **Logging por switch:** reinicia `DebugPy_ProjectsPanel.log` al inicio de cada cambio de timeline
 
 ## API
 
@@ -42,6 +43,7 @@ switch_to_sequence(target_sequence_name)
 - ✅ **Manejo de duplicados:** Duplica y luego cierra viewer+timeline originales (método refresh)
 - ✅ **Cierre total de viewers+timelines:** Opcional con `CLOSE_ALL_TIMELINES = True`
 - ✅ **Logging detallado:** Tiempos de ejecución y estado de operaciones
+- ✅ **Shared logging integrado:** `LGA_NKS_Timeline_PreCleanup.py` y `LGA_NKS_ScrollTo_TopTrack.py` escriben en el mismo log del Projects Panel
 
 ## Uso en Panel de Proyectos
 
@@ -65,6 +67,17 @@ def on_sequence_click(self, sequence_name):
         print(f"❌ Error: {e}")
 ```
 
+## Logging actual
+
+- Logger usado: `LGA_NKS_Projects_Panel_py/LGA_NKS_ProjectsPanel_Logging.py`
+- Archivo de salida: `logs/DebugPy_ProjectsPanel.log`
+- Flags por defecto:
+  - `DEBUG = True`
+  - `DEBUG_CONSOLE = False`
+  - `DEBUG_LOG = True`
+- El `.log` se reinicia una sola vez al comienzo de cada `switch_to_sequence_hybrid()`
+- Los scripts shared de pre-cleanup y scroll reciben el `debug_print` del Projects Panel cuando son importados desde este flujo
+
 ## Compatibilidad
 
 - ✅ **Nuke 15/16:** Usa `LGA_QtAdapter_HieroTools` para compatibilidad Qt
@@ -84,8 +97,9 @@ def on_sequence_click(self, sequence_name):
 - Proyecto abierto en Hiero con secuencias
 
 ### Opcionales (para UI completa)
-- `LGA_NKS_ViewerTL/LGA_NKS_Reduce_SeqWin.py` - Reduce panel izquierdo
-- `LGA_NKS_ViewerTL/LGA_NKS_ScrollTo_TopTrack.py` - Scroll al top track
+- `LGA_NKS_Shared/LGA_NKS_Reduce_SeqWin.py` - Reduce panel izquierdo
+- `LGA_NKS_Shared/LGA_NKS_ScrollTo_TopTrack.py` - Scroll al top track
+- `LGA_NKS_Shared/LGA_NKS_Timeline_PreCleanup.py` - Limpieza previa de timeline
 
 ## Testing
 
@@ -100,7 +114,7 @@ def on_sequence_click(self, sequence_name):
 - ✅ Primer cambio de secuencia
 - ✅ Cambios múltiples entre secuencias ya abiertas
 - ✅ Proyectos con una sola secuencia
-- ⚠️ **Limitación:** No funciona entre proyectos diferentes (busca solo en proyecto activo)
+- ✅ Cross-project entre proyectos diferentes
 
 ## Arquitectura
 
@@ -138,23 +152,12 @@ def on_sequence_click(self, sequence_name):
    ├── UI scroll: 0.001s
    ├── Close ALL old viewers+timelines: 0.000s (solo si CLOSE_ALL_TIMELINES = True)
    └── Total: 0.49s
-  🔧 Aplicando reducción de panel izquierdo...
-  📋 Verificando que hay secuencia activa...
-  ✅ Secuencia activa: 710-990
-  🔍 Buscando script: C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_ViewerTL\LGA_NKS_Reduce_SeqWin.py
-  ✅ Script encontrado
-  ✅ Script importado exitosamente: LGA_NKS_Reduce_SeqWin
-  📋 Ejecutando reduce_module.main()...
-  🔧 Aplicando scroll al track superior...
-  📋 Verificando que hay secuencia activa...
-  ✅ Secuencia activa: 710-990
-  🔍 Buscando script: C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_ViewerTL\LGA_NKS_ScrollTo_TopTrack.py
-  ✅ Script encontrado
-  ✅ Script importado exitosamente: LGA_NKS_ScrollTo_TopTrack
-  📋 Ejecutando scroll_module.main()...
-  🔍 Verificando optimizaciones aplicadas...
-  📐 Tamaños del splitter después de reducción: 340px | 1260px
-  ✅ Panel izquierdo correctamente reducido a 340px
+Track NukeVFX eliminado: VFX-MOR 1
+Effect BurnIn extendido: Frame9 | 5881 -> 4638
+Pre-cleanup finalizado | tracks eliminados: 1 | efectos BurnIn ajustados: 4
+Usando método original (Nuke 15)
+Posicion actual del scrollbar: -336
+Scrolled to position -266.
 ```
 
 ### Casos Especiales

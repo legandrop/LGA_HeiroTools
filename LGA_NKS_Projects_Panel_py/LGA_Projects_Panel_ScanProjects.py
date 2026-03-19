@@ -1,15 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-Módulo de Escaneo de Proyectos - Panel de Proyectos LGA
-========================================================
+____________________________________________________________________________________
 
-Este módulo contiene funciones reutilizables para:
-- Escanear proyectos en disco T:
-- Obtener información de proyectos abiertos en Hiero
-- Verificar si un proyecto está abierto
-- Obtener secuencias de un proyecto
+  LGA_Projects_Panel_ScanProjects v1.01 | Lega
+  Módulo de escaneo reutilizable para el Panel de Proyectos LGA.
+  - Escanea proyectos en disco
+  - Obtiene información de proyectos abiertos en Hiero
+  - Verifica si un proyecto está abierto
+  - Obtiene secuencias de un proyecto
 
-IMPORTANTE: Este módulo usa LGA_QtAdapter_HieroTools para compatibilidad Nuke 15/16
+  v1.01: Conectado al logger compartido del Projects Panel para respetar flags y salida a archivo
+  v1.00: Versión inicial del módulo de escaneo reutilizable
+____________________________________________________________________________________
 """
 
 import hiero.core
@@ -19,31 +21,7 @@ import glob
 import re
 import sys
 from pathlib import Path
-
-# Importar variables globales del módulo principal para logs en hilos
-try:
-    # Intentar importar desde el módulo principal del panel
-    from LGA_NKS_Projects_Panel import DEBUG, debug_messages
-except ImportError:
-    # Fallback si no se puede importar
-    DEBUG = False
-    debug_messages = []
-
-def debug_print(*message):
-    """Función de debug que almacena en lista para hilos o imprime inmediatamente en hilo principal"""
-    if DEBUG:
-        # Importar para detectar si estamos en el hilo principal
-        from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtCore
-
-        message_str = " ".join(str(m) for m in message)
-
-        # Si estamos en el hilo principal, imprimir inmediatamente
-        if QtCore.QThread.currentThread() == QtCore.QCoreApplication.instance().thread():
-            print(message_str)
-        else:
-            # En hilo secundario, almacenar en lista para imprimir al final
-            if len(debug_messages) < 200:  # Máximo 200 mensajes
-                debug_messages.append(message_str)
+from LGA_NKS_Projects_Panel_py.LGA_NKS_ProjectsPanel_Logging import debug_print
 
 # Importar funciones de manejo de versiones desde código existente
 lga_nks_path = None

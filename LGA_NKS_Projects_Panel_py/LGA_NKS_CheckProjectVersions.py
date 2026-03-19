@@ -1,8 +1,10 @@
 """
 _______________________________________________________________
 
-  LGA_NKS_CheckProjectVersions v1.81 | Lega
+  LGA_NKS_CheckProjectVersions v1.82 | Lega
   Chequea versiones de todos los proyectos abiertos en Hiero
+
+  v1.82: Conectado al logger compartido del Projects Panel y removidos prints directos en flujos de UI
 _______________________________________________________________
 
 """
@@ -14,6 +16,12 @@ import os
 import glob
 import datetime
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
+from LGA_NKS_Projects_Panel_py.LGA_NKS_ProjectsPanel_Logging import (
+    DEBUG,
+    DEBUG_CONSOLE,
+    DEBUG_LOG,
+    debug_print,
+)
 
 # Configuración del temporizador (en minutos)
 INTERVALO_TEMPORIZADOR = 4
@@ -24,14 +32,6 @@ temporizador_id = "LGA_CheckProjects_Timer"
 
 # Variable global para controlar si el temporizador esta habilitado
 is_timer_enabled = True
-
-DEBUG = False
-
-
-def debug_print(*message):
-    if DEBUG:
-        print(*message)
-
 
 def extraer_version(ruta_disco):
     """Extrae el número de versión de la ruta del archivo en disco
@@ -511,11 +511,11 @@ class ProyectosAbertosDialog(QtWidgets.QMainWindow):
         fila_seleccionada = self.tabla_proyectos.currentRow()
 
         if fila_seleccionada < 0:
-            print("Por favor, selecciona un proyecto de la tabla.")
+            debug_print("Por favor, selecciona un proyecto de la tabla.")
             return
 
         if fila_seleccionada >= len(self.proyectos_data):
-            print("Error: fila seleccionada fuera de rango.")
+            debug_print("Error: fila seleccionada fuera de rango.", level="error")
             return
 
         # Obtener los datos del proyecto seleccionado
@@ -524,7 +524,7 @@ class ProyectosAbertosDialog(QtWidgets.QMainWindow):
 
         # Verificar que la ruta de la nueva versión existe
         if not os.path.exists(ruta_nueva_version):
-            print(f"Error: No se puede encontrar el archivo {ruta_nueva_version}")
+            debug_print(f"Error: No se puede encontrar el archivo {ruta_nueva_version}", level="error")
             return
 
         try:
@@ -533,15 +533,15 @@ class ProyectosAbertosDialog(QtWidgets.QMainWindow):
             nuevo_proyecto = hiero.core.openProject(ruta_nueva_version)
 
             if nuevo_proyecto:
-                print(
+                debug_print(
                     f"Proyecto abierto exitosamente: {os.path.basename(ruta_nueva_version)}"
                 )
                 debug_print(f"Nuevo proyecto cargado: {nuevo_proyecto.name()}")
             else:
-                print(f"Error al abrir el proyecto: {ruta_nueva_version}")
+                debug_print(f"Error al abrir el proyecto: {ruta_nueva_version}", level="error")
 
         except Exception as e:
-            print(f"Error al abrir la nueva versión: {str(e)}")
+            debug_print(f"Error al abrir la nueva versión: {str(e)}", level="error")
             debug_print(f"Excepción al abrir proyecto: {str(e)}")
 
     def abrir_nueva_version_y_cerrar_actual(self):
@@ -550,11 +550,11 @@ class ProyectosAbertosDialog(QtWidgets.QMainWindow):
         fila_seleccionada = self.tabla_proyectos.currentRow()
 
         if fila_seleccionada < 0:
-            print("Por favor, selecciona un proyecto de la tabla.")
+            debug_print("Por favor, selecciona un proyecto de la tabla.")
             return
 
         if fila_seleccionada >= len(self.proyectos_data):
-            print("Error: fila seleccionada fuera de rango.")
+            debug_print("Error: fila seleccionada fuera de rango.", level="error")
             return
 
         # Obtener los datos del proyecto seleccionado
@@ -564,25 +564,25 @@ class ProyectosAbertosDialog(QtWidgets.QMainWindow):
 
         # Verificar que la ruta de la nueva versión existe
         if not os.path.exists(ruta_nueva_version):
-            print(f"Error: No se puede encontrar el archivo {ruta_nueva_version}")
+            debug_print(f"Error: No se puede encontrar el archivo {ruta_nueva_version}", level="error")
             return
 
         try:
             # Paso 1: Cerrar el proyecto actual
             debug_print(f"Cerrando proyecto actual: {proyecto_actual.name()}")
-            print(f"Cerrando proyecto: {proyecto_actual.name()}")
+            debug_print(f"Cerrando proyecto: {proyecto_actual.name()}")
 
             # Cerrar el proyecto usando el método close()
             proyecto_actual.close()
 
             # Paso 2: Abrir el proyecto de la nueva versión
             debug_print(f"Abriendo nueva versión: {ruta_nueva_version}")
-            print(f"Abriendo nueva versión: {os.path.basename(ruta_nueva_version)}")
+            debug_print(f"Abriendo nueva versión: {os.path.basename(ruta_nueva_version)}")
 
             nuevo_proyecto = hiero.core.openProject(ruta_nueva_version)
 
             if nuevo_proyecto:
-                print(
+                debug_print(
                     f"Proyecto actualizado exitosamente a: {os.path.basename(ruta_nueva_version)}"
                 )
                 debug_print(f"Nuevo proyecto cargado: {nuevo_proyecto.name()}")
@@ -590,23 +590,23 @@ class ProyectosAbertosDialog(QtWidgets.QMainWindow):
                 # Cerrar la ventana después de la operación exitosa
                 self.close()
             else:
-                print(f"Error al abrir el proyecto: {ruta_nueva_version}")
+                debug_print(f"Error al abrir el proyecto: {ruta_nueva_version}", level="error")
                 # Si no se pudo abrir la nueva versión, intentar reabrir la original
                 try:
-                    print("Intentando reabrir el proyecto original...")
+                    debug_print("Intentando reabrir el proyecto original...")
                     hiero.core.openProject(proyecto_data["ruta_actual"])
                 except Exception as restore_e:
-                    print(f"Error al restaurar proyecto original: {str(restore_e)}")
+                    debug_print(f"Error al restaurar proyecto original: {str(restore_e)}", level="error")
 
         except Exception as e:
-            print(f"Error durante el proceso de cambio de versión: {str(e)}")
+            debug_print(f"Error durante el proceso de cambio de versión: {str(e)}", level="error")
             debug_print(f"Excepción al cambiar versión: {str(e)}")
             # Intentar reabrir el proyecto original si algo salió mal
             try:
-                print("Intentando reabrir el proyecto original debido al error...")
+                debug_print("Intentando reabrir el proyecto original debido al error...")
                 hiero.core.openProject(proyecto_data["ruta_actual"])
             except Exception as restore_e:
-                print(f"Error al restaurar proyecto original: {str(restore_e)}")
+                debug_print(f"Error al restaurar proyecto original: {str(restore_e)}", level="error")
 
     def deshabilitar_temporizador_ui(self):
         """Deshabilita el temporizador y actualiza el label."""
@@ -622,7 +622,7 @@ class ProyectosAbertosDialog(QtWidgets.QMainWindow):
         self.boton_deshabilitar.setEnabled(
             False
         )  # Deshabilitar el boton una vez presionado
-        print("Temporizador de verificación de versiones deshabilitado.")
+        debug_print("Temporizador de verificación de versiones deshabilitado.")
 
 
 def buscar_ventana_existente(nombre_objeto):

@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Projects_Panel_SwitchSequence v2.25 | Lega
+  LGA_NKS_Projects_Panel_SwitchSequence v2.26 | Lega
   Hiero / Nuke Studio - Switch V3: HÍBRIDO OPTIMIZADO + LIMPIEZA TOTAL + CROSS-PROJECT
 
   🎯 SOLUCIÓN GANADORA FINAL:
@@ -15,6 +15,7 @@ ________________________________________________________________________________
 
   ✅ CONFIRMADO: Funciona perfectamente - velocidad 0.63s con cierre equilibrado + cross-project.
 
+  v2.26: Reinicia el log en cada cambio de timeline e inyecta el logger del Projects Panel en scripts shared
   v2.25: Agregado timeline pre-cleanup sobre la secuencia nueva.
          Elimina tracks NukeVFX y extiende BurnIn antes de los ajustes finales de UI.
   v2.24: Flag opcional para cerrar viewers + timelines viejos (deja solo el nuevo)
@@ -32,15 +33,16 @@ import hiero.ui
 import time
 import importlib.util
 import os
+from LGA_NKS_Projects_Panel_py.LGA_NKS_ProjectsPanel_Logging import (
+    DEBUG,
+    DEBUG_CONSOLE,
+    DEBUG_LOG,
+    debug_print,
+    reset_debug_log,
+)
 
-# Variable global para activar o desactivar los prints
-DEBUG = False
 # Si True, cierra TODOS los viewers + timelines viejos y deja solo el nuevo
 CLOSE_ALL_TIMELINES = True
-
-def debug_print(*message):
-    if DEBUG:
-        print(*message)
 
 # Qt import (según entorno)
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
@@ -525,6 +527,12 @@ def import_script(script_name):
         spec = importlib.util.spec_from_file_location(script_name, script_path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
+        if hasattr(module, "set_debug_handler"):
+            module.set_debug_handler(debug_print)
+        elif hasattr(module, "debug_print"):
+            module.debug_print = debug_print
+        if hasattr(module, "DEBUG"):
+            module.DEBUG = DEBUG
         return module
     return None
 
@@ -565,6 +573,7 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
     - ✅ OPCIONAL: Cierra TODOS los timelines viejos (flag CLOSE_ALL_TIMELINES)
     - ✅ CROSS-PROJECT: Cambia entre proyectos automáticamente
     """
+    reset_debug_log()
     total_start = time.time()
     debug_print(f"🔄 Switch híbrido a '{target_sequence_name}'...")
 

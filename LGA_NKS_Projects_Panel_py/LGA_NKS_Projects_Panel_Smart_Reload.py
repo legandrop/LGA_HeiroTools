@@ -1,12 +1,13 @@
 """
 ____________________________________________________________________________________
 
-  LGA_Projects_Panel_Smart_Reload v2.21 | Lega
+  LGA_Projects_Panel_Smart_Reload v2.22 | Lega
   Script para recarga inteligente del panel Projects
 
   Destruye el panel actual, crea uno nuevo y lo dockea automáticamente
   usando el método nativo de Hiero wm.showWindow().
 
+  v2.22: Migrado al logger compartido del Projects Panel y removidos prints directos de análisis y resultado
   v2.21: Mejorada lógica de versiones: búsqueda en anteúltimo bloque y priorización de sufijos (_Mac)
 ____________________________________________________________________________________
 """
@@ -16,17 +17,15 @@ import hiero.core
 import sys
 import os
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
-
-# Variable global para activar o desactivar los prints
-DEBUG = False
+from LGA_NKS_Projects_Panel_py.LGA_NKS_ProjectsPanel_Logging import (
+    DEBUG,
+    DEBUG_CONSOLE,
+    DEBUG_LOG,
+    debug_print,
+)
 
 # Variable global para compartir estado entre funciones
 _initial_docked_state = False
-
-
-def debug_print(*message):
-    if DEBUG:
-        print(*message)
 
 
 def log_panel_count(wm, context=""):
@@ -63,14 +62,14 @@ def dock_panel_with_hiero_show_window(panel):
 
 def analyze_panel_docking(panel):
     """Analiza el estado de docking de un panel (versión simplificada)"""
-    print(f"\n{'='*50}")
-    print(f"ANÁLISIS DE DOCKING: {panel.objectName()}")
-    print(f"{'='*50}")
+    debug_print(f"\n{'='*50}")
+    debug_print(f"ANALISIS DE DOCKING: {panel.objectName()}")
+    debug_print(f"{'='*50}")
 
     # Información básica
-    print(f"Título: {panel.windowTitle()}")
-    print(f"Visible: {panel.isVisible()}")
-    print(f"Geometry: {panel.geometry()}")
+    debug_print(f"Titulo: {panel.windowTitle()}")
+    debug_print(f"Visible: {panel.isVisible()}")
+    debug_print(f"Geometry: {panel.geometry()}")
 
     # Verificar jerarquía de parents
     has_stacked_widget = False
@@ -79,9 +78,9 @@ def analyze_panel_docking(panel):
     while current and depth < 10:
         if isinstance(current, QtWidgets.QStackedWidget):
             has_stacked_widget = True
-            print(f"✓ TIENE QStackedWidget en profundidad {depth}")
-            print(f"  Count: {current.count()}")
-            print(f"  Current Index: {current.currentIndex()}")
+            debug_print(f"Tiene QStackedWidget en profundidad {depth}")
+            debug_print(f"  Count: {current.count()}")
+            debug_print(f"  Current Index: {current.currentIndex()}")
 
             # Encontrar el índice de nuestro panel
             panel_index = -1
@@ -90,26 +89,26 @@ def analyze_panel_docking(panel):
                 if widget == panel:
                     panel_index = i
                     break
-            print(f"  Nuestro panel está en índice: {panel_index}")
+            debug_print(f"  Nuestro panel esta en indice: {panel_index}")
 
             # Ver otros panels en el mismo contenedor
-            print("  Panels en este contenedor:")
+            debug_print("  Panels en este contenedor:")
             for i in range(current.count()):
                 widget = current.widget(i)
                 name = getattr(widget, 'objectName', lambda: 'N/A')()
                 title = getattr(widget, 'windowTitle', lambda: 'N/A')()
-                current_marker = " ← CURRENT" if i == current.currentIndex() else ""
-                our_panel_marker = " ← NUESTRO PANEL" if widget == panel else ""
-                print(f"    [{i}] {name}: '{title}'{current_marker}{our_panel_marker}")
+                current_marker = " <- CURRENT" if i == current.currentIndex() else ""
+                our_panel_marker = " <- NUESTRO PANEL" if widget == panel else ""
+                debug_print(f"    [{i}] {name}: '{title}'{current_marker}{our_panel_marker}")
 
             break
         current = current.parent()
         depth += 1
 
     if not has_stacked_widget:
-        print("❌ NO tiene QStackedWidget - NO ESTÁ DOCKEADO")
+        debug_print("No tiene QStackedWidget - no esta dockeado")
 
-    print(f"{'='*50} FIN ANÁLISIS {'='*50}")
+    debug_print(f"{'='*50} FIN ANALISIS {'='*50}")
     return has_stacked_widget
 
 
@@ -123,9 +122,9 @@ def count_projects_panels():
         if window.objectName() == target_object_name:
             projects_panels.append(window)
 
-    print(f"\n🔢 PANELS PROJECTS ENCONTRADOS: {len(projects_panels)}")
+    debug_print(f"\nPANELS PROJECTS ENCONTRADOS: {len(projects_panels)}")
     for i, panel in enumerate(projects_panels):
-        print(f"  Panel {i}: {panel.windowTitle()} - Visible: {panel.isVisible()}")
+        debug_print(f"  Panel {i}: {panel.windowTitle()} - Visible: {panel.isVisible()}")
 
         # Verificar si está dockeado
         is_docked = False
@@ -134,13 +133,13 @@ def count_projects_panels():
         while current and depth < 10:
             if isinstance(current, QtWidgets.QStackedWidget):
                 is_docked = True
-                print(f"    ✓ DOCKeADO en QStackedWidget (profundidad {depth})")
+                debug_print(f"    Dockeado en QStackedWidget (profundidad {depth})")
                 break
             current = current.parent()
             depth += 1
 
         if not is_docked:
-            print(f"    ❌ NO dockeado")
+            debug_print("    No dockeado")
 
     return projects_panels
 
@@ -401,11 +400,11 @@ def finalize_docking(new_panel):
     global _initial_docked_state
     # Recalcular panels iniciales ya que la variable no está disponible en este scope
     initial_panels_count = 1  # Empezamos con 1 panel inicialmente
-    print(f"Panels al inicio: {initial_panels_count}")
-    print(f"Panels al final: {len(final_panels)}")
-    print(f"¿Estaba dockeado inicialmente? {_initial_docked_state}")
-    print(f"¿Está dockeado el nuevo panel? {final_docked}")
-    print(f"¿Docking exitoso? {success}")
+    debug_print(f"Panels al inicio: {initial_panels_count}")
+    debug_print(f"Panels al final: {len(final_panels)}")
+    debug_print(f"Estaba dockeado inicialmente? {_initial_docked_state}")
+    debug_print(f"Esta dockeado el nuevo panel? {final_docked}")
+    debug_print(f"Docking exitoso? {success}")
 
     if len(final_panels) > initial_panels_count:
         debug_print("⚠️  ALERTA: Se crearon panels adicionales!")

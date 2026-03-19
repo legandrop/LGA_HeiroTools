@@ -2,12 +2,13 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Projects_Panel v2.21 | Lega
+  LGA_NKS_Projects_Panel v2.22 | Lega
   Panel de Proyectos LGA integrado para Hiero con recarga inteligente.
   - Escanea proyectos en AltTPath (PipeSync) o T:\ como fallback.
   - Permite abrir proyectos y secuencias (cross-project) sin perder ajustes de viewer.
   - Incluye botón de reimport/redock para aplicar cambios al vuelo.
 
+  v2.22: Migrado al sistema de logging a archivo con flags de debug compartidas para Projects Panel
   v2.21: Mejorada lógica de versiones: búsqueda en anteúltimo bloque y priorización de sufijos (_Mac)
          Las versiones ahora se detectan correctamente cuando están en bloques anteriores
          Ejemplo: v40_Mac > v40 (prioriza sufijos), v040_Mac detecta v040 correctamente
@@ -24,16 +25,17 @@ import sys
 import configparser
 from pathlib import Path
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
+from LGA_NKS_Projects_Panel_py.LGA_NKS_ProjectsPanel_Logging import (
+    DEBUG,
+    DEBUG_CONSOLE,
+    DEBUG_LOG,
+    debug_print,
+    print_debug_messages,
+)
 
 # Importar funciones de utilidad de estilos
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "LGA_NKS_Shared"))
 from LGA_NKS_Shared.LGA_NKS_StyleUtils import calculate_dynamic_border, calculate_dynamic_hover
-
-# Variable global para activar o desactivar los prints
-DEBUG = False
-
-# Lista global para almacenar mensajes de debug en hilos separados
-debug_messages = []
 
 # Variable global para controlar si se debe crear panel automáticamente
 # Se usa en smart reload para evitar creación duplicada
@@ -55,22 +57,6 @@ AUTO_REFRESH_OPTIONS = {
 
 # Configuración de colores desde archivo .ini
 PROJECT_COLORS = {}
-
-
-def debug_print(*message):
-    """Imprime un mensaje de debug si la variable DEBUG es True."""
-    if DEBUG:
-        # En hilos separados, almacenar en lista para imprimir al final
-        # En hilo principal, imprimir inmediatamente
-        if len(debug_messages) < 200:  # Máximo 200 mensajes para evitar memory issues
-            debug_messages.append(" ".join(str(m) for m in message))
-
-
-def print_debug_messages():
-    """Imprime todos los mensajes de debug almacenados y limpia la lista."""
-    if DEBUG and debug_messages:
-        print("\n".join(debug_messages))
-        debug_messages.clear()
 
 
 def load_project_colors():
