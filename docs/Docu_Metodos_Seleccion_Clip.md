@@ -400,7 +400,7 @@ for clip in clips:
 
 - **`LGA_NKS_Flow/LGA_NKS_Flow_Pull.py`** - `selected_clips = te.selection()` + TRACK_comp_EXR
 - **`LGA_NKS_Flow/LGA_NKS_Flow_Thumbs.py`** - `selected_clips = timeline_editor.selection()`
-- **`LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py`** - `selected_clips = timeline_editor.selection()`
+- **`LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.py`** - `selected_clips = timeline_editor.selection()`
 - **`LGA_NKS_Flow/LGA_NKS_Flow_CreateShot_Thumbs.py`** - `selected_clips = timeline_editor.selection()`
 - **`LGA_NKS/LGA_NKS_Trim_In.py`** - `selected_clips = te.selection()`
 - **`LGA_NKS/LGA_NKS_Trim_Out.py`** - `selected_clips = te.selection()`

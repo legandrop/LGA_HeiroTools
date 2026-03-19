@@ -57,7 +57,7 @@
 - [x] `LGA_NKS_Flow_NamingUtils.py` — Utilidades de naming (sin Qt)
 - [x] `LGA_NKS_Flow_CreateShot_Thumbs.py` — Creación de thumbnails (migrado Qt)
 
-### LGA_NKS_Flow_Prod/ - Scripts de producción Flow
+### LGA_NKS_Coordination_Panel_py/ - Scripts de producción Flow
 - [x] `LGA_NKS_Flow_CreateShot.py` — Crear shots Flow (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar)
 - [x] `LGA_NKS_Flow_ModifyShot.py` — Modificar shots Flow (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton)
 - [x] `LGA_NKS_Flow_ShowInFlow.py` — Mostrar en Flow (QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar, QRunnable, QThreadPool)
@@ -67,7 +67,7 @@
 - [x] `LGA_NKS_FileManager_Upload.py` — Subida FileManager (sin Qt - solo subprocess)
 - [x] `LGA_NKS_FileManager_OpenPath.py` — Abrir ruta FileManager (sin Qt - solo subprocess)
 
-## ✅ **MIGRACIÓN COMPLETA - LGA_NKS_Flow_Prod**
+## ✅ **MIGRACIÓN COMPLETA - LGA_NKS_Coordination_Panel_py**
 **8/8 archivos completamente migrados:**
 - `LGA_NKS_Flow_CreateShot.py` ✅
 - `LGA_NKS_Flow_ModifyShot.py` ✅
@@ -103,8 +103,8 @@
 - [x] `LGA_NKS_Hilos_Hiero.md` — Documentación de hilos
 
 ### Scripts sin Qt
-- [x] `LGA_NKS_Flow_Prod/LGA_NKS_FileManager.md` — Documentación
-- [x] `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.md` — Documentación
+- [x] `LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager.md` — Documentación
+- [x] `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.md` — Documentación
 - [x] `LGA_NKS_Wasabi/LGA_NKS_Wasabi_README.md` — Documentación
 - [x] `LGA_NKS_Wasabi/verify_policy_assign.py` — Script de verificación (sin Qt)
 - [x] `LGA_NKS_Wasabi/verify_policy_created.py` — Script de verificación (sin Qt)
@@ -236,4 +236,3 @@ QtCore.QTimer.singleShot(500, self.start_scan)  # 500ms delay
 - [x] Scripts auxiliares migrados (4/4)
 - [x] APIs problemáticas corregidas (undo system, scrollbar hierarchy)
 - [x] Todos los scripts completados - migración Qt finalizada
-

@@ -204,7 +204,7 @@ Esta sincronización bidireccional asegura consistencia entre ambas fuentes de d
 2. Evaluar caching de consultas cuando se procesan muchos shots consecutivos para reducir llamadas repetidas a Flow.
 3. Extender la UI para recordar la última selección de tasks por sesión si el flujo de trabajo lo requiere.
 
-**Referencia**: Lista completa de tasks en `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.md` sección "Tasks Disponibles".
+**Referencia**: Lista completa de tasks en `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.md` sección "Tasks Disponibles".
 
 ## Notas Técnicas
 - El archivo de configuración se busca en la misma carpeta que el script del panel

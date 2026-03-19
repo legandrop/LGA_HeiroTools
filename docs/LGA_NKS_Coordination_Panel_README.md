@@ -13,49 +13,49 @@ El panel de Coordination proporciona herramientas esenciales para operaciones de
 - **Función Click normal**: Abre la task comp del clip seleccionado en Chrome
 - **Función Shift+Click/Shortcut**: Abre el Shot completo en Chrome (sin la task específica)
 - **Tooltip**: Se muestra el shortcut y funcionalidad de Shift+Click al hacer hover sobre el botón
-- **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ShowInFlow.py`
+- **Script utilizado**: `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShowInFlow.py`
 - **Comportamiento**: Click normal busca el shot y task correspondiente al clip seleccionado y abre la URL de la task comp. Shift+Click o Ctrl+Shift+F abre directamente la URL del shot completo sin especificar la task.
 
 ### 2. Thumbnail
 - **Función**: Crea un thumbnail del clip seleccionado y lo sube a Flow Production Tracking
-- **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_Flow_Thumbs.py`
+- **Script utilizado**: `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_Thumbs.py`
 - **Comportamiento**: Genera una imagen thumbnail del frame actual del clip y la asocia con el shot en Flow
 
 ### 3. Create Shot
 - **Función**: Crea shots automáticamente en Flow Production Tracking basándose en los clips seleccionados
-- **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py`
+- **Script utilizado**: `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.py`
 - **Comportamiento**: Analiza los clips seleccionados, extrae información del shotname y crea los shots correspondientes en Flow si no existen
 - **Pre-chequeo v1.33**: Antes de mostrar la UI verifica si ya existen; si hay múltiples y alguno existe se cancela mostrando la lista, si es un único shot existente lanza Modify Shot automáticamente
 
 ### 4. Modify Shot
 - **Función**: Modifica un shot ya existente en Flow (agregar o quitar tasks, actualizar descripciones) sin tocar estados actuales
-- **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ModifyShot.py`
+- **Script utilizado**: `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ModifyShot.py`
 - **Restricción**: Solo admite un clip seleccionado a la vez
 - **Comportamiento**: Lee la configuración real del shot en Flow, precarga la misma UI compacta y aplica únicamente las diferencias solicitadas
 
 ### 5. Check Shots Exist
 - **Función**: Chequea si los shots del track comp existen en Flow
-- **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CheckTimelineShots.py`
+- **Script utilizado**: `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CheckTimelineShots.py`
 
 ### 6. Shot Priority
 - **Función**: Cambia la prioridad del shot (alta ↔ normal)
-- **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ShotPriority.py`
+- **Script utilizado**: `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShotPriority.py`
 
 ### 7. .Psync
 - **Función**: Genera un archivo `<SHOT>.psync` en el escritorio para compartir y arrastrar dentro de PipeSync
-- **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_PipeSync_CreatePsync.py`
+- **Script utilizado**: `LGA_NKS_Coordination_Panel_py/LGA_NKS_PipeSync_CreatePsync.py`
 
 ### 8. FileManager
 - **Función**: Abre la carpeta del shot en FileManager
-- **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_OpenPath.py`
+- **Script utilizado**: `LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_OpenPath.py`
 
 ### 9. Download Shot
 - **Función**: Descarga el shot desde Wasabi S3
-- **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_Download.py`
+- **Script utilizado**: `LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_Download.py`
 
 ### 10. Upload Shot
 - **Función**: Sube el shot a Wasabi S3
-- **Script utilizado**: `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_Upload.py`
+- **Script utilizado**: `LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_Upload.py`
 
 ## Compatibilidad de Nomenclatura
 
@@ -111,15 +111,15 @@ El sistema detecta automáticamente el formato utilizado sin necesidad de config
 
 ## Scripts Relacionados
 
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ShowInFlow.py` - Funcionalidad de Reveal in Flow
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_Thumbs.py` - Funcionalidad de Thumbnails
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CreateShot.py` - Funcionalidad de Create Shot
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ModifyShot.py` - Funcionalidad de Modify Shot
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_CheckTimelineShots.py` - Funcionalidad de Check Shots Exist
-- `LGA_NKS_Flow_Prod/LGA_NKS_Flow_ShotPriority.py` - Funcionalidad de Shot Priority
-- `LGA_NKS_Flow_Prod/LGA_NKS_PipeSync_CreatePsync.py` - Generación de archivos `.psync` portables
-- `LGA_NKS_Flow_Prod/LGA_NKS_PipeSync_OpenPath.py` - Funcionalidad de PipeSync (Open)
-- `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_OpenPath.py` - Funcionalidad de FileManager (Open)
-- `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_Download.py` - Funcionalidad de Download Shot
-- `LGA_NKS_Flow_Prod/LGA_NKS_FileManager_Upload.py` - Funcionalidad de Upload Shot
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShowInFlow.py` - Funcionalidad de Reveal in Flow
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_Thumbs.py` - Funcionalidad de Thumbnails
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.py` - Funcionalidad de Create Shot
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ModifyShot.py` - Funcionalidad de Modify Shot
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CheckTimelineShots.py` - Funcionalidad de Check Shots Exist
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShotPriority.py` - Funcionalidad de Shot Priority
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_PipeSync_CreatePsync.py` - Generación de archivos `.psync` portables
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_PipeSync_OpenPath.py` - Funcionalidad de PipeSync (Open)
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_OpenPath.py` - Funcionalidad de FileManager (Open)
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_Download.py` - Funcionalidad de Download Shot
+- `LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_Upload.py` - Funcionalidad de Upload Shot
 - `LGA_NKS_Flow/LGA_NKS_Flow_NamingUtils.py` - Utilidades compartidas de nomenclatura (usado por los scripts de producción)

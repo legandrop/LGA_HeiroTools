@@ -177,7 +177,7 @@ Los scripts ejecutan comandos CLI reales de FileManager:
 - **Desarrollo**: `C:\Portable\LGA_FileManager\build\FileManager.exe` (cuando `Desarrollo = True`)
 
 **macOS**:
-- Wrapper recomendado: `LGA_NKS_Flow_Prod/fm_cli_mac.sh` (usa `open -na`)
+- Wrapper recomendado: `LGA_NKS_Coordination_Panel_py/fm_cli_mac.sh` (usa `open -na`)
 
 **Lógica de selección automática**:
 - Si `Desarrollo = True` y el archivo existe en la carpeta build → usa desarrollo
