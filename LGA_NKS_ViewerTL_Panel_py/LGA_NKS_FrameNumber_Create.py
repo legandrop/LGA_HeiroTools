@@ -1,22 +1,20 @@
 """
 ______________________________________________________
 
-  LGA_NKS_FrameNumber_Create v0.2 | Lega
+  LGA_NKS_FrameNumber_Create v0.21 | Lega
   Script para crear el soft effect 'Frame_Only' en el track 'BurnIn'
   con todas las propiedades capturadas de un efecto existente.
 
-  Este script puede ejecutarse de forma independiente para pruebas,
-  pero está diseñado para ser usado como función auxiliar desde
-  el script maestro LGA_NKS_FrameNumber.py
+  Este script se usa como función auxiliar desde 
+  el script maestro LGA_NKS_FrameNumber.py para crear el soft effect 'Frame_Only' en el track 'BurnIn'.
+
+  v0.21: Se corrigió el problema cuando se creaba el efecto con el nombre 'Frame_Only' y ya existía uno con ese nombre.
 
 ______________________________________________________
 
-"""
-
-import hiero.core
+"""import hiero.core
 import hiero.ui
 import nuke
-
 # ============================
 # Configuración
 # ============================
@@ -101,7 +99,7 @@ def safe_set_knob(node, knob_name, value):
         return False
 
 
-def get_next_available_node_name(base_name="Frame_Only"):
+def get_next_available_node_name(base_name="Frame_Only", seq=None):
     """
     Busca todos los nodos en el proyecto de Nuke que empiecen con 'base_name'
     y retorna el siguiente nombre disponible (con número si es necesario).
@@ -113,18 +111,40 @@ def get_next_available_node_name(base_name="Frame_Only"):
         str: Nombre disponible (puede ser "Frame_Only", "Frame_Only1", "Frame_Only2", etc.)
     """
     try:
+        # Reunir nombres ya usados tanto en nodos internos de Nuke como en
+        # los EffectTrackItem visibles de Hiero. En algunos contextos Hiero
+        # no expone todos los nodos en nuke.allNodes(), así que conviene
+        # combinar ambas fuentes.
+        existing_names = set()
+
         # Obtener todos los nodos del proyecto de Nuke
         all_nodes = nuke.allNodes()
-
-        # Buscar nodos que empiecen con el nombre base
-        existing_names = []
         for node in all_nodes:
             try:
                 node_name = node.name()
                 if node_name.startswith(base_name):
-                    existing_names.append(node_name)
+                    existing_names.add(node_name)
             except:
                 continue
+
+        # Buscar también nombres de efectos en la secuencia activa
+        if seq:
+            try:
+                for track in seq.videoTracks():
+                    items = track.subTrackItems()
+                    if not items:
+                        continue
+                    for item in items:
+                        effect_item = item[0] if isinstance(item, (tuple, list)) else item
+                        if isinstance(effect_item, hiero.core.EffectTrackItem):
+                            try:
+                                effect_name = effect_item.name()
+                                if effect_name.startswith(base_name):
+                                    existing_names.add(effect_name)
+                            except:
+                                continue
+            except:
+                pass
 
         # Si no hay ningún nodo con ese nombre, usar el nombre base
         if not existing_names:
@@ -349,7 +369,7 @@ def create_frame_only_effect(seq=None, track=None):
 
     # Obtener el siguiente nombre disponible para el nodo en el proyecto de Nuke
     # Esto evita que Nuke renombre automáticamente el nodo si ya existe uno con ese nombre
-    available_node_name = get_next_available_node_name(EFFECT_NAME)
+    available_node_name = get_next_available_node_name(EFFECT_NAME, seq=seq)
     if available_node_name != EFFECT_NAME:
         debug_print(f"ℹ️ El nombre '{EFFECT_NAME}' ya existe en el proyecto de Nuke.")
         debug_print(f"   Usando nombre disponible: '{available_node_name}'")
@@ -399,15 +419,16 @@ def create_frame_only_effect(seq=None, track=None):
                     if not effect_item:
                         raise Exception("createEffect() retornó None")
 
-                    # Configurar nombre del efecto y del nodo usando el nombre disponible
+                    # Configurar el nombre visible del soft effect usando el nombre disponible.
+                    # Evitamos renombrar también el nodo interno de Nuke porque ese rename
+                    # puede disparar el warning modal "node X already exists" aunque el
+                    # EffectTrackItem todavía no exista en el track.
                     effect_item.setName(available_node_name)
 
                     # Obtener el nodo y configurar todas las propiedades
                     effect_node = effect_item.node()
                     if not effect_node:
                         raise Exception("No se pudo obtener el nodo del efecto creado")
-
-                    effect_node["name"].setValue(available_node_name)
 
                     # Configurar todas las propiedades
                     debug_print(f"⚙️ Configurando propiedades del efecto creado...")
