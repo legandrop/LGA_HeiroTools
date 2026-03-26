@@ -1,9 +1,12 @@
 """
 ______________________________________________________________________
 
-  LGA_NKS_Reconnect v1.18 | Lega
+  LGA_NKS_Reconnect v1.19 | Lega
   Reconecta clips seleccionados a diferentes rutas, manteniendo el color original.
 
+  v1.19: Fix reconnect de archivos sin versión en Win que en Mac existen con _vXX:
+         si el path exacto no existe en Mac, busca en el mismo directorio archivos
+         con el mismo stem + _vXX y usa el más alto disponible.
   v1.18: Fix reconnect de MOV editrefs: agrega fallback para estructura plana
          (_input/ sin subcarpetas por versión) y reconnect directo para archivos
          sin token de versión en el nombre (ej. EditRefComp.mov sin _vXX).
@@ -422,21 +425,42 @@ def main(force_all_clips=False):
                     else:
                         # Sin token de versión: reconnect directo al path Mac equivalente
                         debug_print("Sin versión en el path; intentando reconnect directo.")
-                        if os.path.exists(new_file_path):
+                        # Si el archivo exacto no existe, buscar versión con _vXX en el mismo dir
+                        target_path = new_file_path
+                        if not os.path.exists(target_path):
+                            target_dir = os.path.dirname(new_file_path)
+                            stem, ext = os.path.splitext(os.path.basename(new_file_path))
+                            versioned_candidates = []
                             try:
-                                shot.replaceClips(new_file_path)
+                                if os.path.exists(target_dir):
+                                    for fname in os.listdir(target_dir):
+                                        if fname.startswith(stem + "_v") and fname.lower().endswith(ext.lower()):
+                                            v_match = re.search(r"_v(\d+)", fname, re.IGNORECASE)
+                                            if v_match:
+                                                versioned_candidates.append((int(v_match.group(1)), fname))
+                            except Exception as e:
+                                debug_print(f"Error buscando versiones de {stem}: {e}")
+                            if versioned_candidates:
+                                versioned_candidates.sort(key=lambda x: x[0])
+                                best = versioned_candidates[-1][1]
+                                target_path = os.path.join(target_dir, best)
+                                debug_print(f"Archivo sin versión → encontrado con versión: {best}")
+                            else:
+                                debug_print(f"Archivo no encontrado en destino: {new_file_path}")
+
+                        if os.path.exists(target_path):
+                            try:
+                                shot.replaceClips(target_path)
                                 shot.setSourceIn(original_source_in)
                                 shot.setSourceOut(original_source_out)
-                                debug_print(f"Reconnect directo aplicado: {new_file_path}")
+                                debug_print(f"Reconnect directo aplicado: {target_path}")
                             except Exception as e:
                                 debug_print(f"Error en replaceClips directo: {e}")
                                 try:
-                                    shot.reconnectMedia(os.path.dirname(new_file_path))
+                                    shot.reconnectMedia(os.path.dirname(target_path))
                                     debug_print("Reconnect por carpeta aplicado.")
                                 except Exception as e2:
                                     debug_print(f"Error en reconnect por carpeta: {e2}")
-                        else:
-                            debug_print(f"Archivo no encontrado en destino: {new_file_path}")
                         set_clip_color(shot, original_color)
                         continue
 
