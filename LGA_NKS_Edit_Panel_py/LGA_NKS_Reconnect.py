@@ -1,9 +1,12 @@
 """
 ______________________________________________________________________
 
-  LGA_NKS_Reconnect v1.17 | Lega
+  LGA_NKS_Reconnect v1.18 | Lega
   Reconecta clips seleccionados a diferentes rutas, manteniendo el color original.
 
+  v1.18: Fix reconnect de MOV editrefs: agrega fallback para estructura plana
+         (_input/ sin subcarpetas por versión) y reconnect directo para archivos
+         sin token de versión en el nombre (ej. EditRefComp.mov sin _vXX).
   v1.17: Fix en búsqueda de versiones superiores - corrige cálculo de prefijo
          (eliminaba doble guion bajo) y elimina completamente el límite de versiones
          para permitir detección de versiones con saltos grandes (ej. v16 -> v037).
@@ -386,10 +389,55 @@ def main(force_all_clips=False):
                                        os.path.join(parent_dir, entry, base_name),
                                        os.path.join(parent_dir, entry))
                                       for ver, entry in candidates
-                                      if ver >= base_version]  # Solo mantener ver >= base_version, sin límite superior
-                        # Ya no necesitamos fallback - el escaneo debería encontrar todas las versiones
+                                      if ver >= base_version]
+
+                        # Fallback para estructura plana (ej. MOV en _input/ sin subcarpetas por versión)
+                        if not candidates:
+                            ext = os.path.splitext(base_name)[1]
+                            flat_candidates = []
+                            try:
+                                if os.path.exists(base_dir):
+                                    for fname in os.listdir(base_dir):
+                                        fpath = os.path.join(base_dir, fname)
+                                        if not os.path.isfile(fpath):
+                                            continue
+                                        if not fname.lower().endswith(ext.lower()):
+                                            continue
+                                        if not fname.startswith(prefix):
+                                            continue
+                                        v_match = re.search(r"_v(\d+)", fname, re.IGNORECASE)
+                                        if v_match:
+                                            ver_num = int(v_match.group(1))
+                                            if ver_num >= base_version:
+                                                flat_candidates.append((ver_num, fname))
+                            except Exception as e:
+                                debug_print(f"No se pudo listar {base_dir} para fallback plano: {e}")
+                            flat_candidates = sorted(flat_candidates, key=lambda x: x[0])
+                            candidates = [(f"_v{ver:0{digits_len}d}",
+                                           os.path.join(base_dir, fname),
+                                           base_dir)
+                                          for ver, fname in flat_candidates]
+                            if candidates:
+                                debug_print(f"Fallback plano: {len(candidates)} candidato(s) en {base_dir}")
                     else:
-                        debug_print("No se pudo detectar versión en el path; se omite el reconnect.")
+                        # Sin token de versión: reconnect directo al path Mac equivalente
+                        debug_print("Sin versión en el path; intentando reconnect directo.")
+                        if os.path.exists(new_file_path):
+                            try:
+                                shot.replaceClips(new_file_path)
+                                shot.setSourceIn(original_source_in)
+                                shot.setSourceOut(original_source_out)
+                                debug_print(f"Reconnect directo aplicado: {new_file_path}")
+                            except Exception as e:
+                                debug_print(f"Error en replaceClips directo: {e}")
+                                try:
+                                    shot.reconnectMedia(os.path.dirname(new_file_path))
+                                    debug_print("Reconnect por carpeta aplicado.")
+                                except Exception as e2:
+                                    debug_print(f"Error en reconnect por carpeta: {e2}")
+                        else:
+                            debug_print(f"Archivo no encontrado en destino: {new_file_path}")
+                        set_clip_color(shot, original_color)
                         continue
 
                     def try_reconnect(path_for_frame, path_for_dir):
