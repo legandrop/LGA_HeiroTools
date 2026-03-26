@@ -39,7 +39,7 @@ import queue
 import datetime
 import time
 from logging.handlers import QueueHandler, QueueListener
-from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtGui
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtGui, QtWidgets
 
 # Eliminamos la importaci?n del SelfReplace
 # import LGA_NKS_SelfReplaceClip as self_replace
@@ -313,6 +313,8 @@ def main(force_all_clips=False):
                 selected_clips = te.selection()
                 debug_print(f"Procesando clips seleccionados ({len(selected_clips)} clips)...")
 
+            renamed_clips = []  # clips reconectados con nombre de archivo diferente al original
+
             if len(selected_clips) == 0:
                 debug_print("*** No clips selected on the track ***")
             else:
@@ -445,6 +447,9 @@ def main(force_all_clips=False):
                                 best = versioned_candidates[-1][1]
                                 target_path = os.path.join(target_dir, best)
                                 debug_print(f"Archivo sin versión → encontrado con versión: {best}")
+                                renamed_clips.append((shot.name(),
+                                                      os.path.basename(new_file_path),
+                                                      best))
                             else:
                                 debug_print(f"Archivo no encontrado en destino: {new_file_path}")
 
@@ -569,6 +574,21 @@ def main(force_all_clips=False):
                     set_clip_color(shot, original_color)
                     # Imprimir informaci?n del clip despu?s del reemplazo
                     print_clip_info(shot, "AFTER RECONNECT")
+
+                if renamed_clips:
+                    debug_print("\n==== CLIPS RECONECTADOS CON NOMBRE DIFERENTE ====")
+                    for clip_name, original_fname, new_fname in renamed_clips:
+                        debug_print(f"  {clip_name}: {original_fname}  →  {new_fname}")
+                    debug_print("==================================================")
+
+                    lines = ["Los siguientes clips fueron reconectados con un archivo de nombre diferente:\n"]
+                    for clip_name, original_fname, new_fname in renamed_clips:
+                        lines.append(f"  {clip_name}:\n    {original_fname}\n    → {new_fname}\n")
+                    msg_box = QtWidgets.QMessageBox()
+                    msg_box.setWindowTitle("Reconnect: nombres cambiados")
+                    msg_box.setText("".join(lines))
+                    msg_box.setIcon(QtWidgets.QMessageBox.Warning)
+                    msg_box.exec_()
 
                 debug_print("\n==== SCRIPT DE RECONNECT COMPLETADO ====")
 
