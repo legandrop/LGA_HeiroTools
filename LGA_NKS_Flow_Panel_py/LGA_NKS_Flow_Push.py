@@ -1,7 +1,7 @@
 """
 _____________________________________________________________
 
-  LGA_NKS_Flow_Push v3.96 | Lega
+  LGA_NKS_Flow_Push v3.97 | Lega
 
   Envia a flow nuevos estados de las tasks comps.
   En algunos estados permite enviar un mensaje a la version
@@ -12,6 +12,8 @@ _____________________________________________________________
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 
+  v3.97: Soporte multi-task: Push busca clips en todos los TASK_EXR_TRACKS (comp + roto).
+         Cuando hay clips de múltiples tasks, muestra dialog para elegir a cuál aplicar el status.
   v3.96: Actualiza el módulo LGA_NKS_Flow_Push_connector.py para que funcione con el sistema de nombres sin descripción.
   v3.95: Agrega aplicación de tags en xyplorer después de actualizar estados exitosamente.
          Si xyplorer no está abierto, simplemente no aplica el tag sin dar error ni crashear el script.
@@ -65,13 +67,14 @@ from LGA_NKS_Flow_NamingUtils import (
     extract_shot_code,
     extract_project_name,
     extract_task_name,
+    clean_base_name,
 )
 
 # Importar utilidades para obtener clips
 utils_path = Path(__file__).parent.parent / "LGA_NKS_Shared"
 if utils_path.exists():
     sys.path.insert(0, str(utils_path))
-    from LGA_NKS_Shared.LGA_NKS_GetClip import get_clips_to_process
+    from LGA_NKS_Shared.LGA_NKS_GetClip import get_clips_to_process, TASK_EXR_TRACKS
 
     # Sincronizar el debug con el módulo utilitario
     from LGA_NKS_Shared import LGA_NKS_GetClip as clip_utils
@@ -2313,6 +2316,52 @@ def print_resumen():
         resumen_messages.clear()  # Limpiar mensajes después de imprimir
 
 
+def _show_task_selection_dialog(button_name, task_names):
+    """
+    Muestra dialog de selección de task cuando hay clips de múltiples tasks presentes.
+    Retorna set de tasks seleccionadas, o None si el usuario canceló.
+    """
+    QRadioButton = QtWidgets.QRadioButton
+
+    dialog = QDialog()
+    dialog.setWindowTitle("Seleccionar Task")
+    layout = QVBoxLayout(dialog)
+
+    label = QLabel(f"¿A qué task aplicar <b>{button_name}</b>?")
+    label.setTextFormat(Qt.RichText)
+    layout.addWidget(label)
+
+    radio_buttons = {}
+    for i, task in enumerate(sorted(task_names)):
+        rb = QRadioButton(task)
+        if i == 0:
+            rb.setChecked(True)
+        layout.addWidget(rb)
+        radio_buttons[task] = rb
+
+    rb_all = QRadioButton("Todas")
+    layout.addWidget(rb_all)
+
+    btn_layout = QHBoxLayout()
+    ok_btn = QPushButton("OK")
+    cancel_btn = QPushButton("Cancelar")
+    ok_btn.clicked.connect(dialog.accept)
+    cancel_btn.clicked.connect(dialog.reject)
+    btn_layout.addWidget(ok_btn)
+    btn_layout.addWidget(cancel_btn)
+    layout.addLayout(btn_layout)
+
+    if dialog.exec_() != QDialog.Accepted:
+        return None
+
+    if rb_all.isChecked():
+        return set(task_names)
+    for task, rb in radio_buttons.items():
+        if rb.isChecked():
+            return {task}
+    return None
+
+
 def push_from_selected_clips(button_name, per_clip_callback=None):
     """
     Función principal que usa el método centralizado para obtener clips.
@@ -2330,22 +2379,33 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
         bool: True si se inició la operación exitosamente, False si se canceló o hubo error
     """
     debug_print(f"push_from_selected_clips iniciado: estado='{button_name}'")
-    # Obtener los clips en el hilo principal ANTES de procesar
-    # Usa prioritize_multiple_selection=True para priorizar múltiples clips seleccionados sobre playhead
-    # ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
-    clips = get_clips_to_process(track_name=None, prioritize_multiple_selection=True)
+    # Obtener clips de TODOS los task tracks registrados (comp, roto, etc.)
+    all_clips = []
+    for task_track in TASK_EXR_TRACKS:
+        track_clips = get_clips_to_process(track_name=task_track, prioritize_multiple_selection=True)
+        all_clips.extend(track_clips)
+    # Deduplicar por id (por si algún clip aparece en múltiples llamadas)
+    seen_ids = set()
+    clips = []
+    for c in all_clips:
+        if id(c) not in seen_ids:
+            seen_ids.add(id(c))
+            clips.append(c)
 
     if not clips:
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Warning)
         msg.setWindowTitle("Push to Flow - Error")
         msg.setText(
-            "No se pudo obtener ningún clip. Verifique que haya un clip en el track bajo el playhead o que haya seleccionado clips válidos."
+            "No se pudo obtener ningún clip. Verifique que haya un clip en los tracks de task bajo el playhead o que haya seleccionado clips válidos."
         )
         msg.exec_()
         return False
 
-    # Filtrar clips para incluir solo los que contienen "_comp_" o "_cmp_" en el nombre
+    # Patrones válidos de task: nombres de TASK_EXR_TRACKS + alias _cmp_
+    task_name_patterns = [t.strip("_") for t in TASK_EXR_TRACKS] + ["cmp"]
+
+    # Filtrar clips que corresponden a algún task track registrado
     valid_clips = []
     for clip in clips:
         if isinstance(clip, hiero.core.EffectTrackItem):
@@ -2364,22 +2424,48 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
         file_path = fileinfos[0].filename()
         exr_name = os.path.basename(file_path)
 
-        # Filtrar solo clips que contengan "_comp_" o "_cmp_"
-        if "_comp_" not in exr_name.lower() and "_cmp_" not in exr_name.lower():
-            debug_print(f"Clip no contiene '_comp_' o '_cmp_', se omite: {exr_name}")
+        # Filtrar solo clips cuyo filename corresponde a un task track registrado
+        if not any(f"_{p}_" in exr_name.lower() for p in task_name_patterns):
+            debug_print(f"Clip no corresponde a ningún task track, se omite: {exr_name}")
             continue
 
         valid_clips.append((clip, file_path, exr_name))
 
     if not valid_clips:
+        task_names_str = ", ".join(f"_{n}_" for n in task_name_patterns if n != "cmp")
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Warning)
         msg.setWindowTitle("Push to Flow - Error")
         msg.setText(
-            "No se encontraron clips válidos de composición (deben contener '_comp_' o '_cmp_' en el nombre)."
+            f"No se encontraron clips válidos de task tracks ({task_names_str})."
         )
         msg.exec_()
         return False
+
+    # Si hay clips de múltiples tasks, preguntar al usuario a cuál aplicar el status
+    task_names_in_clips = set()
+    for clip, fp, en in valid_clips:
+        en_processed = en.replace(".%", "_%")
+        task = extract_task_name(clean_base_name(en_processed))
+        if task:
+            task_names_in_clips.add(task.lower())
+
+    if len(task_names_in_clips) > 1:
+        debug_print(f"Múltiples tasks detectadas: {task_names_in_clips}")
+        selected_tasks = _show_task_selection_dialog(button_name, task_names_in_clips)
+        if selected_tasks is None:
+            debug_print("Usuario canceló la selección de task")
+            return False
+        # Filtrar valid_clips a solo las tasks seleccionadas
+        filtered = []
+        for clip, fp, en in valid_clips:
+            en_processed = en.replace(".%", "_%")
+            task = extract_task_name(clean_base_name(en_processed))
+            if task and task.lower() in selected_tasks:
+                filtered.append((clip, fp, en))
+        valid_clips = filtered
+        if not valid_clips:
+            return False
 
     # Confirmar si hay más de 4 clips (igual que en el panel)
     if len(valid_clips) > 4:
@@ -2466,8 +2552,6 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
             exr_name_processed = exr_name.replace(".%", "_%")
 
             # Usar la función del módulo de naming para obtener base_name
-            from LGA_NKS_Flow_NamingUtils import clean_base_name
-
             base_name = clean_base_name(exr_name_processed)
 
             debug_print(f"Procesando clip: {base_name}")

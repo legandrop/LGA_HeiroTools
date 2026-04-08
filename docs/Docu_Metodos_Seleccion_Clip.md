@@ -130,10 +130,10 @@ Este módulo centraliza la funcionalidad de obtención de clips para evitar dupl
 - **Nombre anterior:** `"EXR"` (ya no se usa)
 - **Contenido del track:** Contiene los archivos EXR con el render de COMP
 
-**Track REV:**
-- **Nombre actual del track:** `_rev_`
-- **Variable en el módulo:** `TRACK_comp_REV = "_rev_"` (en `LGA_NKS_Utils/LGA_NKS_GetClip.py`)
-- **Nombre anterior:** `"REV"` (ya no se usa)
+**Track compMov:**
+- **Nombre actual del track:** `_compMov_`
+- **Variable en el módulo:** `TRACK_comp_REV = "_compMov_"` (en `LGA_NKS_Utils/LGA_NKS_GetClip.py`)
+- **Nombres anteriores:** `"_rev_"`, `"REV"` (ya no se usan)
 - **Contenido del track:** Contiene los archivos MOV o MXF con el render de COMP
 
 **Es MUY IMPORTANTE verificar en los scripts que modificamos que:**
@@ -314,9 +314,18 @@ Prioriza clips del track objetivo, pero incluye shots de otros tracks si no hay 
 - **CRÍTICO:** Usar `track_name=None` para respetar este valor
 - Cambiar aquí afecta a TODOS los scripts que usan `track_name=None`
 
-**`TRACK_comp_REV = "_rev_"`**
+**`TRACK_comp_REV = "_compMov_"`**
 - Track por defecto para MOV/MXF de COMP
-- Anteriormente era `"REV"` hardcodeado
+- Nombres anteriores: `"_rev_"`, `"REV"` (ya no se usan)
+
+**`TRACK_roto_EXR = "_roto_"`**
+- Track para EXR de la task ROTO
+
+**`TASK_EXR_TRACKS = [TRACK_comp_EXR, TRACK_roto_EXR]`**
+- Lista centralizada de todos los tracks de tasks EXR
+- Usada por Flow Pull y Flow Push para operar sobre múltiples tasks
+- Para agregar una nueva task: solo agregar su track aquí
+- **No hardcodear** nombres de tasks en scripts — siempre referenciar esta lista
 
 **`DEBUG = False`**
 - Controla mensajes de debug

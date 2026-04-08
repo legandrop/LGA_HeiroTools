@@ -1,9 +1,10 @@
 """
 _________________________________________
 
-  LGA_ReviewPanel v2.78 | Lega
+  LGA_ReviewPanel v2.79 | Lega
   Tools panel for Hiero / Nuke Studio
   
+  v2.79: Agregado botón ON OFF _roto_ con shortcut Ctrl+Shift+D
   v2.78: Agregado sistema de scroll, logging a archivo y gap vertical
   v2.77: Sin botón Check Project Versions
          
@@ -197,7 +198,8 @@ class ReviewPanel(QtWidgets.QWidget):
         self.buttons = [
             ("ON Clips | OFF v00", self.execute_EnableOrDisableClips, "#0e1f3a", None, "Click: Activa todos los clips del timeline y desactiva los clips v00\nShift+Click: Solo en los clips seleccionados"),
             ("Self ReplaceClip", self.execute_SelfReplaceClip, "#0e1f3a", None, "Crea una nueva versión duplicada del clip seleccionado para que sea única (a veces arregla problemas"),
-            ("ON OFF _comp_", self.execute_DisableEXR, "#0e1f3a", "Shift+D", "Shift+D\nHabilita/deshabilita el clip del track_comp_"),
+            ("ON OFF _comp_", self.execute_DisableEXR, "#0e1f3a", "Shift+D", "Shift+D\nHabilita/deshabilita el clip del track _comp_"),
+            ("ON OFF _roto_", self.execute_DisableRoto, "#0e1f3a", "Ctrl+Shift+D", "Ctrl+Shift+D\nHabilita/deshabilita el clip del track _roto_"),
             (
                 "Difference Mode",
                 self.execute_ToggleBlendModeForEXRTrack,
@@ -480,6 +482,9 @@ class ReviewPanel(QtWidgets.QWidget):
 
     def execute_DisableEXR(self):
         self.execute_external_script("LGA_NKS_Clip_DisableEXR.py")
+
+    def execute_DisableRoto(self):
+        self.execute_external_script("LGA_NKS_Clip_DisableRoto.py")
 
 
 # Crear la instancia del widget y anadirlo al gestor de ventanas de Hiero

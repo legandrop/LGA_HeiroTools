@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_GetClip v1.81 | Lega
+  LGA_NKS_GetClip v1.83 | Lega
   Usado por runtime activo:
   - LGA_NKS_Assignee_Panel.py
   - LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_Download.py
@@ -41,6 +41,8 @@ ________________________________________________________________________________
   6. Si no encuentra, usa el clip seleccionado como fallback
 
 
+  v1.83 - Renombra TRACK_comp_REV de "_rev_" a "_compMov_" para mayor claridad
+  v1.82 - Agrega TRACK_roto_EXR y TASK_EXR_TRACKS para soporte multi-task
   v1.81 - flag _SHOW_WARNINGS para desactivar/activar las advertencias por defecto
   v1.8 - EXCEPCIÓN PLAYHEAD: Nueva función is_clip_at_playhead() detecta cuando un clip seleccionado
          está bajo el playhead. En este caso, no muestra advertencia pero mantiene la selección del track
@@ -83,7 +85,14 @@ def debug_print(*message):
 TRACK_comp_EXR = "_comp_"  # Es el track que contiene a los EXR con el render de COMP
 
 # Variable configurable para el nombre del track REV por defecto
-TRACK_comp_REV = "_rev_"  # Es el track que contiene a los MOV o MXF con el render de COMP
+TRACK_comp_REV = "_compMov_"  # Es el track que contiene a los MOV o MXF con el render de COMP
+
+# Track para la task Roto
+TRACK_roto_EXR = "_roto_"  # Es el track que contiene a los EXR con el render de ROTO
+
+# Lista centralizada de todos los tracks de tasks EXR.
+# Para agregar soporte a una nueva task, solo agregar su track aquí.
+TASK_EXR_TRACKS = [TRACK_comp_EXR, TRACK_roto_EXR]
 
 # Intentar importar funciones de naming para comparación inteligente de shots
 try:

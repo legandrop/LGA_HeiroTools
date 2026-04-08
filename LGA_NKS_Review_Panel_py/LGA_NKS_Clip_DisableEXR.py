@@ -1,7 +1,7 @@
 """
 ______________________________________________________________________________________________
 
-  LGA_NKS_Clip_DisableEXR v1.21 | Lega
+  LGA_NKS_Clip_DisableEXR v1.22 | Lega
 
   Habilita o deshabilita el clip en el track especificado (por defecto usa TRACK_comp_EXR del módulo LGA_NKS_GetClip).
 
@@ -10,6 +10,7 @@ ________________________________________________________________________________
   2. Si no encuentra clip en playhead, usa el clip seleccionado como fallback
   3. Invierte el estado de habilitación del clip (enabled/disabled)
 
+  v1.22 - main() acepta track_name opcional para reusar desde otros scripts (ej: DisableRoto)
   v1.21 - Usa TRACK_comp_EXR del módulo en lugar de hardcodear "EXR", permitiendo cambiar el track por defecto
   v1.10 - Usa el módulo utilitario LGA_NKS_GetClip para obtener el clip (no permite selecciones múltiples)
 ______________________________________________________________________________________________
@@ -56,13 +57,14 @@ def toggle_clip_enabled(clip):
         debug_print(f"Error al cambiar el estado del clip: {e}")
         return False
 
-def main():
+def main(track_name=None):
     """
     Función principal que ejecuta la secuencia de operaciones.
+    track_name: nombre del track a usar. None = TRACK_comp_EXR (por defecto).
+                Pasar TRACK_roto_EXR para operar sobre _roto_, etc.
     """
     # 1. Obtener clip usando el módulo centralizado (NO permite selecciones múltiples)
-    # Usa TRACK_comp_EXR del módulo LGA_NKS_GetClip (None = usa el valor por defecto)
-    clip = get_clip_to_process(track_name=None, prioritize_multiple_selection=False)
+    clip = get_clip_to_process(track_name=track_name, prioritize_multiple_selection=False)
     if not clip:
         debug_print("No se encontró un clip en el track especificado en la posición actual o seleccionado.")
         return
@@ -74,4 +76,4 @@ def main():
         debug_print("No se pudo cambiar el estado del clip.")
 
 if __name__ == "__main__":
-    main() 
+    main()

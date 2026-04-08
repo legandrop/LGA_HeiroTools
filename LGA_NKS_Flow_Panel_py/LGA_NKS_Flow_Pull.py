@@ -1,11 +1,12 @@
 """
 ____________________________________________________________________________
-  LGA_NKS_Flow_Pull v3.35 | Lega
+  LGA_NKS_Flow_Pull v3.36 | Lega
   Compara los estados de las task Comp de los shots del timeline de Hiero
   con los estados registrados en un archivo JSON basado en Flow PT
   Tambien aplica tags con los colores de los estados en xyplorer
 
 
+  v3.36: Soporte multi-task: itera sobre TASK_EXR_TRACKS (comp + roto) en lugar de solo TRACK_comp_EXR
   v3.35: Eliminar spameo en consola con LGA_DEBUG_CONSOLE=0
   v3.34: Simplificación - doScan funciona correctamente en todas las versiones de Hiero, eliminada lógica condicional innecesaria
   v3.32: Debug_print ahora tambien escribe en un archivo de log para debug.
@@ -50,10 +51,11 @@ from LGA_NKS_Flow_NamingUtils import (
 utils_path = Path(__file__).parent.parent / "LGA_NKS_Shared"
 if utils_path.exists():
     sys.path.insert(0, str(utils_path))
-    from LGA_NKS_Shared.LGA_NKS_GetClip import TRACK_comp_EXR
+    from LGA_NKS_Shared.LGA_NKS_GetClip import TRACK_comp_EXR, TASK_EXR_TRACKS
 else:
     # Fallback si no se encuentra el módulo
     TRACK_comp_EXR = "_comp_"
+    TASK_EXR_TRACKS = [TRACK_comp_EXR]
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
 QApplication = QtWidgets.QApplication
 QWidget = QtWidgets.QWidget
@@ -697,8 +699,8 @@ class HieroOperations:
                 all_tracks = seq.videoTracks()
                 selected_clips = []
                 for track in all_tracks:
-                    # Solo procesar clips si el track coincide con TRACK_comp_EXR
-                    if track.name() == TRACK_comp_EXR:
+                    # Procesar clips de todos los task tracks registrados
+                    if track.name() in TASK_EXR_TRACKS:
                         selected_clips.extend(track.items())
                         debug_print(f"Procesando clips del track: {track.name()}")
             elif not selected_clips:
@@ -1078,9 +1080,9 @@ class HieroOperations:
                             clip_track = track
                             break
                     
-                    # Solo procesar clips del track TRACK_comp_EXR
-                    if clip_track and clip_track.name() != TRACK_comp_EXR:
-                        debug_print(f"Clip '{item.name()}' no está en track {TRACK_comp_EXR}, saltando")
+                    # Solo procesar clips de los task tracks registrados (comp, roto, etc.)
+                    if clip_track and clip_track.name() not in TASK_EXR_TRACKS:
+                        debug_print(f"Clip '{item.name()}' no está en ningún task track, saltando")
                         continue
                     
                     file_path = (
@@ -1089,13 +1091,15 @@ class HieroOperations:
                         else None
                     )
                     
-                    if file_path and "_comp_" in os.path.basename(file_path).lower():
+                    if file_path:
                         filename = os.path.basename(file_path)
                         # Obtener el color actual del clip para verificar si está en review
                         current_color_hex = self.get_current_clip_color(item)
-                        
-                        # Patrón regex para detectar versiones de 2 o 3 dígitos: _comp_v00, _comp_v000, _comp_v01, _comp_v001, etc.
-                        version_pattern = re.compile(r'_comp_v(\d{2,3})', re.IGNORECASE)
+
+                        # Patrón regex para detectar versiones de 2 o 3 dígitos en cualquier task track
+                        # Ej: _comp_v007, _roto_v003, _cmp_v01
+                        task_pattern = "|".join(t.strip("_") for t in TASK_EXR_TRACKS) + "|cmp"
+                        version_pattern = re.compile(rf'_(?:{task_pattern})_v(\d{{2,3}})', re.IGNORECASE)
                         version_match = version_pattern.search(filename.lower())
                         
                         # Si el clip está en un estado de review, habilitarlo
