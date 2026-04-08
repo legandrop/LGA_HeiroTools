@@ -1,11 +1,12 @@
 """
 ____________________________________________________________________________
-  LGA_NKS_Flow_Pull v3.36 | Lega
+  LGA_NKS_Flow_Pull v3.37 | Lega
   Compara los estados de las task Comp de los shots del timeline de Hiero
   con los estados registrados en un archivo JSON basado en Flow PT
   Tambien aplica tags con los colores de los estados en xyplorer
 
 
+  v3.37: Fix crash en pull batch cuando un clip entra en Version Mismatch y la task no tiene assignee.
   v3.36: Soporte multi-task: itera sobre TASK_EXR_TRACKS (comp + roto) en lugar de solo TRACK_comp_EXR
   v3.35: Eliminar spameo en consola con LGA_DEBUG_CONSOLE=0
   v3.34: Simplificación - doScan funciona correctamente en todas las versiones de Hiero, eliminada lógica condicional innecesaria
@@ -676,7 +677,8 @@ class HieroOperations:
         safe_description = str(tag_description) if tag_description is not None else "-"
         new_tag.setNote(safe_description)
         # Anadir el assignee en los metadatos con la clave "Assignee" y espacio adicional
-        formatted_assignee = assignee + " "
+        safe_assignee = str(assignee).strip() if assignee is not None else ""
+        formatted_assignee = (safe_assignee + " ") if safe_assignee else ""
         new_tag.metadata().setValue("tag.Assignee", formatted_assignee)
         clip.addTag(new_tag)
         debug_print(
@@ -713,46 +715,46 @@ class HieroOperations:
             if selected_clips:
                 project = hiero.core.projects()[0]
                 for clip in selected_clips:
-                    debug_print(f"Procesando clip: {clip.name()}")
-                    if isinstance(clip, hiero.core.EffectTrackItem):
-                        debug_print(f"Ignore effect item: {clip.name()}")
-                        continue
-                    # Borrar los tags del clip antes de procesarlo
-                    delete_tags_from_clip(clip)
-                    file_path = (
-                        clip.source().mediaSource().fileinfos()[0].filename()
-                        if clip.source().mediaSource().fileinfos()
-                        else None
-                    )
-                    debug_print(f"File path obtenido: {file_path}")
-                    if not file_path:
-                        debug_print(
-                            f"No se pudo obtener file_path para el clip: {clip.name()}"
-                        )
-                        continue
-
-                    file_basename = os.path.basename(file_path).lower()
-                    debug_print(f"Basename del archivo: {file_basename}")
-
-                    if "_comp_" not in file_basename:
-                        debug_print(
-                            f"El archivo no contiene '_comp_' en el nombre: {file_basename}"
-                        )
-                        continue
-                    exr_name = os.path.basename(file_path)
-                    debug_print(f"Nombre del archivo extraido: {exr_name}")
-
-                    base_name, version_str = self.parse_exr_name(exr_name)
-                    debug_print(
-                        f"Base name: {base_name}, Version string: {version_str}"
-                    )
-
-                    version_number = extract_version_number(
-                        version_str
-                    )  # Use extracted version number
-                    debug_print(f"Version extraida: {version_number} de {version_str}")
-
                     try:
+                        debug_print(f"Procesando clip: {clip.name()}")
+                        if isinstance(clip, hiero.core.EffectTrackItem):
+                            debug_print(f"Ignore effect item: {clip.name()}")
+                            continue
+                        # Borrar los tags del clip antes de procesarlo
+                        delete_tags_from_clip(clip)
+                        file_path = (
+                            clip.source().mediaSource().fileinfos()[0].filename()
+                            if clip.source().mediaSource().fileinfos()
+                            else None
+                        )
+                        debug_print(f"File path obtenido: {file_path}")
+                        if not file_path:
+                            debug_print(
+                                f"No se pudo obtener file_path para el clip: {clip.name()}"
+                            )
+                            continue
+
+                        file_basename = os.path.basename(file_path).lower()
+                        debug_print(f"Basename del archivo: {file_basename}")
+
+                        if "_comp_" not in file_basename:
+                            debug_print(
+                                f"El archivo no contiene '_comp_' en el nombre: {file_basename}"
+                            )
+                            continue
+                        exr_name = os.path.basename(file_path)
+                        debug_print(f"Nombre del archivo extraido: {exr_name}")
+
+                        base_name, version_str = self.parse_exr_name(exr_name)
+                        debug_print(
+                            f"Base name: {base_name}, Version string: {version_str}"
+                        )
+
+                        version_number = extract_version_number(
+                            version_str
+                        )  # Use extracted version number
+                        debug_print(f"Version extraida: {version_number} de {version_str}")
+
                         # Usar funciones compartidas para extraer información
                         project_name = extract_project_name(base_name)
                         debug_print(f"Project name: {project_name}")
@@ -791,10 +793,9 @@ class HieroOperations:
                         
                         debug_print(f"Task name: {task_name}")
                     except Exception as e:
-                        debug_print(f"Error procesando nombre del archivo: {e}")
-                        debug_print(
-                            f"base_name: {base_name}, version_str: {version_str}"
-                        )
+                        debug_print(f"Error procesando clip {clip.name()}: {e}")
+                        import traceback
+                        debug_print(f"Traceback completo: {traceback.format_exc()}")
                         continue
 
                     # Obtener la ruta base del shot (subimos un nivel adicional)
