@@ -1,7 +1,7 @@
 """
 _____________________________________________________________
 
-  LGA_NKS_Flow_Push v3.97 | Lega
+  LGA_NKS_Flow_Push v3.98 | Lega
 
   Envia a flow nuevos estados de las tasks comps.
   En algunos estados permite enviar un mensaje a la version
@@ -12,6 +12,8 @@ _____________________________________________________________
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 
+  v3.98: Prioriza selección explícita del usuario sobre playhead en push multi-task.
+         Mejora logs para detallar clips seleccionados, filtrados y procesados.
   v3.97: Soporte multi-task: Push busca clips en todos los TASK_EXR_TRACKS (comp + roto).
          Cuando hay clips de múltiples tasks, muestra dialog para elegir a cuál aplicar el status.
   v3.96: Actualiza el módulo LGA_NKS_Flow_Push_connector.py para que funcione con el sistema de nombres sin descripción.
@@ -74,7 +76,11 @@ from LGA_NKS_Flow_NamingUtils import (
 utils_path = Path(__file__).parent.parent / "LGA_NKS_Shared"
 if utils_path.exists():
     sys.path.insert(0, str(utils_path))
-    from LGA_NKS_Shared.LGA_NKS_GetClip import get_clips_to_process, TASK_EXR_TRACKS
+    from LGA_NKS_Shared.LGA_NKS_GetClip import (
+        get_clips_to_process,
+        get_selected_clips,
+        TASK_EXR_TRACKS,
+    )
 
     # Sincronizar el debug con el módulo utilitario
     from LGA_NKS_Shared import LGA_NKS_GetClip as clip_utils
@@ -2362,6 +2368,36 @@ def _show_task_selection_dialog(button_name, task_names):
     return None
 
 
+def _describe_clip_for_log(clip):
+    """Devuelve una descripción compacta del clip para debug."""
+    try:
+        clip_name = clip.name() if hasattr(clip, "name") else "<sin nombre>"
+        track_name = (
+            clip.parentTrack().name()
+            if hasattr(clip, "parentTrack") and clip.parentTrack()
+            else "<sin track>"
+        )
+        timeline_in = clip.timelineIn() if hasattr(clip, "timelineIn") else "?"
+        timeline_out = clip.timelineOut() if hasattr(clip, "timelineOut") else "?"
+
+        file_path = ""
+        try:
+            media_source = clip.source().mediaSource() if clip.source() else None
+            fileinfos = media_source.fileinfos() if media_source else []
+            if fileinfos:
+                file_path = fileinfos[0].filename()
+        except Exception:
+            file_path = ""
+
+        file_name = os.path.basename(file_path) if file_path else "<sin fileinfo>"
+        return (
+            f"clip='{clip_name}' track='{track_name}' "
+            f"range=[{timeline_in}-{timeline_out}] file='{file_name}'"
+        )
+    except Exception as e:
+        return f"<error describiendo clip: {e}>"
+
+
 def push_from_selected_clips(button_name, per_clip_callback=None):
     """
     Función principal que usa el método centralizado para obtener clips.
@@ -2379,11 +2415,43 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
         bool: True si se inició la operación exitosamente, False si se canceló o hubo error
     """
     debug_print(f"push_from_selected_clips iniciado: estado='{button_name}'")
-    # Obtener clips de TODOS los task tracks registrados (comp, roto, etc.)
+
+    # Regla de prioridad:
+    # 1. Si hay selección explícita del usuario, respetarla y filtrar por TASK_EXR_TRACKS.
+    # 2. Solo si no hay selección explícita, usar la lógica por playhead / método híbrido.
+    explicitly_selected_clips = get_selected_clips()
+    debug_print(f"Selección explícita detectada: {len(explicitly_selected_clips)} clip(s)")
+    for idx, clip in enumerate(explicitly_selected_clips, start=1):
+        debug_print(f"  [selección {idx}] {_describe_clip_for_log(clip)}")
+
     all_clips = []
-    for task_track in TASK_EXR_TRACKS:
-        track_clips = get_clips_to_process(track_name=task_track, prioritize_multiple_selection=True)
-        all_clips.extend(track_clips)
+    if explicitly_selected_clips:
+        for clip in explicitly_selected_clips:
+            track_name = clip.parentTrack().name() if clip.parentTrack() else ""
+            if track_name in TASK_EXR_TRACKS:
+                all_clips.append(clip)
+                debug_print(
+                    f"Clip seleccionado aceptado por track task: {_describe_clip_for_log(clip)}"
+                )
+            else:
+                debug_print(
+                    f"Clip seleccionado descartado por track no-task: {_describe_clip_for_log(clip)}"
+                )
+    else:
+        debug_print(
+            "No hay selección explícita. Se busca clip(s) por playhead/método híbrido en TASK_EXR_TRACKS."
+        )
+        for task_track in TASK_EXR_TRACKS:
+            track_clips = get_clips_to_process(
+                track_name=task_track, prioritize_multiple_selection=True
+            )
+            debug_print(
+                f"Track '{task_track}': método híbrido devolvió {len(track_clips)} clip(s)"
+            )
+            for idx, clip in enumerate(track_clips, start=1):
+                debug_print(f"  [híbrido {task_track} #{idx}] {_describe_clip_for_log(clip)}")
+            all_clips.extend(track_clips)
+
     # Deduplicar por id (por si algún clip aparece en múltiples llamadas)
     seen_ids = set()
     clips = []
@@ -2391,6 +2459,12 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
         if id(c) not in seen_ids:
             seen_ids.add(id(c))
             clips.append(c)
+        else:
+            debug_print(f"Clip duplicado descartado: {_describe_clip_for_log(c)}")
+
+    debug_print(f"Clips candidatos luego de deduplicar: {len(clips)}")
+    for idx, clip in enumerate(clips, start=1):
+        debug_print(f"  [candidato {idx}] {_describe_clip_for_log(clip)}")
 
     if not clips:
         msg = QMessageBox()
@@ -2409,16 +2483,18 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
     valid_clips = []
     for clip in clips:
         if isinstance(clip, hiero.core.EffectTrackItem):
-            debug_print(f"Clip es un efecto, se omite: {clip.name()}")
+            debug_print(f"Clip es un efecto, se omite: {_describe_clip_for_log(clip)}")
             continue
 
         if not clip.source().mediaSource().isMediaPresent():
-            debug_print(f"Clip no tiene media presente, se omite: {clip.name()}")
+            debug_print(
+                f"Clip no tiene media presente, se omite: {_describe_clip_for_log(clip)}"
+            )
             continue
 
         fileinfos = clip.source().mediaSource().fileinfos()
         if not fileinfos:
-            debug_print(f"Clip no tiene fileinfos, se omite: {clip.name()}")
+            debug_print(f"Clip no tiene fileinfos, se omite: {_describe_clip_for_log(clip)}")
             continue
 
         file_path = fileinfos[0].filename()
@@ -2426,10 +2502,15 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
 
         # Filtrar solo clips cuyo filename corresponde a un task track registrado
         if not any(f"_{p}_" in exr_name.lower() for p in task_name_patterns):
-            debug_print(f"Clip no corresponde a ningún task track, se omite: {exr_name}")
+            debug_print(
+                f"Clip no corresponde a ningún task track, se omite: {_describe_clip_for_log(clip)}"
+            )
             continue
 
         valid_clips.append((clip, file_path, exr_name))
+        debug_print(
+            f"Clip válido para push: {_describe_clip_for_log(clip)} task_patterns={task_name_patterns}"
+        )
 
     if not valid_clips:
         task_names_str = ", ".join(f"_{n}_" for n in task_name_patterns if n != "cmp")
@@ -2466,6 +2547,10 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
         valid_clips = filtered
         if not valid_clips:
             return False
+
+    debug_print(f"Clips finales a procesar: {len(valid_clips)}")
+    for idx, (clip, _fp, _en) in enumerate(valid_clips, start=1):
+        debug_print(f"  [final {idx}] {_describe_clip_for_log(clip)}")
 
     # Confirmar si hay más de 4 clips (igual que en el panel)
     if len(valid_clips) > 4:
@@ -2526,13 +2611,17 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
         if dialog.exec_() == QDialog.Accepted:
             shared_message = text_edit.toPlainText()
         else:
-            debug_print("Usuario canceló el diálogo de mensaje compartido")
+            debug_print(
+                f"Usuario canceló el diálogo de mensaje compartido para {len(valid_clips)} clip(s)"
+            )
             # Generar resumen de cancelación
             debug_resumen_print("=" * 70)
             debug_resumen_print("RESUMEN DEL PUSH")
             debug_resumen_print("=" * 70)
             debug_resumen_print(f"Clips a procesar: {len(valid_clips)}")
             debug_resumen_print(f"Estado: {button_name}")
+            for idx, (clip, _fp, _en) in enumerate(valid_clips, start=1):
+                debug_resumen_print(f"  - Clip {idx}: {_describe_clip_for_log(clip)}")
             debug_resumen_print("⚠️  RESULTADO: OPERACIÓN CANCELADA")
             debug_resumen_print("")
             debug_resumen_print("El usuario cerró el diálogo sin confirmar.")
