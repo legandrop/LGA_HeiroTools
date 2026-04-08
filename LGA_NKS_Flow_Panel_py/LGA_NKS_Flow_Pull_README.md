@@ -1,11 +1,11 @@
 > **Regla de documentacion**: este archivo describe el estado actual del codigo. No es un historial de cambios, changelog ni bitacora temporal.
 > **Regla de documentacion**: este archivo debe incluir una seccion de referencias tecnicas con rutas completas a los archivos mas importantes relacionados, y para cada archivo nombrar las funciones, clases o metodos clave vinculados a este tema.
 
-# LGA_NKS_Flow_Pull v3.33
+# LGA_NKS_Flow_Pull
 
 ## Descripción
 
-Script de integración entre Hiero y Flow Production Tracker. Compara los estados de tareas Comp de los shots del timeline de Hiero con los estados registrados en Flow PT y aplica cambios automáticamente.
+Script de integración entre Hiero y Flow Production Tracker. Compara los estados de las tasks EXR del timeline de Hiero con los estados registrados en Flow PT y aplica cambios automáticamente.
 
 ## Funcionalidades Principales
 
@@ -23,7 +23,7 @@ Script de integración entre Hiero y Flow Production Tracker. Compara los estado
 3. Revisar la tabla de cambios (si los hay)
 
 ### Modo Force All Clips
-- Procesa automáticamente todos los clips del track `_comp_EXR`
+- Procesa automáticamente todos los clips de `TASK_EXR_TRACKS` (actualmente `_comp_` y `_roto_`)
 - Útil para sincronización completa de secuencias
 
 ## Rendimiento actual
@@ -34,7 +34,7 @@ Script de integración entre Hiero y Flow Production Tracker. Compara los estado
 
 ## Optimizaciones actuales (implementadas en el código)
 
-- **Logging asíncrono** en `LGA_NKS_Flow/LGA_NKS_Flow_Pull.py` → `setup_debug_logging()` usa `QueueHandler/QueueListener` para evitar bloqueos al escribir `logs/debugPy.log`.
+- **Logging asíncrono** en `LGA_NKS_Flow/LGA_NKS_Flow_Pull.py` → `setup_debug_logging()` usa `QueueHandler/QueueListener` para evitar bloqueos al escribir `logs/debugPy_FlowPull.log`.
 - **Consola opcional** → `debug_print()` solo imprime si `LGA_DEBUG_CONSOLE=1` (por defecto escribe solo en archivo).
 - **XYplorer en macOS** → `tag_shot_folder()` retorna sin crear threads porque XYplorer no existe en macOS. En Windows se mantiene el comportamiento original.
 - **Parser de nombres robusto** → `LGA_NKS_Flow/LGA_NKS_Flow_NamingUtils.py::clean_base_name()` limpia EXR/DPX con secuencias, evitando códigos de shot corruptos.
@@ -75,7 +75,7 @@ Script de integración entre Hiero y Flow Production Tracker. Compara los estado
 4. **UI congelada**: Indica problema de threading (mejorado en v3.33)
 
 ### Debug
-- Logs disponibles en: `../logs/debugPy.log`
+- Logs disponibles en: `../logs/debugPy_FlowPull.log`
 - Timestamps relativos para análisis de rendimiento
 - Usar script analizador: `+Building_Blocks/LGA_analizar_logs_pull.py`
 - XYplorer: `+Building_Blocks/LGA_analizar_logs_xyplorer.py`
@@ -107,9 +107,18 @@ Para mejoras o reportes de bugs, contactar al equipo de desarrollo.
 ## Optimizacion aplicada (10s -> <1s)
 
 - **Cuello principal:** el costo de logging en tiempo real (muchas escrituras por clip).
-- **Solucion:** logging asíncrono + consola opcional (se mantiene el archivo completo en `logs/debugPy.log`).
+- **Solucion:** logging asíncrono + consola opcional (se mantiene el archivo completo en `logs/debugPy_FlowPull.log`).
 - **XYplorer:** en macOS se evita crear threads fallidos; en Windows se conserva la funcionalidad completa.
 - **Resultado:** en el mismo timeline, el pull pasa de ~10s a <1s sin perder funcionalidad.
+
+## Lógica de tracks
+
+La convención funcional de nombres del timeline está documentada en [docs/Docu_Logica_Nombres_Tracks.md](/Users/leg4/.nuke/Python/Startup/docs/Docu_Logica_Nombres_Tracks.md).
+
+- `_comp_` = EXR de la task comp
+- `_roto_` = EXR de la task roto
+- `_compMov_` = MOV/MXF de review de comp
+- `TASK_EXR_TRACKS` = lista centralizada de tracks EXR de task
 
 ---
 **Autor**: LGA Team

@@ -17,7 +17,8 @@ I am sharing this repository both for the reusable tools and as a reference impl
   - Wasabi / S3 access
   - PipeSync-related paths and data
   - Studio-specific clip naming conventions
-  - Track names such as `_comp_`, `_rev_`, `EditRef`, `aPlate`, and `BurnIn`
+  - Track names such as `_comp_`, `_roto_`, `_compMov_`, `EditRef`, `aPlate`, and `BurnIn`
+  - Track naming logic documented in [docs/Docu_Logica_Nombres_Tracks.md](/Users/leg4/.nuke/Python/Startup/docs/Docu_Logica_Nombres_Tracks.md)
 
 ## Reusability
 
@@ -172,10 +173,10 @@ Timeline editing, cleanup, reconnect, colorspace, and validation utilities.
 - **Clear Tag**  
   Removes all tags from the selected clips.
 - **Match Rev Ver**  
-  Click: matches the version of clips on the `_rev_` track `(mov or mxf)` to the corresponding EXR version.  
+  Click: matches the version of clips on the `_compMov_` track `(mov or mxf)` to the corresponding EXR version.  
   Shift+Click: processes the whole timeline.
 - **Compare Rev EdRef**  
-  Click: compares frame ranges between clips on the `_rev_` track `(mov or mxf)` and the `EditRef` track.  
+  Click: compares frame ranges between clips on the `_compMov_` track `(mov or mxf)` and the `EditRef` track.  
   Shift+Click: compares the whole timeline.
 - **Compare EXR aPlate**  
   Click: compares frame ranges between clips on the `_comp_` track `(exr)` and the `aPlate` track.  
@@ -195,6 +196,9 @@ Review and inspection tools for compare workflows, reveals, clip toggling, and o
 - **ON OFF _comp_**  
   Enables or disables the clip on the `_comp_` track.  
   Shortcut: `Shift+D`.
+- **ON OFF _roto_**  
+  Enables or disables the clip on the `_roto_` track.  
+  Shortcut: `Ctrl+Shift+D`.
 - **Difference Mode**  
   Toggles Difference mode on the `_comp_` track.
 - **Compare Versions**  

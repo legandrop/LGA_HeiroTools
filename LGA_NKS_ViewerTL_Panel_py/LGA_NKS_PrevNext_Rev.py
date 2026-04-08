@@ -1,7 +1,7 @@
 """
 ______________________________________________________________________________________________
 
-  LGA_NKS_PrevNext_Rev v1.23 | Lega
+  LGA_NKS_PrevNext_Rev v1.24 | Lega
 
   Busca el clip anterior o siguiente con estado Rev Lega, Rev Sebas, Rev Juano o Rev Javi
   y ajusta la vista:
@@ -13,6 +13,7 @@ ________________________________________________________________________________
   6. Ajusta el zoom para que se ajuste al clip seleccionado.
   7. Deselecciona todos los clips.
 
+  v1.24 - No descarta clips offline para navegación y agrega logging a archivo
   v1.23 - Usa módulo centralizado LGA_NKS_GetClip con método híbrido para buscar clips EditRef cuando la posición coincide con el playhead
 ______________________________________________________________________________________________
 """
@@ -20,10 +21,19 @@ ________________________________________________________________________________
 import hiero.core
 import hiero.ui
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtGui, QtCore
+import logging
+import queue
+import time
+from logging.handlers import QueueHandler, QueueListener
 from pathlib import Path
 import sys
 
-DEBUG = False
+DEBUG = True
+DEBUG_CONSOLE = False
+DEBUG_LOG = True
+
+script_start_time = None
+debug_log_listener = None
 
 # Importar métodos de selección híbrida
 utils_path = Path(__file__).parent.parent / "LGA_NKS_Shared"
@@ -39,9 +49,76 @@ else:
     find_clip_at_playhead_in_track = None
 
 
+class RelativeTimeFormatter(logging.Formatter):
+    def format(self, record):
+        global script_start_time
+        if script_start_time is None:
+            script_start_time = record.created
+        relative_time = record.created - script_start_time
+        record.relative_time = f"{relative_time:.3f}s"
+        return super().format(record)
+
+
+def setup_debug_logging(script_name="ViewerPrevNextRev"):
+    global debug_log_listener
+
+    startup_dir = Path(__file__).parent.parent
+    log_file_path = startup_dir / "logs" / f"DebugPy_{script_name}.log"
+    log_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        with open(log_file_path, "w", encoding="utf-8") as f:
+            f.write(f"Fecha: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+    except Exception:
+        pass
+
+    logger_name = f"{script_name.lower()}_logger"
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+
+    if logger.handlers:
+        logger.handlers.clear()
+
+    file_handler = logging.FileHandler(log_file_path, encoding="utf-8")
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(RelativeTimeFormatter("[%(relative_time)s] %(message)s"))
+
+    log_queue = queue.Queue()
+    queue_handler = QueueHandler(log_queue)
+    queue_handler.setLevel(logging.DEBUG)
+    logger.addHandler(queue_handler)
+
+    if debug_log_listener:
+        try:
+            debug_log_listener.stop()
+        except Exception:
+            pass
+
+    debug_log_listener = QueueListener(
+        log_queue, file_handler, respect_handler_level=True
+    )
+    debug_log_listener.daemon = True
+    debug_log_listener.start()
+
+    return logger
+
+
+debug_logger = setup_debug_logging()
+
+
 def debug_print(*message):
-    if DEBUG:
-        print(*message)
+    global script_start_time
+
+    msg = " ".join(str(arg) for arg in message)
+
+    if DEBUG and DEBUG_LOG:
+        if script_start_time is None:
+            script_start_time = time.time()
+        debug_logger.info(msg)
+
+    if DEBUG and DEBUG_CONSOLE:
+        print(msg)
 
 
 # Definir los colores que buscamos
@@ -85,6 +162,13 @@ def find_clip_with_color(direction, rev_type):
     target_clip = None
     min_distance = float("inf")
     target_color = COLORS.get(rev_type)
+    debug_print(
+        f"Buscando clip con color rev_type='{rev_type}' en dirección '{direction}' desde playhead={playhead_pos}"
+    )
+
+    if not target_color:
+        debug_print(f"No existe color configurado para rev_type='{rev_type}'")
+        return None
 
     # Buscar en todas las pistas de video
     for track in seq.videoTracks():
@@ -92,9 +176,8 @@ def find_clip_with_color(direction, rev_type):
             if isinstance(item, hiero.core.EffectTrackItem):
                 continue
 
-            # Verificar si el clip tiene media presente antes de intentar acceder a propiedades
-            if not item.source().mediaSource().isMediaPresent():
-                debug_print(f"Clip offline detectado: {item.name()}")
+            if not item.source():
+                debug_print(f"Clip sin source, se omite: {item.name()}")
                 continue
 
             # Verificar si el clip tiene el color buscado
@@ -129,7 +212,9 @@ def find_clip_with_color(direction, rev_type):
                         )
 
     if target_clip:
-        debug_print(f"Clip seleccionado: {target_clip.name()}")
+        debug_print(
+            f"Clip seleccionado: {target_clip.name()} [{target_clip.timelineIn()}-{target_clip.timelineOut()}]"
+        )
     else:
         debug_print(f"No se encontraron más clips {rev_type} en dirección {direction}")
 
@@ -150,39 +235,63 @@ def find_editref_clip_at_position(position):
     current_playhead = get_current_playhead_position()
     use_hybrid = current_playhead is not None and position == current_playhead
 
-    # Buscar el track EditRef
-    edit_ref_track = None
-    for track in seq.videoTracks():
-        if track.name() == "EditRef":
-            edit_ref_track = track
-            break
+    # Buscar todos los tracks EditRef, porque puede haber más de uno con el mismo nombre
+    edit_ref_tracks = [
+        track for track in seq.videoTracks() if track.name() == "EditRef"
+    ]
 
-    if not edit_ref_track:
+    if not edit_ref_tracks:
         debug_print("No se encontró un track llamado 'EditRef'.")
         return None
 
-    # Si la posición es la del playhead actual, usar método híbrido
-    if use_hybrid and find_clip_at_playhead_in_track:
+    debug_print(f"Tracks EditRef encontrados: {len(edit_ref_tracks)}")
+
+    # Si la posición es la del playhead actual y existe un solo EditRef, usar método híbrido
+    if use_hybrid and len(edit_ref_tracks) == 1 and find_clip_at_playhead_in_track:
         clip = find_clip_at_playhead_in_track(seq, track_name="EditRef")
         if clip:
             debug_print(f"Clip EditRef encontrado usando método híbrido: {clip.name()}")
             return clip
+    elif use_hybrid and len(edit_ref_tracks) > 1:
+        debug_print(
+            "Hay múltiples tracks EditRef; se omite método híbrido y se busca manualmente en todos."
+        )
 
-    # Buscar el clip que contiene la posición
-    for item in edit_ref_track.items():
-        if item.timelineIn() <= position < item.timelineOut():
-            return item
+    # Buscar el clip que contiene la posición en cualquiera de los EditRef
+    for idx, track in enumerate(edit_ref_tracks, start=1):
+        debug_print(
+            f"Revisando EditRef #{idx} con {len(track.items())} item(s) para posición {position}"
+        )
+        for item in track.items():
+            if item.timelineIn() <= position < item.timelineOut():
+                debug_print(
+                    f"Clip EditRef encontrado en track #{idx}: {item.name()} [{item.timelineIn()}-{item.timelineOut()}]"
+                )
+                return item
 
-    # Si no se encuentra un clip que contenga la posición,
-    # buscar el más cercano después de la posición
+    # Si no se encuentra un clip que contenga la posición, buscar el más cercano
+    # después de la posición entre todos los EditRef
     closest_clip = None
     min_distance = float("inf")
-    for item in edit_ref_track.items():
-        if item.timelineIn() > position:
-            distance = item.timelineIn() - position
-            if distance < min_distance:
-                min_distance = distance
-                closest_clip = item
+    closest_track_idx = None
+    for idx, track in enumerate(edit_ref_tracks, start=1):
+        for item in track.items():
+            if item.timelineIn() > position:
+                distance = item.timelineIn() - position
+                if distance < min_distance:
+                    min_distance = distance
+                    closest_clip = item
+                    closest_track_idx = idx
+
+    if closest_clip:
+        debug_print(
+            f"No hubo match exacto en EditRef. Se usa el más cercano del track #{closest_track_idx}: "
+            f"{closest_clip.name()} [{closest_clip.timelineIn()}-{closest_clip.timelineOut()}]"
+        )
+    else:
+        debug_print(
+            "No se encontró clip exacto ni clip posterior en ningún track EditRef."
+        )
 
     return closest_clip  # Retornar el clip más cercano si no se encuentra uno exacto
 
@@ -240,6 +349,8 @@ def main(direction, rev_type):
     """
     Función principal que ejecuta la secuencia completa de operaciones.
     """
+    debug_print(f"=== Inicio PrevNext Rev | direction={direction} | rev_type={rev_type} ===")
+
     # 1. Encontrar el clip con el color especificado en la dirección indicada
     target_clip = find_clip_with_color(direction, rev_type)
     if not target_clip:

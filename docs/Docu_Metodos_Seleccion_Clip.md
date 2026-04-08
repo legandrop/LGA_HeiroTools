@@ -7,6 +7,8 @@ Este documento describe los dos métodos principales utilizados en los scripts p
 
 **Nota:** Este documento refleja el estado actual de los scripts. No incluye historial de cambios ni logs de actualizaciones.
 
+**Convención de nombres de tracks:** la lógica funcional de nombres del timeline está centralizada en [docs/Docu_Logica_Nombres_Tracks.md](/Users/leg4/.nuke/Python/Startup/docs/Docu_Logica_Nombres_Tracks.md). Este documento se enfoca en selección de clips; la semántica de `_comp_`, `_roto_`, `_compMov_` y futuras tasks como `_cleanup_` se documenta allí.
+
 ---
 
 ## Método 1: Clip Seleccionado (`te.selection()`)
@@ -326,6 +328,7 @@ Prioriza clips del track objetivo, pero incluye shots de otros tracks si no hay 
 - Usada por Flow Pull y Flow Push para operar sobre múltiples tasks
 - Para agregar una nueva task: solo agregar su track aquí
 - **No hardcodear** nombres de tasks en scripts — siempre referenciar esta lista
+- Próxima task prevista: `_cleanup_`, que deberá sumarse aquí cuando exista `TRACK_cleanup_EXR`
 
 **`DEBUG = False`**
 - Controla mensajes de debug

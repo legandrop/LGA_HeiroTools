@@ -14,7 +14,7 @@ Su propósito principal es mantener sincronizada la información entre ShotGrid 
 
 *   **Arquitectura Optimizada:** Separa UI (Hiero/Nuke) de operaciones de red (Python personalizado) para evitar conflictos de dependencias y mejorar rendimiento.
 *   **Actualización de Estados en ShotGrid:** Permite cambiar el estado de las tareas de Nuke/Hiero en ShotGrid mediante operaciones optimizadas que minimizan llamadas de red.
-*   **Selección de Clips Centralizada:** Usa el módulo utilitario `LGA_NKS_GetClip` (Método 2 híbrido: playhead primero, luego selección como fallback) para obtener clips del track configurado (por defecto `_comp_`). Soporta selecciones múltiples cuando se usa `push_from_selected_clips()`.
+*   **Selección de Clips Centralizada:** Usa el módulo utilitario `LGA_NKS_GetClip` para obtener clips de los tracks de task EXR. Para lógica multi-task itera `TASK_EXR_TRACKS` (actualmente `_comp_` y `_roto_`). Soporta selecciones múltiples cuando se usa `push_from_selected_clips()`.
 *   **Sincronización con Base de Datos Local:** Mantiene una base de datos SQLite local (`pipesync.db`) sincronizada con los cambios realizados en ShotGrid.
 *   **Verificación de Versiones del Timeline:** Antes de abrir el diálogo de notas, verifica si la versión actual del clip seleccionado es la más alta disponible en el timeline. Si no lo es, muestra un diálogo de advertencia permitiendo continuar o cancelar la operación.
 *   **Gestión de Versiones Asíncrona:** Identifica versiones y realiza verificaciones sin congelar la interfaz de usuario.
@@ -30,7 +30,7 @@ El sistema **NO compara nombres completos de versiones**. Utiliza una estrategia
 1. **Extracción del Shot Code:** Del nombre del clip extrae `project_name` y `shot_code` (incluye soporte para bloque TEMP_EP en series).
 2. **Búsqueda del Shot:** Busca el shot usando `shot_code` en el proyecto correspondiente y obtiene el `shot_id`.
 3. **Búsqueda de Versiones:** Busca **TODAS las versiones** asociadas a ese `shot_id`, incluyendo EXRs, MOVs renombrados y cualquier otro tipo de versión vinculada al mismo shot.
-4. **Filtrado:** Filtra versiones que contengan `_comp_` o `_cmp_` en su código.
+4. **Filtrado:** Filtra versiones que correspondan a tasks EXR válidas del timeline. Hoy contempla `_comp_`, `_roto_` y el alias `_cmp_`.
 5. **Selección de Versión:**
    - **Para comentarios:** Selecciona la versión específica correspondiente al número de versión del clip actual.
    - **Para otras operaciones:** Selecciona la versión numérica más alta entre todas las encontradas.
@@ -98,7 +98,7 @@ Cuando se abre el diálogo para introducir notas, el script automáticamente:
 ### Funciones Clave:
 
 **En `LGA_NKS_Flow/LGA_NKS_Flow_Push.py`:**
-- **`push_from_selected_clips()`**: **[NUEVO]** Función principal que usa el método centralizado para obtener clips del track `TRACK_comp_EXR` (Método 2 híbrido). Soporta selecciones múltiples, filtra clips de composición, y maneja el diálogo de notas apropiadamente. Incluye confirmación para más de 4 clips.
+- **`push_from_selected_clips()`**: Función principal que usa el método centralizado para obtener clips de `TASK_EXR_TRACKS`. Soporta selecciones múltiples, filtra clips por task EXR válida, permite elegir task cuando hay mezcla de tasks y mantiene confirmación para más de 4 clips.
 - **`Push_Task_Status()`**: Función legacy que procesa un clip individual cuando se proporciona `base_name`. Mantiene compatibilidad con paneles que llaman esta función directamente. Verifica versiones del timeline antes de abrir el diálogo de notas.
 - **`get_clip_versions_from_timeline()`**: Obtiene todas las versiones disponibles del clip seleccionado usando la API de Hiero, detecta la versión actual y encuentra la versión más alta.
 - **`extract_version_number_from_string()`**: Extrae el número de versión de nombres de archivos usando el patrón `_v\d+`.
@@ -115,6 +115,15 @@ Cuando se abre el diálogo para introducir notas, el script automáticamente:
 - **`find_highest_version_for_shot()`**: Busca la versión más alta disponible para otras operaciones
 - **`execute_flow_operation()`**: Dispatcher principal para todas las operaciones de red
 - **`attach_images_to_note()`**: Sube imágenes a ShotGrid con números de frame
+
+## Lógica de tracks
+
+La convención funcional de nombres del timeline está documentada en [docs/Docu_Logica_Nombres_Tracks.md](/Users/leg4/.nuke/Python/Startup/docs/Docu_Logica_Nombres_Tracks.md).
+
+- `_comp_` = EXR de la task comp
+- `_roto_` = EXR de la task roto
+- `_compMov_` = MOV/MXF de review de comp
+- Próxima task prevista: `_cleanup_`
 
 Esta integración permite a los usuarios revisar visualmente las imágenes capturadas previamente mientras escriben sus notas de revisión, seleccionar qué imágenes adjuntar mediante borrado individual antes del envío, adjuntarlas automáticamente a ShotGrid con información de frame, y opcionalmente limpiar el caché local después del envío exitoso.
 
