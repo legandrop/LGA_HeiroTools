@@ -310,7 +310,7 @@ class ViewerPanel(QtWidgets.QWidget):
                 },
                 "juano": {
                     "nombre": "Juano",
-                    "color": "#9a4a79",
+                    "color": "#7F4B69",
                     "prev_shortcut": "Ctrl+Alt+Shift+,",  # Usar shortcuts de Lega
                     "next_shortcut": "Ctrl+Alt+Shift+.",  # Usar shortcuts de Lega
                 }

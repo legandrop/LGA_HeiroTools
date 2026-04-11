@@ -235,7 +235,7 @@ class ShotGridManager:
             "progre": ("In Progress", "#7d4cff", None),
             "corr": ("Corrections", "#2e77d4", "Corrections"),
             "rev_su": ("Review Sup", "#bd7f9f", "Rev_Sup"),
-            "revjua": ("Review Juano", "#9a4a79", "Rev_Sup"),
+            "revjua": ("Review Juano", "#7F4B69", "Rev_Sup"),
             "revjav": ("Review Javi", "#9c3e5e", "Rev_Sup"),
             "revleg": ("Review Lega", "#69135e", "Rev_Lega"),
             "revhld": ("Review Hold", "#933100", "Rev Hold"),
@@ -1067,7 +1067,7 @@ class HieroOperations:
             # Estados de review que deben habilitarse
             review_status_colors = {
                 "#bd7f9f",  # rev_su - Review Sup
-                "#9a4a79",  # revjua - Review Juano
+                "#7F4B69",  # revjua - Review Juano
                 "#9c3e5e",  # revjav - Review Javi
                 "#69135e",  # revleg - Review Lega
             }

@@ -125,7 +125,7 @@ def debug_print(*message):
 COLORS = {
     "lega": QtGui.QColor(105, 19, 94),  # #69135e
     "sup": QtGui.QColor(189, 127, 159),  # #bd7f9f
-    "juano": QtGui.QColor(154, 74, 121),  # #9a4a79
+    "juano": QtGui.QColor(64, 34, 52),  # #7F4B69
     "javi": QtGui.QColor(156, 62, 94),  # #9c3e5e
 }
 

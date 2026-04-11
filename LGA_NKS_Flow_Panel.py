@@ -240,8 +240,8 @@ class ColorChangeWidget(QtWidgets.QWidget):
             },
             {
                 "name": "Rev Juano",
-                "color": QtGui.QColor(154, 74, 121),
-                "style": "#9a4a79",
+                "color": QtGui.QColor(64, 34, 52),
+                "style": "#7F4B69",
                 "action": "color",
             },
             {
