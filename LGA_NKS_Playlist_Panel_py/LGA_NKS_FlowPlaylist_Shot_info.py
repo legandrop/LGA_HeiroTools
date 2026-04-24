@@ -22,6 +22,10 @@ import sys
 import sqlite3
 import subprocess
 import platform
+import logging
+import queue
+import time
+from logging.handlers import QueueHandler, QueueListener
 from pathlib import Path
 # Importar compatibilidad Qt para Hiero Panels
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, QShortcut, QApplication
@@ -43,6 +47,102 @@ QScrollArea = QtWidgets.QScrollArea
 QLabel = QtWidgets.QLabel
 QFrame = QtWidgets.QFrame
 
+DEBUG = True
+DEBUG_CONSOLE = False
+DEBUG_LOG = True
+
+script_start_time = None
+debug_log_listener = None
+
+
+class RelativeTimeFormatter(logging.Formatter):
+    """Formatter que incluye tiempo relativo desde el inicio del script."""
+
+    def format(self, record):
+        global script_start_time
+        if script_start_time is None:
+            script_start_time = record.created
+        relative_time = record.created - script_start_time
+        record.relative_time = f"{relative_time:.3f}s"
+        return super().format(record)
+
+
+def setup_debug_logging(script_name="FlowPlaylist_ShotInfo"):
+    """Configura el logging para escribir solo en archivo."""
+    global debug_log_listener
+
+    log_filename = f"DebugPy_{script_name}.log"
+    log_file_path = os.path.join(os.path.dirname(__file__), "..", "logs", log_filename)
+    log_file_path = os.path.normpath(log_file_path)
+
+    os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+
+    try:
+        with open(log_file_path, "w", encoding="utf-8") as handle:
+            handle.write(f"Fecha: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+    except Exception:
+        pass
+
+    logger_name = f"{script_name.lower()}_logger"
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+
+    if logger.handlers:
+        logger.handlers.clear()
+
+    file_handler = logging.FileHandler(log_file_path, encoding="utf-8")
+    file_handler.setLevel(logging.DEBUG)
+    formatter = RelativeTimeFormatter("[%(relative_time)s] %(message)s")
+    file_handler.setFormatter(formatter)
+
+    log_queue = queue.Queue()
+    queue_handler = QueueHandler(log_queue)
+    queue_handler.setLevel(logging.DEBUG)
+    logger.addHandler(queue_handler)
+
+    if debug_log_listener:
+        try:
+            debug_log_listener.stop()
+        except Exception:
+            pass
+
+    debug_log_listener = QueueListener(
+        log_queue, file_handler, respect_handler_level=True
+    )
+    debug_log_listener.daemon = True
+    debug_log_listener.start()
+
+    return logger
+
+
+debug_logger = setup_debug_logging(script_name="FlowPlaylist_ShotInfo")
+
+
+def debug_print(*message, level="info"):
+    """Loggea por defecto a archivo y opcionalmente a consola."""
+    global script_start_time
+
+    msg = " ".join(str(arg) for arg in message)
+
+    if DEBUG and DEBUG_LOG:
+        if script_start_time is None:
+            script_start_time = time.time()
+        if level == "debug":
+            debug_logger.debug(msg)
+        elif level == "warning":
+            debug_logger.warning(msg)
+        elif level == "error":
+            debug_logger.error(msg)
+        else:
+            debug_logger.info(msg)
+
+    if DEBUG and DEBUG_CONSOLE:
+        if script_start_time is None:
+            script_start_time = time.time()
+        relative_time = time.time() - script_start_time
+        print(f"[{relative_time:.3f}s] {msg}")
+
 # Importar utilidades de naming desde shareds de dominio Flow
 flow_shared_dir = Path(__file__).parent.parent / "LGA_NKS_Shared"
 sys.path.append(str(flow_shared_dir))
@@ -63,15 +163,6 @@ if utils_path.exists():
         HAS_CLIP_UTILS = True
     except ImportError as e:
         debug_print(f"Error importando módulo LGA_NKS_GetClip: {e}")
-
-
-# Variable global para activar o desactivar los prints
-DEBUG = False
-
-
-def debug_print(*message):
-    if DEBUG:
-        print(*message)
 
 
 def extract_frame_from_filename(filename):
