@@ -57,7 +57,7 @@
 
 ## Etapa 4 - Shot Info
 
-- [ ] Reutilizar la UI del `Shot Info` del `Flow Panel`.
+- [x] Reutilizar la UI base del `Shot Info` del `Flow Panel`.
 - [x] Migrar `FlowPlaylist_Shot_info.py` al sistema de logging avanzado con `.log` propio por defecto.
 - [x] Migrar tambien `LGA_NKS_Flow_Shot_info.py` al sistema de logging avanzado para mantener paridad con la base reutilizada.
 - [x] Agregar logs de diagnostico en ambos `Shot Info` para dejar visibles:
@@ -73,10 +73,13 @@
 - [x] Validar el caso vendor `MOR_2004_030`:
   - proyecto abierto `MORLASP_SUP_v004`
   - proyecto buscado en DB `MORLASP`
-- [ ] Mostrar `Descripcion Tarea` desde `pipesync.db`.
-- [ ] Mostrar `Descripcion Version` desde `pipesync_playlists.db`.
-- [ ] Mostrar notas, replies y attachments desde `pipesync_playlists.db`.
-- [ ] Mostrar multiples apariciones de la misma version si pertenece a playlists distintas.
+- [x] Documentar el mapeo real entre captura/UI y `pipesync_playlists.db` en un MD tecnico separado.
+- [x] Mostrar `Descripcion Tarea` desde `pipesync.db`.
+- [x] Mostrar `Descripcion Version` desde `pipesync_playlists.db`.
+- [x] Mostrar notas, replies y attachments desde `pipesync_playlists.db`.
+- [x] Resolver attachments de notas y replies por separado (`note_id` y `reply_id`).
+- [x] Mostrar multiples apariciones de la misma version si pertenece a playlists distintas.
+- [ ] Ajustar formato de fecha/hora para que coincida exactamente con el `Playlist Tab` de PipeSync.
 
 ## Etapa 5 - Review Pic y Send Note
 
