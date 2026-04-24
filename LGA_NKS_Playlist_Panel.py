@@ -190,7 +190,6 @@ class PlaylistPanelWidget(QtWidgets.QWidget):
                 "name": "Sho&t Info",
                 "style": "#1f1f1f",
                 "action": "shot_info",
-                "shortcut": "Shift+T",
             },
             {
                 "name": "Review Pic",

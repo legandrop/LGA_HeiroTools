@@ -121,6 +121,16 @@ Colores esperados:
 - `Approve`: mismo verde que `Approved` del `Flow Panel`
 - `Show Playlist`: boton oscuro nuevo, alineado visualmente al panel
 
+Atajo de teclado:
+
+- `Shift+T` queda reservado al `Shot Info` del `Flow Panel`.
+- El `Playlist Panel` no debe registrar ese shortcut para evitar conflicto.
+- En timeline vendor, cuando se ejecuta `Shot Info` desde el `Flow Panel`, ese flujo debe redirigir internamente al `Shot Info` del `Playlist Panel`.
+- La redireccion debe activarse si:
+  - estamos en timeline vendor; y
+  - el `Playlist Panel` ya esta registrado/cargado, o en su defecto el usuario actual es `Master`.
+- Se prioriza primero el chequeo de panel registrado por ser mas liviano en recursos.
+
 ### 1. Playlist Pull
 
 Funcion esperada:
@@ -178,6 +188,13 @@ Logging requerido:
   - `search_project_name`
   - `shot_code`
 - si falla el lookup, el warning debe dejar visibles esos mismos valores para diagnostico.
+
+Redireccion desde `Flow Shot Info`:
+
+- `LGA_NKS_Flow_Shot_info.py` debe detectar si el timeline actual es vendor.
+- Si lo es, no debe mostrar el lookup normal del `Flow Panel`.
+- En ese caso debe ejecutar `LGA_NKS_FlowPlaylist_Shot_info.py`.
+- Esta decision debe quedar loggeada en el `.log` del `Flow Shot Info`.
 
 Pendiente:
 
