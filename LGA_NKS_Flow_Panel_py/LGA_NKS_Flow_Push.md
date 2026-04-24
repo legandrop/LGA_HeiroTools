@@ -122,8 +122,9 @@ La convención funcional de nombres del timeline está documentada en [docs/Docu
 
 - `_comp_` = EXR de la task comp
 - `_roto_` = EXR de la task roto
-- `_compMov_` = MOV/MXF de review de comp
-- Próxima task prevista: `_cleanup_`
+- `_compRev_` = MOV/MXF de review de comp
+- `_cleanup_` = EXR de la task cleanup (ya confirmada)
+- `_rotoRev_` / `_cleanupRev_` = review MOV/MXF de roto/cleanup (variables definidas, uso en scripts pendiente)
 
 Esta integración permite a los usuarios revisar visualmente las imágenes capturadas previamente mientras escriben sus notas de revisión, seleccionar qué imágenes adjuntar mediante borrado individual antes del envío, adjuntarlas automáticamente a ShotGrid con información de frame, y opcionalmente limpiar el caché local después del envío exitoso.
 

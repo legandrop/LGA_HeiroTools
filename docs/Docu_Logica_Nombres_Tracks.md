@@ -7,106 +7,120 @@ Este documento centraliza la convención de nombres de tracks usada por las herr
 
 ## Objetivo
 
-La idea es separar claramente:
+Separar claramente por dominio:
 
-- tracks de **tasks EXR** que representan renders publicados por task
-- tracks de **review MOV/MXF**
+- tracks de **EXR por task** (renders publicados por cada task)
+- tracks de **review MOV/MXF por task** (renders para revisar)
 - tracks de **referencia editorial**
-- tracks de **utilidad de viewer o timeline**
+- tracks de **utilidad de viewer / timeline**
 
-Cuando se agrega una nueva task, la convención debe quedar definida aquí y en `LGA_NKS_Shared/LGA_NKS_GetClip.py`.
+## Convención única para tasks
 
-## Tracks vigentes
+Para cada task hay dos tracks posibles:
 
-### Tasks EXR
+| Tipo de track | Patrón del nombre | Ejemplos |
+|---|---|---|
+| EXR de la task | `_{task}_` | `_comp_`, `_roto_`, `_cleanup_` |
+| Review MOV/MXF de la task | `_{task}Rev_` | `_compRev_`, `_rotoRev_`, `_cleanupRev_` |
 
-- **`_comp_`**
-  - Variable: `TRACK_comp_EXR`
-  - Significado: track con los renders EXR de la task **comp**
-  - Uso típico: selección principal de clips, comparación contra aPlate, push/pull de estados, on/off de EXR
+El track `Rev` contiene archivos `.mov` o `.mxf` indistintamente según el proyecto. El sufijo `Rev` identifica la función (review), no el contenedor.
 
-- **`_roto_`**
-  - Variable: `TRACK_roto_EXR`
-  - Significado: track con los renders EXR de la task **roto**
-  - Uso típico: push/pull multi-task, on/off de roto, futuros flujos equivalentes a comp cuando corresponda
+## Tasks vigentes
 
-- **Lista centralizada**
-  - Variable: `TASK_EXR_TRACKS`
-  - Valor actual: `[TRACK_comp_EXR, TRACK_roto_EXR]`
-  - Regla: cualquier script que opere sobre "todas las tasks EXR" debe iterar esta lista y no hardcodear `_comp_` ni `_roto_`
+### Comp
 
-### Review MOV/MXF
+| Dominio | Track | Variable |
+|---|---|---|
+| EXR | `_comp_` | `TRACK_comp_EXR` |
+| Review MOV/MXF | `_compRev_` | `TRACK_comp_REV` |
 
-- **`_compMov_`**
-  - Variable: `TRACK_comp_REV`
-  - Significado: track con renders MOV/MXF de review de la task **comp**
-  - Reemplaza los nombres históricos `_rev_` y `REV`
+### Roto
 
-### Tracks editoriales y auxiliares
+| Dominio | Track | Variable |
+|---|---|---|
+| EXR | `_roto_` | `TRACK_roto_EXR` |
+| Review MOV/MXF | `_rotoRev_` | `TRACK_roto_REV` |
 
-- **`EditRef`**
-  - Referencia editorial para navegación, in/out y comparaciones
+### Cleanup
 
-- **`EditRefClean`**
-  - Variante limpia de referencia editorial usada por algunos scripts
+| Dominio | Track | Variable |
+|---|---|---|
+| EXR | `_cleanup_` | `TRACK_cleanup_EXR` |
+| Review MOV/MXF | `_cleanupRev_` | `TRACK_cleanup_REV` |
 
-- **`aPlate`**
-  - Track de plate usado para comparaciones de rango o imagen contra comp
+## Listas centralizadas
 
-- **`BurnIn`**
-  - Track auxiliar para overlays de viewer
+Cualquier script que opere sobre "todas las tasks" debe iterar las listas y no hardcodear nombres.
 
-## Regla funcional
+- `TASK_EXR_TRACKS = [TRACK_comp_EXR, TRACK_roto_EXR, TRACK_cleanup_EXR]`
+- `TASK_REV_TRACKS = [TRACK_comp_REV, TRACK_roto_REV, TRACK_cleanup_REV]`
 
-La semántica del nombre del track importa:
+## Tracks editoriales y auxiliares
 
-- `_comp_` no significa "cualquier EXR"; significa **EXR de la task comp**
-- `_roto_` no significa "otro track cualquiera"; significa **EXR de la task roto**
-- `_compMov_` significa **MOV/MXF de review de comp**
+- **`EditRef`** — Referencia editorial para navegación, in/out y comparaciones.
+- **`EditRefClean`** — Variante limpia de referencia editorial usada por algunos scripts.
+- **`aPlate`** — Track de plate para comparaciones de rango o imagen contra comp.
+- **`BurnIn`** — Track auxiliar para overlays de viewer.
+
+## Semántica
+
+El nombre del track importa:
+
+- `_comp_` = **EXR de la task comp**, no "cualquier EXR"
+- `_roto_` = **EXR de la task roto**
+- `_compRev_` = **MOV/MXF de review de comp**
+- `_rotoRev_` = **MOV/MXF de review de roto**
 
 Por lo tanto:
 
-- si el script trabaja solo con comp, debe usar `TRACK_comp_EXR`
-- si el script trabaja solo con roto, debe usar `TRACK_roto_EXR`
-- si el script trabaja con todas las tasks EXR, debe usar `TASK_EXR_TRACKS`
-- si el script trabaja con review MOV/MXF de comp, debe usar `TRACK_comp_REV`
+- si el script trabaja solo con una task, usar la variable específica (`TRACK_comp_EXR`, `TRACK_roto_REV`, etc.)
+- si el script trabaja con todas las tasks EXR, iterar `TASK_EXR_TRACKS`
+- si el script trabaja con todas las reviews, iterar `TASK_REV_TRACKS`
 
-## Próxima expansión: `_cleanup_`
+## Agregar una nueva task
 
-La próxima task prevista es **cleanup**.
+Los pasos para sumar una task nueva son:
 
-Cuando se incorpore, la expansión correcta es:
-
-1. Agregar `TRACK_cleanup_EXR = "_cleanup_"` en `LGA_NKS_Shared/LGA_NKS_GetClip.py`
-2. Incluirla en `TASK_EXR_TRACKS`
-3. Revisar filtros por nombre de archivo, regex y detección de task
-4. Revisar UI donde hoy existen acciones específicas para `_comp_` o `_roto_`
-5. Actualizar esta documentación y los `.md` funcionales relacionados
+1. Agregar las variables en [LGA_NKS_Shared/LGA_NKS_GetClip.py](../LGA_NKS_Shared/LGA_NKS_GetClip.py):
+   ```python
+   TRACK_nueva_EXR = "_nueva_"
+   TRACK_nueva_REV = "_nuevaRev_"
+   ```
+2. Sumarlas a las listas centralizadas:
+   ```python
+   TASK_EXR_TRACKS = [..., TRACK_nueva_EXR]
+   TASK_REV_TRACKS = [..., TRACK_nueva_REV]
+   ```
+3. Revisar filtros por nombre de archivo, regex y detección de task en los scripts que ya soportan multi-task.
+4. Revisar UI donde hay acciones específicas por task (ej. botones on/off del Review Panel).
+5. Actualizar la tabla de tasks vigentes de este documento.
+6. Revisar el estado en [Docu_MultiTask.md](Docu_MultiTask.md).
 
 ## Reglas de implementación
 
 - No hardcodear nombres de track si ya existe una variable centralizada.
 - Para selección por track EXR principal, preferir `track_name=None` cuando el comportamiento deba respetar `TRACK_comp_EXR`.
-- Para lógica multi-task, iterar `TASK_EXR_TRACKS`.
-- Toda documentación que nombre `_rev_` como track actual está desactualizada; el nombre vigente es `_compMov_`.
+- Para lógica multi-task, iterar `TASK_EXR_TRACKS` o `TASK_REV_TRACKS` según corresponda.
+- Nombres históricos en desuso: `_rev_`, `REV`, `_compMov_`. Toda documentación o código que los nombre como vigentes está desactualizada.
 
 ## Referencias técnicas
 
-- **Módulo central:** `/Users/leg4/.nuke/Python/Startup/LGA_NKS_Shared/LGA_NKS_GetClip.py`
-  - Variables: `TRACK_comp_EXR`, `TRACK_comp_REV`, `TRACK_roto_EXR`, `TASK_EXR_TRACKS`
+- **Módulo central:** [LGA_NKS_Shared/LGA_NKS_GetClip.py](../LGA_NKS_Shared/LGA_NKS_GetClip.py)
+  - Variables: `TRACK_comp_EXR`, `TRACK_comp_REV`, `TRACK_roto_EXR`, `TRACK_roto_REV`, `TRACK_cleanup_EXR`, `TRACK_cleanup_REV`, `TASK_EXR_TRACKS`, `TASK_REV_TRACKS`
   - Funciones: `get_clip_to_process()`, `get_clips_to_process()`, `find_clip_at_playhead_in_track()`
 
-- **Selección de clips:** `/Users/leg4/.nuke/Python/Startup/docs/Docu_Metodos_Seleccion_Clip.md`
-  - Secciones: método híbrido, configuración, uso del módulo centralizado
+- **Estado multi-task por script:** [Docu_MultiTask.md](Docu_MultiTask.md)
 
-- **Push multi-task:** `/Users/leg4/.nuke/Python/Startup/LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py`
+- **Selección de clips:** [Docu_Metodos_Seleccion_Clip.md](Docu_Metodos_Seleccion_Clip.md)
+
+- **Push multi-task:** [LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py)
   - Funciones: `push_from_selected_clips()`, `_show_task_selection_dialog()`
 
-- **Pull multi-task:** `/Users/leg4/.nuke/Python/Startup/LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py`
+- **Pull multi-task:** [LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py)
   - Métodos: `HieroOperations.process_selected_clips()`, `HieroOperations.change_to_highest_version()`
 
-- **Review on/off por track:** `/Users/leg4/.nuke/Python/Startup/LGA_NKS_Review_Panel.py`
+- **Review on/off por track:** [LGA_NKS_Review_Panel.py](../LGA_NKS_Review_Panel.py)
   - Métodos: `execute_DisableEXR()`, `execute_DisableRoto()`
 
-- **Wrapper roto:** `/Users/leg4/.nuke/Python/Startup/LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableRoto.py`
+- **Wrapper roto:** [LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableRoto.py](../LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableRoto.py)
   - Función: `main()`

@@ -1,10 +1,11 @@
 """
 _______________________________________________________________________________________
 
-  LGA_NKS_MatchVerToEXR v0.7 | Lega
+  LGA_NKS_MatchVerToEXR v0.8 | Lega
   Busca la version actual de los clips del track _comp_ (TRACK_comp_EXR) e
-  intenta subir la versión de los clips correspondientes del track _compMov_ (TRACK_comp_REV) a la misma versión.
+  intenta subir la versión de los clips correspondientes del track _compRev_ (TRACK_comp_REV) a la misma versión.
 
+  v0.8 - Renombra TRACK_comp_REV de "_compMov_" a "_compRev_" (nueva convención taskRev)
   v0.7 - Actualiza fallback de TRACK_comp_REV a "_compMov_" (renombrado desde "_rev_")
   v0.6 - Usa módulo centralizado LGA_NKS_GetClip para obtener clips (método híbrido: selecciones múltiples > playhead > selección)
   v0.5 - Actualizado para ser compatible con ambos sistemas de nomenclatura:
@@ -61,13 +62,13 @@ if utils_path.exists():
         if DEBUG:
             print("ERROR: No se encontró el módulo LGA_NKS_GetClip")
         TRACK_comp_EXR = "_comp_"  # Fallback
-        TRACK_comp_REV = "_compMov_"  # Fallback
+        TRACK_comp_REV = "_compRev_"  # Fallback
         get_clips_to_process = None
 else:
     if DEBUG:
         print("ERROR: No se encontró el directorio LGA_NKS_Shared")
     TRACK_comp_EXR = "_comp_"  # Fallback
-    TRACK_comp_REV = "_compMov_"  # Fallback
+    TRACK_comp_REV = "_compRev_"  # Fallback
     get_clips_to_process = None
 
 # Variables globales para mantener la ventana en memoria - COPIADO DEL PULL

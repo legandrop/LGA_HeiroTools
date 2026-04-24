@@ -2,12 +2,13 @@
 _______________________________________________________________________________________
 
   LGA_NKS_CompareVerToEditref v1.16 | Lega
-  Compara los rangos de frames de los clips del track _compMov_ (TRACK_comp_REV) con
+  Compara los rangos de frames de los clips del track _compRev_ (TRACK_comp_REV) con
   los clips correspondientes del track EditRef para verificar coincidencias.
 
   Track utilizado:
-  - TRACK_comp_REV = "_compMov_": Track que contiene los archivos MOV o MXF con el render de COMP
+  - TRACK_comp_REV = "_compRev_": Track que contiene los archivos MOV o MXF con el render de COMP
 
+  v1.17 - Renombra TRACK_comp_REV de "_compMov_" a "_compRev_" (nueva convención taskRev)
   v1.16 - Actualiza fallback de TRACK_comp_REV a "_compMov_" (renombrado desde "_rev_")
   v1.15 - Usa módulo centralizado LGA_NKS_GetClip con método híbrido para buscar clips en track REV (playhead primero, luego selección como fallback)
   v1.14 - Actualizado para ser compatible con ambos sistemas de nomenclatura:
@@ -61,13 +62,13 @@ if utils_path.exists():
     except ImportError:
         if DEBUG:
             print("ERROR: No se encontró el módulo LGA_NKS_GetClip")
-        TRACK_comp_REV = "_compMov_"  # Fallback
+        TRACK_comp_REV = "_compRev_"  # Fallback
         find_clip_at_playhead_in_track = None
         get_clip_to_process = None
 else:
     if DEBUG:
         print("ERROR: No se encontró el directorio LGA_NKS_Shared")
-    TRACK_comp_REV = "_compMov_"  # Fallback
+    TRACK_comp_REV = "_compRev_"  # Fallback
     find_clip_at_playhead_in_track = None
     get_clip_to_process = None
 
