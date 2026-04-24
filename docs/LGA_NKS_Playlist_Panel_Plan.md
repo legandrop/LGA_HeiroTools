@@ -620,6 +620,126 @@ Esta seccion debe mantenerse siempre actualizada. Cuando una duda se resuelve, d
 8. URL final de `Show Playlist`.
    Falta descubrir la URL correcta y estable para abrir una playlist en browser.
 
+## Criterio temporal acordado para vendor playlists
+
+Para este dominio puntual de vendor playlists, se considera valido usar `tasks.updated_at` de `pipesync.db` como referencia temporal suficiente para el estado de la task comp.
+
+Motivo:
+
+- en estos proyectos las tasks no se usan como flujo operativo diario;
+- no se tocan para trabajo artistico normal;
+- se crean y mantienen principalmente para:
+  - descripcion del shot/tarea;
+  - estado;
+- por lo tanto, para este caso, `tasks.updated_at` se considera una aproximacion suficiente al "ultimo cambio relevante de estado".
+
+Consecuencia para el futuro `Playlist Pull`:
+
+- se podra comparar `tasks.updated_at` contra actividad de playlist mas reciente;
+- si hubo actividad de playlist posterior al `updated_at` de la task comp, eso podra forzar el clip a `Rev Lega`;
+- si no la hubo, el clip podra respetar el estado base derivado de la task comp (`Corrections` o `Approved`).
+
+Nota:
+
+- esta decision vale para este flujo vendor y con las reglas actuales de uso;
+- si en el futuro las tasks vendor empiezan a usarse para mas operaciones, este supuesto debera revisarse.
+
+## Definicion acordada de `ultima_actividad_playlist`
+
+Para una version dada en contexto playlist vendor, `ultima_actividad_playlist` se define como el timestamp maximo relevante de review asociado a esa version.
+
+Debe calcularse como el maximo entre:
+
+1. `playlists.created_at_flow`
+   - siempre cuenta;
+   - si una version aparece en una playlist nueva, eso ya se considera actividad de review.
+
+2. `playlist_notes.created_at_flow`
+   - una nota nueva cuenta como actividad.
+
+3. `playlist_note_replies.created_at_flow`
+   - un reply nuevo tambien cuenta como actividad.
+
+4. `playlist_versions.client_approved_at`
+   - una aprobacion en playlist cuenta como actividad.
+
+5. timestamp local del ultimo cambio de estado hecho desde el panel
+   - por ejemplo un campo tipo `local_review_state_changed_at`;
+   - cambios como `Corrections` y `Approve` deben actualizarlo.
+
+No deben contar como `ultima_actividad_playlist`:
+
+- refresh tecnicos;
+- descarga de media;
+- descarga de thumbs;
+- apertura de playlist en browser;
+- cambios internos de sync sin significado de review.
+
+Consecuencia funcional:
+
+- si `ultima_actividad_playlist > tasks.updated_at`, el clip debe forzarse a `Rev Lega`;
+- si no, el clip respeta el estado base derivado de la task comp.
+
+## Regla acordada de colores del Playlist Pull
+
+El `Playlist Pull` debe terminar pintando el clip con uno de estos tres colores:
+
+- `Corrections`
+- `Rev Lega`
+- `Approved`
+
+### Estado base
+
+Primero se toma el estado base desde `pipesync.db`, igual que el `Flow Pull` actual, usando la task comp del shot.
+
+Mapeo base esperado:
+
+- `corr` -> `Corrections`
+- estados approved-ish (`apr`, `check`, y equivalentes) -> `Approved`
+
+### Override por actividad playlist
+
+Luego se compara:
+
+- `tasks.updated_at`
+- `ultima_actividad_playlist`
+
+Si `ultima_actividad_playlist > tasks.updated_at`:
+
+- el color final del clip pasa a `Rev Lega`.
+
+Si no:
+
+- el clip conserva el color derivado del estado base.
+
+## Enfoque de implementacion por etapas
+
+Este panel no debe implementarse de una sola vez. Se trabajara por etapas pequenas, verificables y comparables contra este documento.
+
+### Primer paso propuesto
+
+El primer paso recomendado es:
+
+- crear el `.py` base del `Playlist Panel`;
+- crear la UI del panel;
+- crear todos los botones en el orden final;
+- dejar los botones sin logica real por ahora;
+- antes de exponer/cargar el panel, validar que el usuario actual de esta computadora puede detectarse correctamente como `Master`.
+
+Motivo:
+
+- permite validar el esqueleto del panel y su lugar en Hiero;
+- obliga a resolver primero el chequeo de permisos, que es una condicion fundacional;
+- evita mezclar desde el arranque UI, DB, Flow y escritura remota.
+
+### Validacion previa obligatoria del primer paso
+
+Antes de dar por terminada esta primera etapa, debe quedar probado que:
+
+- el codigo puede detectar correctamente si el usuario actual es `Master`;
+- en esta maquina actual el resultado debe ser positivo, porque el usuario actual si es `Master`;
+- si el usuario no fuera `Master`, el panel no deberia cargarse.
+
 ## Referencias tecnicas
 
 - `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Flow_Panel.py`
