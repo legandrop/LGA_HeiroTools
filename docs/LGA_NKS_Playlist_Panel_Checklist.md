@@ -25,6 +25,7 @@
 - [x] Implementar la funcion corta de validacion de timeline vendor dentro del panel.
 - [x] Hacer que todas las acciones pasen primero por ese chequeo.
 - [x] Mostrar mensaje con contexto si el timeline actual no es vendor.
+- [x] Quitar `Shift+T` del `Playlist Panel` para evitar conflicto con el `Flow Panel`.
 
 ## Etapa 2b - Reutilizacion temporal del Flow Panel
 
@@ -65,6 +66,8 @@
   - `base_name`
   - `project_name`/contexto de proyecto
   - `shot_code`
+- [x] Hacer que `LGA_NKS_Flow_Shot_info.py` redirija automaticamente al `Shot Info` de playlist cuando se ejecuta sobre timeline vendor.
+- [x] Priorizar primero el chequeo de `Playlist Panel` registrado y solo usar chequeo de `Master` como fallback para esa redireccion.
 - [x] Hacer que `FlowPlaylist_Shot_info.py` resuelva shots vendor usando el proyecto real del timeline y no solo el proyecto parseado del filename.
 - [x] Normalizar el nombre del proyecto abierto en Hiero al `project_name` real de PipeSync.
 - [x] Validar el caso vendor `MOR_2004_030`:
