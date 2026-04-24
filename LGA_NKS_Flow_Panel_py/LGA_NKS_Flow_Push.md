@@ -22,6 +22,7 @@ Su propósito principal es mantener sincronizada la información entre ShotGrid 
 *   **Integración con ReviewPic:** El diálogo incluye thumbnails de imágenes capturadas, adjuntándolas automáticamente a las notas en ShotGrid.
 *   **Procesamiento de Múltiples Clips:** La función `push_from_selected_clips()` permite procesar múltiples clips en una sola operación, con limitación de 4 clips con confirmación para evitar operaciones accidentales.
 *   **Aplicación de Tags en XYplorer:** Después de actualizar exitosamente un estado, aplica automáticamente el tag correspondiente en xyplorer para mantener sincronizados los colores de las carpetas. Si xyplorer no está abierto, simplemente omite esta operación sin generar errores.
+*   **Advertencia de Task/Track Mismatch:** Al iniciar el push, si detecta clips cuya task en el filename no coincide con el nombre del track donde están ubicados, muestra una ventana con la lista. Solo informa, no bloquea el push ni cambia la task que se escribe en SG. Ver [docs/Docu_MultiTask.md](/Users/leg4/.nuke/Python/Startup/docs/Docu_MultiTask.md).
 
 ## Búsqueda de Versiones en Flow:
 
