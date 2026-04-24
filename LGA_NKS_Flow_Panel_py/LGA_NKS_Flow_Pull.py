@@ -1,11 +1,12 @@
 """
 ____________________________________________________________________________
-  LGA_NKS_Flow_Pull v3.37 | Lega
+  LGA_NKS_Flow_Pull v3.38 | Lega
   Compara los estados de las task Comp de los shots del timeline de Hiero
   con los estados registrados en un archivo JSON basado en Flow PT
   Tambien aplica tags con los colores de los estados en xyplorer
 
 
+  v3.38: Muestra ventana al final del pull listando clips cuya task en el filename no coincide con el nombre del track. Solo avisa, no bloquea ni modifica el procesamiento.
   v3.37: Fix crash en pull batch cuando un clip entra en Version Mismatch y la task no tiene assignee.
   v3.36: Soporte multi-task: itera sobre TASK_EXR_TRACKS (comp + roto) en lugar de solo TRACK_comp_EXR
   v3.35: Eliminar spameo en consola con LGA_DEBUG_CONSOLE=0
@@ -57,6 +58,10 @@ else:
     # Fallback si no se encuentra el módulo
     TRACK_comp_EXR = "_comp_"
     TASK_EXR_TRACKS = [TRACK_comp_EXR]
+from LGA_NKS_Shared.LGA_NKS_TaskMismatchDialog import (
+    collect_task_mismatches,
+    show_task_mismatch_warning,
+)
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
 QApplication = QtWidgets.QApplication
 QWidget = QtWidgets.QWidget
@@ -712,6 +717,34 @@ class HieroOperations:
                 for track in all_tracks:
                     selected_clips.extend(track.items())
 
+            # Pre-pass: detectar clips cuya task en el filename no coincide con el track
+            try:
+                debug_print(
+                    f"[MismatchCheck] Pre-pass iniciado. clips={len(selected_clips)} "
+                    f"TASK_EXR_TRACKS={TASK_EXR_TRACKS}"
+                )
+                try:
+                    track_names_dump = [t.name() for t in seq.videoTracks()]
+                    debug_print(f"[MismatchCheck] Tracks en sequence: {track_names_dump}")
+                except Exception as _e_tracks:
+                    debug_print(f"[MismatchCheck] No se pudieron listar tracks: {_e_tracks}")
+                task_mismatches = collect_task_mismatches(
+                    selected_clips, seq, TASK_EXR_TRACKS, extract_task_name, clean_base_name,
+                    debug_log=debug_print,
+                )
+                debug_print(
+                    f"[MismatchCheck] Pre-pass finalizado. mismatches={len(task_mismatches)}"
+                )
+                if task_mismatches:
+                    for _m in task_mismatches:
+                        debug_print(
+                            f"[MismatchCheck] clip='{_m.get('clip')}' "
+                            f"task='{_m.get('task')}' track='{_m.get('track')}'"
+                        )
+            except Exception as _e_pre:
+                debug_print(f"[MismatchCheck] Error en pre-pass: {_e_pre}")
+                task_mismatches = []
+
             if selected_clips:
                 project = hiero.core.projects()[0]
                 for clip in selected_clips:
@@ -971,6 +1004,14 @@ class HieroOperations:
         else:
             debug_print("No active sequence found in Hiero.")
             pass
+
+        # Mostrar advertencia al final si hay clips con task de filename distinta al track
+        try:
+            if 'task_mismatches' in locals() and task_mismatches:
+                show_task_mismatch_warning(task_mismatches)
+        except Exception as e:
+            debug_print(f"Error mostrando ventana de task mismatch: {e}")
+
         return changes_made
 
     def get_highest_version(self, binItem):

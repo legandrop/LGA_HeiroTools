@@ -121,7 +121,37 @@ Nada pendiente.
 
 No auditados en detalle para este documento. El assignee por task ya funciona en parte porque Flow/SG devuelve assignees por task, pero hay lugares (ej. el `get_comp_assignee` del Push) donde la task está hardcoded a comp. Revisar caso por caso.
 
-## 5. Roadmap resumido
+## 5. Advertencia de Task / Track Mismatch
+
+Cuando la **task detectada en el filename** de un clip no coincide con el **nombre del track** donde el clip está ubicado, las herramientas muestran una ventana informativa al finalizar la operación.
+
+Ejemplo: un clip llamado `SHOW_SEQ_SHOT_comp_v003.exr` ubicado en el track `_roto_`.
+
+### Política
+
+- **Solo informa**, no bloquea ni modifica el procesamiento.
+- El procesamiento real sigue usando la task **del filename** (comportamiento histórico): en el ejemplo anterior, se actualiza la task `comp` en SG.
+- El usuario decide si renombra el clip, lo mueve de track, o ignora el aviso.
+
+### Dónde aplica
+
+| Herramienta | Cuándo aparece la ventana |
+|---|---|
+| Flow Pull | Al finalizar, después de procesar todos los clips |
+| Flow Push | Al iniciar, antes del diálogo de selección de task |
+
+### Formato
+
+Una fila por clip con tres columnas: **Clip**, **Task (filename)**, **Track**.
+
+### Implementación
+
+- Helper compartido: [LGA_NKS_Shared/LGA_NKS_TaskMismatchDialog.py](../LGA_NKS_Shared/LGA_NKS_TaskMismatchDialog.py)
+  - `collect_task_mismatches(...)`: arma la lista de mismatches.
+  - `show_task_mismatch_warning(...)`: muestra la ventana modal.
+- Usado por [Flow_Pull.py](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py) y [Flow_Push.py](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py).
+
+## 6. Roadmap resumido
 
 Lista de pendientes concretos, en orden sugerido:
 
@@ -133,7 +163,7 @@ Lista de pendientes concretos, en orden sugerido:
 6. **Review Panel** — evaluar si EXRTrack_Difference y Compare_Versions deben trabajar por task o seguir siendo comp-only.
 7. **Scripts no auditados** — pasar el filtro de hardcodes por Coordination, Assignee, ViewerTL, Shot_info, ReviewPic.
 
-## 6. Tests manuales sugeridos
+## 7. Tests manuales sugeridos
 
 Con un timeline que tenga un shot con clips en `_comp_`, `_roto_`, `_cleanup_`, `_compRev_`, `_rotoRev_`, `_cleanupRev_`:
 
@@ -149,7 +179,7 @@ Con un timeline que tenga un shot con clips en `_comp_`, `_roto_`, `_cleanup_`, 
   - `ON OFF _roto_` (Ctrl+Shift+D) alterna el clip de `_roto_`.
   - `ON OFF _cleanup_` todavía no existe (pendiente).
 
-## 7. Referencias técnicas
+## 8. Referencias técnicas
 
 - **Convención de nombres:** [Docu_Logica_Nombres_Tracks.md](Docu_Logica_Nombres_Tracks.md)
 - **Selección de clips:** [Docu_Metodos_Seleccion_Clip.md](Docu_Metodos_Seleccion_Clip.md)
@@ -163,3 +193,5 @@ Con un timeline que tenga un shot con clips en `_comp_`, `_roto_`, `_cleanup_`, 
   - Métodos: `execute_DisableEXR()`, `execute_DisableRoto()`
 - **Review Panel (wrappers):** [LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableEXR.py](../LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableEXR.py), [LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableRoto.py](../LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableRoto.py)
 - **Edit Panel:** [LGA_NKS_Edit_Panel_py/LGA_NKS_MatchVerToEXR.py](../LGA_NKS_Edit_Panel_py/LGA_NKS_MatchVerToEXR.py), [LGA_NKS_Edit_Panel_py/LGA_NKS_CompareVerToEditref.py](../LGA_NKS_Edit_Panel_py/LGA_NKS_CompareVerToEditref.py)
+- **Advertencia Task/Track Mismatch:** [LGA_NKS_Shared/LGA_NKS_TaskMismatchDialog.py](../LGA_NKS_Shared/LGA_NKS_TaskMismatchDialog.py)
+  - Funciones: `collect_task_mismatches()`, `show_task_mismatch_warning()`

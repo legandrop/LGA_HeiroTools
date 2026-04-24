@@ -14,6 +14,7 @@ Script de integración entre Hiero y Flow Production Tracker. Compara los estado
 - **Aplicación de colores**: Aplica colores de estado de Flow PT en los clips de Hiero
 - **Tags XYplorer**: Aplica tags automáticos en XYplorer según estado de tareas
 - **Procesamiento masivo**: Puede procesar múltiples clips seleccionados simultáneamente
+- **Advertencia de Task/Track Mismatch**: Al finalizar el pull, si detecta clips cuya task en el filename no coincide con el nombre del track donde están ubicados, muestra una ventana con la lista. Solo informa, no bloquea el procesamiento. Ver [docs/Docu_MultiTask.md](/Users/leg4/.nuke/Python/Startup/docs/Docu_MultiTask.md).
 
 ## Modo de Uso
 

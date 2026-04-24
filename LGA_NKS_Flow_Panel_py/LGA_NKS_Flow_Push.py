@@ -1,7 +1,7 @@
 """
 _____________________________________________________________
 
-  LGA_NKS_Flow_Push v3.98 | Lega
+  LGA_NKS_Flow_Push v3.99 | Lega
 
   Envia a flow nuevos estados de las tasks comps.
   En algunos estados permite enviar un mensaje a la version
@@ -12,6 +12,7 @@ _____________________________________________________________
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 
+  v3.99: Muestra ventana al iniciar el push listando clips cuya task en el filename no coincide con el nombre del track. Solo avisa, no bloquea ni modifica el push.
   v3.98: Prioriza selección explícita del usuario sobre playhead en push multi-task.
          Mejora logs para detallar clips seleccionados, filtrados y procesados.
   v3.97: Soporte multi-task: Push busca clips en todos los TASK_EXR_TRACKS (comp + roto).
@@ -88,6 +89,12 @@ if utils_path.exists():
     # Se sincronizará después cuando DEBUG se defina
 else:
     debug_print("ERROR: No se encontró el módulo LGA_NKS_GetClip")
+
+# Importar helper compartido para warning de task/track mismatch
+from LGA_NKS_Shared.LGA_NKS_TaskMismatchDialog import (
+    collect_task_mismatches,
+    show_task_mismatch_warning,
+)
 
 # Importar compatibilidad Qt para Hiero Panels
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt, QShortcut
@@ -2465,6 +2472,20 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
     debug_print(f"Clips candidatos luego de deduplicar: {len(clips)}")
     for idx, clip in enumerate(clips, start=1):
         debug_print(f"  [candidato {idx}] {_describe_clip_for_log(clip)}")
+
+    # Advertir al usuario si hay clips cuya task en el filename no coincide con el track.
+    # Solo informa: no bloquea ni modifica el push.
+    try:
+        seq_for_mismatch = hiero.ui.activeSequence()
+        if seq_for_mismatch:
+            task_mismatches = collect_task_mismatches(
+                clips, seq_for_mismatch, TASK_EXR_TRACKS, extract_task_name, clean_base_name
+            )
+            if task_mismatches:
+                debug_print(f"Task/Track mismatches detectados: {len(task_mismatches)}")
+                show_task_mismatch_warning(task_mismatches)
+    except Exception as e:
+        debug_print(f"Error detectando task mismatches: {e}")
 
     if not clips:
         msg = QMessageBox()
