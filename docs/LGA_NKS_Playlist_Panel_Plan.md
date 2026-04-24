@@ -110,6 +110,17 @@ Orden actual acordado:
 7. `Approve`
 8. `Show Playlist`
 
+Colores esperados:
+
+- `Playlist Pull`: mismo look oscuro que `Flow Pull`
+- `Shot Info`: mismo look oscuro que `Shot Info` del `Flow Panel`
+- `Review Pic`: mismo look oscuro que `Review Pic` del `Flow Panel`
+- `Corrections`: mismo azul que `Corrections` del `Flow Panel`
+- `Send Note`: boton oscuro, alineado visualmente al panel
+- `Rev Dir`: mismo verde que `Rev Dir` del `Flow Panel`
+- `Approve`: mismo verde que `Approved` del `Flow Panel`
+- `Show Playlist`: boton oscuro nuevo, alineado visualmente al panel
+
 ### 1. Playlist Pull
 
 Funcion esperada:
@@ -122,11 +133,14 @@ Funcion esperada:
 Decision tomada:
 
 - cuando el pull detecta cambios sobre clips, esos clips se pintan siempre con el color `Rev Lega`.
+- el `Playlist Pull` debe verse y sentirse lo mas parecido posible al `Flow Pull`.
 
 Pendiente:
 
 - definir todas las fuentes que participa del `pull` cuando exista informacion cruzada entre `pipesync.db` y `pipesync_playlists.db`;
-- definir si el pull afecta solo al clip actual o si tambien podra operar sobre multiples clips o timeline completo.
+- el comportamiento debe copiar al `Flow Pull`:
+  - click normal: opera sobre todo el timeline;
+  - `Shift+Click`: opera solo sobre el shot/clip seleccionado.
 
 ### 2. Shot Info
 
@@ -168,6 +182,12 @@ Flujo acordado:
   - crear una nota nueva al final del thread, sin ser reply.
 - luego de esa eleccion, se abre la ventana de notas identica a la del `Flow Panel`.
 - el sistema de imagenes debe ser igual al de `Flow Panel`, pero usando cache separada del `Playlist Panel`.
+- la numeracion de elementos debe ayudar a elegir facilmente el target:
+  - numerar cada nota;
+  - numerar cada reply.
+- no existe reply del reply:
+  - todas las respuestas cuelgan de una nota principal;
+  - una nota principal puede tener uno o varios replies.
 
 Pendiente:
 
@@ -189,6 +209,7 @@ Decision tomada:
 
 - no existira un boton `Unapprove` separado;
 - `Corrections` asume tambien el comportamiento operativo de sacar al plano de aprobado cuando corresponda.
+- la intencion funcional es que este panel escriba en DB y en Flow, tal como el `Flow Panel`.
 
 Decision pendiente importante:
 
@@ -196,6 +217,20 @@ Decision pendiente importante:
   - solo en `pipesync_playlists.db`;
   - en `pipesync_playlists.db` y tambien en `pipesync.db`;
   - y como se prioriza cada fuente luego en los pulls.
+
+Nuevas decisiones:
+
+- `Corrections` debe escribir en ambas DBs;
+- ademas, igual que en `Flow Panel`, debe cambiar el estado del shot/task comp en Flow;
+- en `pipesync_playlists.db` conviene guardar tambien un timestamp del cambio de estado.
+
+Nota muy importante:
+
+- aun queda por definir la regla final para saber cual es el estado actual del shot/version al hacer `Playlist Pull`, especialmente en casos donde:
+  - el proyecto de Hiero es viejo;
+  - el timeline no fue guardado luego del ultimo pull;
+  - los colores/versiones visibles del timeline quedaron desactualizados.
+- este punto queda marcado como una decision critica pendiente.
 
 ### 6. Rev Dir
 
@@ -207,6 +242,7 @@ Decision tomada:
 
 - el boton existe desde el arranque para mantener la estructura del panel alineada al `Flow Panel`;
 - la logica compleja se agregara mas adelante.
+- visualmente debe ocupar su lugar real en el panel desde el principio.
 
 ### 7. Approve
 
@@ -231,10 +267,16 @@ Funcion esperada:
 - si la version pertenece a mas de una playlist, pedir al usuario cual abrir;
 - abrir la playlist elegida en el browser.
 
+Decision tomada:
+
+- si hay una sola playlist asociada, se abre directamente;
+- si hay mas de una, se pregunta cual.
+
 Pendiente:
 
 - validar la URL exacta a construir/abrir;
 - definir si la seleccion de playlist usa exactamente el mismo selector que `Send Note` y `Playlist Pull`.
+- antes de implementarlo hay que hacer pruebas especificas para descubrir la URL correcta de apertura en browser, porque no es simple.
 
 ### Boton descartado: Unapprove
 
@@ -307,6 +349,7 @@ Debe existir una correspondencia entre:
   - aprobar;
   - sacar de aprobado si corresponde.
 - Estos probes temporales deben hacerse antes de tocar el codigo definitivo del panel.
+- La validacion tiene que comprobar tanto escritura como lectura posterior y limpieza final del dato de prueba.
 
 ## Riesgos ya detectados
 
@@ -342,6 +385,13 @@ No resolverlo con dependencias ocultas a otras fuentes en runtime.
 
 - si el pull debe leer aprobacion, correcciones, descripcion de version, o una combinacion de esos estados.
 - como se resuelven conflictos si `pipesync.db` y `pipesync_playlists.db` contienen informacion util pero no identica.
+- como influye el hecho de que `Corrections` podria terminar escribiendose tambien en `pipesync.db`.
+- este bloque forma parte del mismo problema mayor:
+  - como reconstruir el estado actual real del shot/version al hacer pull, incluso si el timeline local de Hiero esta viejo o no fue guardado luego de cambios previos.
+- posible direccion a evaluar mas adelante:
+  - usar siempre el estado de la task comp del shot como guia principal;
+  - combinar eso con estado playlist;
+  - o definir una prioridad fija entre ambas fuentes.
 
 ### Notas
 
@@ -349,17 +399,26 @@ No resolverlo con dependencias ocultas a otras fuentes en runtime.
 - si al enviar nota se limpian automaticamente las imagenes cacheadas.
 - si la respuesta puede apuntar solo a una nota principal o tambien a un reply existente.
 - como se numeran visualmente las notas y replies para la seleccion.
+- aunque se numeren replies, sigue siendo importante validar si Flow permite una semantica real de respuesta a reply o si operativamente toda respuesta cae bajo la nota principal.
 
 ### Aprobacion
 
 - si `Approve` puede convivir con una nota opcional.
 - como se representa en DB el hecho de que `Corrections` saco al plano de aprobado.
+- como se refleja en `pipesync.db` y `pipesync_playlists.db` para evitar estados cruzados inconsistentes.
 
 ### UX y validaciones
 
 - el mensaje cuando el timeline actual no es vendor debe incluir contexto.
 - que mensaje se muestra si el usuario es `Master` pero la version no pertenece a ninguna playlist vendor.
 - si el panel debe ocultar o deshabilitar botones segun contexto.
+
+Decision tomada:
+
+- si no hay playlist asociada para la version actual, se mostrara un mensaje con contexto que incluya:
+  - shot;
+  - version;
+  - proyecto/timeline detectado.
 
 ### Persistencia y refresh
 
@@ -377,10 +436,67 @@ No resolverlo con dependencias ocultas a otras fuentes en runtime.
   - attachments;
   - todo leido desde `pipesync_playlists.db`.
 - visualmente debe ser identica a la ventana del `Flow Panel`, salvo por esa adaptacion del bloque de descripcion.
+- la razon de esta mezcla es que en playlists no existe la descripcion de tarea del shot como en el flujo normal, pero si existe una descripcion propia de version dentro de playlist.
 
-Pendiente:
+Ejemplo funcional esperado:
 
-- definir si en esa vista se mostraran todas las playlists asociadas a la version o solo la playlist elegida para la accion actual.
+En `Flow Panel`, el caso actual puede verse asi:
+
+```text
+MOR_2029A_050 | Guadalupe Barbara
+
+Description: Agregar efecto lluvia.
+
+v004 | Guadalupe Barbara
+ajuste direccion lluvia
+
+Juan Olivares: super! paso a lega
+
+Sebas Romano: Paso a Juano para validar planteo.
+
+Guadalupe Barbara: ajuste direccion lluvia
+
+v003 | Guadalupe Barbara
+voy subiendo progreso de lluvia direccionada hacia el centro donde esta moria, como en la refe, con algunos gotas a las que les den mas la luz y tengan destellos
+
+Sebas Romano: Ajustemos, en principio, direccion de lluvia para que matchee con plate.
+```
+
+En `Playlist Panel`, la logica esperada sera mas rica:
+
+```text
+MOR_2029A_050
+
+Descripcion Tarea: Agregar efecto lluvia.
+
+v004 | Subida por TAL | ayer 4:31pm | playlist "nombre de playlist"
+Descripcion de Version: ajuste direccion lluvia
+
+Comentario Juan Olivares: super! paso a lega
+    Sebas Romano: Paso a Juano para validar planteo.
+
+v004 | Subida por TAL | ayer 3:31pm | playlist "nombre de playlist"
+Descripcion de Version: ajuste direccion lluvia
+
+Comentario Guadalupe Barbara: ajuste direccion lluvia
+
+v003 | Subida por TAL | miercoles 4:40am | playlist "TAL"
+...
+```
+
+Reglas implicitas de este ejemplo:
+
+- en vendor playlists no deberia mostrarse assignee del shot como en el ejemplo del `Flow Panel`;
+- una misma `version number` puede aparecer varias veces si pertenece a playlists distintas o a playlists de distinta fecha;
+- el orden visual se define por contexto de playlist/fecha, no solo por numero de version;
+- replies deben verse indentados;
+- visualmente la ventana sigue siendo la misma del `Flow Panel`, pero con esta estructura de datos.
+
+Decision tomada:
+
+- en `Shot Info` se deben mostrar todas las apariciones relevantes de la version, incluso si el mismo numero de version aparece en playlists distintas;
+- por lo tanto, la vista no queda limitada solo a la playlist elegida para la accion actual;
+- el orden debe permitir ver primero la aparicion mas reciente y luego las mas viejas, aunque compartan numero de version.
 
 ### Seleccion de notas/replies para Send Note
 
@@ -393,7 +509,116 @@ Pendiente:
 - abajo habra una opcion para:
   - `New Note`;
   - `Reply to #N`.
-- sigue pendiente definir si `#N` puede ser tanto una nota como un reply, o solo una nota principal.
+- `#N` debe apuntar solo a una nota principal.
+- aunque visualmente los replies tambien esten numerados, no existe reply de reply y no se debe modelar como tal.
+
+## Decisiones ya tomadas que deben respetarse
+
+### Escritura en DB y en Flow
+
+- la intencion del panel es escribir en DB y en Flow, igual que el `Flow Panel`;
+- esto aplica al menos a:
+  - `Corrections`;
+  - `Approve`;
+  - futuras escrituras de `Rev Dir`;
+  - `Send Note`.
+- en algunos casos todavia resta validar exactamente que se escribe en cada DB y con que prioridad se relee luego.
+
+### Vendor check por accion
+
+- cada accion debe empezar validando si el timeline actual es vendor;
+- si no pasa el check:
+  - se muestra un mensaje con contexto;
+  - no se ejecuta nada mas.
+- esta validacion puede implementarse como una funcion corta dentro del mismo Python del panel;
+- no hace falta un script externo.
+
+### Notas y replies en playlists
+
+- en playlists puede existir una descripcion inicial de la version;
+- despues puede haber notas;
+- cada nota puede tener uno o varios replies;
+- no existe reply de reply;
+- esa estructura debe respetarse tanto en lectura como al plantear la UX de `Send Note`.
+
+### Flujo de imagenes identico al Flow Panel
+
+- `Review Pic` y `Send Note` deben copiar el mismo flujo funcional del `Flow Panel`;
+- el dialogo de envio de nota debe incluir el mismo checkbox para borrar las imagenes cacheadas tras un envio exitoso;
+- la implementacion deberia copiar esa logica del `Flow Panel` y adaptarla al cache propio del `Playlist Panel`.
+
+### Approve
+
+- por ahora `Approve` no abre nota opcional;
+- debe cambiar tanto el estado de la task comp en `pipesync.db` / Flow, como el estado correspondiente en playlist.
+
+### Rev Dir
+
+- por ahora debe mostrar mensaje `todavia no implementado`;
+- a futuro, en lineas generales, deberia servir para crear una nueva playlist subiendo este MOV y enviarla a direccion.
+
+### Fechas y horas
+
+- en selectores y vistas debe mostrarse fecha y hora completa;
+- el formato tiene que ser amigable para el usuario;
+- queda pendiente revisar como lo hace el `Playlist Tab` de PipeSync para reutilizar exactamente esa misma logica visual.
+
+### Refresh post escritura
+
+- el comportamiento posterior a escribir debe intentar ser identico al `Flow Panel`;
+- queda pendiente analizar y copiar ese flujo.
+
+## Preguntas y dudas pendientes
+
+Esta seccion debe mantenerse siempre actualizada. Cuando una duda se resuelve, debe borrarse de aqui.
+
+1. Regla final de prioridad para reconstruir el estado real en `Playlist Pull`.
+   Hay que definir como se determina el estado actual del shot/version cuando pueden existir datos en:
+   - `pipesync.db`
+   - `pipesync_playlists.db`
+   - Flow
+   y el timeline de Hiero puede estar desactualizado o no guardado.
+
+2. Fuente principal para guiarnos en el pull.
+   Queda por definir si conviene:
+   - usar siempre el estado de la task comp como guia principal;
+   - usar siempre el estado playlist;
+   - o combinar ambas fuentes con una prioridad fija.
+
+3. Modelo de estado local en `pipesync_playlists.db`.
+   Hay que definir si conviene:
+   - un solo campo tipo `local_review_state`;
+   - varios campos separados;
+   - y como guardar el timestamp asociado al cambio.
+
+4. Exactamente que compara `Playlist Pull` para considerar que hay cambios.
+   Falta definir si compara:
+   - aprobacion;
+   - correcciones;
+   - descripcion de version;
+   - notas nuevas;
+   - una combinacion de varias cosas.
+
+5. Mensaje de error/contexto cuando no hay playlist asociada.
+   Falta decidir el contenido exacto del mensaje.
+
+6. `Shot Info`: alcance del contexto playlist.
+   Falta definir si la vista muestra:
+   - todas las playlists asociadas a la version;
+   - o solo la playlist elegida para la accion actual.
+
+7. Escrituras reales de notas/replies/attachments en Flow.
+   Aunque ya esta definido que se haran probes temporales, todavia falta validar:
+   - crear nota nueva;
+   - responder nota;
+   - adjuntar imagenes;
+   - conservar numero de frame;
+   - leer lo escrito;
+   - borrar lo escrito de prueba.
+   Esta tarea queda explicitamente asignada a la etapa de investigacion previa a la implementacion, y la resolvere yo con `.py` temporales de prueba antes de tocar codigo productivo.
+
+8. URL final de `Show Playlist`.
+   Falta descubrir la URL correcta y estable para abrir una playlist en browser.
 
 ## Referencias tecnicas
 
