@@ -149,9 +149,42 @@ Funcion esperada:
 - usar la misma fuente que el `Flow Panel` actual para mostrar informacion del shot;
 - esta es la unica parte del panel que consultara `pipesync.db`.
 
+Estado actual implementado:
+
+- `FlowPlaylist_Shot_info.py` ya tiene logging avanzado con `.log` propio por defecto;
+- el lookup del shot para contexto vendor ya no usa solo el `project_name` parseado del filename;
+- primero resuelve el proyecto del timeline activo;
+- luego normaliza ese nombre para llevarlo al `project_name` real de PipeSync.
+
+Ejemplo validado:
+
+- proyecto abierto en Hiero: `MORLASP_SUP_v004`
+- proyecto real en `pipesync.db`: `MORLASP`
+- shot buscado: `MOR_2004_030`
+
+Regla actual de busqueda:
+
+- `parsed_project_name` se sigue registrando en el log como referencia;
+- `timeline_project_name` se obtiene desde la secuencia activa;
+- `normalized_timeline_project_name` se deriva desde el nombre del proyecto abierto;
+- `search_project_name` usa ese valor normalizado, y solo cae al parseado si no hay contexto de timeline.
+
+Logging requerido:
+
+- el log de `Shot Info` de playlist debe mostrar explicitamente:
+  - `parsed_project_name`
+  - `timeline_project_name`
+  - `normalized_timeline_project_name`
+  - `search_project_name`
+  - `shot_code`
+- si falla el lookup, el warning debe dejar visibles esos mismos valores para diagnostico.
+
 Pendiente:
 
-- definir si la ventana sera reutilizada tal cual o si habra una variante adaptada al panel playlist.
+- definir si la ventana sera reutilizada tal cual o si habra una variante adaptada al panel playlist;
+- reemplazar el contenido actual heredado del `Flow Panel` por la version hibrida definitiva:
+  - `Descripcion Tarea` desde `pipesync.db`
+  - `Descripcion Version` y mensajes desde `pipesync_playlists.db`.
 
 ### 3. Review Pic
 

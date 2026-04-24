@@ -442,6 +442,70 @@ class HieroOperations:
         version_number = version_match.group(1) if version_match else "Unknown"
         return base_name, version_number
 
+    def get_timeline_project_name(self):
+        """Devuelve el nombre del proyecto que contiene la secuencia activa."""
+        sequence = hiero.ui.activeSequence()
+        if not sequence:
+            debug_print(
+                "No hay secuencia activa para resolver el proyecto del timeline.",
+                level="warning",
+            )
+            return None
+
+        for project in hiero.core.projects():
+            try:
+                for project_sequence in project.sequences():
+                    if project_sequence == sequence:
+                        project_name = project.name()
+                        debug_print(
+                            "Timeline context:",
+                            f"sequence_name='{sequence.name()}'",
+                            f"timeline_project_name='{project_name}'",
+                        )
+                        return project_name
+            except Exception as exc:
+                debug_print(
+                    "Error iterando proyectos para resolver timeline project:",
+                    str(exc),
+                    level="warning",
+                )
+
+        debug_print(
+            "No se pudo encontrar el proyecto que contiene la secuencia activa.",
+            f"sequence_name='{sequence.name()}'",
+            level="warning",
+        )
+        return None
+
+    def normalize_timeline_project_name(self, timeline_project_name):
+        """
+        Convierte el nombre del proyecto abierto en Hiero al project_name real de PipeSync.
+        Ejemplo: MORLASP_SUP_v004 -> MORLASP
+        """
+        if not timeline_project_name:
+            return None
+
+        normalized_name = re.sub(
+            r"_(SUP|LEG|DIR|EDIT|COMP|ROTO|PREVIZ)(?:_v\d+)?$",
+            "",
+            timeline_project_name,
+            flags=re.IGNORECASE,
+        )
+
+        if normalized_name != timeline_project_name:
+            debug_print(
+                "Normalized timeline project name:",
+                f"timeline_project_name='{timeline_project_name}'",
+                f"normalized_timeline_project_name='{normalized_name}'",
+            )
+        else:
+            debug_print(
+                "Timeline project name did not require normalization:",
+                f"timeline_project_name='{timeline_project_name}'",
+            )
+
+        return normalized_name
+
     def process_selected_clips(self):
         """Procesa primero el clip en playhead del track TRACK_comp_EXR y, si no existe, la seleccion.
         Usa el módulo utilitario centralizado LGA_NKS_GetClip.
@@ -480,15 +544,47 @@ class HieroOperations:
             file_path = clip.source().mediaSource().fileinfos()[0].filename()
             exr_name = os.path.basename(file_path)
             base_name, version_number = self.parse_exr_name(exr_name)
+            clip_name = ""
+            try:
+                clip_name = clip.name()
+            except Exception:
+                clip_name = exr_name
 
             # Usar funciones compartidas para extraer información
-            project_name = extract_project_name(base_name)
+            parsed_project_name = extract_project_name(base_name)
             shot_code = extract_shot_code(base_name)
+            timeline_project_name = self.get_timeline_project_name()
+            normalized_timeline_project_name = self.normalize_timeline_project_name(
+                timeline_project_name
+            )
+            project_name = normalized_timeline_project_name or parsed_project_name
+            debug_print(
+                "Clip context:",
+                f"clip_name='{clip_name}'",
+                f"file_path='{file_path}'",
+                f"exr_name='{exr_name}'",
+                f"base_name='{base_name}'",
+                f"parsed_project_name='{parsed_project_name}'",
+                f"timeline_project_name='{timeline_project_name}'",
+                f"normalized_timeline_project_name='{normalized_timeline_project_name}'",
+                f"search_project_name='{project_name}'",
+                f"shot_code='{shot_code}'",
+            )
 
             # Operaciones intensivas: ceder tiempo de UI
             QCoreApplication.processEvents()
             shot = self.sg_manager.find_shot(project_name, shot_code)
             debug_print(f"Shot found: {shot}")
+            if not shot:
+                debug_print(
+                    "No se encontro shot en pipesync.db para la combinacion parseada.",
+                    f"project_name='{project_name}'",
+                    f"parsed_project_name='{parsed_project_name}'",
+                    f"timeline_project_name='{timeline_project_name}'",
+                    f"normalized_timeline_project_name='{normalized_timeline_project_name}'",
+                    f"shot_code='{shot_code}'",
+                    level="warning",
+                )
 
             QCoreApplication.processEvents()
             if shot:

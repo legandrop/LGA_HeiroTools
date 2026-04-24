@@ -59,6 +59,17 @@
 - [ ] Reutilizar la UI del `Shot Info` del `Flow Panel`.
 - [x] Migrar `FlowPlaylist_Shot_info.py` al sistema de logging avanzado con `.log` propio por defecto.
 - [x] Migrar tambien `LGA_NKS_Flow_Shot_info.py` al sistema de logging avanzado para mantener paridad con la base reutilizada.
+- [x] Agregar logs de diagnostico en ambos `Shot Info` para dejar visibles:
+  - `clip_name`
+  - `file_path`
+  - `base_name`
+  - `project_name`/contexto de proyecto
+  - `shot_code`
+- [x] Hacer que `FlowPlaylist_Shot_info.py` resuelva shots vendor usando el proyecto real del timeline y no solo el proyecto parseado del filename.
+- [x] Normalizar el nombre del proyecto abierto en Hiero al `project_name` real de PipeSync.
+- [x] Validar el caso vendor `MOR_2004_030`:
+  - proyecto abierto `MORLASP_SUP_v004`
+  - proyecto buscado en DB `MORLASP`
 - [ ] Mostrar `Descripcion Tarea` desde `pipesync.db`.
 - [ ] Mostrar `Descripcion Version` desde `pipesync_playlists.db`.
 - [ ] Mostrar notas, replies y attachments desde `pipesync_playlists.db`.
