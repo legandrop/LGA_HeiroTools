@@ -11,6 +11,8 @@ ________________________________________________________________________________
 """
 
 import hiero.ui
+import hiero.core
+import importlib.util
 import logging
 import os
 import queue
@@ -18,6 +20,7 @@ import time
 from logging.handlers import QueueHandler, QueueListener
 
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtCore
+from LGA_NKS_Shared.LGA_NKS_GetClip import get_clip_to_process
 
 from LGA_NKS_Shared.LGA_NKS_StyleUtils import (
     calculate_dynamic_border,
@@ -227,6 +230,75 @@ class PlaylistPanelWidget(QtWidgets.QWidget):
         self.adjust_columns_on_resize()
         self.resizeEvent = self.adjust_columns_on_resize
 
+    def find_project_for_sequence(self, target_sequence):
+        """Busca el proyecto que contiene la secuencia activa."""
+        if not target_sequence:
+            return None
+
+        for project in hiero.core.projects():
+            try:
+                for sequence in project.sequences():
+                    if sequence == target_sequence:
+                        return project
+            except Exception:
+                continue
+        return None
+
+    def get_vendor_check_context(self):
+        """Obtiene contexto basico para validar si el timeline actual es vendor."""
+        sequence = hiero.ui.activeSequence()
+        project = self.find_project_for_sequence(sequence) if sequence else None
+        clip = get_clip_to_process(track_name=None, prioritize_multiple_selection=False)
+
+        clip_name = ""
+        if clip and not isinstance(clip, list):
+            try:
+                clip_name = clip.name()
+            except Exception:
+                clip_name = str(clip)
+
+        sequence_name = sequence.name() if sequence else ""
+        project_name = project.name() if project else ""
+
+        project_prefix = project_name.split("_")[0].strip().upper() if project_name else ""
+        clip_prefix = clip_name.split("_")[0].strip().upper() if clip_name else ""
+        is_vendor = bool(project_prefix and clip_prefix and project_prefix != clip_prefix)
+
+        return {
+            "sequence_name": sequence_name,
+            "project_name": project_name,
+            "clip_name": clip_name,
+            "project_prefix": project_prefix,
+            "clip_prefix": clip_prefix,
+            "is_vendor": is_vendor,
+        }
+
+    def ensure_vendor_timeline(self, action_name):
+        """Valida si el timeline actual es vendor antes de ejecutar una accion."""
+        context = self.get_vendor_check_context()
+        debug_print(
+            "Vendor check:",
+            f"action={action_name}",
+            f"sequence={context['sequence_name']}",
+            f"project={context['project_name']}",
+            f"clip={context['clip_name']}",
+            f"project_prefix={context['project_prefix']}",
+            f"clip_prefix={context['clip_prefix']}",
+            f"is_vendor={context['is_vendor']}",
+        )
+
+        if context["is_vendor"]:
+            return True
+
+        message = (
+            "La accion no se ejecutara porque el timeline actual no parece vendor.\n\n"
+            f"Timeline: {context['sequence_name'] or 'No encontrado'}\n"
+            f"Proyecto: {context['project_name'] or 'No encontrado'}\n"
+            f"Clip: {context['clip_name'] or 'No encontrado'}"
+        )
+        QtWidgets.QMessageBox.information(self, "Playlist Panel", message)
+        return False
+
     def create_buttons(self):
         while self.layout.count():
             item = self.layout.takeAt(0)
@@ -266,10 +338,20 @@ class PlaylistPanelWidget(QtWidgets.QWidget):
                 button.setShortcut(button_info["shortcut"])
 
             if action == "playlist_pull":
-                button.setCustomClickHandler(self.handle_placeholder_action(action))
+                button.setCustomClickHandler(self.handle_playlist_pull_all)
                 button.setShiftClickHandler(
-                    self.handle_placeholder_action(f"{action}_shift")
+                    self.handle_playlist_pull_selected
                 )
+            elif action == "shot_info":
+                button.clicked.connect(self.handle_shot_info)
+            elif action == "review_pic":
+                button.clicked.connect(self.handle_review_pic)
+            elif action == "corrections":
+                button.clicked.connect(self.handle_corrections)
+            elif action == "rev_dir":
+                button.clicked.connect(self.handle_rev_dir)
+            elif action == "approve":
+                button.clicked.connect(self.handle_approved)
             else:
                 button.clicked.connect(self.handle_placeholder_action(action))
 
@@ -287,20 +369,162 @@ class PlaylistPanelWidget(QtWidgets.QWidget):
         )
         self.layout.addItem(spacer, num_rows, 0, 1, self.num_columns)
 
+    def _load_playlist_panel_module(self, file_name, module_name):
+        script_path = os.path.join(
+            os.path.dirname(__file__), "LGA_NKS_Playlist_Panel_py", file_name
+        )
+        if not os.path.exists(script_path):
+            raise FileNotFoundError(f"Script no encontrado: {script_path}")
+
+        spec = importlib.util.spec_from_file_location(module_name, script_path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"No se pudo cargar el módulo: {module_name}")
+
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def _run_with_project_undo(self, description, callback):
+        project = hiero.core.projects()[0] if hiero.core.projects() else None
+        if not project:
+            debug_print("No se encontro proyecto activo para ejecutar la accion.", level="warning")
+            return
+
+        project.beginUndo(description)
+        try:
+            callback()
+        except Exception as exc:
+            debug_print(f"Error ejecutando accion '{description}': {exc}", level="error")
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Playlist Panel",
+                f"Error ejecutando '{description}': {exc}",
+            )
+        finally:
+            project.endUndo()
+
+    def run_clear_tag_script(self):
+        try:
+            seq = hiero.ui.activeSequence()
+            if not seq:
+                return
+
+            te = hiero.ui.getTimelineEditor(seq)
+            selected_items = te.selection()
+
+            for item in selected_items:
+                if isinstance(item, hiero.core.EffectTrackItem):
+                    continue
+
+                script_path = os.path.join(
+                    os.path.dirname(__file__),
+                    "LGA_NKS_Shared",
+                    "LGA_NKS_Delete_ClipTags.py",
+                )
+                if not os.path.exists(script_path):
+                    continue
+
+                spec = importlib.util.spec_from_file_location(
+                    "LGA_H_DeleteClipTags", script_path
+                )
+                if spec is None or spec.loader is None:
+                    continue
+
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                module.delete_tags_from_clip(item)
+        except Exception as exc:
+            debug_print(f"Error ejecutando clear tags: {exc}", level="warning")
+
+    def handle_playlist_pull_all(self):
+        if not self.ensure_vendor_timeline("playlist_pull"):
+            return
+
+        def _run():
+            module = self._load_playlist_panel_module(
+                "LGA_NKS_FlowPlaylist_Pull.py", "LGA_NKS_Playlist_FlowPlaylist_Pull"
+            )
+            module.FPT_Hiero(force_all_clips=True)
+
+        self._run_with_project_undo("Playlist Pull", _run)
+
+    def handle_playlist_pull_selected(self):
+        if not self.ensure_vendor_timeline("playlist_pull_shift"):
+            return
+
+        def _run():
+            module = self._load_playlist_panel_module(
+                "LGA_NKS_FlowPlaylist_Pull.py", "LGA_NKS_Playlist_FlowPlaylist_Pull"
+            )
+            module.FPT_Hiero()
+
+        self._run_with_project_undo("Playlist Pull Selected", _run)
+
+    def handle_shot_info(self):
+        if not self.ensure_vendor_timeline("shot_info"):
+            return
+
+        def _run():
+            module = self._load_playlist_panel_module(
+                "LGA_NKS_FlowPlaylist_Shot_info.py", "LGA_NKS_Playlist_FlowPlaylist_ShotInfo"
+            )
+            module.main()
+
+        self._run_with_project_undo("Playlist Shot Info", _run)
+
+    def handle_review_pic(self):
+        if not self.ensure_vendor_timeline("review_pic"):
+            return
+
+        def _run():
+            module = self._load_playlist_panel_module(
+                "LGA_NKS_FlowPlaylist_ReviewPic.py", "LGA_NKS_Playlist_FlowPlaylist_ReviewPic"
+            )
+            module.main()
+
+        try:
+            _run()
+        except Exception as exc:
+            debug_print(f"Error ejecutando review pic: {exc}", level="error")
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Playlist Panel",
+                f"Error ejecutando Review Pic: {exc}",
+            )
+
+    def handle_push_status(self, button_name):
+        if not self.ensure_vendor_timeline(button_name):
+            return
+
+        def _run():
+            module = self._load_playlist_panel_module(
+                "LGA_NKS_FlowPlaylist_Push.py", "LGA_NKS_Playlist_FlowPlaylist_Push"
+            )
+            module.push_from_selected_clips(button_name)
+            if button_name in ["Rev Dir", "Corrections"]:
+                self.run_clear_tag_script()
+
+        self._run_with_project_undo(f"Playlist {button_name}", _run)
+
+    def handle_corrections(self):
+        self.handle_push_status("Corrections")
+
+    def handle_rev_dir(self):
+        self.handle_push_status("Rev Dir")
+
+    def handle_approved(self):
+        self.handle_push_status("Approved")
+
     def handle_placeholder_action(self, action_name):
         def _handler(*_args):
-            if action_name == "rev_dir":
-                QtWidgets.QMessageBox.information(
-                    self,
-                    "Playlist Panel",
-                    "Rev Dir: todavia no implementado.",
-                )
-            else:
-                QtWidgets.QMessageBox.information(
-                    self,
-                    "Playlist Panel",
-                    f"{action_name}: placeholder v0.01.",
-                )
+            if not self.ensure_vendor_timeline(action_name):
+                return
+
+            QtWidgets.QMessageBox.information(
+                self,
+                "Playlist Panel",
+                f"{action_name}: placeholder v0.01.",
+            )
             debug_print(f"Placeholder action ejecutada: {action_name}")
 
         return _handler

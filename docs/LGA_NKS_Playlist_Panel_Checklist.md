@@ -22,9 +22,26 @@
 
 ## Etapa 2 - Vendor check por accion
 
-- [ ] Implementar la funcion corta de validacion de timeline vendor dentro del panel.
-- [ ] Hacer que todas las acciones pasen primero por ese chequeo.
-- [ ] Mostrar mensaje con contexto si el timeline actual no es vendor.
+- [x] Implementar la funcion corta de validacion de timeline vendor dentro del panel.
+- [x] Hacer que todas las acciones pasen primero por ese chequeo.
+- [x] Mostrar mensaje con contexto si el timeline actual no es vendor.
+
+## Etapa 2b - Reutilizacion temporal del Flow Panel
+
+- [x] Copiar a `LGA_NKS_Playlist_Panel_py` los scripts base necesarios del `Flow Panel`:
+  - `LGA_NKS_Flow_Pull.py`
+  - `LGA_NKS_Flow_Shot_info.py`
+  - `LGA_NKS_ReviewPic.py`
+  - `LGA_NKS_Flow_Push.py`
+  - `LGA_NKS_Flow_Push_connector.py`
+- [x] Conectar `Playlist Pull` para que, por ahora, ejecute el mismo flujo que `Flow Pull`.
+- [x] Conectar `Shot Info` para que, por ahora, ejecute el mismo flujo que `Flow Shot Info`.
+- [x] Conectar `Review Pic` para que, por ahora, ejecute el mismo flujo que `Review Pic`.
+- [x] Conectar `Corrections` para que, por ahora, ejecute el mismo flujo que el push del `Flow Panel`.
+- [x] Conectar `Rev Dir` para que, por ahora, ejecute el mismo flujo que el push del `Flow Panel`.
+- [x] Conectar `Approved` para que, por ahora, ejecute el mismo flujo que el push del `Flow Panel`.
+- [x] Mantener `Send Note` y `Show Playlist` en placeholder hasta su implementacion especifica.
+- [x] Mantener esta etapa explicitamente documentada como transitoria, hasta reemplazar la logica Flow por la logica Playlist real.
 
 ## Etapa 3 - Playlist Pull
 
