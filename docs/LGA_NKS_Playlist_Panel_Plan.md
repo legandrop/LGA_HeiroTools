@@ -165,6 +165,10 @@ Estado actual implementado:
 - el lookup del shot para contexto vendor ya no usa solo el `project_name` parseado del filename;
 - primero resuelve el proyecto del timeline activo;
 - luego normaliza ese nombre para llevarlo al `project_name` real de PipeSync.
+- el `Shot Info` ya fue migrado a modelo hibrido real:
+  - `Descripcion Tarea` desde `pipesync.db`
+  - `Descripcion Version`, notas, replies y attachments desde `pipesync_playlists.db`
+  - multiples apariciones del mismo shot/version en playlists distintas
 
 Ejemplo validado:
 
@@ -189,6 +193,15 @@ Logging requerido:
   - `shot_code`
 - si falla el lookup, el warning debe dejar visibles esos mismos valores para diagnostico.
 
+Documentacion tecnica complementaria:
+
+- ver [LGA_NKS_Playlist_ShotInfo_Data_Mapping.md](C:/Users/leg4-pc/.nuke/Python/Startup/docs/LGA_NKS_Playlist_ShotInfo_Data_Mapping.md)
+- ese documento deja asentado:
+  - que data real existe hoy en `pipesync_playlists.db`
+  - como se mapean notas/replies/attachments
+  - por que los attachments de replies requieren lookup por `reply_id`
+  - que no hace falta ampliar schema para la lectura del `Shot Info`
+
 Redireccion desde `Flow Shot Info`:
 
 - `LGA_NKS_Flow_Shot_info.py` debe detectar si el timeline actual es vendor.
@@ -199,9 +212,8 @@ Redireccion desde `Flow Shot Info`:
 Pendiente:
 
 - definir si la ventana sera reutilizada tal cual o si habra una variante adaptada al panel playlist;
-- reemplazar el contenido actual heredado del `Flow Panel` por la version hibrida definitiva:
-  - `Descripcion Tarea` desde `pipesync.db`
-  - `Descripcion Version` y mensajes desde `pipesync_playlists.db`.
+- revisar si conviene agregar avatares, mas metadata visual o un formato de fecha exactamente igual al `Playlist Tab`;
+- validar visualmente en Hiero si hay que ajustar spacing/indentacion para replies y attachments.
 
 ### 3. Review Pic
 
