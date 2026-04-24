@@ -480,15 +480,36 @@ class HieroOperations:
             file_path = clip.source().mediaSource().fileinfos()[0].filename()
             exr_name = os.path.basename(file_path)
             base_name, version_number = self.parse_exr_name(exr_name)
+            clip_name = ""
+            try:
+                clip_name = clip.name()
+            except Exception:
+                clip_name = exr_name
 
             # Usar funciones compartidas para extraer información
             project_name = extract_project_name(base_name)
             shot_code = extract_shot_code(base_name)
+            debug_print(
+                "Clip context:",
+                f"clip_name='{clip_name}'",
+                f"file_path='{file_path}'",
+                f"exr_name='{exr_name}'",
+                f"base_name='{base_name}'",
+                f"project_name='{project_name}'",
+                f"shot_code='{shot_code}'",
+            )
 
             # Operaciones intensivas: ceder tiempo de UI
             QCoreApplication.processEvents()
             shot = self.sg_manager.find_shot(project_name, shot_code)
             debug_print(f"Shot found: {shot}")
+            if not shot:
+                debug_print(
+                    "No se encontro shot en pipesync.db para la combinacion parseada.",
+                    f"project_name='{project_name}'",
+                    f"shot_code='{shot_code}'",
+                    level="warning",
+                )
 
             QCoreApplication.processEvents()
             if shot:
