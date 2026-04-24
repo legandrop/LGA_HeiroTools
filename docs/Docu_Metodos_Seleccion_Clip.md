@@ -7,7 +7,7 @@ Este documento describe los dos métodos principales utilizados en los scripts p
 
 **Nota:** Este documento refleja el estado actual de los scripts. No incluye historial de cambios ni logs de actualizaciones.
 
-**Convención de nombres de tracks:** la lógica funcional de nombres del timeline está centralizada en [docs/Docu_Logica_Nombres_Tracks.md](/Users/leg4/.nuke/Python/Startup/docs/Docu_Logica_Nombres_Tracks.md). Este documento se enfoca en selección de clips; la semántica de `_comp_`, `_roto_`, `_compMov_` y futuras tasks como `_cleanup_` se documenta allí.
+**Convención de nombres de tracks:** la lógica funcional de nombres del timeline está centralizada en [docs/Docu_Logica_Nombres_Tracks.md](/Users/leg4/.nuke/Python/Startup/docs/Docu_Logica_Nombres_Tracks.md). Este documento se enfoca en selección de clips; la semántica de `_comp_`, `_roto_`, `_cleanup_`, `_compRev_`, `_rotoRev_`, `_cleanupRev_` se documenta allí.
 
 ---
 
@@ -132,10 +132,10 @@ Este módulo centraliza la funcionalidad de obtención de clips para evitar dupl
 - **Nombre anterior:** `"EXR"` (ya no se usa)
 - **Contenido del track:** Contiene los archivos EXR con el render de COMP
 
-**Track compMov:**
-- **Nombre actual del track:** `_compMov_`
-- **Variable en el módulo:** `TRACK_comp_REV = "_compMov_"` (en `LGA_NKS_Utils/LGA_NKS_GetClip.py`)
-- **Nombres anteriores:** `"_rev_"`, `"REV"` (ya no se usan)
+**Track compRev:**
+- **Nombre actual del track:** `_compRev_`
+- **Variable en el módulo:** `TRACK_comp_REV = "_compRev_"` (en `LGA_NKS_Shared/LGA_NKS_GetClip.py`)
+- **Nombres anteriores:** `"_rev_"`, `"REV"`, `"_compMov_"` (ya no se usan)
 - **Contenido del track:** Contiene los archivos MOV o MXF con el render de COMP
 
 **Es MUY IMPORTANTE verificar en los scripts que modificamos que:**
@@ -316,9 +316,9 @@ Prioriza clips del track objetivo, pero incluye shots de otros tracks si no hay 
 - **CRÍTICO:** Usar `track_name=None` para respetar este valor
 - Cambiar aquí afecta a TODOS los scripts que usan `track_name=None`
 
-**`TRACK_comp_REV = "_compMov_"`**
+**`TRACK_comp_REV = "_compRev_"`**
 - Track por defecto para MOV/MXF de COMP
-- Nombres anteriores: `"_rev_"`, `"REV"` (ya no se usan)
+- Nombres anteriores: `"_rev_"`, `"REV"`, `"_compMov_"` (ya no se usan)
 
 **`TRACK_roto_EXR = "_roto_"`**
 - Track para EXR de la task ROTO

@@ -117,8 +117,9 @@ La convención funcional de nombres del timeline está documentada en [docs/Docu
 
 - `_comp_` = EXR de la task comp
 - `_roto_` = EXR de la task roto
-- `_compMov_` = MOV/MXF de review de comp
+- `_compRev_` = MOV/MXF de review de comp
 - `TASK_EXR_TRACKS` = lista centralizada de tracks EXR de task
+- `TASK_REV_TRACKS` = lista centralizada de tracks Rev (MOV/MXF) de task
 
 ---
 **Autor**: LGA Team
