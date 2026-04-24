@@ -58,6 +58,7 @@
 
 - [ ] Reutilizar la UI del `Shot Info` del `Flow Panel`.
 - [x] Migrar `FlowPlaylist_Shot_info.py` al sistema de logging avanzado con `.log` propio por defecto.
+- [x] Migrar tambien `LGA_NKS_Flow_Shot_info.py` al sistema de logging avanzado para mantener paridad con la base reutilizada.
 - [ ] Mostrar `Descripcion Tarea` desde `pipesync.db`.
 - [ ] Mostrar `Descripcion Version` desde `pipesync_playlists.db`.
 - [ ] Mostrar notas, replies y attachments desde `pipesync_playlists.db`.
