@@ -219,7 +219,11 @@ class ShotGridManager:
             debug_print(f"Error buscando tareas para shot_id {shot_id}: {e}")
             return []
 
-    def find_highest_version_for_shot(self, shot_id):
+    def find_highest_version_for_shot(self, shot_id, task_name="comp"):
+        """
+        Busca la versión más alta para un shot filtrando por la task indicada.
+        Para 'comp' también acepta el alias '_cmp_'.
+        """
         if not self.sg:
             debug_print("ShotGrid no inicializado")
             return None, None, None
@@ -230,19 +234,22 @@ class ShotGridManager:
         except Exception as e:
             debug_print(f"Error buscando versiones para shot_id {shot_id}: {e}")
             return None, None, None
-        # Buscar versiones que contengan _comp_ o _cmp_
-        comp_versions = [
-            v
-            for v in versions
-            if "_comp_" in v["code"].lower() or "_cmp_" in v["code"].lower()
+
+        task_tokens = [f"_{task_name}_"]
+        if task_name == "comp":
+            task_tokens.append("_cmp_")
+
+        matching_versions = [
+            v for v in versions
+            if any(t in v["code"].lower() for t in task_tokens)
         ]
-        if comp_versions:
+        if matching_versions:
 
             def safe_version_num(v):
                 m = re.search(r"_v(\d+)", v["code"])
                 return int(m.group(1)) if m else -1
 
-            highest_version = max(comp_versions, key=safe_version_num)
+            highest_version = max(matching_versions, key=safe_version_num)
             m = re.search(r"_v(\d+)", highest_version["code"])
             version_number = m.group(1) if m else "0"
             user_id = (
@@ -253,14 +260,15 @@ class ShotGridManager:
             return highest_version, version_number, user_id
         return None, None, None
 
-    def find_specific_version_for_shot(self, shot_id, version_number):
+    def find_specific_version_for_shot(self, shot_id, version_number, task_name="comp"):
         """
-        Busca una versión específica por número de versión para un shot.
-        Busca versiones que contengan _comp_ o _cmp_ y que coincidan con el número de versión.
+        Busca una versión específica por número de versión para un shot, filtrando por task.
+        Para 'comp' también acepta el alias '_cmp_'.
 
         Args:
             shot_id: ID del shot en ShotGrid
             version_number: Número de versión (ej: 13 para v013)
+            task_name: task a buscar ('comp'/'roto'/'cleanup'). Default 'comp'.
 
         Returns:
             Tupla (version, version_number_str, user_id) o (None, None, None) si no se encuentra
@@ -276,15 +284,16 @@ class ShotGridManager:
             debug_print(f"Error buscando versiones para shot_id {shot_id}: {e}")
             return None, None, None
 
-        # Buscar versiones que contengan _comp_ o _cmp_ y que coincidan con el número de versión
+        task_tokens = [f"_{task_name}_"]
+        if task_name == "comp":
+            task_tokens.append("_cmp_")
+
         version_pattern = re.compile(r"_v(\d+)", re.IGNORECASE)
         matching_versions = []
 
         for v in versions:
             code_lower = v["code"].lower()
-            # Verificar que contenga _comp_ o _cmp_
-            if "_comp_" in code_lower or "_cmp_" in code_lower:
-                # Extraer número de versión
+            if any(t in code_lower for t in task_tokens):
                 match = version_pattern.search(v["code"])
                 if match:
                     v_num = int(match.group(1))
@@ -292,7 +301,6 @@ class ShotGridManager:
                         matching_versions.append(v)
 
         if matching_versions:
-            # Si hay múltiples coincidencias, tomar la primera (o podríamos tomar la más reciente)
             specific_version = matching_versions[0]
             m = re.search(r"_v(\d+)", specific_version["code"])
             version_number_str = m.group(1) if m else str(version_number)
@@ -307,7 +315,7 @@ class ShotGridManager:
             return specific_version, version_number_str, user_id
 
         debug_print(
-            f"No se encontró versión específica v{version_number:02d} para shot_id {shot_id}"
+            f"No se encontró versión específica v{version_number:02d} para task '{task_name}' en shot_id {shot_id}"
         )
         return None, None, None
 
@@ -703,16 +711,16 @@ def execute_full_push_operation(
 
         # Buscar versión específica correspondiente al clip actual para agregar comentarios
         sg_specific_version, sg_version_number_str, user_id = (
-            sg_manager.find_specific_version_for_shot(shot["id"], version_number)
+            sg_manager.find_specific_version_for_shot(shot["id"], version_number, task_name)
         )
 
         # Si no se encuentra la versión específica, intentar con la más alta como fallback
         if not sg_specific_version:
             debug_print(
-                f"No se encontró versión específica v{version_number:02d}, usando versión más alta como fallback"
+                f"No se encontró versión específica v{version_number:02d} para task '{task_name}', usando versión más alta como fallback"
             )
             sg_specific_version, sg_version_number_str, user_id = (
-                sg_manager.find_highest_version_for_shot(shot["id"])
+                sg_manager.find_highest_version_for_shot(shot["id"], task_name)
             )
 
         if sg_status in ["rev_di", "corr", "revleg", "revjua", "revjav"]:
@@ -1010,9 +1018,13 @@ def execute_flow_operation(operation, **kwargs):
                     "needs_confirmation": False,
                 }  # Continuar sin verificación
 
-            # Buscar versión más alta
+            # Extraer task_name del base_name para comparar con la versión correcta
+            check_task = extract_task_name(base_name)
+            check_task_name = check_task.lower() if check_task else "comp"
+
+            # Buscar versión más alta de la task activa
             sg_highest_version, sg_version_number, _ = (
-                sg_manager.find_highest_version_for_shot(shot["id"])
+                sg_manager.find_highest_version_for_shot(shot["id"], check_task_name)
             )
 
             if (

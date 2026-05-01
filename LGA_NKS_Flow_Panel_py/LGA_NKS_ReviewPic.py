@@ -1,14 +1,19 @@
 """
 _________________________________________________________________________________________________________________________________
 
-  LGA_NKS_ReviewPic v1.01 | Lega
+  LGA_NKS_ReviewPic v1.2 | Lega
   Crea un snapshot de la imagen actual del viewer y lo guarda en ReviewPic_Cache
-  organizando por clips del track TRACK_comp_EXR con numeracion de frames
+  organizando por clips del track EXR de la task activa con numeracion de frames.
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
-  
+
   v1.01 - Usa el módulo utilitario LGA_NKS_GetClip para obtener el clip a partir del playhead (no permite selecciones múltiples)
+  v1.1  - Usa TaskSelectionDialog para detectar la task activa en el playhead (comp/roto/cleanup).
+          Si hay múltiples tasks, muestra selector. Si hay mismatch filename/track, avisa y excluye.
+  v1.2  - Imports de TaskSelectionDialog movidos a lazy (dentro de main()) para evitar
+          "QWidget: Must construct a QApplication before a QWidget" en Nuke 15 (PySide2).
+          Compatible con Nuke 15 y 16 usando LGA_QtAdapter_HieroTools.
 _________________________________________________________________________________________________________________________________
 
 """
@@ -19,7 +24,7 @@ import os
 import re
 import glob
 from pathlib import Path
-# Importar compatibilidad Qt para Hiero Panels
+# Importar compatibilidad Qt para Hiero Panels (PySide2/PySide6)
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtCore
 
 # Reasignar clases para compatibilidad con código existente
@@ -35,7 +40,7 @@ def debug_print(*message):
         print(*message)
 
 
-# Importar utilidades para obtener clips
+# Importar utilidades base (sin Qt, seguras en cualquier contexto de carga)
 utils_path = Path(__file__).parent.parent / "LGA_NKS_Shared"
 if utils_path.exists():
     sys.path.insert(0, str(utils_path))
@@ -143,9 +148,33 @@ def crop_to_aspect_ratio(qimage, target_aspect):
 
 
 def main():
-    # Obtener clip usando el módulo centralizado (NO permite selecciones múltiples)
-    # ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
-    clip = get_clip_to_process(track_name=None, prioritize_multiple_selection=False)
+    # Imports lazy para evitar "QWidget: Must construct a QApplication before a QWidget"
+    # en Nuke 15 (PySide2). Se importan aquí y no al cargar el módulo para garantizar
+    # que QApplication ya existe cuando se ejecutan (igual que en LGA_NKS_Flow_Push.py).
+    from LGA_NKS_Shared.LGA_NKS_TaskSelectionDialog import (
+        resolve_task_with_mismatch_check,
+        track_for_task,
+    )
+    from LGA_NKS_Shared.LGA_NKS_Flow_NamingUtils import extract_task_name, clean_base_name
+
+    # Resolver task activa en el playhead (comp/roto/cleanup) con chequeo de mismatch
+    seq = hiero.ui.activeSequence()
+    if not seq:
+        print("❌ No hay secuencia activa")
+        return
+
+    task = resolve_task_with_mismatch_check(
+        seq, extract_task_name, clean_base_name,
+        title="Review Pic — Seleccionar task"
+    )
+    if task is None:
+        print("❌ No se seleccionó ninguna task o no hay clips en el playhead")
+        return
+
+    debug_print(f"Task seleccionada para Review Pic: {task}")
+
+    # Obtener el clip del track correspondiente a la task seleccionada
+    clip = get_clip_to_process(track_name=track_for_task(task), prioritize_multiple_selection=False)
     if not clip:
         print("❌ No se pudo obtener información del clip en el track")
         return
