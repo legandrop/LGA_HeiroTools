@@ -1,10 +1,20 @@
 """
 __________________________________________________________________
 
-  LGA_NKS_Flow_Shot_info v1.87 | Lega
+  LGA_NKS_Flow_Shot_info v1.88 | Lega
   Imprime informacion del shot y las versiones de la task seleccionada
   (comp, roto o cleanup) en el playhead.
 
+  v1.88: UI unificada con la de PipeSync (FlowNotesPopover).
+         - Titulo: shot_code | task_type | assignee.
+         - Header morado por version con "vNNN | subida X | por Y" y
+           "Time logged: Xh/Xd" tomado de task_timelogs.
+         - Descripcion con label "Descripcion: (por autor)".
+         - Comentarios con separador horizontal y label
+           "Comentario: (por autor, fecha a las HH:mm)".
+         - Thumbnails 150px con label "Frame N" desde attachment_info.
+         - Filtra notas espejo de descripcion (0-300s) y duplicados de content.
+         - Fechas formateadas como en DateUtils::formatFriendlyDate.
   v1.87: Filtra notas auto-generadas por PipeSync al subir una version.
          Cuando el usuario sube una version desde PipeSync, se crea un
          comentario con el mismo contenido que la descripcion de la version,
@@ -58,6 +68,10 @@ QTextEdit = QtWidgets.QTextEdit
 QScrollArea = QtWidgets.QScrollArea
 QLabel = QtWidgets.QLabel
 QFrame = QtWidgets.QFrame
+QPushButton = QtWidgets.QPushButton
+QSizePolicy = QtWidgets.QSizePolicy
+QIcon = QtGui.QIcon
+QColor = QtGui.QColor
 
 DEBUG = True
 DEBUG_CONSOLE = False
@@ -185,6 +199,179 @@ if utils_path.exists():
 # una version desde PipeSync. Si la nota tiene mismo autor y mismo contenido
 # que la descripcion de la version, y se creo dentro de este umbral, se descarta.
 VERSION_DUPLICATE_NOTE_WINDOW_SECONDS = 600
+
+
+# --------------------------------------------------------------------------- #
+# Paleta y QSS (port directo de PipeSync 2: mainwindow.cpp + flow_notes.qss)
+# --------------------------------------------------------------------------- #
+COLORS = {
+    "bg_principal": "#161616",
+    "bg_popover": "#232323",
+    "bg_version_container": "#1e1e1e",
+    "bg_version_header": "#3C3764",
+    "border_principal": "#303030",
+    "txt_principal": "#B2B2B2",
+    "txt_principal_strong": "#dddddd",
+    "txt_secundario": "#929292",
+    "txt_subtle": "#cccccc",
+    "txt_desc_title": "#d8d8d8",
+    "txt_desc_meta": "#b8b8b8",
+    "txt_body": "#909090",
+    "attachment_label_bg": "#2D2A26",
+    "attachment_label_fg": "#8B7355",
+}
+
+SHOT_INFO_QSS = """
+QWidget#flowNotesContentWidget {
+    background-color: %(bg_popover)s;
+}
+QWidget#flowNotesHeaderWidget {
+    background-color: %(bg_popover)s;
+    border-bottom: 1px solid rgba(48, 48, 48, 0.7);
+}
+QLabel#flowNotesTitle {
+    color: %(txt_principal)s;
+    font-family: "Segoe UI", "Inter", Arial, Helvetica, sans-serif;
+    font-weight: 500;
+    font-size: 18px;
+    background-color: transparent;
+}
+QScrollArea#flowNotesScrollArea {
+    background-color: transparent;
+    border: none;
+}
+QWidget#flowNotesScrollContent {
+    background-color: transparent;
+}
+QScrollArea#flowNotesScrollArea QScrollBar:vertical {
+    background-color: #252525; width: 8px; margin: 0px; border-radius: 4px;
+}
+QScrollArea#flowNotesScrollArea QScrollBar::handle:vertical {
+    background-color: #2E2E2E; min-height: 30px; border-radius: 4px;
+}
+QScrollArea#flowNotesScrollArea QScrollBar::handle:vertical:hover {
+    background-color: #3D3D3D;
+}
+QScrollArea#flowNotesScrollArea QScrollBar::add-line:vertical,
+QScrollArea#flowNotesScrollArea QScrollBar::sub-line:vertical {
+    height: 0px; background: none;
+}
+QWidget#flowVersionContainer {
+    background-color: %(bg_version_container)s;
+    border: 1px solid rgba(48, 48, 48, 0.6);
+    border-radius: 6px;
+}
+QWidget#flowVersionHeader {
+    background-color: %(bg_version_header)s;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+}
+QLabel#flowVersionInfo {
+    background-color: transparent; font-size: 14px; font-weight: 500;
+}
+QLabel#flowVersionTimeLogged {
+    background-color: transparent; font-size: 13px; font-weight: 400;
+}
+QLabel#flowVersionDescriptionTitle,
+QLabel#flowVersionDescriptionContent {
+    background-color: transparent; font-size: 14px; border: none; padding: 4px 0px;
+}
+QWidget#flowVersionCommentsContainer {
+    background-color: transparent; border-radius: 4px;
+}
+QWidget#flowVersionComment { background-color: transparent; }
+QFrame#flowCommentSeparator {
+    color: %(border_principal)s;
+    background-color: %(border_principal)s;
+    border: none; max-height: 1px;
+}
+QLabel#flowVersionCommentHeader {
+    background-color: transparent; padding-top: 4px;
+    font-size: 14px; font-weight: 400;
+}
+QLabel#flowVersionCommentContent {
+    background-color: transparent; color: #909090; font-size: 14px;
+    border: none; padding: 0; margin: 0;
+}
+QLabel#flowVersionCommentAttachment {
+    color: %(attachment_label_fg)s;
+    background-color: %(attachment_label_bg)s;
+    border-radius: 0px; font-size: 13px;
+}
+QPushButton#flowVersionCommentThumbnail {
+    border: 2px solid #404040; border-radius: 8px;
+    background-color: transparent; padding: 2px;
+}
+QPushButton#flowVersionCommentThumbnail:hover {
+    border-color: #606060; background-color: rgba(255, 255, 255, 0.05);
+}
+""" % COLORS
+
+
+# --------------------------------------------------------------------------- #
+# Formato de fechas (port de DateUtils::formatFriendlyDate de PipeSync 2)
+# --------------------------------------------------------------------------- #
+_MONTHS_SHORT = {
+    1: "Ene", 2: "Feb", 3: "Mar", 4: "Abr", 5: "May", 6: "Jun",
+    7: "Jul", 8: "Ago", 9: "Sep", 10: "Oct", 11: "Nov", 12: "Dic",
+}
+
+
+def _format_friendly_date(dt, include_time=False):
+    """Reproduce DateUtils::formatFriendlyDate del PipeSync C++."""
+    if dt is None:
+        return "Fecha desconocida"
+    today = datetime.now(dt.tzinfo).date() if dt.tzinfo else datetime.now().date()
+    date_day = dt.date()
+    days_diff = (today - date_day).days
+
+    if days_diff > 0:
+        if days_diff == 1:
+            out = "Ayer"
+        elif days_diff <= 15:
+            out = f"Hace {days_diff} dias"
+        elif date_day.year == today.year:
+            out = f"{date_day.day} {_MONTHS_SHORT[date_day.month]}"
+        else:
+            out = f"{date_day.day} {_MONTHS_SHORT[date_day.month]} {date_day.year % 100}"
+    elif days_diff == 0:
+        out = "Hoy"
+    else:
+        d = -days_diff
+        if d == 1:
+            out = "Manana"
+        elif d == 2:
+            out = "Pasado manana"
+        elif d <= 15:
+            out = f"Dentro de {d} dias"
+        elif date_day.year == today.year:
+            out = f"{date_day.day} {_MONTHS_SHORT[date_day.month]}"
+        else:
+            out = f"{date_day.day} {_MONTHS_SHORT[date_day.month]} {date_day.year % 100}"
+
+    if include_time:
+        out += f" a las {dt.strftime('%H:%M')}"
+    return out
+
+
+def _format_logged_time(minutes):
+    """Reproduce el formato de Time logged de PipeSync (8h = 1 dia)."""
+    if not minutes or minutes <= 0:
+        return ""
+    days = minutes / (8.0 * 60.0)
+    if days >= 1.0:
+        return f"{days:.1f}d"
+    hours = minutes / 60.0
+    return f"{hours:.1f}h"
+
+
+def _html_escape(text):
+    return (
+        (text or "")
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+    )
 
 
 def _parse_pipesync_datetime(value):
@@ -388,6 +575,41 @@ class ThumbnailContainerWidget(QWidget):
         layout.addWidget(self.frame_label, alignment=Qt.AlignCenter)
 
 
+class ThumbnailButton(QPushButton):
+    """QPushButton que muestra un thumbnail de imagen y lo abre al hacer clic."""
+
+    def __init__(self, image_path, parent=None):
+        super().__init__(parent)
+        self.image_path = image_path
+        self.setObjectName("flowVersionCommentThumbnail")
+        self.setCursor(QCursor(Qt.PointingHandCursor))
+        self.setFlat(True)
+
+        pix = QPixmap(image_path)
+        if pix.isNull():
+            pix = QPixmap(150, 80)
+            pix.fill(QColor("#3a3a3a"))
+        else:
+            pix = pix.scaledToWidth(150, Qt.SmoothTransformation)
+        self.setIcon(QIcon(pix))
+        self.setIconSize(pix.size())
+        self.setFixedSize(pix.size())
+        self.setToolTip(f"Clic para abrir: {os.path.basename(image_path)}")
+        self.clicked.connect(self._open_image)
+
+    def _open_image(self):
+        debug_print(f"Abriendo imagen: {self.image_path}")
+        try:
+            if platform.system() == "Windows":
+                os.startfile(self.image_path)
+            elif platform.system() == "Darwin":
+                subprocess.Popen(["open", self.image_path])
+            else:
+                subprocess.Popen(["xdg-open", self.image_path])
+        except Exception as exc:
+            debug_print(f"Error al abrir imagen: {exc}")
+
+
 app = None
 window = None
 
@@ -540,6 +762,28 @@ class ShotGridManager:
                 task_dict["task_assigned_to"] = assign["assigned_to"]
             else:
                 task_dict["task_assigned_to"] = "No asignado"
+            # Obtener timelogs y agruparlos por numero de version (regex v0*N)
+            timelog_minutes_by_version = {}
+            try:
+                cur.execute(
+                    "SELECT duration, description FROM task_timelogs WHERE task_id = ?",
+                    (task["id"],),
+                )
+                tl_re = re.compile(r"v0*(\d+)", re.IGNORECASE)
+                for tl in cur.fetchall():
+                    desc = (tl["description"] or "").strip()
+                    m = tl_re.search(desc)
+                    if not m:
+                        continue
+                    vn = int(m.group(1))
+                    timelog_minutes_by_version[vn] = (
+                        timelog_minutes_by_version.get(vn, 0.0)
+                        + float(tl["duration"] or 0.0)
+                    )
+            except sqlite3.Error as exc:
+                debug_print(
+                    "Error consultando task_timelogs:", str(exc), level="warning"
+                )
             # Obtener versiones
             cur.execute(
                 "SELECT * FROM versions WHERE task_id = ? ORDER BY version_number DESC",
@@ -549,11 +793,13 @@ class ShotGridManager:
             for v in versions:
                 # Obtener comentarios/notas de la version con información de attachments
                 cur.execute(
-                    "SELECT content, created_by, created_on, local_attachment_paths FROM version_notes WHERE version_id = ? ORDER BY created_on DESC",
+                    "SELECT content, created_by, created_on, local_attachment_paths, attachment_info "
+                    "FROM version_notes WHERE version_id = ? ORDER BY created_on ASC",
                     (v["id"],),
                 )
                 notes = cur.fetchall()
                 comments = []
+                seen_contents = set()
                 for n in notes:
                     # Saltar la nota auto-generada por PipeSync al subir la version
                     # (mismo autor + mismo contenido que la descripcion + fecha cercana).
@@ -572,12 +818,15 @@ class ShotGridManager:
                             level="debug",
                         )
                         continue
+                    # Saltar duplicados de content exacto (igual que FlowNotesPopover de PipeSync)
+                    content_key = (n["content"] or "").strip()
+                    if content_key and content_key in seen_contents:
+                        continue
+                    seen_contents.add(content_key)
                     # Procesar attachment paths si existen
                     attachment_paths = []
                     if n["local_attachment_paths"]:
-                        # Los paths están separados por punto y coma
-                        paths = n["local_attachment_paths"].split(";")
-                        for path in paths:
+                        for path in n["local_attachment_paths"].split(";"):
                             path = path.strip()
                             if path and os.path.exists(path):
                                 attachment_paths.append(path)
@@ -588,13 +837,18 @@ class ShotGridManager:
                             "text": n["content"] or "",
                             "date": n["created_on"],
                             "attachments": attachment_paths,
+                            "attachment_info": n["attachment_info"] or "",
                         }
                     )
                 version_dict = {
                     "version_number": f"v{v['version_number']:03d}",
+                    "version_number_int": int(v["version_number"]),
                     "version_description": v["description"] or "",
                     "version_date": v["created_on"] or "",
                     "created_by": v["created_by"] or "Unknown",
+                    "logged_minutes": float(
+                        timelog_minutes_by_version.get(int(v["version_number"]), 0.0)
+                    ),
                     "comments": comments,
                 }
                 task_dict["versions"].append(version_dict)
@@ -732,14 +986,22 @@ class HieroOperations:
                         {
                             "version_number": version_number,
                             "version_description": v["version_description"]
-                            or "No description",
+                            or "",
+                            "version_date": v.get("version_date", ""),
                             "comments": v.get("comments", []),
                             "created_by": v.get("created_by", "Unknown"),
+                            "logged_minutes": v.get("logged_minutes", 0.0),
                         }
                     )
 
+                # Display name de la task (capitalizado: "comp" -> "Comp")
+                task_type_display = (task["task_type"] if task else active_task_name) or active_task_name
+                if task_type_display:
+                    task_type_display = task_type_display[:1].upper() + task_type_display[1:]
+
                 shot_info = {
                     "shot_code": shot["shot_name"],
+                    "task_type": task_type_display,
                     "description": task_description,
                     "assignee": assignee,
                     "versions": version_info,
@@ -759,48 +1021,40 @@ class GUIWindow(QWidget):
 
     def initUI(self):
         self.setWindowTitle("Info")
-        self.setStyleSheet("background-color: #2a2a2a; color: #cccccc;")
-        self.setMinimumSize(800, 600)
+        self.setObjectName("flowNotesContentWidget")
+        self.setStyleSheet(SHOT_INFO_QSS)
+        self.setMinimumSize(900, 700)
 
-        # Layout principal
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
-        # Scroll area para el contenido
+        # Header (titulo del shot/task/assignee)
+        self.header_widget = QWidget()
+        self.header_widget.setObjectName("flowNotesHeaderWidget")
+        header_layout = QHBoxLayout(self.header_widget)
+        header_layout.setContentsMargins(16, 12, 12, 12)
+        self.title_label = QLabel("")
+        self.title_label.setObjectName("flowNotesTitle")
+        header_layout.addWidget(self.title_label, 1)
+        main_layout.addWidget(self.header_widget)
+
+        # Scroll area
         self.scroll_area = QScrollArea()
+        self.scroll_area.setObjectName("flowNotesScrollArea")
         self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setStyleSheet(
-            """
-            QScrollArea {
-                border: none;
-                background-color: #2a2a2a;
-            }
-            QScrollBar:vertical {
-                background-color: #333333;
-                width: 12px;
-                border-radius: 6px;
-            }
-            QScrollBar::handle:vertical {
-                background-color: #666666;
-                border-radius: 6px;
-                min-height: 20px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background-color: #888888;
-            }
-        """
-        )
 
-        # Widget contenedor para el scroll
         self.scroll_content = QWidget()
+        self.scroll_content.setObjectName("flowNotesScrollContent")
         self.scroll_layout = QVBoxLayout(self.scroll_content)
-        self.scroll_layout.setSpacing(15)
+        self.scroll_layout.setContentsMargins(16, 12, 16, 12)
+        self.scroll_layout.setSpacing(16)
         self.scroll_layout.setAlignment(Qt.AlignTop)
 
         self.scroll_area.setWidget(self.scroll_content)
-        main_layout.addWidget(self.scroll_area)
+        main_layout.addWidget(self.scroll_area, 1)
 
-        # Anadir evento para cerrar la ventana con la tecla ESC
+        # Cerrar con ESC
         shortcut = QShortcut(QKeySequence(Qt.Key_Escape), self)
         shortcut.activated.connect(self.close)
 
@@ -811,133 +1065,231 @@ class GUIWindow(QWidget):
             self.hiero_ops.sg_manager = None
         super(GUIWindow, self).closeEvent(event)
 
-    def create_shot_header_widget(self, shot_code, assignee, description):
-        """Crea el widget de cabecera para un shot"""
-        header_widget = QWidget()
-        header_layout = QVBoxLayout(header_widget)
-        header_layout.setSpacing(5)
-        header_layout.setContentsMargins(0, 0, 0, 0)
-
-        # Titulo del shot y asignado
-        title_label = QLabel(
-            f"<b style='color:#CCCC00; font-size:14px;'>{shot_code}</b> | <span style='color:#007ACC; font-weight:bold;'>{assignee}</span>"
-        )
-        title_label.setStyleSheet("background-color: transparent;")
-        header_layout.addWidget(title_label)
-
-        # Descripcion
-        if description and description != "Sin descripcion":
-            desc_label = QLabel(
-                f"<span style='color:#009688; font-weight:bold;'>Description:</span> {description}"
-            )
-            desc_label.setStyleSheet("background-color: transparent;")
-            desc_label.setWordWrap(True)
-            header_layout.addWidget(desc_label)
-
-        return header_widget
+    def _set_title(self, shot_code, task_type, assignee):
+        parts = [p for p in (shot_code, task_type, assignee) if p]
+        self.title_label.setText("  |  ".join(parts))
 
     def create_version_widget(self, version):
-        """Crea el widget para una version"""
-        version_widget = QWidget()
-        version_layout = QVBoxLayout(version_widget)
-        version_layout.setSpacing(0)
-        version_layout.setContentsMargins(
-            20, 20, 0, 20
-        )  # Indentacion para las versiones, sin margenes extras
+        """Crea el widget contenedor para una version (header morado + descripcion + comentarios)."""
+        container = QWidget()
+        container.setObjectName("flowVersionContainer")
+        container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
-        # Titulo de la version y descripcion combinados
-        version_number = version["version_number"].split("_")[-1]
-        version_creator = version.get("created_by", "Unknown")
-        version_description = version["version_description"] or ""
+        c_layout = QVBoxLayout(container)
+        c_layout.setContentsMargins(0, 0, 0, 12)
+        c_layout.setSpacing(0)
 
-        # Combinar en un solo QLabel con HTML y salto de linea
-        combined_text = (
-            f"<span style='color:#007ACC; font-weight:bold;'>{version_number}</span> | "
-            f"<span style='color:#AAAAAA;'>{version_creator}</span>"
+        c_layout.addWidget(self._build_version_header(version))
+        c_layout.addWidget(self._build_description_section(version))
+
+        comments = version.get("comments", [])
+        if comments:
+            c_layout.addWidget(self._build_comments_section(comments))
+
+        return container
+
+    def _build_version_header(self, version):
+        header = QWidget()
+        header.setObjectName("flowVersionHeader")
+        header.setFixedHeight(40)
+
+        hl = QHBoxLayout(header)
+        hl.setContentsMargins(16, 8, 16, 8)
+
+        # version_number puede venir como "v007" o "v7"; normalizar a 3 digitos
+        raw_vn = version.get("version_number", "")
+        m = re.search(r"\d+", raw_vn or "")
+        vn_text = f"v{int(m.group()):03d}" if m else (raw_vn or "v???")
+
+        version_dt = _parse_pipesync_datetime(version.get("version_date"))
+        date_text = _html_escape(_format_friendly_date(version_dt, include_time=False))
+        author_text = _html_escape(version.get("created_by") or "Unknown")
+
+        info_html = (
+            f"<span style='color: {COLORS['txt_principal_strong']}; font-weight: 800;'>{vn_text}</span>"
+            f"<span style='color: {COLORS['txt_secundario']};'> &nbsp;&nbsp; | &nbsp;&nbsp; subida </span>"
+            f"<span style='color: {COLORS['txt_subtle']};'>{date_text}</span>"
+            f"<span style='color: {COLORS['txt_secundario']};'> &nbsp;&nbsp; por </span>"
+            f"<span style='color: {COLORS['txt_subtle']};'>{author_text}</span>"
         )
+        info_label = QLabel(info_html)
+        info_label.setObjectName("flowVersionInfo")
+        info_label.setTextFormat(Qt.RichText)
+        info_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        hl.addWidget(info_label)
+        hl.addStretch(1)
 
-        if version_description:
-            combined_text += f"<br/><br/><span style='color:#CCCCCC; font-size:12px;'>{version_description}</span>"
+        time_text = _format_logged_time(version.get("logged_minutes", 0.0))
+        if time_text:
+            time_html = (
+                f"<span style='color: {COLORS['txt_secundario']};'>Time logged: </span>"
+                f"<span style='color: {COLORS['txt_subtle']};'>{time_text}</span>"
+            )
+            time_label = QLabel(time_html)
+            time_label.setObjectName("flowVersionTimeLogged")
+            time_label.setTextFormat(Qt.RichText)
+            time_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            hl.addWidget(time_label)
 
-        version_label = QLabel(combined_text)
-        # Ajustar line-height y eliminar margenes/rellenos para reducir el espacio vertical
-        version_label.setStyleSheet(
-            "background-color: transparent; padding: 0px; margin: 0px; line-height: 0.8;"
+        return header
+
+    def _build_description_section(self, version):
+        section = QWidget()
+        sl = QVBoxLayout(section)
+        sl.setContentsMargins(16, 8, 12, 8)
+        sl.setSpacing(0)
+
+        author = (version.get("created_by") or "").strip()
+        title_html = (
+            f"<span style='color: {COLORS['txt_desc_title']}; font-weight: 700; font-size: 15px;'>Descripción:</span>"
         )
-        version_label.setWordWrap(True)
-        version_layout.addWidget(version_label)
+        if author:
+            title_html += (
+                f"<span style='color: {COLORS['txt_desc_meta']}; font-size: 14px;'>"
+                f"&nbsp;(por {_html_escape(author)})</span>"
+            )
+        title_label = QLabel(title_html)
+        title_label.setObjectName("flowVersionDescriptionTitle")
+        title_label.setTextFormat(Qt.RichText)
+        title_label.setWordWrap(True)
+        sl.addWidget(title_label)
+        sl.addSpacing(2)
 
-        # Comentarios de la version
-        for comment in version.get("comments", []):
-            comment_widget = self.create_comment_widget(comment)
-            version_layout.addWidget(comment_widget)
+        desc = (version.get("version_description") or "").strip()
+        if desc:
+            esc = _html_escape(desc).replace("\n", "<br/>")
+            content_html = f"<span style='color: {COLORS['txt_body']};'>{esc}</span>"
+        else:
+            content_html = f"<span style='color: {COLORS['txt_body']};'>Sin descripción</span>"
 
-        return version_widget
+        content_label = QLabel(content_html)
+        content_label.setObjectName("flowVersionDescriptionContent")
+        content_label.setTextFormat(Qt.RichText)
+        content_label.setWordWrap(True)
+        content_label.setContentsMargins(16, 0, 0, 0)
+        sl.addWidget(content_label)
+
+        return section
+
+    def _build_comments_section(self, comments):
+        section = QWidget()
+        section.setObjectName("flowVersionCommentsContainer")
+        sl = QVBoxLayout(section)
+        sl.setContentsMargins(8, 0, 8, 0)
+        sl.setSpacing(4)
+
+        for comment in comments:
+            sep = QFrame()
+            sep.setObjectName("flowCommentSeparator")
+            sep.setFrameShape(QFrame.HLine)
+            sep.setFixedHeight(1)
+            sl.addWidget(sep)
+            sl.addWidget(self.create_comment_widget(comment))
+
+        return section
 
     def create_comment_widget(self, comment):
-        """Crea el widget para un comentario con sus attachments"""
-        comment_widget = QWidget()
-        comment_layout = QVBoxLayout(comment_widget)
-        comment_layout.setSpacing(5)
-        comment_layout.setContentsMargins(
-            30, 0, 0, 0
-        )  # Indentacion para los comentarios
+        """Crea el widget para un comentario con header, contenido y thumbnails."""
+        w = QWidget()
+        w.setObjectName("flowVersionComment")
+        wl = QVBoxLayout(w)
+        wl.setContentsMargins(0, 0, 0, 8)
+        wl.setSpacing(0)
 
-        # Texto del comentario
-        comment_user = comment["user"]
-        comment_text = comment["text"] if comment["text"] else ""
-        attachments = comment.get("attachments", [])
+        author = (comment.get("user") or "").strip()
+        n_dt = _parse_pipesync_datetime(comment.get("date"))
+        date_str = _format_friendly_date(n_dt, include_time=True)
 
-        # Si hay texto de comentario, mostrarlo
-        if comment_text:
-            # Procesar saltos de linea para el display
-            comment_text_processed = comment_text.replace("\n\n", "<br><br>").replace(
-                "\n", "<br>"
-            )
-            comment_label = QLabel(
-                f"<b style='color:#AAAAAA;'>{comment_user}:</b> {comment_text_processed}"
-            )
-            comment_label.setStyleSheet("background-color: transparent;")
-            comment_label.setWordWrap(True)
-            comment_layout.addWidget(comment_label)
-        elif attachments:
-            # Si no hay texto pero hay attachments, mostrar solo el usuario
-            user_label = QLabel(f"<b style='color:#AAAAAA;'>{comment_user}:</b>")
-            user_label.setStyleSheet("background-color: transparent;")
-            comment_layout.addWidget(user_label)
+        header_html = (
+            f"<span style='color: {COLORS['txt_desc_title']}; font-size: 15px; font-weight: 700;'>Comentario:</span>"
+            f"<span style='color: {COLORS['txt_desc_meta']}; font-size: 14px;'>"
+            f"&nbsp;(por {_html_escape(author)}, {_html_escape(date_str)})</span>"
+        )
+        header_label = QLabel(header_html)
+        header_label.setObjectName("flowVersionCommentHeader")
+        header_label.setTextFormat(Qt.RichText)
+        header_label.setWordWrap(True)
+        header_label.setContentsMargins(8, 8, 0, 0)
+        wl.addWidget(header_label)
+        wl.addSpacing(6)
 
-        # Thumbnails de attachments si existen
+        text = (comment.get("text") or "").strip()
+        if text:
+            esc = _html_escape(text).replace("\n", "<br/>")
+            content_html = f"<span style='color: {COLORS['txt_body']};'>{esc}</span>"
+            content_label = QLabel(content_html)
+            content_label.setObjectName("flowVersionCommentContent")
+            content_label.setTextFormat(Qt.RichText)
+            content_label.setWordWrap(True)
+            content_label.setContentsMargins(32, 0, 0, 0)
+            wl.addWidget(content_label)
+
+        # Attachments con frame info
+        attachments = comment.get("attachments", []) or []
+        frame_texts = self._frame_texts_from_attachment_info(comment.get("attachment_info"))
         if attachments:
-            thumbnails_widget = self.create_thumbnails_widget(attachments)
-            comment_layout.addWidget(thumbnails_widget)
+            wl.addWidget(self.create_thumbnails_widget(attachments, frame_texts))
 
-        return comment_widget
+        return w
 
-    def create_thumbnails_widget(self, attachment_paths):
-        """Crea el widget que contiene los thumbnails de los attachments"""
-        thumbnails_widget = QWidget()
-        thumbnails_layout = QHBoxLayout(thumbnails_widget)
-        thumbnails_layout.setSpacing(5)
-        thumbnails_layout.setContentsMargins(0, 5, 0, 5)
-        thumbnails_layout.setAlignment(Qt.AlignLeft)
+    @staticmethod
+    def _frame_texts_from_attachment_info(attachment_info):
+        out = []
+        if not attachment_info:
+            return out
+        try:
+            data = json.loads(attachment_info)
+        except (TypeError, ValueError):
+            return out
+        if not isinstance(data, list):
+            return out
+        for entry in data:
+            if isinstance(entry, dict) and entry.get("frame") is not None:
+                out.append(f"Frame {entry['frame']}")
+            else:
+                out.append("Sin Frame Number")
+        return out
 
-        for attachment_path in attachment_paths:
-            # Verificar que sea un archivo de imagen
-            if attachment_path.lower().endswith(
-                (".jpg", ".jpeg", ".png", ".tiff", ".tif")
-            ):
-                thumbnail_container = ThumbnailContainerWidget(
-                    attachment_path, thumbnail_size=80
-                )
-                thumbnails_layout.addWidget(thumbnail_container)
+    def create_thumbnails_widget(self, attachment_paths, frame_texts=None):
+        """Layout horizontal de thumbnails con label "Frame N" debajo de cada uno."""
+        if frame_texts is None:
+            frame_texts = []
 
-        # Añadir stretch para empujar thumbnails a la izquierda
-        thumbnails_layout.addStretch()
+        thumbs_w = QWidget()
+        thumbs_w.setObjectName("flowVersionCommentThumbnails")
+        tl = QHBoxLayout(thumbs_w)
+        tl.setContentsMargins(32, 8, 0, 8)
+        tl.setSpacing(8)
 
-        return thumbnails_widget
+        valid_idx = 0
+        for path in attachment_paths:
+            if not path.lower().endswith((".jpg", ".jpeg", ".png", ".tiff", ".tif")):
+                continue
+            col = QWidget()
+            cl = QVBoxLayout(col)
+            cl.setContentsMargins(0, 0, 0, 0)
+            cl.setSpacing(4)
+
+            btn = ThumbnailButton(path)
+            cl.addWidget(btn)
+
+            frame_text = (
+                frame_texts[valid_idx] if valid_idx < len(frame_texts) else "Sin Frame Number"
+            )
+            lab = QLabel(frame_text)
+            lab.setObjectName("flowVersionCommentAttachment")
+            lab.setFixedWidth(150)
+            lab.setAlignment(Qt.AlignCenter)
+            cl.addWidget(lab)
+
+            tl.addWidget(col)
+            valid_idx += 1
+
+        tl.addStretch(1)
+        return thumbs_w
 
     def display_results(self, results):
-        """Muestra los resultados recopilados en una ventana independiente."""
+        """Muestra los resultados recopilados en el scroll area."""
         debug_print("Displaying results...")
 
         # Limpiar contenido anterior
@@ -954,51 +1306,18 @@ class GUIWindow(QWidget):
             self.show()
             return
 
+        # Titulo: datos del primer resultado
+        first = results[0]
+        self._set_title(
+            first.get("shot_code", ""),
+            first.get("task_type", ""),
+            first.get("assignee", ""),
+        )
+
         for result in results:
             debug_print(f"Processing result: {result}")
-
-            # Procesar datos del shot
-            description = (
-                result["description"]
-                if result["description"] is not None
-                else "Sin descripcion"
-            )
-            assignee = (
-                result["assignee"] if result["assignee"] is not None else "No assignee"
-            )
-            shot_code = result["shot_code"]
-            versions = result["versions"]
-
-            # Crear widget del shot
-            shot_widget = QFrame()
-            shot_widget.setFrameStyle(QFrame.Box)
-            shot_widget.setStyleSheet(
-                """
-                QFrame {
-                    border: 0px solid #444444;
-                    border-radius: 5px;
-                    background-color: #333333;
-                    margin: 5px;
-                    padding: 10px;
-                }
-            """
-            )
-
-            shot_layout = QVBoxLayout(shot_widget)
-            shot_layout.setSpacing(10)
-
-            # Agregar cabecera del shot
-            header_widget = self.create_shot_header_widget(
-                shot_code, assignee, description
-            )
-            shot_layout.addWidget(header_widget)
-
-            # Agregar versiones
-            for version in versions:
-                version_widget = self.create_version_widget(version)
-                shot_layout.addWidget(version_widget)
-
-            self.scroll_layout.addWidget(shot_widget)
+            for version in result.get("versions", []):
+                self.scroll_layout.addWidget(self.create_version_widget(version))
 
         self.setWindowFlags(self.windowFlags() | Qt.Window)
         self.show()
