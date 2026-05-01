@@ -1,11 +1,12 @@
 """
 ____________________________________________________________________________
-  LGA_NKS_Flow_Pull v3.39 | Lega
+  LGA_NKS_Flow_Pull v3.40 | Lega
   Compara los estados de las task Comp de los shots del timeline de Hiero
   con los estados registrados en un archivo JSON basado en Flow PT
   Tambien aplica tags con los colores de los estados en xyplorer
 
 
+  v3.40: Tabla de cambios incluye columna "Task" (al lado del Shot) con la task detectada del filename del clip. Permite distinguir de qué task son la versión y el status reportados.
   v3.39: Comparación de versión SG vs NKS por task. find_highest_version_for_task recorre solo las versiones de la task del clip y devuelve el string como _{task}_v{n}. Antes mezclaba todas las tasks del shot y rotulaba como _comp_, generando falsos Version Mismatch (ej: comp v9 en NKS comparado contra roto v33 en SG).
   v3.38: Muestra ventana al final del pull listando clips cuya task en el filename no coincide con el nombre del track. Solo avisa, no bloquea ni modifica el procesamiento.
   v3.37: Fix crash en pull batch cuando un clip entra en Version Mismatch y la task no tiene assignee.
@@ -375,10 +376,11 @@ class GUI_Table(QWidget):
     def initUI(self):
         self.setWindowTitle("Read Nodes EXR Info")
         layout = QVBoxLayout(self)
-        self.table = QTableWidget(0, 6, self)
+        self.table = QTableWidget(0, 7, self)
         self.table.setHorizontalHeaderLabels(
             [
                 "Shot",
+                " Task ",
                 " v_NKS ",
                 " v_SG ",
                 " v_Status ",
@@ -532,6 +534,7 @@ class HieroOperations:
         table,
         gui_table,
         shot_code,
+        task_name,
         version_number,
         prev_status,
         prev_color,
@@ -547,12 +550,14 @@ class HieroOperations:
         sg_version_num = extract_version_number(sg_version_number)
         # Anadir un espacio al final de cada texto para mejorar la visualizacion
         shot_item = QTableWidgetItem(shot_code + "   ")
+        task_item = QTableWidgetItem(" " + str(task_name) + " ")
         version_item = QTableWidgetItem(str(version_num))
         sg_version_item = QTableWidgetItem(str(sg_version_num))
         sg_status_item = QTableWidgetItem(sg_status)
         prev_status_item = QTableWidgetItem(" " + prev_status + " ")
         new_status_item = QTableWidgetItem(new_status)
         # Centrado de algunas columnas
+        task_item.setTextAlignment(Qt.AlignCenter)
         version_item.setTextAlignment(Qt.AlignCenter)
         sg_version_item.setTextAlignment(Qt.AlignCenter)
         sg_status_item.setTextAlignment(Qt.AlignCenter)
@@ -586,19 +591,20 @@ class HieroOperations:
         new_status_item.setTextAlignment(Qt.AlignCenter)
         # Anadir los items a la fila
         table.setItem(row_count, 0, shot_item)
-        table.setItem(row_count, 1, version_item)
-        table.setItem(row_count, 2, sg_version_item)
-        table.setItem(row_count, 3, sg_status_item)
-        table.setItem(row_count, 4, prev_status_item)
-        table.setItem(row_count, 5, new_status_item)
+        table.setItem(row_count, 1, task_item)
+        table.setItem(row_count, 2, version_item)
+        table.setItem(row_count, 3, sg_version_item)
+        table.setItem(row_count, 4, sg_status_item)
+        table.setItem(row_count, 5, prev_status_item)
+        table.setItem(row_count, 6, new_status_item)
         # Configuracion de colores que se agregan a la lista para la linea de seleccion
-        row_colors = ["#8a8a8a"] * 6  # Color por defecto para todas las columnas
+        row_colors = ["#8a8a8a"] * 7  # Color por defecto para todas las columnas
         if sg_version_num > version_num:  # Si la version SG es mayor que la version NKS
-            row_colors[2] = "#81395a"  # Color para la columna v_SG
+            row_colors[3] = "#81395a"  # Color para la columna v_SG
         if sg_status == "rev":  # Si el estado es "rev"
-            row_colors[3] = "#81395a"  # Color para la columna v_Status
-        row_colors[4] = prev_color  # Color para la columna de estado previo
-        row_colors[5] = new_color  # Color para la columna de nuevo estado
+            row_colors[4] = "#81395a"  # Color para la columna v_Status
+        row_colors[5] = prev_color  # Color para la columna de estado previo
+        row_colors[6] = new_color  # Color para la columna de nuevo estado
         gui_table.add_color_to_background_list(
             row_colors
         )  # Anadir la lista de colores al final del metodo
@@ -931,6 +937,7 @@ class HieroOperations:
                                     table,
                                     self.gui_table,
                                     shot_code,
+                                    task_name,
                                     version_str,
                                     current_status,
                                     prev_color_hex,
