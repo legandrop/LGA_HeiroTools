@@ -78,8 +78,8 @@ Nada pendiente.
 | [LGA_NKS_ReviewPic.py](../LGA_NKS_Flow_Panel_py/LGA_NKS_ReviewPic.py) | ✅ | ❓ | ❓ | — | — | — |
 
 **Flow Pull — notas:**
-- v3.36 agregó iteración sobre `TASK_EXR_TRACKS`, pero [Flow_Pull.py:740](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py:740) todavía filtra con `if "_comp_" not in file_basename: continue`. Quedó de la época comp-only y **descarta todos los clips roto/cleanup** antes de procesarlos. → **Pendiente: eliminar ese filtro** y usar la task extraída del filename.
-- [Flow_Pull.py:322](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py:322) arma el version_number como `{shot}_comp_v{n}` de forma hardcoded. → **Pendiente: usar la task real del clip.**
+- v3.36 agregó iteración sobre `TASK_EXR_TRACKS`, pero [Flow_Pull.py:773](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py:773) todavía filtra con `if "_comp_" not in file_basename: continue`. Quedó de la época comp-only y **descarta todos los clips roto/cleanup** antes de procesarlos. → **Pendiente: eliminar ese filtro** y usar la task extraída del filename.
+- Comparación de versión SG vs NKS por task: resuelta. `find_highest_version_for_task(shot, task, task_name)` ([Flow_Pull.py:312](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py:312)) recorre solo `task["versions"]` de la task detectada y devuelve el string como `_{task}_v{n}`. Antes mezclaba todas las tasks del shot y rotulaba como `_comp_`, lo que producía falsos mismatches (ej: comp v9 en NKS comparado contra roto v33 en SG).
 
 **Flow Push — notas:**
 - v3.97 implementó multi-task correctamente: itera `TASK_EXR_TRACKS`, detecta la task del filename y, cuando hay clips de varias tasks seleccionadas, muestra un diálogo para elegir a cuál aplicar el status (`_show_task_selection_dialog`, [Flow_Push.py:2325](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py:2325)).
@@ -155,7 +155,7 @@ Una fila por clip con tres columnas: **Clip**, **Task (filename)**, **Track**.
 
 Lista de pendientes concretos, en orden sugerido:
 
-1. **Flow Pull** — eliminar el filtro `"_comp_" not in file_basename` ([Flow_Pull.py:740](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py:740)) y el hardcode del version_number ([Flow_Pull.py:322](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py:322)). Después de esto, Pull soporta comp + roto + cleanup completo.
+1. **Flow Pull** — eliminar el filtro `"_comp_" not in file_basename` ([Flow_Pull.py:773](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py:773)). El hardcode del version_number ya está resuelto vía `find_highest_version_for_task`.
 2. **Review Panel** — crear wrapper y botón para `ON OFF _cleanup_`.
 3. **Review Panel** — revisar regex hardcoded de `_comp_v` en `LGA_NKS_ON_Clips_OFF_v00-Clips.py`.
 4. **Flow Push** — decidir política del assignee del shot (`get_comp_assignee`) y ajustar si corresponde.
@@ -186,7 +186,7 @@ Con un timeline que tenga un shot con clips en `_comp_`, `_roto_`, `_cleanup_`, 
 - **Módulo central:** [LGA_NKS_Shared/LGA_NKS_GetClip.py](../LGA_NKS_Shared/LGA_NKS_GetClip.py)
   - Variables: `TRACK_comp_EXR`, `TRACK_roto_EXR`, `TRACK_cleanup_EXR`, `TRACK_comp_REV`, `TRACK_roto_REV`, `TRACK_cleanup_REV`, `TASK_EXR_TRACKS`, `TASK_REV_TRACKS`
 - **Flow Pull:** [LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py)
-  - Métodos: `HieroOperations.process_selected_clips()`, `HieroOperations.enable_or_disable_clips()`
+  - Métodos: `HieroOperations.process_selected_clips()`, `HieroOperations.enable_or_disable_clips()`, `SGManager.find_highest_version_for_task()`
 - **Flow Push:** [LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py)
   - Funciones: `push_from_selected_clips()`, `_show_task_selection_dialog()`, `get_comp_assignee()`
 - **Review Panel (panel):** [LGA_NKS_Review_Panel.py](../LGA_NKS_Review_Panel.py)

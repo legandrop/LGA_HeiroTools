@@ -1,11 +1,12 @@
 """
 ____________________________________________________________________________
-  LGA_NKS_Flow_Pull v3.38 | Lega
+  LGA_NKS_Flow_Pull v3.39 | Lega
   Compara los estados de las task Comp de los shots del timeline de Hiero
   con los estados registrados en un archivo JSON basado en Flow PT
   Tambien aplica tags con los colores de los estados en xyplorer
 
 
+  v3.39: Comparación de versión SG vs NKS por task. find_highest_version_for_task recorre solo las versiones de la task del clip y devuelve el string como _{task}_v{n}. Antes mezclaba todas las tasks del shot y rotulaba como _comp_, generando falsos Version Mismatch (ej: comp v9 en NKS comparado contra roto v33 en SG).
   v3.38: Muestra ventana al final del pull listando clips cuya task en el filename no coincide con el nombre del track. Solo avisa, no bloquea ni modifica el procesamiento.
   v3.37: Fix crash en pull batch cuando un clip entra en Version Mismatch y la task no tiene assignee.
   v3.36: Soporte multi-task: itera sobre TASK_EXR_TRACKS (comp + roto) en lugar de solo TRACK_comp_EXR
@@ -309,26 +310,26 @@ class ShotGridManager:
                 return t
         return None
 
-    def find_highest_version_for_shot(self, shot):
-        """Encuentra la version mas alta de un shot basandose en la base de datos."""
-        all_versions = []
-        for task in shot["tasks"]:
-            all_versions.extend(task["versions"])
-        if all_versions:
-            # Buscar la version con el mayor version_number
-            highest_version = max(
-                all_versions,
-                key=lambda v: (
-                    v["version_number"] if v["version_number"] is not None else 0
-                ),
-            )
-            # Adaptar el formato esperado por el resto del script
-            return {
-                "version_number": f"{shot['shot_name']}_comp_v{highest_version['version_number']:03d}",
-                "version_status": highest_version.get("status", ""),
-                "version_description": highest_version.get("description", ""),
-            }
-        return None
+    def find_highest_version_for_task(self, shot, task, task_name):
+        """Encuentra la version mas alta de una task especifica del shot.
+
+        Solo recorre las versiones de esa task: no mezcla comp/roto/cleanup.
+        El string devuelto usa el task_name real (no hardcoded a comp).
+        """
+        task_versions = task.get("versions", []) if task else []
+        if not task_versions:
+            return None
+        highest_version = max(
+            task_versions,
+            key=lambda v: (
+                v["version_number"] if v["version_number"] is not None else 0
+            ),
+        )
+        return {
+            "version_number": f"{shot['shot_name']}_{task_name}_v{highest_version['version_number']:03d}",
+            "version_status": highest_version.get("status", ""),
+            "version_description": highest_version.get("description", ""),
+        }
 
     def close(self):
         if hasattr(self, "conn") and self.conn:
@@ -881,8 +882,8 @@ class HieroOperations:
                             current_status = self.get_status_name_by_color(
                                 current_color_hex
                             )
-                            highest_version = sg_manager.find_highest_version_for_shot(
-                                shot
+                            highest_version = sg_manager.find_highest_version_for_task(
+                                shot, task, task_name
                             )
                             if highest_version:
                                 debug_print(
