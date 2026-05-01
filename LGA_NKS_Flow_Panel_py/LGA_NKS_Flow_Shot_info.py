@@ -1,10 +1,15 @@
 """
 __________________________________________________________________
 
-  LGA_NKS_Flow_Shot_info v1.86 | Lega
+  LGA_NKS_Flow_Shot_info v1.87 | Lega
   Imprime informacion del shot y las versiones de la task seleccionada
   (comp, roto o cleanup) en el playhead.
 
+  v1.87: Filtra notas auto-generadas por PipeSync al subir una version.
+         Cuando el usuario sube una version desde PipeSync, se crea un
+         comentario con el mismo contenido que la descripcion de la version,
+         por el mismo usuario y unos segundos despues. Ese comentario duplicado
+         ahora se descarta (umbral configurable, default 120s).
   v1.86: Soporte multi-task. Si el playhead atraviesa clips de varias tasks
          (TASK_EXR_TRACKS), muestra el popover compartido `LGA_NKS_TaskSelectionDialog`
          para que el usuario elija. Antes pedía siempre la task 'comp', así que
@@ -31,6 +36,7 @@ import logging
 import queue
 import time
 import importlib
+from datetime import datetime, timezone
 from logging.handlers import QueueHandler, QueueListener
 from pathlib import Path
 # Importar compatibilidad Qt para Hiero Panels
@@ -173,6 +179,66 @@ if utils_path.exists():
         HAS_CLIP_UTILS = True
     except ImportError as e:
         debug_print(f"Error importando módulo LGA_NKS_GetClip: {e}")
+
+
+# Umbral (en segundos) para considerar que una nota fue auto-generada al subir
+# una version desde PipeSync. Si la nota tiene mismo autor y mismo contenido
+# que la descripcion de la version, y se creo dentro de este umbral, se descarta.
+VERSION_DUPLICATE_NOTE_WINDOW_SECONDS = 600
+
+
+def _parse_pipesync_datetime(value):
+    """Parsea el formato de fecha de pipesync.db ('YYYY-MM-DD HH:MM:SS[+/-HH:MM]').
+
+    Retorna un datetime con tzinfo o None si no se puede parsear.
+    """
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    text = str(value).strip()
+    if not text:
+        return None
+    # SQLite suele guardar 'YYYY-MM-DD HH:MM:SS-03:00'. fromisoformat necesita 'T'.
+    iso = text.replace(" ", "T", 1)
+    try:
+        dt = datetime.fromisoformat(iso)
+    except ValueError:
+        try:
+            dt = datetime.strptime(text[:19], "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def _is_version_upload_duplicate_note(note, version_description, version_created_by, version_created_on):
+    """Detecta si una nota es la auto-generada por PipeSync al subir la version.
+
+    Se considera duplicada cuando:
+    - Mismo autor que la version.
+    - Contenido (trim) igual a la descripcion de la version.
+    - Fecha dentro de VERSION_DUPLICATE_NOTE_WINDOW_SECONDS respecto de la version.
+    """
+    note_user = (note["created_by"] or "").strip()
+    version_user = (version_created_by or "").strip()
+    if not note_user or note_user != version_user:
+        return False
+
+    note_text = (note["content"] or "").strip()
+    desc_text = (version_description or "").strip()
+    if not note_text or not desc_text or note_text != desc_text:
+        return False
+
+    note_dt = _parse_pipesync_datetime(note["created_on"])
+    version_dt = _parse_pipesync_datetime(version_created_on)
+    if not note_dt or not version_dt:
+        # Si falta fecha pero coinciden autor y contenido, lo tratamos como duplicado.
+        return True
+
+    delta = abs((note_dt - version_dt).total_seconds())
+    return delta <= VERSION_DUPLICATE_NOTE_WINDOW_SECONDS
 
 
 def extract_frame_from_filename(filename):
@@ -489,6 +555,23 @@ class ShotGridManager:
                 notes = cur.fetchall()
                 comments = []
                 for n in notes:
+                    # Saltar la nota auto-generada por PipeSync al subir la version
+                    # (mismo autor + mismo contenido que la descripcion + fecha cercana).
+                    if _is_version_upload_duplicate_note(
+                        n,
+                        v["description"],
+                        v["created_by"],
+                        v["created_on"],
+                    ):
+                        debug_print(
+                            "Skipping auto-generated upload note:",
+                            f"version_id={v['id']}",
+                            f"user='{n['created_by']}'",
+                            f"note_date='{n['created_on']}'",
+                            f"version_date='{v['created_on']}'",
+                            level="debug",
+                        )
+                        continue
                     # Procesar attachment paths si existen
                     attachment_paths = []
                     if n["local_attachment_paths"]:
