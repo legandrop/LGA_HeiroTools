@@ -72,14 +72,15 @@ Nada pendiente.
 
 | Script | comp EXR | roto EXR | cleanup EXR | comp Rev | roto Rev | cleanup Rev |
 |---|---|---|---|---|---|---|
-| [LGA_NKS_Flow_Pull.py](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py) | ✅ | 🟡 | 🟡 | — | — | — |
+| [LGA_NKS_Flow_Pull.py](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py) | ✅ | ✅ | ✅ | — | — | — |
 | [LGA_NKS_Flow_Push.py](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py) | ✅ | ✅ | 🟡 | — | — | — |
 | [LGA_NKS_Flow_Shot_info.py](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Shot_info.py) | ✅ | ❓ | ❓ | — | — | — |
 | [LGA_NKS_ReviewPic.py](../LGA_NKS_Flow_Panel_py/LGA_NKS_ReviewPic.py) | ✅ | ❓ | ❓ | — | — | — |
 
 **Flow Pull — notas:**
-- v3.36 agregó iteración sobre `TASK_EXR_TRACKS`, pero [Flow_Pull.py:773](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py:773) todavía filtra con `if "_comp_" not in file_basename: continue`. Quedó de la época comp-only y **descarta todos los clips roto/cleanup** antes de procesarlos. → **Pendiente: eliminar ese filtro** y usar la task extraída del filename.
-- Comparación de versión SG vs NKS por task: resuelta. `find_highest_version_for_task(shot, task, task_name)` ([Flow_Pull.py:312](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py:312)) recorre solo `task["versions"]` de la task detectada y devuelve el string como `_{task}_v{n}`. Antes mezclaba todas las tasks del shot y rotulaba como `_comp_`, lo que producía falsos mismatches (ej: comp v9 en NKS comparado contra roto v33 en SG).
+- Multi-task completo (v3.41). El filtro de filename acepta cualquier task de `TASK_EXR_TRACKS` (`_comp_`, `_roto_`, `_cleanup_`); antes hardcodeaba `_comp_` y descartaba roto/cleanup.
+- Comparación de versión SG vs NKS por task: `find_highest_version_for_task(shot, task, task_name)` ([Flow_Pull.py:312](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py:312)) recorre solo `task["versions"]` de la task detectada y devuelve el string como `_{task}_v{n}`. Antes mezclaba todas las tasks del shot y rotulaba como `_comp_`, lo que producía falsos mismatches (ej: comp v9 en NKS comparado contra roto v33 en SG).
+- Tabla de cambios incluye columna `Task` (la detectada del filename), para distinguir a qué task corresponden la versión y el status mostrados.
 
 **Flow Push — notas:**
 - v3.97 implementó multi-task correctamente: itera `TASK_EXR_TRACKS`, detecta la task del filename y, cuando hay clips de varias tasks seleccionadas, muestra un diálogo para elegir a cuál aplicar el status (`_show_task_selection_dialog`, [Flow_Push.py:2325](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py:2325)).
@@ -155,13 +156,12 @@ Una fila por clip con tres columnas: **Clip**, **Task (filename)**, **Track**.
 
 Lista de pendientes concretos, en orden sugerido:
 
-1. **Flow Pull** — eliminar el filtro `"_comp_" not in file_basename` ([Flow_Pull.py:773](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py:773)). El hardcode del version_number ya está resuelto vía `find_highest_version_for_task`.
-2. **Review Panel** — crear wrapper y botón para `ON OFF _cleanup_`.
-3. **Review Panel** — revisar regex hardcoded de `_comp_v` en `LGA_NKS_ON_Clips_OFF_v00-Clips.py`.
-4. **Flow Push** — decidir política del assignee del shot (`get_comp_assignee`) y ajustar si corresponde.
-5. **Edit Panel** — extender MatchVerToEXR y CompareVerToEditref a operar por task iterando `TASK_EXR_TRACKS` / `TASK_REV_TRACKS`.
-6. **Review Panel** — evaluar si EXRTrack_Difference y Compare_Versions deben trabajar por task o seguir siendo comp-only.
-7. **Scripts no auditados** — pasar el filtro de hardcodes por Coordination, Assignee, ViewerTL, Shot_info, ReviewPic.
+1. **Review Panel** — crear wrapper y botón para `ON OFF _cleanup_`.
+2. **Review Panel** — revisar regex hardcoded de `_comp_v` en `LGA_NKS_ON_Clips_OFF_v00-Clips.py`.
+3. **Flow Push** — decidir política del assignee del shot (`get_comp_assignee`) y ajustar si corresponde.
+4. **Edit Panel** — extender MatchVerToEXR y CompareVerToEditref a operar por task iterando `TASK_EXR_TRACKS` / `TASK_REV_TRACKS`.
+5. **Review Panel** — evaluar si EXRTrack_Difference y Compare_Versions deben trabajar por task o seguir siendo comp-only.
+6. **Scripts no auditados** — pasar el filtro de hardcodes por Coordination, Assignee, ViewerTL, Shot_info, ReviewPic.
 
 ## 7. Tests manuales sugeridos
 
@@ -169,8 +169,9 @@ Con un timeline que tenga un shot con clips en `_comp_`, `_roto_`, `_cleanup_`, 
 
 - Flow Pull (Shift+Click = solo shot seleccionado):
   - El clip `_comp_` debe recibir color del status de la task comp.
-  - El clip `_roto_` debe recibir color del status de la task roto (hoy: no).
-  - El clip `_cleanup_` debe recibir color del status de la task cleanup (hoy: no).
+  - El clip `_roto_` debe recibir color del status de la task roto.
+  - El clip `_cleanup_` debe recibir color del status de la task cleanup.
+  - La tabla de cambios debe mostrar la columna `Task` con `comp`/`roto`/`cleanup` según el filename del clip.
 - Flow Push con un status:
   - Seleccionar clips de varias tasks → debe mostrar el diálogo preguntando a cuál aplicar.
   - Aplicar a una sola task → el status debe escribirse únicamente en esa task en SG.
