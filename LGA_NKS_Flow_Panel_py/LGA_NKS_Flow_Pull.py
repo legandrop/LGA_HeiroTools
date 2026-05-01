@@ -1,11 +1,12 @@
 """
 ____________________________________________________________________________
-  LGA_NKS_Flow_Pull v3.40 | Lega
+  LGA_NKS_Flow_Pull v3.41 | Lega
   Compara los estados de las task Comp de los shots del timeline de Hiero
   con los estados registrados en un archivo JSON basado en Flow PT
   Tambien aplica tags con los colores de los estados en xyplorer
 
 
+  v3.41: Filtro de filename ya no exige "_comp_". Acepta cualquier task de TASK_EXR_TRACKS (comp, roto, cleanup). Antes los clips de roto/cleanup entraban al loop y eran descartados con continue, así que el shift+click sobre clips de roto no detectaba cambios.
   v3.40: Tabla de cambios incluye columna "Task" (al lado del Shot) con la task detectada del filename del clip. Permite distinguir de qué task son la versión y el status reportados.
   v3.39: Comparación de versión SG vs NKS por task. find_highest_version_for_task recorre solo las versiones de la task del clip y devuelve el string como _{task}_v{n}. Antes mezclaba todas las tasks del shot y rotulaba como _comp_, generando falsos Version Mismatch (ej: comp v9 en NKS comparado contra roto v33 en SG).
   v3.38: Muestra ventana al final del pull listando clips cuya task en el filename no coincide con el nombre del track. Solo avisa, no bloquea ni modifica el procesamiento.
@@ -777,9 +778,9 @@ class HieroOperations:
                         file_basename = os.path.basename(file_path).lower()
                         debug_print(f"Basename del archivo: {file_basename}")
 
-                        if "_comp_" not in file_basename:
+                        if not any(t in file_basename for t in TASK_EXR_TRACKS):
                             debug_print(
-                                f"El archivo no contiene '_comp_' en el nombre: {file_basename}"
+                                f"El archivo no contiene ninguna task conocida ({TASK_EXR_TRACKS}) en el nombre: {file_basename}"
                             )
                             continue
                         exr_name = os.path.basename(file_path)
