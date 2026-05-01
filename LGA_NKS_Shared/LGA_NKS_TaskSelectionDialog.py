@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_TaskSelectionDialog v1.0 | Lega
+  LGA_NKS_TaskSelectionDialog v1.3 | Lega
   Detección y selección de task entre los tracks EXR del playhead.
 
   Pensado como helper compartido para herramientas que actúan sobre una sola task
@@ -14,12 +14,27 @@ ________________________________________________________________________________
   - track_for_task(task_name) -> str | None
   - prompt_task_selection(task_names, title="Select task") -> str | None
   - resolve_task_at_playhead(seq, title="Select task") -> str | None
+  - get_valid_tasks_at_playhead_with_check(seq, extract_task_name, clean_base_name)
+      -> (valid_tasks: list[str], mismatches: list[dict])
+  - resolve_task_with_mismatch_check(seq, extract_task_name, clean_base_name,
+      title="Select task") -> str | None
 
   Convención de nombres de tracks: docs/Docu_Logica_Nombres_Tracks.md
+
+  v1.3: Corrección de compatibilidad Nuke 15/16. En PySide2 (Nuke 15) el objeto
+        devuelto por `hiero.ui.mainWindow()` es un wrapper SIP incompatible con
+        el sistema de tipos de PySide2 cuando se pasa como parent a QDialog,
+        causando "QWidget: Must construct a QApplication before a QWidget".
+        Usa PYSIDE_VER del adaptador para solo usar parent en PySide6 (Nuke 16).
+  v1.2: Diálogos parented a la main window de Hiero y guard sobre
+        `QApplication.instance()` antes de crear el QDialog.
+  v1.1: Agrega `get_valid_tasks_at_playhead_with_check` y
+        `resolve_task_with_mismatch_check`.
+  v1.0: Versión inicial.
 ____________________________________________________________________________________
 """
 
-from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtCore
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtCore, PYSIDE_VER
 from LGA_NKS_Shared.LGA_NKS_GetClip import (
     TASK_EXR_TRACKS,
     TRACK_comp_EXR,
@@ -36,6 +51,33 @@ _TASK_TO_TRACK = {
 }
 
 _TRACK_TO_TASK = {v: k for k, v in _TASK_TO_TRACK.items()}
+
+
+def _get_hiero_main_window():
+    """Devuelve la main window de Hiero como parent para QDialog, SOLO en PySide6.
+
+    En PySide2 (Nuke 15) el objeto devuelto por hiero.ui.mainWindow() es un
+    wrapper SIP cuyo tipo no es compatible con el sistema de tipos de PySide2
+    al pasarlo como parent a QDialog/QWidget, lo que provoca el error
+    "QWidget: Must construct a QApplication before a QWidget".
+    En PySide6 (Nuke 16) la conversión de tipos es más robusta y funciona bien.
+    """
+    if PYSIDE_VER < 6:
+        return None  # Evitar incompatibilidad SIP/PySide2 con wrappers de Hiero
+    try:
+        import hiero.ui
+        mw = hiero.ui.mainWindow()
+        if mw is not None:
+            return mw
+    except Exception:
+        pass
+    try:
+        app = QtWidgets.QApplication.instance()
+        if app is not None and hasattr(app, "activeWindow"):
+            return app.activeWindow()
+    except Exception:
+        pass
+    return None
 
 
 def track_for_task(task_name):
@@ -69,7 +111,12 @@ def prompt_task_selection(task_names, title="Select task"):
     if len(task_names) == 1:
         return task_names[0]
 
-    dialog = QtWidgets.QDialog()
+    # Guard: sin QApplication no se puede crear el diálogo (evita crash en startup).
+    if QtWidgets.QApplication.instance() is None:
+        return None
+
+    parent = _get_hiero_main_window()
+    dialog = QtWidgets.QDialog(parent) if parent is not None else QtWidgets.QDialog()
     dialog.setWindowTitle(title)
     dialog.setModal(True)
 
@@ -113,3 +160,88 @@ def resolve_task_at_playhead(seq, title="Select task"):
     if len(tasks) == 1:
         return tasks[0]
     return prompt_task_selection(tasks, title=title)
+
+
+def get_valid_tasks_at_playhead_with_check(seq, extract_task_name, clean_base_name):
+    """Recorre los tracks de task con clip en el playhead y separa los válidos de los incorrectos.
+
+    Para cada track con clip, verifica que la task del filename coincida con la del track.
+    Los clips donde hay discrepancia se reportan como mismatches y NO se ofrecen como opción.
+
+    Args:
+        seq: Sequence activa de Hiero.
+        extract_task_name: función que extrae la task del base_name (de NamingUtils).
+        clean_base_name: función que limpia el filename (de NamingUtils).
+
+    Returns:
+        Tupla (valid_tasks: list[str], mismatches: list[dict]).
+        Cada dict de mismatch tiene claves 'clip', 'task' (del filename) y 'track'.
+    """
+    import os
+
+    valid_tasks = []
+    mismatches = []
+
+    for track_name in TASK_EXR_TRACKS:
+        clip = find_clip_at_playhead_in_track(seq, track_name)
+        if clip is None:
+            continue
+        task_from_track = _TRACK_TO_TASK.get(track_name)
+        if not task_from_track:
+            continue
+
+        try:
+            fileinfos = clip.source().mediaSource().fileinfos()
+            if not fileinfos:
+                valid_tasks.append(task_from_track)
+                continue
+            filename = os.path.basename(fileinfos[0].filename())
+            base = clean_base_name(filename)
+            task_from_name = extract_task_name(base)
+            if task_from_name and task_from_name.lower() != task_from_track:
+                mismatches.append({
+                    "clip": clip.name(),
+                    "task": task_from_name.lower(),
+                    "track": track_name,
+                })
+                continue
+        except Exception:
+            pass
+
+        valid_tasks.append(task_from_track)
+
+    return valid_tasks, mismatches
+
+
+def resolve_task_with_mismatch_check(seq, extract_task_name, clean_base_name, title="Select task"):
+    """Resuelve la task mostrando advertencia si hay clips con filename/track inconsistentes.
+
+    Flujo:
+    1. Detecta tasks válidas e inconsistentes en el playhead.
+    2. Si hay mismatches, muestra la advertencia (sin bloquear).
+    3. Ofrece solo las tasks válidas en el selector.
+    4. Devuelve la task elegida o None si no hay tasks válidas o el usuario cancela.
+
+    Args:
+        seq: Sequence activa de Hiero.
+        extract_task_name: función del módulo NamingUtils.
+        clean_base_name: función del módulo NamingUtils.
+        title: título del diálogo de selección.
+
+    Returns:
+        str con el nombre de la task ('comp'/'roto'/'cleanup') o None.
+    """
+    from LGA_NKS_Shared.LGA_NKS_TaskMismatchDialog import show_task_mismatch_warning
+
+    valid_tasks, mismatches = get_valid_tasks_at_playhead_with_check(
+        seq, extract_task_name, clean_base_name
+    )
+
+    if mismatches:
+        parent_win = _get_hiero_main_window()
+        show_task_mismatch_warning(mismatches, parent=parent_win)
+
+    if not valid_tasks:
+        return None
+
+    return prompt_task_selection(valid_tasks, title=title)

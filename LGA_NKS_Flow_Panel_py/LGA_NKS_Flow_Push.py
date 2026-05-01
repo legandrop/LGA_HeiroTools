@@ -90,11 +90,8 @@ if utils_path.exists():
 else:
     debug_print("ERROR: No se encontró el módulo LGA_NKS_GetClip")
 
-# Importar helper compartido para warning de task/track mismatch
-from LGA_NKS_Shared.LGA_NKS_TaskMismatchDialog import (
-    collect_task_mismatches,
-    show_task_mismatch_warning,
-)
+# LGA_NKS_TaskSelectionDialog y LGA_NKS_TaskMismatchDialog se importan de forma lazy
+# (dentro de push_from_selected_clips) para evitar problemas de inicialización Qt.
 
 # Importar compatibilidad Qt para Hiero Panels
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt, QShortcut
@@ -748,13 +745,19 @@ class DBManager:
 
 
 class InputDialog(QDialog):
-    def __init__(self, base_name, original_file_name=None):
+    def __init__(self, base_name, original_file_name=None, task_name=None):
         super(InputDialog, self).__init__()
         self.setWindowTitle("Input Dialog")
         self.base_name = base_name
         self.original_file_name = original_file_name
         self.review_images = []
         self.delete_images_checkbox = None
+        # task_name puede venir explícito o se extrae del base_name
+        if task_name:
+            self.task_name = task_name.lower()
+        else:
+            extracted = extract_task_name(base_name)
+            self.task_name = extracted.lower() if extracted else "comp"
 
         self.layout = QVBoxLayout(self)
 
@@ -762,13 +765,14 @@ class InputDialog(QDialog):
         assignee = self.get_shot_assignee(base_name)
 
         # Label para el mensaje con formato HTML usando los mismos colores que Shot_info
+        task_label = f"<span style='color:#AA88FF; font-weight:bold;'>[{self.task_name}]</span>"
         if assignee:
             label_text = (
-                f"Message for <b style='color:#CCCC00;'>{base_name}</b> | "
+                f"Message for <b style='color:#CCCC00;'>{base_name}</b> {task_label} | "
                 f"<span style='color:#007ACC; font-weight:bold;'>{assignee}</span>:"
             )
         else:
-            label_text = f"Message for <b style='color:#CCCC00;'>{base_name}</b>:"
+            label_text = f"Message for <b style='color:#CCCC00;'>{base_name}</b> {task_label}:"
 
         self.label = QLabel(label_text)
         self.label.setTextFormat(Qt.RichText)  # Permitir formato HTML
@@ -813,7 +817,7 @@ class InputDialog(QDialog):
 
     def get_shot_assignee(self, base_name):
         """
-        Obtiene el assignee de la task comp para el shot especificado.
+        Obtiene el assignee de la task activa para el shot especificado.
         Retorna el nombre del assignee o None si no se encuentra.
         """
         try:
@@ -842,10 +846,10 @@ class InputDialog(QDialog):
                 db_manager.close()
                 return None
 
-            # Buscar la task comp
-            db_task = db_manager.find_task(db_shot["id"], "comp")
+            # Buscar la task activa (usa self.task_name en lugar de "comp" hardcodeado)
+            db_task = db_manager.find_task(db_shot["id"], self.task_name)
             if not db_task:
-                debug_print(f"No se encontró la task comp para shot_id {db_shot['id']}")
+                debug_print(f"No se encontró la task '{self.task_name}' para shot_id {db_shot['id']}")
                 db_manager.close()
                 return None
 
@@ -2408,9 +2412,9 @@ def _describe_clip_for_log(clip):
 def push_from_selected_clips(button_name, per_clip_callback=None):
     """
     Función principal que usa el método centralizado para obtener clips.
-    Procesa los clips seleccionados en el track TRACK_comp_EXR (o el clip en playhead).
-    Si hay múltiples clips seleccionados en el track TRACK_comp_EXR, procesa todos ellos.
-    Mantiene la limitación de 4 clips con confirmación para evitar operaciones accidentales.
+    Resuelve la task activa en el playhead mediante el selector compartido antes de
+    recopilar clips, de modo que solo se procesan clips del track de la task elegida.
+    Si hay mismatch filename/track, avisa y excluye las opciones incorrectas del selector.
 
     Args:
         button_name: Nombre del botón de estado (ej: "Corrections", "Rev Dir", etc.)
@@ -2423,8 +2427,33 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
     """
     debug_print(f"push_from_selected_clips iniciado: estado='{button_name}'")
 
+    # Imports locales (lazy) para evitar problemas de inicialización Qt al cargar el módulo.
+    from LGA_NKS_Shared.LGA_NKS_TaskSelectionDialog import (
+        resolve_task_with_mismatch_check,
+        track_for_task,
+    )
+
+    # Resolver la task a usar mediante el selector compartido (con chequeo de mismatch).
+    # Esto muestra el diálogo de mismatch si hay clips con filename/track inconsistentes,
+    # y luego pide elegir task si hay más de una válida en el playhead.
+    seq = hiero.ui.activeSequence()
+    if not seq:
+        debug_print("Push cancelado: no hay secuencia activa")
+        return False
+
+    resolved_task = resolve_task_with_mismatch_check(
+        seq, extract_task_name, clean_base_name,
+        title="Push — Seleccionar task"
+    )
+    if resolved_task is None:
+        debug_print("Push cancelado: no se seleccionó ninguna task")
+        return False
+
+    task_track = track_for_task(resolved_task)
+    debug_print(f"Task resuelta para push: '{resolved_task}' → track '{task_track}'")
+
     # Regla de prioridad:
-    # 1. Si hay selección explícita del usuario, respetarla y filtrar por TASK_EXR_TRACKS.
+    # 1. Si hay selección explícita del usuario, filtrar al track de la task resuelta.
     # 2. Solo si no hay selección explícita, usar la lógica por playhead / método híbrido.
     explicitly_selected_clips = get_selected_clips()
     debug_print(f"Selección explícita detectada: {len(explicitly_selected_clips)} clip(s)")
@@ -2434,30 +2463,29 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
     all_clips = []
     if explicitly_selected_clips:
         for clip in explicitly_selected_clips:
-            track_name = clip.parentTrack().name() if clip.parentTrack() else ""
-            if track_name in TASK_EXR_TRACKS:
+            clip_track_name = clip.parentTrack().name() if clip.parentTrack() else ""
+            if clip_track_name == task_track:
                 all_clips.append(clip)
                 debug_print(
                     f"Clip seleccionado aceptado por track task: {_describe_clip_for_log(clip)}"
                 )
             else:
                 debug_print(
-                    f"Clip seleccionado descartado por track no-task: {_describe_clip_for_log(clip)}"
+                    f"Clip seleccionado descartado (track '{clip_track_name}' ≠ '{task_track}'): {_describe_clip_for_log(clip)}"
                 )
     else:
         debug_print(
-            "No hay selección explícita. Se busca clip(s) por playhead/método híbrido en TASK_EXR_TRACKS."
+            f"No hay selección explícita. Se busca clip(s) por playhead/método híbrido en '{task_track}'."
         )
-        for task_track in TASK_EXR_TRACKS:
-            track_clips = get_clips_to_process(
-                track_name=task_track, prioritize_multiple_selection=True
-            )
-            debug_print(
-                f"Track '{task_track}': método híbrido devolvió {len(track_clips)} clip(s)"
-            )
-            for idx, clip in enumerate(track_clips, start=1):
-                debug_print(f"  [híbrido {task_track} #{idx}] {_describe_clip_for_log(clip)}")
-            all_clips.extend(track_clips)
+        track_clips = get_clips_to_process(
+            track_name=task_track, prioritize_multiple_selection=True
+        )
+        debug_print(
+            f"Track '{task_track}': método híbrido devolvió {len(track_clips)} clip(s)"
+        )
+        for idx, clip in enumerate(track_clips, start=1):
+            debug_print(f"  [híbrido {task_track} #{idx}] {_describe_clip_for_log(clip)}")
+        all_clips.extend(track_clips)
 
     # Deduplicar por id (por si algún clip aparece en múltiples llamadas)
     seen_ids = set()
@@ -2472,20 +2500,6 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
     debug_print(f"Clips candidatos luego de deduplicar: {len(clips)}")
     for idx, clip in enumerate(clips, start=1):
         debug_print(f"  [candidato {idx}] {_describe_clip_for_log(clip)}")
-
-    # Advertir al usuario si hay clips cuya task en el filename no coincide con el track.
-    # Solo informa: no bloquea ni modifica el push.
-    try:
-        seq_for_mismatch = hiero.ui.activeSequence()
-        if seq_for_mismatch:
-            task_mismatches = collect_task_mismatches(
-                clips, seq_for_mismatch, TASK_EXR_TRACKS, extract_task_name, clean_base_name
-            )
-            if task_mismatches:
-                debug_print(f"Task/Track mismatches detectados: {len(task_mismatches)}")
-                show_task_mismatch_warning(task_mismatches)
-    except Exception as e:
-        debug_print(f"Error detectando task mismatches: {e}")
 
     if not clips:
         msg = QMessageBox()
@@ -2544,32 +2558,7 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
         msg.exec_()
         return False
 
-    # Si hay clips de múltiples tasks, preguntar al usuario a cuál aplicar el status
-    task_names_in_clips = set()
-    for clip, fp, en in valid_clips:
-        en_processed = en.replace(".%", "_%")
-        task = extract_task_name(clean_base_name(en_processed))
-        if task:
-            task_names_in_clips.add(task.lower())
-
-    if len(task_names_in_clips) > 1:
-        debug_print(f"Múltiples tasks detectadas: {task_names_in_clips}")
-        selected_tasks = _show_task_selection_dialog(button_name, task_names_in_clips)
-        if selected_tasks is None:
-            debug_print("Usuario canceló la selección de task")
-            return False
-        # Filtrar valid_clips a solo las tasks seleccionadas
-        filtered = []
-        for clip, fp, en in valid_clips:
-            en_processed = en.replace(".%", "_%")
-            task = extract_task_name(clean_base_name(en_processed))
-            if task and task.lower() in selected_tasks:
-                filtered.append((clip, fp, en))
-        valid_clips = filtered
-        if not valid_clips:
-            return False
-
-    debug_print(f"Clips finales a procesar: {len(valid_clips)}")
+    debug_print(f"Task resuelta '{resolved_task}': clips finales a procesar: {len(valid_clips)}")
     for idx, (clip, _fp, _en) in enumerate(valid_clips, start=1):
         debug_print(f"  [final {idx}] {_describe_clip_for_log(clip)}")
 

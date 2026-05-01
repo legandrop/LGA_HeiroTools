@@ -693,8 +693,10 @@ class ColorChangeWidget(QtWidgets.QWidget):
 
     def change_clip_color_and_push_status(self, color, button_name):
         """
-        Usa el método centralizado para obtener clips del track TRACK_comp_EXR.
-        Cambia el color de los clips válidos y luego ejecuta el push.
+        Ejecuta el push usando el método centralizado. La resolución de task y la
+        recopilación de clips se delegan a push_from_selected_clips (que usa el
+        TaskSelectionDialog para elegir la task activa en el playhead).
+        El color del clip se cambia SOLO si el push es exitoso (vía callback).
         """
         try:
             # Importar el módulo Push para usar el método centralizado
@@ -717,85 +719,33 @@ class ColorChangeWidget(QtWidgets.QWidget):
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
 
-            # Importar el módulo utilitario para obtener clips
-            from pathlib import Path
+            # Definir callback que cambia el color SOLO después de push exitoso
+            def change_color_callback(clip, base_name, exr_name):
+                """Callback que cambia el color del clip después de push exitoso"""
+                try:
+                    project = (
+                        hiero.core.projects()[0] if hiero.core.projects() else None
+                    )
+                    if project:
+                        project.beginUndo("Change Clip Color")
+                        try:
+                            bin_item = clip.source().binItem()
+                            if bin_item:
+                                active_version = bin_item.activeVersion()
+                                if active_version:
+                                    bin_item.setColor(color)
+                                    debug_print(
+                                        f"Color cambiado para clip (después de push exitoso): {exr_name}"
+                                    )
+                        finally:
+                            project.endUndo()
+                except Exception as e:
+                    debug_print(f"Error cambiando color del clip {exr_name}: {e}")
 
-            utils_path = Path(__file__).parent / "LGA_NKS_Shared"
-            if not utils_path.exists():
-                debug_print("ERROR: No se encontró el módulo LGA_NKS_Shared")
-                return
-
-            import sys
-
-            sys.path.insert(0, str(utils_path))
-            from LGA_NKS_Shared.LGA_NKS_GetClip import get_clips_to_process
-
-            # Obtener clips usando el método centralizado (Método 2 híbrido)
-            # ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
-            clips = get_clips_to_process(
-                track_name=None, prioritize_multiple_selection=True
-            )
-
-            if not clips:
-                debug_print("No se encontraron clips para procesar")
-                return
-
-            # Filtrar clips válidos (sin cambiar color todavía)
-            valid_clips_with_info = []
-            for clip in clips:
-                if isinstance(clip, hiero.core.EffectTrackItem):
-                    continue
-
-                if not clip.source().mediaSource().isMediaPresent():
-                    continue
-
-                fileinfos = clip.source().mediaSource().fileinfos()
-                if not fileinfos:
-                    continue
-
-                file_path = fileinfos[0].filename()
-                exr_name = os.path.basename(file_path)
-
-                # Filtrar solo clips que contengan "_comp_" o "_cmp_"
-                if "_comp_" not in exr_name.lower() and "_cmp_" not in exr_name.lower():
-                    continue
-
-                # Guardar información del clip para el push
-                valid_clips_with_info.append((clip, exr_name))
-
-            # Si hay clips válidos, ejecutar el push usando el método centralizado
-            if valid_clips_with_info:
-                # Definir callback que cambia el color SOLO después de push exitoso
-                def change_color_callback(clip, base_name, exr_name):
-                    """Callback que cambia el color del clip después de push exitoso"""
-                    try:
-                        project = (
-                            hiero.core.projects()[0] if hiero.core.projects() else None
-                        )
-                        if project:
-                            project.beginUndo("Change Clip Color")
-                            try:
-                                bin_item = clip.source().binItem()
-                                if bin_item:
-                                    active_version = bin_item.activeVersion()
-                                    if active_version:
-                                        bin_item.setColor(color)
-                                        debug_print(
-                                            f"Color cambiado para clip (después de push exitoso): {exr_name}"
-                                        )
-                            finally:
-                                project.endUndo()
-                    except Exception as e:
-                        debug_print(f"Error cambiando color del clip {exr_name}: {e}")
-
-                # Usar la nueva función push_from_selected_clips con callback
-                result = module.push_from_selected_clips(
-                    button_name, change_color_callback
-                )
-                if not result:
-                    debug_print("Push cancelado o fallido")
-            else:
-                debug_print("No se encontraron clips válidos de composición")
+            # La task se resuelve internamente en push_from_selected_clips
+            result = module.push_from_selected_clips(button_name, change_color_callback)
+            if not result:
+                debug_print("Push cancelado o fallido")
 
         except Exception as e:
             debug_print(f"Error durante la operacion: {e}")
@@ -805,78 +755,11 @@ class ColorChangeWidget(QtWidgets.QWidget):
 
     def confirm_status_application(self, status):
         """
-        Confirma la aplicación del estado si hay más de 4 clips.
-        Usa el método centralizado para obtener clips del track TRACK_comp_EXR.
+        La confirmación para más de 4 clips es manejada internamente por
+        push_from_selected_clips (después de resolver la task activa).
+        Este método siempre retorna True para no bloquear el flujo.
         """
-        try:
-            # Importar el módulo utilitario para obtener clips
-            from pathlib import Path
-
-            utils_path = Path(__file__).parent / "LGA_NKS_Shared"
-            if not utils_path.exists():
-                # Fallback al método antiguo si no existe el módulo
-                seq = hiero.ui.activeSequence()
-                if seq:
-                    te = hiero.ui.getTimelineEditor(seq)
-                    selected_items = te.selection()
-                    if len(selected_items) > 4:
-                        msg = QtWidgets.QMessageBox()
-                        msg.setIcon(QtWidgets.QMessageBox.Question)
-                        msg.setWindowTitle("Confirm Status Application")
-                        msg.setText(
-                            f"Are you sure you want to apply the status '{status}' to {len(selected_items)} clips?"
-                        )
-                        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-                        result = msg.exec_()
-                        return result == QMessageBox.Yes
-                return True
-
-            import sys
-
-            sys.path.insert(0, str(utils_path))
-            from LGA_NKS_Shared.LGA_NKS_GetClip import get_clips_to_process
-
-            # Obtener clips usando el método centralizado (Método 2 híbrido)
-            # ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
-            clips = get_clips_to_process(
-                track_name=None, prioritize_multiple_selection=True
-            )
-
-            if not clips:
-                return True
-
-            # Filtrar solo clips válidos de composición
-            valid_clips = []
-            for clip in clips:
-                if isinstance(clip, hiero.core.EffectTrackItem):
-                    continue
-                if not clip.source().mediaSource().isMediaPresent():
-                    continue
-                fileinfos = clip.source().mediaSource().fileinfos()
-                if not fileinfos:
-                    continue
-                file_path = fileinfos[0].filename()
-                exr_name = os.path.basename(file_path)
-                if "_comp_" not in exr_name.lower() and "_cmp_" not in exr_name.lower():
-                    continue
-                valid_clips.append(clip)
-
-            if len(valid_clips) > 4:
-                msg = QtWidgets.QMessageBox()
-                msg.setIcon(QtWidgets.QMessageBox.Question)
-                msg.setWindowTitle("Confirm Status Application")
-                msg.setText(
-                    f"¿Estás seguro de que quieres aplicar el estado '{status}' a {len(valid_clips)} clips?"
-                )
-                msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-                result = msg.exec_()
-                return result == QMessageBox.Yes
-
-            return True
-        except Exception as e:
-            debug_print(f"Error en confirm_status_application: {e}")
-            # En caso de error, permitir la operación
-            return True
+        return True
 
     def adjust_columns_on_resize(self, event=None):
         viewport_width = self.scroll_area.viewport().width() if self.scroll_area else self.width()

@@ -211,6 +211,34 @@ QtCore.QTimer.singleShot(500, self.start_scan)  # 500ms delay
 
 **Resultado:** El threading funciona correctamente en Nuke 16 después de esperar a que Qt esté completamente inicializado.
 
+### Problema resuelto: Incompatibilidad SIP/PySide2 al usar hiero.ui.mainWindow() como parent de QDialog
+
+**Problema identificado:** En PySide2 (Nuke 15), el objeto devuelto por `hiero.ui.mainWindow()` es un wrapper SIP de Hiero cuyo tipo interno no es compatible con el sistema de tipos de PySide2 cuando se pasa como `parent` al constructor de `QDialog` o `QWidget`. Esto genera el error "QWidget: Must construct a QApplication before a QWidget" aunque QApplication exista y esté activa.
+
+**Comportamiento diferenciado:**
+- **Nuke 15 (PySide2):** `QDialog(hiero.ui.mainWindow())` → crash con "QWidget: Must construct a QApplication before a QWidget"
+- **Nuke 16 (PySide6):** `QDialog(hiero.ui.mainWindow())` → funciona correctamente (conversión de tipos más robusta en Qt6)
+
+**Ejemplo con `LGA_NKS_TaskSelectionDialog.py` y `LGA_NKS_TaskMismatchDialog.py`:**
+- **❌ Código problemático:**
+  ```python
+  parent = hiero.ui.mainWindow()
+  dialog = QDialog(parent)  # Crash en PySide2
+  ```
+
+- **✅ Código correcto (usa PYSIDE_VER del adaptador):**
+  ```python
+  from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import PYSIDE_VER
+  def _get_hiero_main_window():
+      if PYSIDE_VER < 6:
+          return None  # Evitar incompatibilidad SIP/PySide2
+      # ... obtener window solo en PySide6
+  ```
+
+**Solución implementada:** En `_get_hiero_main_window()` de `LGA_NKS_TaskSelectionDialog.py`, retornar `None` cuando `PYSIDE_VER < 6`, usando `PYSIDE_VER` del adaptador `LGA_QtAdapter_HieroTools`. Los diálogos se crean sin parent en PySide2 (seguro y funcional) y con parent en PySide6 (correcto y bien parentado).
+
+**Lección aprendida:** Nunca pasar `hiero.ui.mainWindow()` como parent de QWidget/QDialog en código que deba funcionar con PySide2. Usar siempre `PYSIDE_VER` para condicionar este comportamiento.
+
 ### Problema resuelto: QShortcut movido entre módulos en PySide6
 **Problema identificado:** `QShortcut` se movió de `QtWidgets` a `QtGui` en PySide6.
 
