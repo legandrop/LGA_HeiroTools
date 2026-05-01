@@ -56,47 +56,16 @@ Helpers involucrados en `LGA_NKS_Flow_Shot_info.py`:
 
 `should_redirect_to_playlist_shot_info()` decide si la ejecucion se delega al Playlist Shot Info. Condicion: prefijo de proyecto != prefijo de clip Y (Playlist Panel registrado O usuario Master segun `LGA_NKS_Playlist_Panel_Permissions.is_current_user_master`).
 
-## Prototipo standalone para iterar la UI
+## Nota sobre prototipos standalone
 
-Para trabajar la UI sin tener que abrir Nuke, existe un script standalone:
+El prototipo standalone `_prototype_shot_info.py` fue eliminado.
 
-- [LGA_NKS_Flow_Panel_py/_prototype_shot_info.py](../LGA_NKS_Flow_Panel_py/_prototype_shot_info.py)
+No reinstalar `PySide6`/`shiboken6` en `miniconda` ni en el user-site de Python para iterar esta UI. En Hiero/Nuke 15 eso puede contaminar el runtime Qt del host y provocar crash al abrir.
 
-Que hace:
-
-- Replica la UI del `FlowNotesPopover` de PipeSync 2 (`src/features/shots/components/FlowNotesPopover.cpp` y `resources/styles/flow_notes.qss`).
-- Usa **datos hardcodeados** del shot `ERSO_000_320` (task `Comp`), tomados de `pipesync.db`. No toca DB ni Nuke.
-- Permite renderizar a PNG (`--screenshot preview.png`) o abrir la ventana interactiva.
-
-Como ejecutar:
-
-```
-"C:/Users/leg4-pc/miniconda3/python.exe" _prototype_shot_info.py --screenshot preview.png
-"C:/Users/leg4-pc/miniconda3/python.exe" _prototype_shot_info.py
-```
-
-### Dependencia temporal: PySide6
-
-Para correr el prototipo se instalo `PySide6` en el python de miniconda con:
-
-```
-"C:/Users/leg4-pc/miniconda3/python.exe" -m pip install --user PySide6
-```
-
-> **TODO recordatorio**: cuando terminemos de iterar la UI y portemos los cambios al modulo productivo `LGA_NKS_Flow_Shot_info.py` (que usa el adapter `LGA_QtAdapter_HieroTools` para Hiero), **desinstalar `PySide6` del miniconda**:
->
-> ```
-> "C:/Users/leg4-pc/miniconda3/python.exe" -m pip uninstall -y PySide6 PySide6-Essentials PySide6-Addons shiboken6
-> ```
->
-> Y borrar tambien el script `_prototype_shot_info.py` y los `preview_*.png` generados.
-
-### Notas sobre el rendering offscreen
-
-El prototipo NO usa `QT_QPA_PLATFORM=offscreen` porque en Windows ese plugin no carga las fonts del sistema y todo aparece como cajitas. En su lugar, el modo screenshot mueve la ventana a `(-3000, -3000)` y la captura con `widget.grab()`.
+La UI productiva debe ejecutarse dentro de Hiero usando `LGA_QtAdapter_HieroTools`, que resuelve el binding Qt compatible con la version activa del host.
 
 ## Pendiente
 
-- Portar el resultado del prototipo al modulo productivo `LGA_NKS_Flow_Shot_info.py` una vez validada la UI.
+- Mantener la UI productiva dentro de Hiero mediante `LGA_QtAdapter_HieroTools`; no usar prototipos standalone con PySide externo.
 - Sumar la consulta a `task_timelogs` para calcular `Time logged` por version (regex `v0*N` en `description`, sumar `duration` en minutos).
 - Filtrar tambien notas duplicadas por `content` exacto (segun PipeSync hace en `displayedNoteContents`).

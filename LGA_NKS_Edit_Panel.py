@@ -241,6 +241,7 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
             ("Fix Colorspaces", self.fix_colorspaces, "#434c41", None, "Detecta y corrige clips con colorspace rec709 o gamma2.2"),
             ("New Video Track", self.create_new_track, "#263b23", None, "Crea un nuevo track de video encima del track seleccionado"),
             ("Set Shot Name", self.set_shot_name, "#453434", None, "Establece el nombre del shot basándose en la ruta del archivo"),
+            ("Create v000", self.create_v000, "#453434", None, "Abre el validador para preparar una secuencia negra v000 del shot activo"),
             ("Extend &Edit", self.extend_edit_to_playhead, "#453434", "Alt+E", "Alt+E\nExtiende el punto de salida del clip hasta el playhead (cambiando su velocidad)"),
             ("Trim &In", self.trim_in, "#453434", "Alt+[", "Alt+[\nTrimea el IN del clip a la posicion del playhead"),
             ("Trim &Out", self.trim_out, "#453434", "Alt+]", "Alt+]\nTrimea el OUT del clip a la posicion del playhead"),
@@ -647,6 +648,22 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
                     debug_print_b(">>> Error al ejecutar Set Shot Name script")
         except Exception as e:
             debug_print_b(f"Error durante la ejecución de Set Shot Name: {e}")
+            import traceback
+            debug_print_b(traceback.format_exc())
+
+    ###### Create v000
+    def create_v000(self):
+        """Abre el dialogo Create v000 para validar parametros del shot activo."""
+        debug_print_b("\n>>> Ejecutando Create v000 dialog...")
+
+        try:
+            result = self.execute_external_script("LGA_NKS_CreateV000.py")
+            if result:
+                debug_print_b(">>> Create v000 dialog completado")
+            else:
+                debug_print_b(">>> Error al ejecutar Create v000 dialog")
+        except Exception as e:
+            debug_print_b(f"Error durante la ejecucion de Create v000: {e}")
             import traceback
             debug_print_b(traceback.format_exc())
 
