@@ -1,10 +1,11 @@
 """
 __________________________________________________________________
 
-  LGA_NKS_Flow_Shot_info v1.88 | Lega
+  LGA_NKS_Flow_Shot_info v1.89 | Lega
   Imprime informacion del shot y las versiones de la task seleccionada
   (comp, roto o cleanup) en el playhead.
 
+  v1.89: Identacion comentarios, comentarios de playlist, colores de nombres de usuario
   v1.88: UI unificada con la de PipeSync (FlowNotesPopover).
          - Titulo: shot_code | task_type | assignee.
          - Header morado por version con "vNNN | subida X | por Y" y
@@ -372,6 +373,86 @@ def _html_escape(text):
         .replace("<", "&lt;")
         .replace(">", "&gt;")
     )
+
+
+# --------------------------------------------------------------------------- #
+# Colores de autores en notas (port de ShotCard_UI.cpp / getAssigneeReadableTextColor)
+# --------------------------------------------------------------------------- #
+_FALLBACK_USER_COLORS = {
+    "lega pugliese":     "#50214A",
+    "sebas romano":      "#4A2D3C",
+    "mariel falco":      "#3C3809",
+    "patricio barreiro": "#114829",
+    "matias moretti":    "#291148",
+    "ignacio jamilis":   "#481111",
+}
+_USER_COLOR_FEDE_BLESA = "#b084ff"
+_USER_COLOR_UNKNOWN    = "#d6c94a"
+
+
+def _load_user_colors_from_json():
+    """Carga colores desde LGA_NKS_Flow_Users.json (mismo archivo que el panel Assignee)."""
+    json_path = Path(__file__).parent.parent / "LGA_NKS_Flow_Users.json"
+    colors = {}
+    try:
+        if json_path.exists():
+            with open(json_path, encoding="utf-8") as fh:
+                data = json.load(fh)
+            for entry in data.get("users", []):
+                name   = (entry.get("name")        or "").strip()
+                wasabi = (entry.get("wasabi_user")  or "").strip()
+                hex_c  = (entry.get("color")        or "").strip()
+                if not hex_c or not hex_c.startswith("#"):
+                    continue
+                if name:
+                    colors[name.casefold()] = hex_c
+                if wasabi:
+                    colors[wasabi.casefold()] = hex_c
+    except Exception as exc:
+        debug_print(f"Error cargando LGA_NKS_Flow_Users.json: {exc}", level="warning")
+    return colors
+
+
+# Cargar una sola vez al importar el modulo
+_USER_COLORS = _load_user_colors_from_json()
+
+
+def _get_user_text_color(user_name):
+    """Devuelve color CSS legible para un autor (port de getAssigneeReadableTextColor).
+
+    Reglas:
+    - Fede Blesa: siempre #b084ff.
+    - Buscar en JSON; si no, en fallback hardcodeado.
+    - Si no se encuentra: amarillo #d6c94a.
+    - El color base se aclara iterativamente hasta brillo percibido >= 155.
+    """
+    if not user_name:
+        return _USER_COLOR_UNKNOWN
+    normalized = user_name.strip().casefold()
+    if normalized == "fede blesa":
+        return _USER_COLOR_FEDE_BLESA
+    base_hex = _USER_COLORS.get(normalized) or _FALLBACK_USER_COLORS.get(normalized)
+    if not base_hex:
+        return _USER_COLOR_UNKNOWN
+    color = QColor(base_hex)
+    if not color.isValid():
+        return _USER_COLOR_UNKNOWN
+    for _ in range(50):
+        brightness = (color.red() * 299 + color.green() * 587 + color.blue() * 114) // 1000
+        if brightness >= 155:
+            break
+        color = color.lighter(118)
+        if color.red() >= 245 and color.green() >= 245 and color.blue() >= 245:
+            break
+    return color.name()
+
+
+def _user_name_span(user_name):
+    """Nombre de usuario coloreado como <span> HTML (port de userColorSpan() de C++)."""
+    safe = _html_escape((user_name or "").strip())
+    if not safe:
+        return ""
+    return f"<span style='color: {_get_user_text_color(user_name)};'>{safe}</span>"
 
 
 def _parse_pipesync_datetime(value):
@@ -793,7 +874,8 @@ class ShotGridManager:
             for v in versions:
                 # Obtener comentarios/notas de la version con información de attachments
                 cur.execute(
-                    "SELECT content, created_by, created_on, local_attachment_paths, attachment_info "
+                    "SELECT content, created_by, created_on, local_attachment_paths, "
+                    "attachment_info, from_playlist, playlist_name "
                     "FROM version_notes WHERE version_id = ? ORDER BY created_on ASC",
                     (v["id"],),
                 )
@@ -838,6 +920,8 @@ class ShotGridManager:
                             "date": n["created_on"],
                             "attachments": attachment_paths,
                             "attachment_info": n["attachment_info"] or "",
+                            "from_playlist": bool(n["from_playlist"] or 0),
+                            "playlist_name": n["playlist_name"] or "",
                         }
                     )
                 version_dict = {
@@ -1146,7 +1230,7 @@ class GUIWindow(QWidget):
         if author:
             title_html += (
                 f"<span style='color: {COLORS['txt_desc_meta']}; font-size: 14px;'>"
-                f"&nbsp;(por {_html_escape(author)})</span>"
+                f"&nbsp;(por {_user_name_span(author)})</span>"
             )
         title_label = QLabel(title_html)
         title_label.setObjectName("flowVersionDescriptionTitle")
@@ -1193,23 +1277,31 @@ class GUIWindow(QWidget):
         w = QWidget()
         w.setObjectName("flowVersionComment")
         wl = QVBoxLayout(w)
-        wl.setContentsMargins(0, 0, 0, 8)
+        wl.setContentsMargins(24, 0, 0, 8)
         wl.setSpacing(0)
 
         author = (comment.get("user") or "").strip()
         n_dt = _parse_pipesync_datetime(comment.get("date"))
         date_str = _format_friendly_date(n_dt, include_time=True)
 
+        from_playlist = comment.get("from_playlist", False)
+        playlist_name = (comment.get("playlist_name") or "").strip()
+
+        meta_parts = _user_name_span(author) + f", {_html_escape(date_str)}"
+        if from_playlist:
+            pname = _html_escape(playlist_name) if playlist_name else "Playlist"
+            meta_parts += f", {pname}"
+
         header_html = (
             f"<span style='color: {COLORS['txt_desc_title']}; font-size: 15px; font-weight: 700;'>Comentario:</span>"
             f"<span style='color: {COLORS['txt_desc_meta']}; font-size: 14px;'>"
-            f"&nbsp;(por {_html_escape(author)}, {_html_escape(date_str)})</span>"
+            f"&nbsp;(por {meta_parts})</span>"
         )
         header_label = QLabel(header_html)
         header_label.setObjectName("flowVersionCommentHeader")
         header_label.setTextFormat(Qt.RichText)
         header_label.setWordWrap(True)
-        header_label.setContentsMargins(8, 8, 0, 0)
+        header_label.setContentsMargins(0, 8, 0, 0)
         wl.addWidget(header_label)
         wl.addSpacing(6)
 
@@ -1221,7 +1313,7 @@ class GUIWindow(QWidget):
             content_label.setObjectName("flowVersionCommentContent")
             content_label.setTextFormat(Qt.RichText)
             content_label.setWordWrap(True)
-            content_label.setContentsMargins(32, 0, 0, 0)
+            content_label.setContentsMargins(16, 0, 0, 0)
             wl.addWidget(content_label)
 
         # Attachments con frame info
@@ -1258,7 +1350,7 @@ class GUIWindow(QWidget):
         thumbs_w = QWidget()
         thumbs_w.setObjectName("flowVersionCommentThumbnails")
         tl = QHBoxLayout(thumbs_w)
-        tl.setContentsMargins(32, 8, 0, 8)
+        tl.setContentsMargins(16, 8, 0, 8)
         tl.setSpacing(8)
 
         valid_idx = 0
