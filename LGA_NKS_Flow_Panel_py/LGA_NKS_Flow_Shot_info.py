@@ -1,9 +1,14 @@
 """
 __________________________________________________________________
 
-  LGA_NKS_Flow_Shot_info v1.85 | Lega
-  Imprime informacion del shot y las versiones de la task comp
-  
+  LGA_NKS_Flow_Shot_info v1.86 | Lega
+  Imprime informacion del shot y las versiones de la task seleccionada
+  (comp, roto o cleanup) en el playhead.
+
+  v1.86: Soporte multi-task. Si el playhead atraviesa clips de varias tasks
+         (TASK_EXR_TRACKS), muestra el popover compartido `LGA_NKS_TaskSelectionDialog`
+         para que el usuario elija. Antes pedía siempre la task 'comp', así que
+         nunca mostraba descripción/notas de roto o cleanup.
   v1.85: Actualizado para usar las clases del adapter para compatibilidad PySide2/6
   
   V1.84: Actualizado para ser compatible con ambos sistemas de nomenclatura:
@@ -161,6 +166,10 @@ if utils_path.exists():
         sys.path.insert(0, str(utils_path))
         from LGA_NKS_Shared.LGA_NKS_GetClip import get_clip_to_process, get_selected_clips
         from LGA_NKS_Shared import LGA_NKS_GetClip as clip_utils
+        from LGA_NKS_Shared.LGA_NKS_TaskSelectionDialog import (
+            resolve_task_at_playhead,
+            track_for_task,
+        )
         HAS_CLIP_UTILS = True
     except ImportError as e:
         debug_print(f"Error importando módulo LGA_NKS_GetClip: {e}")
@@ -539,30 +548,42 @@ class HieroOperations:
         return base_name, version_number
 
     def process_selected_clips(self):
-        """Procesa primero el clip en playhead del track TRACK_comp_EXR y, si no existe, la seleccion.
-        Usa el módulo utilitario centralizado LGA_NKS_GetClip.
+        """Procesa el clip del playhead resolviendo la task entre las disponibles.
+
+        Si en el playhead hay clips de varias tasks (`_comp_`, `_roto_`, `_cleanup_`),
+        muestra un popover para elegir cuál mostrar. Si hay una sola, la usa
+        automáticamente. Si no hay clip en ninguna, cae al método actual con
+        TRACK_comp_EXR y selección como fallback.
         """
         debug_print("Processing selected clips...")
-        
+
         if not HAS_CLIP_UTILS:
             debug_print("ERROR: Módulo LGA_NKS_GetClip no disponible. No se pueden procesar clips.")
             return []
-        
-        # Usar módulo utilitario para obtener clip (método híbrido)
-        # ⚠️ IMPORTANTE: Usar track_name=None para respetar TRACK_comp_EXR del módulo
-        playhead_clip = get_clip_to_process(track_name=None)
-        
+
+        seq = hiero.ui.activeSequence()
+        resolved_task = resolve_task_at_playhead(seq, title="Select task") if seq else None
+        debug_print(f"Task resuelta para Shot_info: {resolved_task}")
+
+        if resolved_task:
+            target_track = track_for_task(resolved_task)
+            playhead_clip = get_clip_to_process(track_name=target_track)
+        else:
+            playhead_clip = get_clip_to_process(track_name=None)
+
         if playhead_clip:
             clips_to_process = [playhead_clip]
             debug_print(
-                ">>> Usando clip del playhead en track TRACK_comp_EXR; fallback a seleccion si no hay"
+                f">>> Usando clip del playhead. resolved_task='{resolved_task}'"
             )
         else:
-            # Fallback a selección usando módulo utilitario
             clips_to_process = get_selected_clips()
             debug_print(
-                ">>> No hay clip en playhead sobre TRACK_comp_EXR; usando clips seleccionados como fallback"
+                ">>> No hay clip en playhead; usando clips seleccionados como fallback"
             )
+
+        # Task name a usar en find_task: la resuelta del playhead, o 'comp' por compatibilidad
+        active_task_name = resolved_task or "comp"
 
         results = []
         if not clips_to_process:
@@ -609,8 +630,8 @@ class HieroOperations:
 
             QCoreApplication.processEvents()
             if shot:
-                task = self.sg_manager.find_task(shot, "comp")
-                debug_print(f"Task found: {task}")
+                task = self.sg_manager.find_task(shot, active_task_name)
+                debug_print(f"Task found ({active_task_name}): {task}")
                 task_description = (
                     task["task_description"] if task else "No info available"
                 )

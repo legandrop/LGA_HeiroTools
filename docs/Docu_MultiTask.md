@@ -74,7 +74,7 @@ Nada pendiente.
 |---|---|---|---|---|---|---|
 | [LGA_NKS_Flow_Pull.py](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py) | ✅ | ✅ | ✅ | — | — | — |
 | [LGA_NKS_Flow_Push.py](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py) | ✅ | ✅ | 🟡 | — | — | — |
-| [LGA_NKS_Flow_Shot_info.py](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Shot_info.py) | ✅ | ❓ | ❓ | — | — | — |
+| [LGA_NKS_Flow_Shot_info.py](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Shot_info.py) | ✅ | ✅ | ✅ | — | — | — |
 | [LGA_NKS_ReviewPic.py](../LGA_NKS_Flow_Panel_py/LGA_NKS_ReviewPic.py) | ✅ | ❓ | ❓ | — | — | — |
 
 **Flow Pull — notas:**
@@ -87,7 +87,11 @@ Nada pendiente.
 - Para cleanup: apenas se agregue a `TASK_EXR_TRACKS` (ya hecho), Push lo detecta automáticamente. Pendiente validar con timeline real.
 - [Flow_Push.py:839](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py:839) tiene `get_comp_assignee()` que busca siempre la task "comp" del shot para decidir el assignee. → **Pendiente revisar:** definir si el assignee del shot debe venir siempre de comp o depender de la task activa.
 
-**Flow Shot_info y ReviewPic:** no auditados en detalle. Posibles hardcodes a revisar.
+**Flow Shot_info — notas:**
+- v1.86 resolvió el hardcode a `comp`. Antes llamaba siempre a `find_task(shot, "comp")`.
+- Ahora resuelve la task vía el helper compartido [LGA_NKS_Shared/LGA_NKS_TaskSelectionDialog.py](../LGA_NKS_Shared/LGA_NKS_TaskSelectionDialog.py): si el playhead atraviesa clips de varias tasks de `TASK_EXR_TRACKS`, abre un popover con un botón por task.
+
+**Flow ReviewPic:** no auditado en detalle. Posibles hardcodes a revisar; pendiente integrar el mismo helper.
 
 ### 4.3. Review Panel
 
@@ -121,6 +125,29 @@ Nada pendiente.
 ### 4.5. Coordination, Assignee, ViewerTL
 
 No auditados en detalle para este documento. El assignee por task ya funciona en parte porque Flow/SG devuelve assignees por task, pero hay lugares (ej. el `get_comp_assignee` del Push) donde la task está hardcoded a comp. Revisar caso por caso.
+
+## 4.6. Selección de task en herramientas single-task
+
+Algunas herramientas (Shot_info, en el futuro Push y ReviewPic) actúan sobre **una sola task por ejecución**. Para esas herramientas, el helper compartido [LGA_NKS_Shared/LGA_NKS_TaskSelectionDialog.py](../LGA_NKS_Shared/LGA_NKS_TaskSelectionDialog.py) resuelve qué task usar:
+
+- Si el playhead no toca ningún track de task → devuelve `None` (la herramienta cae al fallback histórico, normalmente comp).
+- Si el playhead toca **una sola** task → la devuelve sin mostrar UI.
+- Si el playhead toca **varias** tasks → abre un popover modal "Select task" con un botón por task disponible.
+
+API:
+
+- `get_tasks_at_playhead(seq) -> list[str]`
+- `track_for_task(task_name) -> str | None`
+- `prompt_task_selection(task_names, title) -> str | None`
+- `resolve_task_at_playhead(seq, title) -> str | None`
+
+Estado de adopción:
+
+| Herramienta | Usa el helper |
+|---|---|
+| [Flow_Shot_info.py](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Shot_info.py) | ✅ |
+| [Flow_Push.py](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py) | ❌ (tiene su propio `_show_task_selection_dialog`; pendiente migrar) |
+| [ReviewPic.py](../LGA_NKS_Flow_Panel_py/LGA_NKS_ReviewPic.py) | ❌ (pendiente) |
 
 ## 5. Advertencia de Task / Track Mismatch
 
@@ -158,10 +185,12 @@ Lista de pendientes concretos, en orden sugerido:
 
 1. **Review Panel** — crear wrapper y botón para `ON OFF _cleanup_`.
 2. **Review Panel** — revisar regex hardcoded de `_comp_v` en `LGA_NKS_ON_Clips_OFF_v00-Clips.py`.
-3. **Flow Push** — decidir política del assignee del shot (`get_comp_assignee`) y ajustar si corresponde.
-4. **Edit Panel** — extender MatchVerToEXR y CompareVerToEditref a operar por task iterando `TASK_EXR_TRACKS` / `TASK_REV_TRACKS`.
-5. **Review Panel** — evaluar si EXRTrack_Difference y Compare_Versions deben trabajar por task o seguir siendo comp-only.
-6. **Scripts no auditados** — pasar el filtro de hardcodes por Coordination, Assignee, ViewerTL, Shot_info, ReviewPic.
+3. **Flow Push** — migrar `_show_task_selection_dialog` interno al helper compartido `LGA_NKS_TaskSelectionDialog`.
+4. **Flow Push** — decidir política del assignee del shot (`get_comp_assignee`) y ajustar si corresponde.
+5. **Flow ReviewPic** — auditar hardcodes a comp e integrar `LGA_NKS_TaskSelectionDialog`.
+6. **Edit Panel** — extender MatchVerToEXR y CompareVerToEditref a operar por task iterando `TASK_EXR_TRACKS` / `TASK_REV_TRACKS`.
+7. **Review Panel** — evaluar si EXRTrack_Difference y Compare_Versions deben trabajar por task o seguir siendo comp-only.
+8. **Scripts no auditados** — pasar el filtro de hardcodes por Coordination, Assignee, ViewerTL.
 
 ## 7. Tests manuales sugeridos
 
@@ -196,3 +225,7 @@ Con un timeline que tenga un shot con clips en `_comp_`, `_roto_`, `_cleanup_`, 
 - **Edit Panel:** [LGA_NKS_Edit_Panel_py/LGA_NKS_MatchVerToEXR.py](../LGA_NKS_Edit_Panel_py/LGA_NKS_MatchVerToEXR.py), [LGA_NKS_Edit_Panel_py/LGA_NKS_CompareVerToEditref.py](../LGA_NKS_Edit_Panel_py/LGA_NKS_CompareVerToEditref.py)
 - **Advertencia Task/Track Mismatch:** [LGA_NKS_Shared/LGA_NKS_TaskMismatchDialog.py](../LGA_NKS_Shared/LGA_NKS_TaskMismatchDialog.py)
   - Funciones: `collect_task_mismatches()`, `show_task_mismatch_warning()`
+- **Selección de task en playhead:** [LGA_NKS_Shared/LGA_NKS_TaskSelectionDialog.py](../LGA_NKS_Shared/LGA_NKS_TaskSelectionDialog.py)
+  - Funciones: `get_tasks_at_playhead()`, `track_for_task()`, `prompt_task_selection()`, `resolve_task_at_playhead()`
+- **Flow Shot_info:** [LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Shot_info.py](../LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Shot_info.py)
+  - Métodos: `HieroOperations.process_selected_clips()`

@@ -124,3 +124,6 @@ Los pasos para sumar una task nueva son:
 
 - **Wrapper roto:** [LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableRoto.py](../LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableRoto.py)
   - Función: `main()`
+
+- **Selección de task en playhead (single-task tools):** [LGA_NKS_Shared/LGA_NKS_TaskSelectionDialog.py](../LGA_NKS_Shared/LGA_NKS_TaskSelectionDialog.py)
+  - Funciones: `get_tasks_at_playhead()`, `track_for_task()`, `prompt_task_selection()`, `resolve_task_at_playhead()`
