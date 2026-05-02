@@ -362,8 +362,6 @@ class CreateV000Dialog(QtWidgets.QDialog):
 
         layout.addWidget(self._section_label("FRAME RANGE"))
         layout.addWidget(self._build_plates_table())
-        self.range_label = QtWidgets.QLabel("")
-        layout.addWidget(self.range_label)
 
         layout.addWidget(self._section_label("RESOLUTION"))
         layout.addWidget(self._build_resolution_box())
@@ -397,8 +395,8 @@ class CreateV000Dialog(QtWidgets.QDialog):
 
     def _build_plates_table(self):
         table = QtWidgets.QTableWidget()
-        table.setColumnCount(6)
-        table.setHorizontalHeaderLabels(["Use", "Type", "Track", "TL IN", "TL OUT", "Frames"])
+        table.setColumnCount(5)
+        table.setHorizontalHeaderLabels(["Use", "Track", "TL IN", "TL OUT", "Frames"])
         table.setRowCount(len(self.context["range_sources"]))
         table.verticalHeader().setVisible(False)
         table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
@@ -413,7 +411,6 @@ class CreateV000Dialog(QtWidgets.QDialog):
             self.plate_checks.append((check, plate))
             table.setCellWidget(row, 0, check)
             values = (
-                "editref" if plate["source_type"] == RANGE_SOURCE_EDITREF else "plate",
                 plate["track_name"],
                 str(plate["timeline_in"]),
                 str(plate["timeline_out"]),
@@ -425,7 +422,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
 
         header = table.horizontalHeader()
         header.setStretchLastSection(True)
-        for col in range(5):
+        for col in range(4):
             header.setSectionResizeMode(col, QtWidgets.QHeaderView.ResizeToContents)
 
         row_count = len(self.context["range_sources"])
@@ -611,18 +608,14 @@ class CreateV000Dialog(QtWidgets.QDialog):
             self.warning_label.setText(warning)
             self.create_btn.setEnabled(False)
             self.output_text.setPlainText(warning)
-            self.range_label.setText("")
             return
 
         self.warning_label.setText("")
         self.create_btn.setEnabled(True)
-        self.range_label.setText(
-            "v000 timeline range: {timeline_in} - {timeline_out} ({frame_count} frames)\n"
-            "v000 source range:   {source_first_frame} - {source_last_frame}".format(**params)
-        )
         self.output_text.setPlainText(
             "Path: {output_dir}\n"
             "Name: {output_name_pattern}\n"
+            "Timeline: {timeline_in} - {timeline_out}\n"
             "Frames: {source_first_frame} - {source_last_frame} ({frame_count} frames)\n"
             "Resolution: {0} x {1} ({resolution_source})".format(
                 params["resolution"][0],
