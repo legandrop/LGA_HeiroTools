@@ -360,14 +360,37 @@ class CreateV000Dialog(QtWidgets.QDialog):
         self.warning_label.setWordWrap(True)
         layout.addWidget(self.warning_label)
 
-        layout.addWidget(self._section_label("FRAME RANGE"))
-        layout.addWidget(self._build_plates_table())
+        top_row = QtWidgets.QHBoxLayout()
+        top_row.setSpacing(16)
 
-        layout.addWidget(self._section_label("RESOLUTION"))
-        layout.addWidget(self._build_resolution_box())
+        frame_range_col = QtWidgets.QVBoxLayout()
+        frame_range_col.addWidget(self._section_label("FRAME RANGE"))
+        frame_range_col.addWidget(self._build_plates_table())
+        frame_range_col.addStretch()
+        top_row.addLayout(frame_range_col, 1)
 
-        layout.addWidget(self._section_label("TASK"))
-        layout.addWidget(self._build_task_box())
+        resolution_col = QtWidgets.QVBoxLayout()
+        resolution_col.addWidget(self._section_label("RESOLUTION"))
+        resolution_col.addWidget(self._build_resolution_box())
+        resolution_col.addStretch()
+        top_row.addLayout(resolution_col, 1)
+        layout.addLayout(top_row)
+
+        middle_row = QtWidgets.QHBoxLayout()
+        middle_row.setSpacing(16)
+
+        handle_col = QtWidgets.QVBoxLayout()
+        handle_col.addWidget(self._section_label("HANDLE"))
+        handle_col.addWidget(self._build_handle_box())
+        handle_col.addStretch()
+        middle_row.addLayout(handle_col, 1)
+
+        task_col = QtWidgets.QVBoxLayout()
+        task_col.addWidget(self._section_label("TASK"))
+        task_col.addWidget(self._build_task_box())
+        task_col.addStretch()
+        middle_row.addLayout(task_col, 1)
+        layout.addLayout(middle_row)
 
         layout.addWidget(self._section_label("OUTPUT"))
         self.output_text = QtWidgets.QPlainTextEdit()
@@ -403,13 +426,21 @@ class CreateV000Dialog(QtWidgets.QDialog):
         table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
         table.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         table.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
+        table.setStyleSheet(
+            "QTableWidget::item { padding-left: 10px; padding-right: 10px; }"
+        )
 
         for row, plate in enumerate(self.context["range_sources"]):
             check = QtWidgets.QCheckBox()
             check.setChecked(row == 0)
             check.stateChanged.connect(lambda state, changed_check=check: self._on_range_check_changed(changed_check))
             self.plate_checks.append((check, plate))
-            table.setCellWidget(row, 0, check)
+            check_container = QtWidgets.QWidget()
+            check_layout = QtWidgets.QHBoxLayout(check_container)
+            check_layout.setContentsMargins(0, 0, 0, 0)
+            check_layout.setAlignment(QtCore.Qt.AlignCenter)
+            check_layout.addWidget(check)
+            table.setCellWidget(row, 0, check_container)
             values = (
                 plate["track_name"],
                 str(plate["timeline_in"]),
@@ -421,9 +452,10 @@ class CreateV000Dialog(QtWidgets.QDialog):
                 table.setItem(row, col, item)
 
         header = table.horizontalHeader()
-        header.setStretchLastSection(True)
+        header.setStretchLastSection(False)
         for col in range(4):
             header.setSectionResizeMode(col, QtWidgets.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(4, QtWidgets.QHeaderView.Stretch)
 
         row_count = len(self.context["range_sources"])
         row_height = table.verticalHeader().defaultSectionSize()
@@ -469,6 +501,19 @@ class CreateV000Dialog(QtWidgets.QDialog):
 
         container = QtWidgets.QWidget()
         container.setLayout(box)
+        return container
+
+    def _build_handle_box(self):
+        layout = QtWidgets.QHBoxLayout()
+        self.handle_spin = QtWidgets.QSpinBox()
+        self.handle_spin.setRange(0, 999)
+        self.handle_spin.setValue(4)
+        self.handle_spin.setMinimumWidth(72)
+        layout.addWidget(self.handle_spin)
+        layout.addStretch()
+
+        container = QtWidgets.QWidget()
+        container.setLayout(layout)
         return container
 
     def _build_task_box(self):
