@@ -21,6 +21,8 @@ TASK_FOLDER = {
     "roto": "Roto",
     "cleanup": "Cleanup",
 }
+RANGE_SOURCE_EDITREF = "editref"
+RANGE_SOURCE_PLATE = "plate"
 
 CURRENT_DIR = Path(__file__).resolve().parent
 STARTUP_DIR = CURRENT_DIR.parent
@@ -233,35 +235,58 @@ def _find_clip_at_time(track, current_time):
     return None
 
 
-def _collect_plates(seq, current_time):
+def _is_plate_track(track_name):
+    return bool(re.search(r"plate$", track_name, flags=re.IGNORECASE))
+
+
+def _is_editref_track(track_name):
+    return bool(re.search(r"editref", track_name, flags=re.IGNORECASE))
+
+
+def _range_source_from_clip(track_name, track_index, clip, source_type):
+    media_path = _clip_media_path(clip)
+    width, height = _plate_resolution(clip) if source_type == RANGE_SOURCE_PLATE else (None, None)
+    return {
+        "track_name": track_name,
+        "track_index": track_index,
+        "source_type": source_type,
+        "clip": clip,
+        "clip_name": clip.name(),
+        "timeline_in": int(clip.timelineIn()),
+        "timeline_out": int(clip.timelineOut()),
+        "frame_count": _frame_count(clip.timelineIn(), clip.timelineOut()),
+        "width": width,
+        "height": height,
+        "media_path": media_path,
+    }
+
+
+def _collect_range_sources(seq, current_time):
     tracks = list(seq.videoTracks())
+    editrefs = []
     plates = []
 
     # Hiero usually exposes tracks bottom-to-top; reverse keeps the visual top first.
     for track_index, track in reversed(list(enumerate(tracks))):
         track_name = track.name()
-        if not re.search(r"plate$", track_name, flags=re.IGNORECASE):
+        if _is_editref_track(track_name):
+            source_type = RANGE_SOURCE_EDITREF
+        elif _is_plate_track(track_name):
+            source_type = RANGE_SOURCE_PLATE
+        else:
             continue
+
         clip = _find_clip_at_time(track, current_time)
         if not clip:
             continue
-        media_path = _clip_media_path(clip)
-        width, height = _plate_resolution(clip)
-        plates.append(
-            {
-                "track_name": track_name,
-                "track_index": track_index,
-                "clip": clip,
-                "clip_name": clip.name(),
-                "timeline_in": int(clip.timelineIn()),
-                "timeline_out": int(clip.timelineOut()),
-                "frame_count": _frame_count(clip.timelineIn(), clip.timelineOut()),
-                "width": width,
-                "height": height,
-                "media_path": media_path,
-            }
-        )
-    return plates
+
+        source = _range_source_from_clip(track_name, track_index, clip, source_type)
+        if source_type == RANGE_SOURCE_EDITREF:
+            editrefs.append(source)
+        else:
+            plates.append(source)
+
+    return editrefs + plates, plates
 
 
 def _existing_versions_by_task(seq):
@@ -281,7 +306,9 @@ def _collect_context():
     if current_time is None:
         return None, "No active viewer/playhead."
 
-    plates = _collect_plates(seq, current_time)
+    range_sources, plates = _collect_range_sources(seq, current_time)
+    if not range_sources:
+        return None, "No editref or plate tracks found."
     if not plates:
         return None, "No plate tracks found."
 
@@ -296,6 +323,7 @@ def _collect_context():
         "sequence": seq,
         "shot_code": shot_code,
         "shot_root_path": shot_root,
+        "range_sources": range_sources,
         "plates": plates,
         "timeline_resolution": (width, height),
         "existing_versions_by_task": _existing_versions_by_task(seq),
@@ -307,6 +335,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
         super(CreateV000Dialog, self).__init__(parent)
         self.context = context
         self.plate_checks = []
+        self._syncing_range_checks = False
         self.resolution_buttons = {}
         self.task_buttons = {}
         self.selected_task = None
@@ -368,21 +397,23 @@ class CreateV000Dialog(QtWidgets.QDialog):
 
     def _build_plates_table(self):
         table = QtWidgets.QTableWidget()
-        table.setColumnCount(5)
-        table.setHorizontalHeaderLabels(["Use", "Track", "TL IN", "TL OUT", "Frames"])
-        table.setRowCount(len(self.context["plates"]))
+        table.setColumnCount(6)
+        table.setHorizontalHeaderLabels(["Use", "Type", "Track", "TL IN", "TL OUT", "Frames"])
+        table.setRowCount(len(self.context["range_sources"]))
         table.verticalHeader().setVisible(False)
         table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
         table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
-        table.setMaximumHeight(34 + (len(self.context["plates"]) * 26))
+        table.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        table.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
 
-        for row, plate in enumerate(self.context["plates"]):
+        for row, plate in enumerate(self.context["range_sources"]):
             check = QtWidgets.QCheckBox()
             check.setChecked(row == 0)
-            check.stateChanged.connect(self._update_state)
+            check.stateChanged.connect(lambda state, changed_check=check: self._on_range_check_changed(changed_check))
             self.plate_checks.append((check, plate))
             table.setCellWidget(row, 0, check)
             values = (
+                "editref" if plate["source_type"] == RANGE_SOURCE_EDITREF else "plate",
                 plate["track_name"],
                 str(plate["timeline_in"]),
                 str(plate["timeline_out"]),
@@ -394,8 +425,13 @@ class CreateV000Dialog(QtWidgets.QDialog):
 
         header = table.horizontalHeader()
         header.setStretchLastSection(True)
-        for col in range(4):
+        for col in range(5):
             header.setSectionResizeMode(col, QtWidgets.QHeaderView.ResizeToContents)
+
+        row_count = len(self.context["range_sources"])
+        row_height = table.verticalHeader().defaultSectionSize()
+        table.setMinimumHeight(header.height() + (row_count * row_height) + 10)
+        table.setMaximumHeight(header.height() + (row_count * row_height) + 10)
         return table
 
     def _build_resolution_box(self):
@@ -468,6 +504,30 @@ class CreateV000Dialog(QtWidgets.QDialog):
                 btn.setChecked(True)
                 return
 
+    def _on_range_check_changed(self, changed_check):
+        if self._syncing_range_checks:
+            return
+
+        changed_source = None
+        for check, source in self.plate_checks:
+            if check is changed_check:
+                changed_source = source
+                break
+
+        if changed_check.isChecked() and changed_source:
+            selected_type = changed_source["source_type"]
+            self._syncing_range_checks = True
+            try:
+                for check, source in self.plate_checks:
+                    if check is changed_check:
+                        continue
+                    if source["source_type"] != selected_type:
+                        check.setChecked(False)
+            finally:
+                self._syncing_range_checks = False
+
+        self._update_state()
+
     def _selected_plates(self):
         return [plate for check, plate in self.plate_checks if check.isChecked()]
 
@@ -518,6 +578,13 @@ class CreateV000Dialog(QtWidgets.QDialog):
         return {
             "shot_code": shot_code,
             "task": task,
+            "selected_range_sources": [
+                {
+                    "track_name": p["track_name"],
+                    "source_type": p["source_type"],
+                }
+                for p in plates
+            ],
             "selected_plates": [p["track_name"] for p in plates],
             "timeline_in": timeline_in,
             "timeline_out": timeline_out,
