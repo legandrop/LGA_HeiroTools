@@ -430,8 +430,8 @@ class CreateV000Dialog(QtWidgets.QDialog):
 
         row_count = len(self.context["range_sources"])
         row_height = table.verticalHeader().defaultSectionSize()
-        table.setMinimumHeight(header.height() + (row_count * row_height) + 10)
-        table.setMaximumHeight(header.height() + (row_count * row_height) + 10)
+        table.setMinimumHeight(header.height() + (row_count * row_height) + 2) # extra 2px de altura para que no aparezca el scrollbar (NO CAMBIAR!!)
+        table.setMaximumHeight(header.height() + (row_count * row_height) + 2) # extra 2px de altura para que no aparezca el scrollbar (NO CAMBIAR!!)    
         return table
 
     def _build_resolution_box(self):
