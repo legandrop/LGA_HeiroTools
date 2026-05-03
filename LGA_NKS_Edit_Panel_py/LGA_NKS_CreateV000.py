@@ -348,7 +348,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
         self.selected_resolution = None
 
         self.setWindowTitle("Create v000 - %s" % context["shot_code"])
-        self.setMinimumWidth(620)
+        self.setMinimumWidth(720)
         self.setStyleSheet(
             """
             QDialog {
@@ -365,15 +365,6 @@ class CreateV000Dialog(QtWidgets.QDialog):
         layout = QtWidgets.QVBoxLayout(self)
         layout.setSpacing(10)
 
-        title = QtWidgets.QLabel("Create v000")
-        title_font = QtGui.QFont()
-        title_font.setPointSize(12)
-        title_font.setBold(True)
-        title.setFont(title_font)
-        title.setAlignment(QtCore.Qt.AlignCenter)
-        title.setStyleSheet("color: #CCCCCC; padding: 5px;")
-        layout.addWidget(title)
-
         project_name = self.context.get("project_name") or ""
         shot_code = self.context.get("shot_code") or ""
         if project_name:
@@ -383,14 +374,26 @@ class CreateV000Dialog(QtWidgets.QDialog):
             ) % (project_name, shot_code)
         else:
             info_text = "<span style='color:#B56AB5;'>%s</span>" % shot_code
+
+        header_row = QtWidgets.QHBoxLayout()
         info_label = QtWidgets.QLabel(info_text)
         info_label.setTextFormat(QtCore.Qt.RichText)
-        info_label.setStyleSheet("color: #CCCCCC; padding: 2px 5px 0px 5px;")
-        layout.addWidget(info_label)
+        info_label.setStyleSheet(
+            "color: #CCCCCC; padding: 2px 5px 0px 5px; font-size: 14px; font-weight: bold;"
+        )
+        header_row.addWidget(info_label, 0, QtCore.Qt.AlignLeft)
+        header_row.addStretch()
+        title = QtWidgets.QLabel("Create v000")
+        title.setStyleSheet(
+            "color: #CCCCCC; padding: 2px 5px 0px 5px; font-size: 14px; font-weight: bold;"
+        )
+        header_row.addWidget(title, 0, QtCore.Qt.AlignRight)
+        layout.addLayout(header_row)
 
         self.warning_label = QtWidgets.QLabel("")
         self.warning_label.setStyleSheet("color: #d9a441; padding: 2px 5px;")
         self.warning_label.setWordWrap(True)
+        self.warning_label.setVisible(False)
         layout.addWidget(self.warning_label)
 
         layout.addSpacing(5)
@@ -527,7 +530,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
             }
             QHeaderView::section {
                 background-color: #2B2B2B;
-                color: #CCCCCC;
+                color: #999999;
                 padding: 4px 8px;
                 border: 0px;
                 border-bottom: 1px solid #444444;
@@ -628,6 +631,39 @@ class CreateV000Dialog(QtWidgets.QDialog):
                 padding: 2px 5px;
                 border-radius: 3px;
                 height: 20px;
+            }
+            QSpinBox::up-button {
+                subcontrol-origin: border;
+                subcontrol-position: top right;
+                width: 16px;
+                background-color: #2B2B2B;
+                border-left: 1px solid #333333;
+                border-top-right-radius: 3px;
+            }
+            QSpinBox::down-button {
+                subcontrol-origin: border;
+                subcontrol-position: bottom right;
+                width: 16px;
+                background-color: #2B2B2B;
+                border-left: 1px solid #333333;
+                border-bottom-right-radius: 3px;
+            }
+            QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+                background-color: #333333;
+            }
+            QSpinBox::up-arrow {
+                width: 0px;
+                height: 0px;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-bottom: 5px solid #a7a7a7;
+            }
+            QSpinBox::down-arrow {
+                width: 0px;
+                height: 0px;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-top: 5px solid #a7a7a7;
             }
             """
         )
@@ -788,23 +824,31 @@ class CreateV000Dialog(QtWidgets.QDialog):
             "output_name_pattern": "%s_####.exr" % version_name,
         }, None
 
+    def _set_warning(self, message):
+        if message:
+            self.warning_label.setText(message)
+            self.warning_label.setVisible(True)
+        else:
+            self.warning_label.setText("")
+            self.warning_label.setVisible(False)
+
     def _update_state(self, *args):
         task = self._selected_task()
         if not task and all(not btn.isEnabled() for btn in self.task_buttons.values()):
             warning = "All tasks already have versions in timeline."
-            self.warning_label.setText(warning)
+            self._set_warning(warning)
             self.create_btn.setEnabled(False)
             self.output_text.setPlainText(warning)
             return
 
         params, warning = self._build_output()
         if warning:
-            self.warning_label.setText(warning)
+            self._set_warning(warning)
             self.create_btn.setEnabled(False)
             self.output_text.setPlainText(warning)
             return
 
-        self.warning_label.setText("")
+        self._set_warning("")
         self.create_btn.setEnabled(True)
         self.output_text.setPlainText(
             "Path: {output_dir}\n"
@@ -821,7 +865,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
     def _create_v000(self):
         params, warning = self._build_output()
         if warning:
-            self.warning_label.setText(warning)
+            self._set_warning(warning)
             return
         debug_print("params:", params)
         self.accept()
