@@ -1,5 +1,5 @@
 """
-_____________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_Flow_Push v3.99 | Lega
 
@@ -21,15 +21,15 @@ _____________________________________________________________
   v3.95: Agrega aplicación de tags en xyplorer después de actualizar estados exitosamente.
          Si xyplorer no está abierto, simplemente no aplica el tag sin dar error ni crashear el script.
   v3.94: Agrega ruta principal de Python dentro de PipeSync.app para macOS
-  v3.89: Sistema de resumen con DEBUG_RESUMEN para mostrar solo información esencial
-  v3.88: Fix timeout + detección correcta de shot_code con base_name sin versión
-  v3.87: Logs detallados de envío de imágenes + Fix extracción de versión
-  v3.90: Verifica si la version actual es la más alta y muestra un dialogo de advertencia si no lo es
-  v3.91: Elimina la verificación de versiones con Flow duplicada en el Worker y envía comentarios a la version correcta del clip
   v3.93: Agrega método centralizado de selección con función push_from_selected_clips() que usa LGA_NKS_GetClip (Método 2 híbrido).
          Soporta selecciones múltiples del track TRACK_comp_EXR con límite de 4 clips (requiere confirmación).
          Mantiene compatibilidad con Push_Task_Status() para llamadas desde paneles.
-_____________________________________________________________
+  v3.91: Elimina la verificación de versiones con Flow duplicada en el Worker y envía comentarios a la version correcta del clip
+  v3.90: Verifica si la version actual es la más alta y muestra un dialogo de advertencia si no lo es
+  v3.89: Sistema de resumen con DEBUG_RESUMEN para mostrar solo información esencial
+  v3.88: Fix timeout + detección correcta de shot_code con base_name sin versión
+  v3.87: Logs detallados de envío de imágenes + Fix extracción de versión
+____________________________________________________________________
 
 """
 

@@ -1,10 +1,11 @@
 """
-____________________________________________________________________________
+____________________________________________________________________
+
   LGA_NKS_Flow_Pull v3.41 | Lega
+
   Compara los estados de las task Comp de los shots del timeline de Hiero
   con los estados registrados en un archivo JSON basado en Flow PT
   Tambien aplica tags con los colores de los estados en xyplorer
-
 
   v3.41: Filtro de filename ya no exige "_comp_". Acepta cualquier task de TASK_EXR_TRACKS (comp, roto, cleanup). Antes los clips de roto/cleanup entraban al loop y eran descartados con continue, así que el shift+click sobre clips de roto no detectaba cambios.
   v3.40: Tabla de cambios incluye columna "Task" (al lado del Shot) con la task detectada del filename del clip. Permite distinguir de qué task son la versión y el status reportados.
@@ -22,7 +23,8 @@ ____________________________________________________________________________
   v3.28: Actualizado para ser compatible con ambos sistemas de nomenclatura:
          - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
          - PROYECTO_SEQ_SHOT (3 bloques simplificado)
-____________________________________________________________________________
+____________________________________________________________________
+
 """
 
 import json

@@ -1,7 +1,8 @@
 """
-__________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_Flow_Shot_info v1.89 | Lega
+
   Imprime informacion del shot y las versiones de la task seleccionada
   (comp, roto o cleanup) en el playhead.
 
@@ -26,11 +27,10 @@ __________________________________________________________________
          para que el usuario elija. Antes pedía siempre la task 'comp', así que
          nunca mostraba descripción/notas de roto o cleanup.
   v1.85: Actualizado para usar las clases del adapter para compatibilidad PySide2/6
-  
-  V1.84: Actualizado para ser compatible con ambos sistemas de nomenclatura:
-  - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
-  - PROYECTO_SEQ_SHOT (3 bloques simplificado)
-__________________________________________________________________
+  v1.84: Actualizado para ser compatible con ambos sistemas de nomenclatura:
+         - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+         - PROYECTO_SEQ_SHOT (3 bloques simplificado)
+____________________________________________________________________
 
 """
 
