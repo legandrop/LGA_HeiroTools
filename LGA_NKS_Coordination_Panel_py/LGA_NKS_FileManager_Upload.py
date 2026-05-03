@@ -1,11 +1,12 @@
 """
-____________________________________________________________________________________
+____________________________________________________________________
 
-  LGA_NKS_FileManager_Upload v1.0 | Lega
-  Sube el shot seleccionado a Wasabi S3 usando FileManager CLI
-  Extrae la ruta del shot tomando las primeras 4 partes: unidad/proyecto/grupo/shot
-  Soporta modo desarrollo con variable Desarrollo = True y verificación automática
-____________________________________________________________________________________
+  LGA_NKS_FileManager_Upload v1.00 | Lega
+
+  Sube el shot seleccionado a Wasabi S3 usando FileManager CLI.
+  Extrae la ruta del shot tomando las primeras 4 partes: unidad/proyecto/grupo/shot.
+  Soporta modo desarrollo con variable Desarrollo = True y verificación automática.
+____________________________________________________________________
 """
 
 from pathlib import Path

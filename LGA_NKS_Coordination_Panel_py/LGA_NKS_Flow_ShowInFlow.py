@@ -1,21 +1,19 @@
 """
-_____________________________________________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_Flow_ShowInFlow v1.28 | Lega
-  Abre la URL de la task Comp del shot, tomando la informacion del nombre del clip en el track TRACK_comp_EXR bajo el playhead
-  Si no hay clip en playhead, usa el clip seleccionado como fallback
-  Verifica si existe más de un shot con el mismo nombre y te pide que selecciones uno
-  Usa el módulo utilitario LGA_NKS_GetClip para obtener clips
 
-  v1.28 - Actualizado para usar shift+click para abrir el shot completo en Flow
+  Abre la URL de la task Comp del shot, tomando información del clip en TRACK_comp_EXR bajo el playhead.
+  Si no hay clip en playhead, usa el clip seleccionado como fallback.
+  Verifica si existe más de un shot con el mismo nombre y te pide que selecciones uno.
+  Usa el módulo utilitario LGA_NKS_GetClip para obtener clips.
 
+  v1.28: Actualizado para usar shift+click para abrir el shot completo en Flow
   v1.27: Agrega manejo con hilos secundarios para procesar los clips en paralelo sin bloquear el hilo principal
-
-  v1.26 Actualizado para ser compatible con ambos sistemas de nomenclatura:
-        - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
-        - PROYECTO_SEQ_SHOT (3 bloques simplificado)
-
-  ___________________________________________________________________________________________________
+  v1.26: Actualizado para ser compatible con ambos sistemas de nomenclatura:
+         - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+         - PROYECTO_SEQ_SHOT (3 bloques simplificado)
+____________________________________________________________________
 """
 
 import os

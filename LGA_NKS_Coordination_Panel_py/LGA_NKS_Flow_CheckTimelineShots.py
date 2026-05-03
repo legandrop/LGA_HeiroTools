@@ -1,10 +1,11 @@
 """
-____________________________________________________________________________________
+____________________________________________________________________
 
-  LGA_NKS_Flow_CheckTimelineShots v1.0 | Lega
+  LGA_NKS_Flow_CheckTimelineShots v1.00 | Lega
+
   Chequea si los shots del track comp del timeline existen en Flow.
   Muestra una ventana con la lista de shots existentes y los faltantes.
-____________________________________________________________________________________
+____________________________________________________________________
 """
 
 import hiero.core

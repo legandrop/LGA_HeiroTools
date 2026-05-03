@@ -1,18 +1,17 @@
 """
-________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_Flow_Clear_Assignees v1.24 | Lega
+
   Elimina los asignados de una tarea en ShotGrid (Flow) a partir del base_name
 
-  v1.24: Actualiza la UI para mostrar las tasks y los asignados en Flow. 
+  v1.24: Actualiza la UI para mostrar las tasks y los asignados en Flow.
          Funciona con todas las tasks disponibles en Flow.
-         
   v1.23: Actualiza la base de datos local pipesync.db con la eliminación de asignados
-
   v1.22: Actualizado para ser compatible con ambos sistemas de nomenclatura:
-        - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
-        - PROYECTO_SEQ_SHOT (3 bloques simplificado)
-________________________________________________________________
+         - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+         - PROYECTO_SEQ_SHOT (3 bloques simplificado)
+____________________________________________________________________
 """
 
 import os

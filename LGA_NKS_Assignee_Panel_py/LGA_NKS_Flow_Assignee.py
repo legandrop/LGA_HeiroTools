@@ -1,18 +1,18 @@
 """
-_____________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_Flow_Assignee v1.24 | Lega
-  Imprime los asignados de una tarea en ShotGrid (Flow) a partir del base_name
+
+  Imprime los asignados de una tarea en ShotGrid (Flow) a partir del base_name.
   Se usa desde el panel de assignee de LGA_NKS_Assignee_Panel.py
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
-
-  v1.24: Actualiza la UI para mostrar las tasks y los asignados en Flow. 
-         Funciona con todas las tasks disponibles en Flow.
-
-  v1.23: Actualiza la base de datos local pipesync.db con la asignación
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
-_____________________________________________________________
+
+  v1.24: Actualiza la UI para mostrar las tasks y los asignados en Flow.
+         Funciona con todas las tasks disponibles en Flow.
+  v1.23: Actualiza la base de datos local pipesync.db con la asignación
+____________________________________________________________________
 """
 
 import os
