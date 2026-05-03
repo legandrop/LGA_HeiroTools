@@ -401,6 +401,7 @@ track_item = target_track.addTrackItem(clip, timeline_in)
 track_item.setName(shot_name)                   # Solo SHOT_CODE, no nombre completo de archivo
 track_item.setTimes(timeline_in, timeline_out - 1, 0, frame_count - 1)
 track_item.setVersionLinkedToBin(True)          # Debe llamarse al final
+track_item.setEnabled(False)                    # La v000 queda deshabilitada en timeline
 ```
 
 **Politicas de la integracion:**
@@ -418,6 +419,7 @@ track_item.setVersionLinkedToBin(True)          # Debe llamarse al final
 - Source relativo: `0` a `frame_count - 1`.
 - `TrackItem.setTimes()` recibe `timeline_out - 1` (inclusivo).
 - `setVersionLinkedToBin(True)` solo funciona despues de que el TrackItem ya fue agregado y sus tiempos ajustados.
+- Si se crea un clip en timeline, deshabilitar el `TrackItem` v000 con `setEnabled(False)`.
 - En una cola multi-task, `Cancel` en el dialogo de overlap o replace saltea solo la task actual y continua con la siguiente seleccionada.
 - Si el usuario elige `Create EXRs Only`, no hay importacion y no se cambia ningun color.
 
@@ -437,8 +439,9 @@ C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-Trac
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py` | `open_create_v000_dialog()`, `_collect_context()`, `_collect_range_sources()`, `_build_outputs()`, `_create_v000_for_params()`, `_set_v000_clip_color()`, `_create_black_exr_sequence()`, `CreateV000Dialog` |
+| `LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py` | `open_create_v000_dialog()`, `_collect_context()`, `_collect_range_sources()`, `_build_outputs()`, `_create_v000_for_params()`, `_set_v000_clip_color()`, `_disable_timeline_item()`, `_create_black_exr_sequence()`, `CreateV000Dialog` |
 | `LGA_NKS_ClipColor_Panel.py` | Boton `v_00`, color `QtGui.QColor(138, 138, 138)` / `#8a8a8a` |
+| `LGA_NKS_Review_Panel_py\LGA_NKS_ON_Clips_OFF_v00-Clips.py` | Usa `TrackItem.setEnabled(False)` para desactivar clips v00/v000 |
 | `LGA_NKS_Shared\LGA_NKS_TaskSelectionDialog.py` | `track_for_task()` |
 | `LGA_NKS_Shared\LGA_NKS_Flow_NamingUtils.py` | `clean_base_name()`, `extract_project_name()`, `extract_shot_code()` |
 | `LGA_NKS_Shared\LGA_NKS_Flow_Task_Config.py` | `get_task_color()` |

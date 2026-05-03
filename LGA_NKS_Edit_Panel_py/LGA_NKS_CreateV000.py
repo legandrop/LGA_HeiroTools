@@ -456,6 +456,14 @@ def _insert_v000_in_timeline(seq, clip, params):
     return track_item, None
 
 
+def _disable_timeline_item(track_item):
+    try:
+        track_item.setEnabled(False)
+        return None
+    except Exception as exc:
+        return "Failed to disable v000 timeline clip: %s" % exc
+
+
 def _remove_timeline_items(track, items):
     for item in list(items):
         track.removeItem(item)
@@ -1263,11 +1271,16 @@ class CreateV000Dialog(QtWidgets.QDialog):
                         track_item, timeline_error = _insert_v000_in_timeline(seq, clip, params)
                         if timeline_error:
                             raise RuntimeError(timeline_error)
+                        disable_error = _disable_timeline_item(track_item)
+                        if disable_error:
+                            debug_print(disable_error)
                         import_message += "\nPlaced in timeline: %s (%s - %s)" % (
                             track_item.parentTrack().name(),
                             track_item.timelineIn(),
                             track_item.timelineOut(),
                         )
+                        if not disable_error:
+                            import_message += "\nTimeline clip disabled"
                     elif integration_mode == "replace_timeline":
                         current_overlaps = _timeline_overlaps(
                             target_track,
@@ -1278,10 +1291,15 @@ class CreateV000Dialog(QtWidgets.QDialog):
                         track_item, timeline_error = _insert_v000_in_timeline(seq, clip, params)
                         if timeline_error:
                             raise RuntimeError(timeline_error)
+                        disable_error = _disable_timeline_item(track_item)
+                        if disable_error:
+                            debug_print(disable_error)
                         import_message += "\nReplaced %d timeline clip(s) on %s." % (
                             len(current_overlaps),
                             track_item.parentTrack().name(),
                         )
+                        if not disable_error:
+                            import_message += "\nTimeline clip disabled"
             except Exception as exc:
                 message = "%s\n\nEXRs were created, but Hiero import/placement failed:\n%s" % (message, exc)
                 self._set_warning(str(exc))
