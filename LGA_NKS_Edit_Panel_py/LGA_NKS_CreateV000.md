@@ -106,7 +106,7 @@ Cada fila muestra: checkbox `Use`, nombre del track, `TL IN`, `TL OUT`, `Frames`
 - Por defecto se selecciona la primera fila (editref si existe, sino plate).
 - `editref` y `plate` no son combinables entre si.
   - Seleccionar un editref deselecciona todos los plates y viceversa.
-- Varios editref pueden combinarse entre si.
+- Los editref son exclusivos entre si, incluso si hay varios tracks llamados `EditRef`.
 - Varios plates pueden combinarse entre si.
 - El rango base se calcula con:
   - `base_timeline_in = min(timelineIn de seleccionados)`
@@ -148,6 +148,7 @@ Control custom de incremento/decremento. No usa `QSpinBox`.
 - Rango permitido: `0` a `99`.
 - **Solo se habilita si la seleccion de frame range incluye al menos un editref.**
 - Si la seleccion no tiene editref, el handle se fuerza a `0` y queda greyed out.
+- Si luego se vuelve a seleccionar un editref, el handle vuelve al default `4`.
 
 Cuando el handle esta activo, el rango efectivo se expande:
 
@@ -196,7 +197,7 @@ Botones toggle independientes para las tres tasks disponibles:
 
 **Reglas:**
 
-- Por defecto se selecciona `comp`.
+- Al abrir el dialogo no hay ninguna task seleccionada.
 - Se puede seleccionar una o varias tasks al mismo tiempo.
 - Si no hay ninguna task seleccionada, el boton `Create v000` queda deshabilitado.
 - La existencia de clips o versiones en los tracks destino no deshabilita ninguna task.
@@ -418,6 +419,7 @@ El dialogo bloquea `Create v000` y muestra un warning si:
 START_FRAME = 1001
 VERSION     = "v000"
 V000_CLIP_COLOR_RGB = (138, 138, 138)  # #8a8a8a, igual al boton v_00 de ClipColor
+DEFAULT_HANDLE = 4
 TASKS       = ("comp", "roto", "cleanup")
 TASK_FOLDER = {"comp": "Comp", "roto": "Roto", "cleanup": "Cleanup"}
 
