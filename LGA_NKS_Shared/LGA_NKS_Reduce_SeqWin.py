@@ -1,13 +1,14 @@
 """
-______________________________________________________________________
+____________________________________________________________________
 
-  LGA_NKS_Reduce_SeqWin v1.1 | Lega
+  LGA_NKS_Reduce_SeqWin v1.10 | Lega
+
   Ajusta el tamaño del panel izquierdo del timeline editor de Hiero
-______________________________________________________________________
 
   Usado por runtime activo:
   - LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh_Wrap.py
   - LGA_NKS_Projects_Panel_py/LGA_Projects_Panel_SwitchSequence.py
+____________________________________________________________________
 
 """
 

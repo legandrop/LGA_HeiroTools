@@ -1,13 +1,14 @@
 """
-______________________________________________________________________________________________
+____________________________________________________________________
 
-  LGA_NKS_Clip_DisableRoto v1.0 | Lega
+  LGA_NKS_Clip_DisableRoto v1.00 | Lega
 
   Habilita o deshabilita el clip en el track _roto_.
   Wrapper de LGA_NKS_Clip_DisableEXR con track_name=TRACK_roto_EXR.
 
-  v1.0 - Versión inicial
-______________________________________________________________________________________________
+  v1.00: Versión inicial
+____________________________________________________________________
+
 """
 
 import sys

@@ -1,7 +1,8 @@
 """
-____________________________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_GetClip v1.84 | Lega
+
   Usado por runtime activo:
   - LGA_NKS_Assignee_Panel.py
   - LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_Download.py
@@ -27,43 +28,45 @@ ________________________________________________________________________________
   - LGA_NKS_Review_Panel_py/LGA_NKS_EXRTrack_Difference.py
   - LGA_NKS_ViewerTL_Panel_py/LGA_NKS_InOut_Editref.py
   - LGA_NKS_ViewerTL_Panel_py/LGA_NKS_PrevNext_Rev.py
-  Utilidades para obtener clips del timeline de Hiero/Nuke Studio
+
+  Utilidades para obtener clips del timeline de Hiero/Nuke Studio.
 
   Método híbrido inteligente completo:
-  1. LÓGICA INTELIGENTE SIMPLE: Si hay un clip seleccionado fuera del track objetivo pero del mismo shot,
-     automáticamente usa el clip del track correcto (sin mostrar mensaje al usuario)
-  2. EXCEPCIÓN PLAYHEAD: Si el clip seleccionado está bajo el playhead, no muestra advertencia pero mantiene
-     la selección del track objetivo
-  3. LÓGICA INTELIGENTE MÚLTIPLE: Analiza selecciones múltiples y devuelve exactamente un clip por shot único,
-     priorizando clips del track objetivo pero incluyendo shots de otros tracks
-  4. Muestra advertencia solo cuando la lógica inteligente NO puede resolver automáticamente
-  5. Intenta obtener el clip del track especificado en la posición del playhead
-  6. Si no encuentra, usa el clip seleccionado como fallback
+  1. LÓGICA INTELIGENTE SIMPLE: Si hay un clip seleccionado fuera del
+     track objetivo pero del mismo shot, automáticamente usa el clip del
+     track correcto (sin mostrar mensaje al usuario).
+  2. EXCEPCIÓN PLAYHEAD: Si el clip seleccionado está bajo el playhead,
+     no muestra advertencia pero mantiene la selección del track objetivo.
+  3. LÓGICA INTELIGENTE MÚLTIPLE: Analiza selecciones múltiples y devuelve
+     exactamente un clip por shot único, priorizando clips del track
+     objetivo pero incluyendo shots de otros tracks.
+  4. Muestra advertencia solo cuando la lógica inteligente NO puede resolver.
+  5. Intenta obtener el clip del track especificado en la posición del playhead.
+  6. Si no encuentra, usa el clip seleccionado como fallback.
 
-
-  v1.84 - Renombra TRACK_comp_REV de "_compMov_" a "_compRev_" (nueva convención taskRev).
-          Agrega TRACK_cleanup_EXR, TRACK_roto_REV, TRACK_cleanup_REV y la lista TASK_REV_TRACKS.
-  v1.83 - Renombra TRACK_comp_REV de "_rev_" a "_compMov_" para mayor claridad
-  v1.82 - Agrega TRACK_roto_EXR y TASK_EXR_TRACKS para soporte multi-task
-  v1.81 - flag _SHOW_WARNINGS para desactivar/activar las advertencias por defecto
-  v1.8 - EXCEPCIÓN PLAYHEAD: Nueva función is_clip_at_playhead() detecta cuando un clip seleccionado
+  v1.84: Renombra TRACK_comp_REV de "_compMov_" a "_compRev_" (nueva convención taskRev).
+         Agrega TRACK_cleanup_EXR, TRACK_roto_REV, TRACK_cleanup_REV y la lista TASK_REV_TRACKS.
+  v1.83: Renombra TRACK_comp_REV de "_rev_" a "_compMov_" para mayor claridad
+  v1.82: Agrega TRACK_roto_EXR y TASK_EXR_TRACKS para soporte multi-task
+  v1.81: flag _SHOW_WARNINGS para desactivar/activar las advertencias por defecto
+  v1.80: EXCEPCIÓN PLAYHEAD: Nueva función is_clip_at_playhead() detecta cuando un clip seleccionado
          está bajo el playhead. En este caso, no muestra advertencia pero mantiene la selección del track
          objetivo. Mensajes de advertencia usan color cyan #6AB5CA (consistente con Create Shot).
-  v1.7 - LÓGICA INTELIGENTE COMPLETA: Nueva función analyze_multiple_shots_selection()
+  v1.70: LÓGICA INTELIGENTE COMPLETA: Nueva función analyze_multiple_shots_selection()
          implementa selección múltiple inteligente. Devuelve exactamente un clip por shot único,
          priorizando clips del track objetivo pero incluyendo shots sin correspondencia.
-  v1.6 - LÓGICA INTELIGENTE MEJORADA: Ahora resuelve automáticamente selecciones erróneas
+  v1.60: LÓGICA INTELIGENTE MEJORADA: Ahora resuelve automáticamente selecciones erróneas
          sin mostrar mensaje informativo al usuario. La advertencia solo aparece cuando
          NO puede resolverse automáticamente. Función específica extract_shot_code_from_filename
          para evitar interferir con otros scripts.
-  v1.5 - LÓGICA INTELIGENTE: Comparación automática de shots para selecciones simples.
+  v1.50: LÓGICA INTELIGENTE: Comparación automática de shots para selecciones simples.
          Si hay un clip seleccionado fuera del track objetivo pero del mismo shot,
          automáticamente usa el clip del track correcto
-  v1.4 - Agrega advertencia automática cuando hay clips seleccionados en tracks que no son el objetivo
-  v1.3 - Renombra variables: DEFAULT_TRACK_NAME → TRACK_comp_EXR, DEFAULT_REV_TRACK_NAME → TRACK_comp_REV
-  v1.2 - Agrega DEFAULT_REV_TRACK_NAME para centralizar el nombre del track REV
-  v1.1 - Agrega get_clips_to_process para obtener múltiples clips seleccionados en el track
-____________________________________________________________________________________
+  v1.40: Agrega advertencia automática cuando hay clips seleccionados en tracks que no son el objetivo
+  v1.30: Renombra variables: DEFAULT_TRACK_NAME → TRACK_comp_EXR, DEFAULT_REV_TRACK_NAME → TRACK_comp_REV
+  v1.20: Agrega DEFAULT_REV_TRACK_NAME para centralizar el nombre del track REV
+  v1.10: Agrega get_clips_to_process para obtener múltiples clips seleccionados en el track
+____________________________________________________________________
 """
 
 import hiero.core

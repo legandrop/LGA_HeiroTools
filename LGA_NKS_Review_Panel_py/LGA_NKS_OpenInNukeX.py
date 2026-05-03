@@ -1,11 +1,12 @@
 """
-_________________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_OpenInNukeX v1.30 | Lega
+
   Abre el script asociado al clip seleccionado en NukeX
   Verifica si hay una version mas reciente y pregunta si desea abrirla
   Obtiene la ruta de NukeX desde la configuracion de LGA_OpenInNukeX
-_________________________________________________________________________
+____________________________________________________________________
 
 """
 

@@ -1,19 +1,21 @@
 """
-____________________________________________________________________________________
+____________________________________________________________________
 
-  LGA_NKS_TaskMismatchDialog v1.0 | Lega
-  Ventana de advertencia compartida para cuando la task detectada en el filename
-  de un clip NO coincide con el nombre del track donde el clip está ubicado.
+  LGA_NKS_TaskMismatchDialog v1.00 | Lega
 
-  Usada por:
+  Ventana de advertencia compartida para cuando la task detectada en
+  el filename de un clip NO coincide con el nombre del track donde
+  está ubicado. La función principal es show_task_mismatch_warning().
+  No bloquea ni modifica el procesamiento: solo informa al usuario.
+
+  Usado por runtime activo:
   - LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py
   - LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py
 
-  La función principal es show_task_mismatch_warning(mismatches).
-  No bloquea ni modifica el procesamiento: solo informa al usuario.
+  Convención de nombres de tracks: docs/Docu_Logica_Nombres_Tracks.md
 
-  Convención de nombres de tracks: [docs/Docu_Logica_Nombres_Tracks.md]
-____________________________________________________________________________________
+  v1.00: Versión inicial
+____________________________________________________________________
 """
 
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt

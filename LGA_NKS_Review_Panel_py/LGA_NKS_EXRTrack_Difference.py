@@ -1,11 +1,12 @@
 """
-____________________________________________________________
+____________________________________________________________________
 
-  LGA_NKS_EXRTrack_Difference v1.1 | Lega
+  LGA_NKS_EXRTrack_Difference v1.10 | Lega
+
   Alterna el modo de mezcla del track TRACK_comp_EXR a "Difference"
-  
-  v1.1: Centralización del nombre del track usando TRACK_comp_EXR del módulo LGA_NKS_GetClip
-____________________________________________________________
+
+  v1.10: Centralización del nombre del track usando TRACK_comp_EXR del módulo LGA_NKS_GetClip
+____________________________________________________________________
 
 """
 

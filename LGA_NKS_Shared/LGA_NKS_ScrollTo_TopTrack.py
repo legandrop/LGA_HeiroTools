@@ -1,17 +1,18 @@
 """
-____________________________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_ScrollTo_TopTrack v1.01 | Lega
+
   Utilidad para llevar el timeline al track superior.
+
+  Usado por runtime activo:
+  - LGA_NKS_ViewerTL_Panel.py
+  - LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh_Wrap.py
+  - LGA_NKS_Projects_Panel_py/LGA_Projects_Panel_SwitchSequence.py
 
   v1.01: Agregado hook de debug handler para reutilizar el logger del panel que lo invoque
   v1.00: Utilidad original de scroll vertical para timeline
-
-Usado por runtime activo:
-- LGA_NKS_ViewerTL_Panel.py
-- LGA_NKS_ViewerTL_Panel_py/LGA_NKS_Timeline_Refresh_Wrap.py
-- LGA_NKS_Projects_Panel_py/LGA_Projects_Panel_SwitchSequence.py
-____________________________________________________________________________________
+____________________________________________________________________
 """
 
 import hiero

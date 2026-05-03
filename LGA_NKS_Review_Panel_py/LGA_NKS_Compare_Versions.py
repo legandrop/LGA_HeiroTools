@@ -1,12 +1,13 @@
 """
-______________________________________________________________________
+____________________________________________________________________
 
-  LGA_NKS_Compare_Versions v1.2 | Lega
+  LGA_NKS_Compare_Versions v1.20 | Lega
+
   Crea un nuevo track con una version anterior del clip seleccionado
   y pone al track en modo difference
-  
-  v1.2: Centralización del nombre del track usando TRACK_comp_EXR del módulo LGA_NKS_GetClip
-______________________________________________________________________
+
+  v1.20: Centralización del nombre del track usando TRACK_comp_EXR del módulo LGA_NKS_GetClip
+____________________________________________________________________
 
 """
 

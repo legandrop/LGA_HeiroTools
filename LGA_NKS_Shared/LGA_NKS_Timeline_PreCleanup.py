@@ -1,16 +1,17 @@
 """
-____________________________________________________________________________________
+____________________________________________________________________
 
-  LGA_NKS_Timeline_PreCleanup v1.02 | Lega
+  LGA_NKS_Timeline_PreCleanup v1.01 | Lega
+
   Limpieza previa del timeline para Refresh Timeline y Switch Sequence.
-  Elimina tracks NukeVFX y extiende los efectos de BurnIn
-  hasta el ultimo clip real del timeline, incluso si esta offline.
+  Elimina tracks NukeVFX y extiende los efectos de BurnIn hasta el
+  último clip real del timeline, incluso si esta offline.
 
   v1.01: Agregado hook de debug handler para reutilizar el logger del panel que lo invoque
   v1.00: Version inicial. Elimina tracks con tag icon 'icons:NukeVFX.png'
          y extiende los efectos del track BurnIn hasta el timelineOut
          del ultimo clip real del timeline.
-____________________________________________________________________________________
+____________________________________________________________________
 """
 
 import hiero.core

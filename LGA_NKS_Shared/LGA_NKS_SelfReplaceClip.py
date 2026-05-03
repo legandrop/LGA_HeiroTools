@@ -1,16 +1,18 @@
 """
-______________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_SelfReplaceClip v1.21 | Lega
+
   Usado por runtime activo:
   - LGA_NKS_Edit_Panel.py
   - LGA_NKS_Review_Panel.py
+
   Reconnect automático con el mismo clip, corrige desplazamiento de frames,
   mueve versión original al bin 'Conform' y restaura color original.
-  
+
   v1.21: Agregado parámetro force_all_clips para procesar todos los clips del timeline
          o solo los seleccionados. Compatible con el botón Reconnect Win > Mac del Edit Panel.
-______________________________________________________________________
+____________________________________________________________________
 
 """
 

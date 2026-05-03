@@ -1,7 +1,8 @@
 """
-____________________________________________________________________________________
+____________________________________________________________________
 
-  LGA_NKS_Flow_NamingUtils v1.1 | Lega
+  LGA_NKS_Flow_NamingUtils v1.10 | Lega
+
   Utilidades para detectar y extraer información de nombres de archivos/shots
   Compatible con sistemas de nomenclatura actuales y series:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
