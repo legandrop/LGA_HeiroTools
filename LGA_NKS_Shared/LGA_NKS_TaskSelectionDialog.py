@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_TaskSelectionDialog v1.3 | Lega
+  LGA_NKS_TaskSelectionDialog v1.31 | Lega
 
   Detección y selección de task entre los tracks EXR del playhead.
 
@@ -22,16 +22,17 @@ ____________________________________________________________________
 
   Convención de nombres de tracks: docs/Docu_Logica_Nombres_Tracks.md
 
-  v1.3: Corrección de compatibilidad Nuke 15/16. En PySide2 (Nuke 15) el objeto
+  v1.31: Actualizado para usar colores de tasks alineados con los colores de create v000
+  v1.30: Corrección de compatibilidad Nuke 15/16. En PySide2 (Nuke 15) el objeto
         devuelto por `hiero.ui.mainWindow()` es un wrapper SIP incompatible con
         el sistema de tipos de PySide2 cuando se pasa como parent a QDialog,
         causando "QWidget: Must construct a QApplication before a QWidget".
         Usa PYSIDE_VER del adaptador para solo usar parent en PySide6 (Nuke 16).
-  v1.2: Diálogos parented a la main window de Hiero y guard sobre
+  v1.20: Diálogos parented a la main window de Hiero y guard sobre
         `QApplication.instance()` antes de crear el QDialog.
-  v1.1: Agrega `get_valid_tasks_at_playhead_with_check` y
+  v1.10: Agrega `get_valid_tasks_at_playhead_with_check` y
         `resolve_task_with_mismatch_check`.
-  v1.0: Versión inicial.
+  v1.00: Versión inicial.
 ____________________________________________________________________
 """
 
@@ -43,6 +44,7 @@ from LGA_NKS_Shared.LGA_NKS_GetClip import (
     TRACK_cleanup_EXR,
     find_clip_at_playhead_in_track,
 )
+from LGA_NKS_Shared.LGA_NKS_Flow_Task_Config import get_task_color
 
 
 _TASK_TO_TRACK = {
@@ -118,17 +120,32 @@ def prompt_task_selection(task_names, title="Select task"):
 
     parent = _get_hiero_main_window()
     dialog = QtWidgets.QDialog(parent) if parent is not None else QtWidgets.QDialog()
-    dialog.setWindowTitle(title)
+    dialog.setWindowTitle("Select Task")
     dialog.setModal(True)
+    dialog.setMinimumWidth(240)
+    dialog.setStyleSheet(
+        """
+        QDialog {
+            background-color: #2B2B2B;
+            border: 1px solid #555555;
+        }
+        """
+    )
 
     layout = QtWidgets.QVBoxLayout(dialog)
     layout.setSpacing(8)
-    layout.setContentsMargins(16, 16, 16, 16)
+    layout.setContentsMargins(16, 14, 16, 14)
 
     label = QtWidgets.QLabel(title)
     label.setAlignment(QtCore.Qt.AlignCenter)
-    label.setStyleSheet("font-weight: bold; font-size: 13px;")
+    label.setStyleSheet("color: #CCCCCC; font-weight: bold; font-size: 12px; padding: 2px 0px;")
     layout.addWidget(label)
+
+    sep = QtWidgets.QFrame()
+    sep.setFrameShape(QtWidgets.QFrame.HLine)
+    sep.setFrameShadow(QtWidgets.QFrame.Sunken)
+    sep.setStyleSheet("color: #444444; margin: 0px;")
+    layout.addWidget(sep)
 
     state = {"task": None}
 
@@ -139,8 +156,30 @@ def prompt_task_selection(task_names, title="Select task"):
         return handler
 
     for task in task_names:
-        btn = QtWidgets.QPushButton(task)
-        btn.setMinimumHeight(28)
+        task_color = get_task_color(task)
+        btn = QtWidgets.QPushButton(task.capitalize())
+        btn.setMinimumHeight(32)
+        btn.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #2B2B2B;
+                border: 1px solid #444444;
+                color: %(color)s;
+                padding: 6px 14px;
+                border-radius: 3px;
+                font-weight: bold;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #3a3a3a;
+                border: 1px solid %(color)s;
+            }
+            QPushButton:pressed {
+                background-color: #333333;
+            }
+            """
+            % {"color": task_color}
+        )
         btn.clicked.connect(make_handler(task))
         layout.addWidget(btn)
 
