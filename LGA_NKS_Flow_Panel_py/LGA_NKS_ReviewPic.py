@@ -1,20 +1,21 @@
 """
-_________________________________________________________________________________________________________________________________
+____________________________________________________________________
 
-  LGA_NKS_ReviewPic v1.2 | Lega
+  LGA_NKS_ReviewPic v1.20 | Lega
+
   Crea un snapshot de la imagen actual del viewer y lo guarda en ReviewPic_Cache
   organizando por clips del track EXR de la task activa con numeracion de frames.
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 
-  v1.01 - Usa el módulo utilitario LGA_NKS_GetClip para obtener el clip a partir del playhead (no permite selecciones múltiples)
-  v1.1  - Usa TaskSelectionDialog para detectar la task activa en el playhead (comp/roto/cleanup).
-          Si hay múltiples tasks, muestra selector. Si hay mismatch filename/track, avisa y excluye.
-  v1.2  - Imports de TaskSelectionDialog movidos a lazy (dentro de main()) para evitar
-          "QWidget: Must construct a QApplication before a QWidget" en Nuke 15 (PySide2).
-          Compatible con Nuke 15 y 16 usando LGA_QtAdapter_HieroTools.
-_________________________________________________________________________________________________________________________________
+  v1.20: Imports de TaskSelectionDialog movidos a lazy (dentro de main()) para evitar
+         "QWidget: Must construct a QApplication before a QWidget" en Nuke 15 (PySide2).
+         Compatible con Nuke 15 y 16 usando LGA_QtAdapter_HieroTools.
+  v1.10: Usa TaskSelectionDialog para detectar la task activa en el playhead (comp/roto/cleanup).
+         Si hay múltiples tasks, muestra selector. Si hay mismatch filename/track, avisa y excluye.
+  v1.01: Usa el módulo utilitario LGA_NKS_GetClip para obtener el clip a partir del playhead (no permite selecciones múltiples)
+____________________________________________________________________
 
 """
 
