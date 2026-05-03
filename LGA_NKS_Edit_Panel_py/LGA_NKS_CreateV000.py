@@ -26,7 +26,7 @@ import hiero.ui
 
 START_FRAME = 1001
 VERSION = "v000"
-V000_CLIP_COLOR = QtGui.QColor(138, 138, 138)
+V000_CLIP_COLOR_RGB = (138, 138, 138)
 TASKS = ("comp", "roto", "cleanup")
 TASK_FOLDER = {
     "comp": "Comp",
@@ -384,6 +384,15 @@ def _import_v000_to_bin(project, params):
     bin_item = hiero.core.BinItem(clip)
     target_bin.addItem(bin_item)
     return clip, bin_item, None
+
+
+def _set_v000_clip_color(bin_item):
+    color = QtGui.QColor(*V000_CLIP_COLOR_RGB)
+    try:
+        bin_item.setColor(color)
+        return None
+    except Exception as exc:
+        return "Failed to set v000 clip color: %s" % exc
 
 
 def _find_video_track(seq, track_name):
@@ -1243,8 +1252,13 @@ class CreateV000Dialog(QtWidgets.QDialog):
                     clip, bin_item, import_error = _import_v000_to_bin(project, params)
                     if import_error:
                         raise RuntimeError(import_error)
+                    color_error = _set_v000_clip_color(bin_item)
 
                     import_message = "\nImported to bin: %s" % bin_item.parentBin().name()
+                    if color_error:
+                        debug_print(color_error)
+                    else:
+                        import_message += "\nClip color: #8a8a8a"
                     if integration_mode == "timeline":
                         track_item, timeline_error = _insert_v000_in_timeline(seq, clip, params)
                         if timeline_error:
