@@ -579,3 +579,229 @@ F 101/MOR_1003_020
 ```
 
 - El nombre visible del timeline item puede setearse con la misma logica de `Set Shot Name`: limpiar filename y usar `extract_shot_code(...)`. Para `MOR_1003_020_roto_v000_1001.exr` esto deberia devolver `MOR_1003_020`.
+
+---
+
+## Exploracion v000 real MOR_1003_020 roto
+
+Fecha: 2026-05-02
+
+v000 creada por `Create v000`:
+
+```text
+Path: T:/VFX-MOR/101/MOR_1003_020/Roto/4_publish/MOR_1003_020_roto_v000
+Name: MOR_1003_020_roto_v000_####.exr
+Timeline: 3813 - 4242 (handle 4)
+Frames: 1001 - 1429 (429 frames)
+Resolution: 4168 x 1612 (Timeline)
+```
+
+Parametros logueados por `Create v000`:
+
+```python
+{
+    "shot_code": "MOR_1003_020",
+    "task": "roto",
+    "selected_range_sources": [
+        {"track_name": "EditRef", "source_type": "editref"},
+    ],
+    "selected_plates": ["EditRef"],
+    "base_timeline_in": 3817,
+    "base_timeline_out": 4238,
+    "handle": 4,
+    "timeline_in": 3813,
+    "timeline_out": 4242,
+    "frame_count": 429,
+    "source_first_frame": 1001,
+    "source_last_frame": 1429,
+    "resolution": (4168, 1612),
+    "resolution_source": "Timeline",
+    "output_dir": "T:/VFX-MOR/101/MOR_1003_020/Roto/4_publish/MOR_1003_020_roto_v000",
+    "output_name_pattern": "MOR_1003_020_roto_v000_####.exr",
+}
+```
+
+### Resultado de exploracion read-only
+
+Contexto validado:
+
+```text
+Proyecto: MOR_SUP_v095
+Sequence: 101
+Task: roto
+Formato sequence: 4168x1612 @ 25
+Bin esperado segun OrganizeProject: Sequences/F 101/MOR_1003_020
+Bin destino existe: True
+Track destino: _roto_
+Track destino existe: True
+Overlaps en _roto_ para 3813-4242: 0
+```
+
+Creacion de `hiero.core.Clip(path)`:
+
+- Funciona correctamente usando el primer frame real:
+
+```text
+T:/VFX-MOR/101/MOR_1003_020/Roto/4_publish/MOR_1003_020_roto_v000/MOR_1003_020_roto_v000_1001.exr
+```
+
+- Tambien funciona usando:
+
+```text
+MOR_1003_020_roto_v000_####.exr
+MOR_1003_020_roto_v000_%04d.exr
+MOR_1003_020_roto_v000_######.exr
+```
+
+- En todos los casos Hiero normaliza internamente el `MediaFileInfo.filename()` a:
+
+```text
+T:/VFX-MOR/101/MOR_1003_020/Roto/4_publish/MOR_1003_020_roto_v000/MOR_1003_020_roto_v000_%04d.exr
+```
+
+- Metadata detectada por Hiero:
+
+```text
+Clip name: MOR_1003_020_roto_v000
+Clip sourceIn/sourceOut: 1001 - 1429
+Clip duration: 429
+Media duration/startTime: 429 / 1001
+Media hasVideo/hasAudio: True / False
+Media width/height: 4168 x 1612
+fileinfos count: 1
+fileinfo start/end: 1001 - 1429
+```
+
+Conclusion de importacion de media:
+
+- El path mas simple y seguro para crear el clip es el primer frame real (`*_1001.exr`).
+- Hiero detecta la secuencia completa y la representa como `%04d`.
+- No hace falta construir manualmente el patron `%04d` para importar, aunque puede usarse.
+
+### Resultado de prueba controlada con mutacion
+
+Flags usados:
+
+```python
+ALLOW_PROJECT_MUTATION = True
+ALLOW_TEMP_BIN_ADD = False
+ALLOW_TIMELINE_ADD = False
+ALLOW_FINAL_FLOW_TEST = True
+```
+
+Resultado:
+
+```text
+Agregado BinItem a Sequences/F 101/MOR_1003_020: MOR_1003_020_roto
+Agregado TrackItem a _roto_.
+Name: MOR_1003_020
+Timeline: 3813 - 4242
+Source: 1001.0 - 1429.0
+Source duration: 428.997668997669
+Parent track: _roto_
+```
+
+Observaciones visuales en Hiero:
+
+- El `BinItem` queda en el bin correcto:
+
+```text
+Sequences/F 101/MOR_1003_020
+```
+
+- El `TrackItem` queda en el track correcto:
+
+```text
+_roto_
+```
+
+- El `TrackItem` queda colocado en la zona correcta del timeline.
+- Pero en el timeline aparece con velocidad aproximada `99.8%`.
+- En la vista tipo planilla, el item agregado por script muestra:
+
+```text
+Speed: 99.8%
+Src Duration: 428
+Dst Duration: 430
+```
+
+- Al estirar el clip hacia la izquierda, aparece la imagen, lo que sugiere que no esta realmente offline sino desfasado internamente respecto del source.
+
+Comparacion con un clip importado manualmente por el usuario:
+
+```text
+Manual:
+Speed: 100.0%
+Src Duration: 429
+Dst Duration: 429
+
+Script:
+Speed: 99.8%
+Src Duration: 428
+Dst Duration: 430
+```
+
+Conclusion preliminar:
+
+- La importacion al bin esta resuelta.
+- La deteccion de la secuencia EXR esta resuelta.
+- La eleccion de bin segun `OrganizeProject` esta resuelta.
+- La eleccion de track destino esta resuelta.
+- El problema pendiente esta en la forma de crear/temporizar el `TrackItem`.
+- El flujo actual con `createTrackItem + setSource + setTimes(3813, 4242, 1001, 1429) + addItem` no reproduce exactamente el comportamiento de una colocacion manual en timeline.
+- La diferencia `Src Duration 428` vs `Dst Duration 430` explica el retime `99.8%`.
+- Hay que explorar si `setTimes` espera valores out inclusivos/exclusivos distintos a los que usa la herramienta, o si conviene crear el item con otro flujo (`track.addTrackItem(clip, timeline_in)` o `seq.addClip(...)`) y luego ajustar trims.
+
+### Hipotesis siguiente
+
+La herramienta `Create v000` trata `timeline_out` como valor exclusivo para calcular frames:
+
+```python
+frame_count = timeline_out - timeline_in
+```
+
+Para:
+
+```text
+3813 - 4242
+```
+
+eso da:
+
+```text
+429 frames
+```
+
+Pero la prueba con `setTimes(3813, 4242, 1001, 1429)` parece dejar al `TrackItem` con una interpretacion de duracion diferente en Hiero, generando:
+
+```text
+Src Duration: 428
+Dst Duration: 430
+Speed: 99.8%
+```
+
+Proximas pruebas recomendadas en building block, antes de integrar:
+
+1. No usar `setTimes` directamente.
+2. Probar `target_track.addTrackItem(clip, TEST_TIMELINE_IN)` y observar que source/timeline genera Hiero automaticamente.
+3. Probar crear el `TrackItem` con `createTrackItem/setSource`, luego setear:
+
+```python
+track_item.setTimelineIn(3813)
+track_item.setTimelineOut(4241)
+track_item.setSourceIn(1001)
+track_item.setSourceOut(1429)
+```
+
+4. Probar variantes con `sourceOut=1428` y/o `timelineOut=4241` para confirmar si esos setters esperan out inclusivo o exclusivo.
+5. Comparar contra el clip manual usando la misma tabla de Hiero:
+
+```text
+Speed
+Src In
+Src Out
+Src Duration
+Dst In
+Dst Out
+Dst Duration
+```
