@@ -8,7 +8,8 @@ ____________________________________________________________________
   track de la task seleccionada si el rango destino no tiene solapes.
 
   Si ya existen EXRs, permite reemplazarlos. Si hay solape en timeline, permite
-  crear solo los EXRs o crear/importar al bin sin insertar en timeline.
+  crear solo los EXRs, crear/importar al bin sin insertar en timeline, o
+  reemplazar el/los clips solapados por la nueva v000.
 ____________________________________________________________________
 
 """
@@ -485,6 +486,11 @@ def _insert_v000_in_timeline(seq, clip, params):
     track_item.setTimes(timeline_in, timeline_out, source_in, source_out)
     track_item.setVersionLinkedToBin(True)
     return track_item, None
+
+
+def _remove_timeline_items(track, items):
+    for item in list(items):
+        track.removeItem(item)
 
 
 def _show_path_in_browser(path):
@@ -1243,9 +1249,10 @@ class CreateV000Dialog(QtWidgets.QDialog):
             overlap_box.setIcon(QtWidgets.QMessageBox.Warning)
             overlap_box.setText("The target track already has clip(s) in the v000 range.")
             overlap_box.setInformativeText(_overlap_summary(overlaps))
-            cancel_btn = overlap_box.addButton(QtWidgets.QMessageBox.Cancel)
+            cancel_btn = overlap_box.addButton("Cancel", QtWidgets.QMessageBox.ActionRole)
             exrs_only_btn = overlap_box.addButton("Create EXRs Only", QtWidgets.QMessageBox.ActionRole)
             import_bin_btn = overlap_box.addButton("Create + Import to Bin", QtWidgets.QMessageBox.ActionRole)
+            replace_timeline_btn = overlap_box.addButton("Create + Import to Bin & Timeline", QtWidgets.QMessageBox.ActionRole)
             overlap_box.setDefaultButton(cancel_btn)
             overlap_box.exec_()
             clicked = overlap_box.clickedButton()
@@ -1255,6 +1262,8 @@ class CreateV000Dialog(QtWidgets.QDialog):
                 integration_mode = "exrs_only"
             elif clicked == import_bin_btn:
                 integration_mode = "bin_only"
+            elif clicked == replace_timeline_btn:
+                integration_mode = "replace_timeline"
             else:
                 return
 
@@ -1283,6 +1292,20 @@ class CreateV000Dialog(QtWidgets.QDialog):
                             track_item.parentTrack().name(),
                             track_item.timelineIn(),
                             track_item.timelineOut(),
+                        )
+                    elif integration_mode == "replace_timeline":
+                        current_overlaps = _timeline_overlaps(
+                            target_track,
+                            params["timeline_in"],
+                            params["timeline_out"],
+                        )
+                        _remove_timeline_items(target_track, current_overlaps)
+                        track_item, timeline_error = _insert_v000_in_timeline(seq, clip, params)
+                        if timeline_error:
+                            raise RuntimeError(timeline_error)
+                        import_message += "\nReplaced %d timeline clip(s) on %s." % (
+                            len(current_overlaps),
+                            track_item.parentTrack().name(),
                         )
             except Exception as exc:
                 message = "%s\n\nEXRs were created, but Hiero import/placement failed:\n%s" % (message, exc)
