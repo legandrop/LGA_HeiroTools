@@ -1,15 +1,15 @@
 """
-__________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_FlowPlaylist_Shot_info v0.01 | Lega
+
   Muestra informacion hibrida del shot y detalle de playlists vendor.
 
-  v0.01:
-  - logging avanzado a archivo
-  - lookup vendor usando proyecto del timeline normalizado
-  - Descripcion Tarea desde pipesync.db
-  - versiones/notas/replies/attachments desde pipesync_playlists.db
-__________________________________________________________________
+  v0.01: Logging avanzado a archivo
+         Lookup vendor usando proyecto del timeline normalizado
+         Descripcion Tarea desde pipesync.db
+         Versiones/notas/replies/attachments desde pipesync_playlists.db
+____________________________________________________________________
 
 """
 

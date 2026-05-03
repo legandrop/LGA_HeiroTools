@@ -1,11 +1,16 @@
 """
-LGA_NKS_FlowPlaylist_Push_connector | Conector simple para operaciones de red con Flow
-Este script se ejecuta con Python personalizado para evitar problemas de dependencias
-Actualizado para ser compatible con múltiples sistemas de nomenclatura:
-- PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
-- PROYECTO_SEQ_SHOT (3 bloques simplificado)
-- PROYECTO_TEMP_EP_SEQ_SHOT_DESC1_DESC2 (6 bloques con descripción)
-- PROYECTO_TEMP_EP_SEQ_SHOT (4 bloques simplificado)
+____________________________________________________________________
+
+  LGA_NKS_FlowPlaylist_Push_connector v0.01 | Lega
+
+  Conector simple para operaciones de red con Flow
+  Este script se ejecuta con Python personalizado para evitar problemas de dependencias
+  Actualizado para ser compatible con múltiples sistemas de nomenclatura:
+  - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+  - PROYECTO_SEQ_SHOT (3 bloques simplificado)
+  - PROYECTO_TEMP_EP_SEQ_SHOT_DESC1_DESC2 (6 bloques con descripción)
+  - PROYECTO_TEMP_EP_SEQ_SHOT (4 bloques simplificado)
+____________________________________________________________________
 """
 
 import os
