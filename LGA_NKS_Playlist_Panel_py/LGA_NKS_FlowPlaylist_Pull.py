@@ -1,10 +1,11 @@
 """
-____________________________________________________________________________
+____________________________________________________________________
+
   LGA_NKS_FlowPlaylist_Pull v0.01 | Lega
+
   Compara los estados de las task Comp de los shots del timeline de Hiero
   con los estados registrados en un archivo JSON basado en Flow PT
   Tambien aplica tags con los colores de los estados en xyplorer
-
 
   v3.37: Fix crash en pull batch cuando un clip entra en Version Mismatch y la task no tiene assignee.
   v3.36: Soporte multi-task: itera sobre TASK_EXR_TRACKS (comp + roto) en lugar de solo TRACK_comp_EXR
@@ -18,7 +19,8 @@ ____________________________________________________________________________
   v3.28: Actualizado para ser compatible con ambos sistemas de nomenclatura:
          - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
          - PROYECTO_SEQ_SHOT (3 bloques simplificado)
-____________________________________________________________________________
+____________________________________________________________________
+
 """
 
 import json

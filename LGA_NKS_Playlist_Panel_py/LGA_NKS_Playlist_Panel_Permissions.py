@@ -1,11 +1,13 @@
 """
-____________________________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_Playlist_Panel_Permissions v0.01 | Lega
+
   Utilidades para detectar si el usuario actual de PipeSync tiene rol Master.
 
   v0.01: Lectura de config.secure y parsing de SpecialUsers.cpp.
-____________________________________________________________________________________
+____________________________________________________________________
+
 """
 
 from pathlib import Path

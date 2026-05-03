@@ -1,15 +1,16 @@
 """
-_________________________________________________________________________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_FlowPlaylist_ReviewPic v0.01 | Lega
+
   Crea un snapshot de la imagen actual del viewer y lo guarda en ReviewPic_Cache
   organizando por clips del track TRACK_comp_EXR con numeracion de frames
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
-  
-  v1.01 - Usa el módulo utilitario LGA_NKS_GetClip para obtener el clip a partir del playhead (no permite selecciones múltiples)
-_________________________________________________________________________________________________________________________________
+
+  v1.01: Usa el módulo utilitario LGA_NKS_GetClip para obtener el clip a partir del playhead (no permite selecciones múltiples)
+____________________________________________________________________
 
 """
 
