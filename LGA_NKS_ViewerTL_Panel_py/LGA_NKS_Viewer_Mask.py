@@ -1,13 +1,12 @@
 """
-__________________________________________________________
+____________________________________________________________________
 
-  LGA_NKS_Viewer_Mask v1.3 | Lega
+  LGA_NKS_Viewer_Mask v1.30 | Lega
+
   Ajusta el overlay del viewer a un aspect ratio específico
   alterna los estilos de mascara entre None, Half y Full
   a la vez que sube en Y al texto Frame del track BurnIn
-__________________________________________________________
-
-
+____________________________________________________________________
 """
 
 import hiero.core

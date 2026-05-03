@@ -1,7 +1,7 @@
 """
-__________________________________________________________
+____________________________________________________________________
 
-  LGA_NKS_Timeline_Refresh v1.2 | Lega
+  LGA_NKS_Timeline_Refresh v1.20 | Lega
 
   Refresca el timeline cerrándolo y volviéndolo a abrir,
   manteniendo los ajustes del viewer:
@@ -9,7 +9,7 @@ __________________________________________________________
   2. Cierra el viewer activo.
   3. Reabre la misma secuencia en un nuevo timeline viewer.
   4. Restaura los ajustes del viewer.
-__________________________________________________________
+____________________________________________________________________
 """
 
 import hiero.core

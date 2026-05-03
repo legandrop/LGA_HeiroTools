@@ -1,5 +1,5 @@
 """
-__________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_InOut_Editref v1.42 | Lega
 
@@ -11,8 +11,8 @@ __________________________________________________________
    4. Selecciona el clip, mueve el playhead al inicio y ajusta
       la vista para que se ajuste al clip seleccionado.
 
-  v1.42 - Usa módulo centralizado LGA_NKS_GetClip con método híbrido para buscar clips en track EditRef o EditRefClean (playhead primero, luego selección como fallback)
-__________________________________________________________
+  v1.42: Usa módulo centralizado LGA_NKS_GetClip con método híbrido para buscar clips en track EditRef o EditRefClean (playhead primero, luego selección como fallback)
+____________________________________________________________________
 """
 
 import hiero.core
