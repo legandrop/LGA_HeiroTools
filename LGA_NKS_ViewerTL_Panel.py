@@ -1,7 +1,8 @@
 """
-________________________________________________________________
+____________________________________________________________________
 
   LGA_ViewerPanel v1.68 | Lega
+
   Panel con herramientas para el viewer y el timeline de Hiero
 
   v1.68: Agregado sistema de scroll, logging a archivo y gap vertical
@@ -15,7 +16,7 @@ ________________________________________________________________
          a LGA_NKS_ViewerTL/ para mejor organización
   v1.62: Se agregó el botón Frame Number
   v1.61: Se agregaron tooltips
-________________________________________________________________
+____________________________________________________________________
 
 """
 

@@ -1,13 +1,14 @@
 """
-____________________________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_Playlist_Panel v0.01 | Lega
+
   Panel base para flujos de playlists vendor en Hiero / Nuke Studio.
   Esta primera version solo monta la UI del panel y valida si el usuario actual
   tiene rol Master en PipeSync antes de cargarlo.
 
   v0.01: Creacion inicial del panel, deteccion de Master y botones placeholder.
-____________________________________________________________________________________
+____________________________________________________________________
 """
 
 import hiero.ui

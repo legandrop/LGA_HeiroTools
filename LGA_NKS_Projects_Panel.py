@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-____________________________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_Projects_Panel v2.22 | Lega
+
   Panel de Proyectos LGA integrado para Hiero con recarga inteligente.
   - Escanea proyectos en AltTPath (PipeSync) o T:\ como fallback.
   - Permite abrir proyectos y secuencias (cross-project) sin perder ajustes de viewer.
@@ -12,9 +13,8 @@ ________________________________________________________________________________
   v2.21: Mejorada lógica de versiones: búsqueda en anteúltimo bloque y priorización de sufijos (_Mac)
          Las versiones ahora se detectan correctamente cuando están en bloques anteriores
          Ejemplo: v40_Mac > v40 (prioriza sufijos), v040_Mac detecta v040 correctamente
-
-  v2.2: Display formateado: PROYECTO (vXXX), emojis ▼▶, sin _SUP_
-____________________________________________________________________________________
+  v2.20: Display formateado: PROYECTO (vXXX), emojis ▼▶, sin _SUP_
+____________________________________________________________________
 """
 
 import hiero.ui
