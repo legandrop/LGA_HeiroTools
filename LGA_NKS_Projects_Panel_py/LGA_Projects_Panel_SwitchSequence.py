@@ -1,7 +1,8 @@
 """
-____________________________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_Projects_Panel_SwitchSequence v2.26 | Lega
+
   Hiero / Nuke Studio - Switch V3: HÍBRIDO OPTIMIZADO + LIMPIEZA TOTAL + CROSS-PROJECT
 
   🎯 SOLUCIÓN GANADORA FINAL:
@@ -15,6 +16,9 @@ ________________________________________________________________________________
 
   ✅ CONFIRMADO: Funciona perfectamente - velocidad 0.63s con cierre equilibrado + cross-project.
 
+  INTEGRACIÓN EN PANEL DE PROYECTOS:
+  from switch_sequence_v3_final import switch_to_sequence_hybrid
+
   v2.26: Reinicia el log en cada cambio de timeline e inyecta el logger del Projects Panel en scripts shared
   v2.25: Agregado timeline pre-cleanup sobre la secuencia nueva.
          Elimina tracks NukeVFX y extiende BurnIn antes de los ajustes finales de UI.
@@ -22,10 +26,8 @@ ________________________________________________________________________________
   v2.23: Flag opcional para cerrar TODOS los timelines viejos (deja solo el nuevo)
   v2.22: Apertura con duplicado y cierre simultáneo de viewer + timeline originales (método refresh)
   v2.21: Mejorada lógica de versiones: búsqueda en anteúltimo bloque y priorización de sufijos (_Mac)
+____________________________________________________________________
 
-  INTEGRACIÓN EN PANEL DE PROYECTOS:
-  from switch_sequence_v3_final import switch_to_sequence_hybrid
-____________________________________________________________________________________
 """
 
 import hiero.core

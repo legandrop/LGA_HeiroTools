@@ -1,5 +1,11 @@
 """
-Workers para operaciones en background en el panel de proyectos LGA.
+____________________________________________________________________
+
+  LGA_NKS_Workers v1.00 | Lega
+
+  Workers para operaciones en background en el panel de proyectos LGA.
+____________________________________________________________________
+
 """
 
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtCore

@@ -1,5 +1,11 @@
 """
-Gestor de interfaz de usuario para el panel de proyectos LGA.
+____________________________________________________________________
+
+  LGA_NKS_UIManager v1.00 | Lega
+
+  Gestor de interfaz de usuario para el panel de proyectos LGA.
+____________________________________________________________________
+
 """
 
 import os

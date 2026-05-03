@@ -1,6 +1,13 @@
 # -*- coding: utf-8 -*-
+
 """
-Gestor de escaneo para el panel de proyectos LGA.
+____________________________________________________________________
+
+  LGA_NKS_ScanManager v1.00 | Lega
+
+  Gestor de escaneo para el panel de proyectos LGA.
+____________________________________________________________________
+
 """
 
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtCore

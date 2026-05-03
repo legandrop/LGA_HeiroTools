@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-____________________________________________________________________________________
+____________________________________________________________________
 
   LGA_Projects_Panel_ScanProjects v1.01 | Lega
+
   Módulo de escaneo reutilizable para el Panel de Proyectos LGA.
   - Escanea proyectos en disco
   - Obtiene información de proyectos abiertos en Hiero
@@ -11,7 +12,8 @@ ________________________________________________________________________________
 
   v1.01: Conectado al logger compartido del Projects Panel para respetar flags y salida a archivo
   v1.00: Versión inicial del módulo de escaneo reutilizable
-____________________________________________________________________________________
+____________________________________________________________________
+
 """
 
 import hiero.core

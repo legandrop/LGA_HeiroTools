@@ -1,11 +1,12 @@
 """
-_______________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_CheckProjectVersions v1.82 | Lega
+
   Chequea versiones de todos los proyectos abiertos en Hiero
 
   v1.82: Conectado al logger compartido del Projects Panel y removidos prints directos en flujos de UI
-_______________________________________________________________
+____________________________________________________________________
 
 """
 
