@@ -959,11 +959,18 @@ class CreateV000Dialog(QtWidgets.QDialog):
     def _build_task_box(self):
         layout = QtWidgets.QHBoxLayout()
 
+        # Paleta de colores para tareas: azul (comp) → azul-celeste (roto) → celeste-verdoso (cleanup)
+        task_colors = {
+            "comp": "#3381e0",  # Azul puro
+            "roto": "#2abf7e",  # Azul-Celeste
+            "cleanup": "#27c8c3",  # Celeste-Verdoso
+        }
+
         for task in TASKS:
             btn = QtWidgets.QPushButton(task)
             btn.setCheckable(True)
             btn.setMinimumWidth(90)
-            task_color = get_task_color(task, fallback="#3B9ACA")
+            task_color = task_colors.get(task.lower(), "#3B9ACA")
             btn.setStyleSheet(
                 """
                 QPushButton {
