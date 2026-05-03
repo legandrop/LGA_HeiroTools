@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_Task_Config v1.24 | Lega
+  LGA_NKS_Flow_Task_Config v1.25 | Lega
 
   Usado por runtime activo:
   - LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assignee.py
@@ -13,6 +13,7 @@ ____________________________________________________________________
   La lista está sincronizada con los scripts de creación/modificación de shots y
   provee colores consistentes para las UIs compactas (assignee panel, create shot, etc.).
 
+  1.25: Actualizado para usar colores de tasks alineados con los colores de create v000
   v1.24: Actualiza la UI para mostrar las tasks y los asignados en Flow.
          Funciona con todas las tasks disponibles en Flow.
 ____________________________________________________________________
@@ -27,19 +28,19 @@ AVAILABLE_TASKS: List[Dict[str, str]] = [
         "name": "Comp",
         "pipeline_step": "Comp",
         "enabled_by_default": True,
-        "color": "#3B9ACA",  # Azul
+        "color": "#3381e0",  # Azul
     },
     {
         "name": "Roto",
         "pipeline_step": "Roto",
         "enabled_by_default": False,
-        "color": "#3B9ACA",  # Azul
+        "color": "#2abf7e",  # Verde
     },
     {
         "name": "Cleanup",
         "pipeline_step": "Cleanup",
         "enabled_by_default": False,
-        "color": "#3BCACA",  # Cyan
+        "color": "#27c8c3",  # Cyan
     },
     {
         "name": "DMP",
