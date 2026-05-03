@@ -26,6 +26,7 @@ import hiero.ui
 
 START_FRAME = 1001
 VERSION = "v000"
+V000_CLIP_COLOR = QtGui.QColor(138, 138, 138)
 TASKS = ("comp", "roto", "cleanup")
 TASK_FOLDER = {
     "comp": "Comp",
@@ -45,7 +46,6 @@ if str(STARTUP_DIR) not in sys.path:
 
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 from LGA_NKS_Flow_NamingUtils import clean_base_name, extract_project_name, extract_shot_code
-from LGA_NKS_GetClip import find_clip_at_playhead_in_track
 from LGA_NKS_TaskSelectionDialog import track_for_task
 from LGA_NKS_Flow_Task_Config import get_task_color
 
@@ -81,39 +81,6 @@ def _clip_file_name(clip):
 
 def _frame_count(timeline_in, timeline_out):
     return max(0, int(timeline_out) - int(timeline_in))
-
-
-def _extract_version_label(value):
-    if not value:
-        return None
-    match = re.search(r"_v(\d+)(?:[-_(.]|$)", value, flags=re.IGNORECASE)
-    if match:
-        return "v%s" % match.group(1).zfill(3)
-    match = re.search(r"\bv(\d+)\b", value, flags=re.IGNORECASE)
-    if match:
-        return "v%s" % match.group(1).zfill(3)
-    return None
-
-
-def _clip_version_label(clip):
-    candidates = []
-    for getter in (
-        lambda: _clip_file_name(clip),
-        lambda: clip.name(),
-        lambda: clip.source().binItem().activeVersion().name(),
-    ):
-        try:
-            value = getter()
-            if value:
-                candidates.append(value)
-        except Exception:
-            pass
-
-    for value in candidates:
-        version = _extract_version_label(value)
-        if version:
-            return version
-    return "existing"
 
 
 def _timeline_resolution(seq):
@@ -299,14 +266,6 @@ def _collect_range_sources(seq, current_time):
             plates.append(source)
 
     return editrefs + plates, plates
-
-
-def _existing_versions_by_task(seq):
-    versions = {}
-    for task in TASKS:
-        clip = find_clip_at_playhead_in_track(seq, track_for_task(task))
-        versions[task] = _clip_version_label(clip) if clip else None
-    return versions
 
 
 def _oiio_tool_path():
@@ -603,7 +562,6 @@ def _collect_context():
         "range_sources": range_sources,
         "plates": plates,
         "timeline_resolution": (width, height),
-        "existing_versions_by_task": _existing_versions_by_task(seq),
     }, None
 
 
@@ -615,8 +573,6 @@ class CreateV000Dialog(QtWidgets.QDialog):
         self._syncing_range_checks = False
         self.resolution_buttons = {}
         self.task_buttons = {}
-        self.selected_task = None
-        self.selected_resolution = None
 
         self.setWindowTitle("Create v000 - %s" % context["shot_code"])
         self.setMinimumWidth(720)
@@ -985,9 +941,6 @@ class CreateV000Dialog(QtWidgets.QDialog):
 
     def _build_task_box(self):
         layout = QtWidgets.QHBoxLayout()
-        group = QtWidgets.QButtonGroup(self)
-        group.setExclusive(True)
-        existing = self.context["existing_versions_by_task"]
 
         for task in TASKS:
             btn = QtWidgets.QPushButton(task)
@@ -1020,11 +973,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
                 """
                 % {"color": task_color}
             )
-            if existing.get(task):
-                btn.setEnabled(False)
-                btn.setToolTip("%s disabled - existing %s" % (task, existing[task]))
             btn.toggled.connect(self._update_state)
-            group.addButton(btn)
             self.task_buttons[task] = btn
             layout.addWidget(btn)
         layout.addStretch()
@@ -1034,11 +983,8 @@ class CreateV000Dialog(QtWidgets.QDialog):
         return container
 
     def _select_default_task(self):
-        for task in TASKS:
-            btn = self.task_buttons[task]
-            if btn.isEnabled():
-                btn.setChecked(True)
-                return
+        if TASKS:
+            self.task_buttons[TASKS[0]].setChecked(True)
 
     def _on_range_check_changed(self, changed_check):
         if self._syncing_range_checks:
@@ -1080,21 +1026,28 @@ class CreateV000Dialog(QtWidgets.QDialog):
                 return task
         return None
 
+    def _selected_tasks(self):
+        return [task for task in TASKS if self.task_buttons[task].isChecked()]
+
     def _selected_resolution_info(self):
         for btn, info in self.resolution_buttons.items():
             if btn.isChecked():
                 return info
         return None
 
-    def _build_output(self):
+    def _build_output(self, task=None):
         plates = self._selected_plates()
-        task = self._selected_task()
+        task = task or self._selected_task()
         resolution = self._selected_resolution_info()
         shot_root = self.context["shot_root_path"]
         shot_code = self.context["shot_code"]
 
-        if not plates or not task or not resolution:
+        if not plates:
             return None, "Select at least one plate."
+        if not task:
+            return None, "Select at least one task."
+        if not resolution:
+            return None, "Select a resolution."
         if not shot_root:
             return None, "Could not derive shot root from _input path."
         if not resolution.get("width") or not resolution.get("height"):
@@ -1146,6 +1099,17 @@ class CreateV000Dialog(QtWidgets.QDialog):
             "output_name_pattern": "%s_####.exr" % version_name,
         }, None
 
+    def _build_outputs(self):
+        params_list = []
+        for task in self._selected_tasks():
+            params, warning = self._build_output(task)
+            if warning:
+                return None, warning
+            params_list.append(params)
+        if not params_list:
+            return None, "Select at least one task."
+        return params_list, None
+
     def _set_warning(self, message):
         if message:
             self.warning_label.setText(message)
@@ -1165,15 +1129,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
     def _update_state(self, *args):
         self._set_handle_enabled(self._selected_range_uses_editref())
 
-        task = self._selected_task()
-        if not task and all(not btn.isEnabled() for btn in self.task_buttons.values()):
-            warning = "All tasks already have versions in timeline."
-            self._set_warning(warning)
-            self.create_btn.setEnabled(False)
-            self.output_text.setPlainText(warning)
-            return
-
-        params, warning = self._build_output()
+        params_list, warning = self._build_outputs()
         if warning:
             self._set_warning(warning)
             self.create_btn.setEnabled(False)
@@ -1182,24 +1138,47 @@ class CreateV000Dialog(QtWidgets.QDialog):
 
         self._set_warning("")
         self.create_btn.setEnabled(True)
-        self.output_text.setPlainText(
-            "Path: {output_dir}\n"
-            "Name: {output_name_pattern}\n"
-            "Timeline: {timeline_in} - {timeline_out} (handle {handle})\n"
-            "Frames: {source_first_frame} - {source_last_frame} ({frame_count} frames)\n"
-            "Resolution: {0} x {1} ({resolution_source})".format(
-                params["resolution"][0],
-                params["resolution"][1],
-                **params
+        preview_blocks = []
+        for params in params_list:
+            preview_blocks.append(
+                "Task: {task}\n"
+                "Path: {output_dir}\n"
+                "Name: {output_name_pattern}\n"
+                "Timeline: {timeline_in} - {timeline_out} (handle {handle})\n"
+                "Frames: {source_first_frame} - {source_last_frame} ({frame_count} frames)\n"
+                "Resolution: {0} x {1} ({resolution_source})".format(
+                    params["resolution"][0],
+                    params["resolution"][1],
+                    **params
+                )
             )
-        )
+        self.output_text.setPlainText("\n\n".join(preview_blocks))
 
     def _create_v000(self):
-        params, warning = self._build_output()
+        params_list, warning = self._build_outputs()
         if warning:
             self._set_warning(warning)
             return
 
+        seq = self.context["sequence"]
+        project = _active_project_for_sequence(seq)
+        if not project:
+            message = "No active project found."
+            self._set_warning(message)
+            QtWidgets.QMessageBox.warning(self, "Create v000", message)
+            return
+
+        created_count = 0
+        for params in params_list:
+            if self._create_v000_for_params(seq, project, params):
+                created_count += 1
+
+        if created_count:
+            self.accept()
+        else:
+            self._update_state()
+
+    def _create_v000_for_params(self, seq, project, params):
         replace_existing = False
         if _output_has_exrs(params):
             replace_box = QtWidgets.QMessageBox(self)
@@ -1212,16 +1191,8 @@ class CreateV000Dialog(QtWidgets.QDialog):
             replace_box.setDefaultButton(cancel_btn)
             replace_box.exec_()
             if replace_box.clickedButton() != replace_btn:
-                return
+                return False
             replace_existing = True
-
-        seq = self.context["sequence"]
-        project = _active_project_for_sequence(seq)
-        if not project:
-            message = "No active project found."
-            self._set_warning(message)
-            QtWidgets.QMessageBox.warning(self, "Create v000", message)
-            return
 
         integration_mode = "timeline"
         target_track_name = track_for_task(params["task"])
@@ -1230,7 +1201,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
             message = "Target track not found: %s" % target_track_name
             self._set_warning(message)
             QtWidgets.QMessageBox.warning(self, "Create v000", message)
-            return
+            return False
 
         overlaps = _timeline_overlaps(target_track, params["timeline_in"], params["timeline_out"])
         if overlaps:
@@ -1247,7 +1218,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
             overlap_box.exec_()
             clicked = overlap_box.clickedButton()
             if clicked == cancel_btn:
-                return
+                return False
             if clicked == exrs_only_btn:
                 integration_mode = "exrs_only"
             elif clicked == import_bin_btn:
@@ -1255,7 +1226,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
             elif clicked == replace_timeline_btn:
                 integration_mode = "replace_timeline"
             else:
-                return
+                return False
 
         success, status, message = _create_black_exr_sequence(params, replace=replace_existing)
 
@@ -1263,7 +1234,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
             self._set_warning(message)
             QtWidgets.QMessageBox.warning(self, "Create v000", message)
             debug_print("error:", message)
-            return
+            return False
 
         import_message = ""
         if integration_mode != "exrs_only":
@@ -1302,12 +1273,12 @@ class CreateV000Dialog(QtWidgets.QDialog):
                 self._set_warning(str(exc))
                 QtWidgets.QMessageBox.warning(self, "Create v000", message)
                 debug_print("import error:", exc)
-                return
+                return False
 
         debug_print("created:", params)
         if import_message:
             debug_print(import_message.strip())
-        self.accept()
+        return True
 
 
 def open_create_v000_dialog():
