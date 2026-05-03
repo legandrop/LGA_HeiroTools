@@ -339,7 +339,7 @@ def _clip_file_name(clip):
 
 
 def _frame_count(timeline_in, timeline_out):
-    return max(0, int(timeline_out) - int(timeline_in))
+    return max(0, int(timeline_out) - int(timeline_in) + 1)
 
 
 def _timeline_resolution(seq):
@@ -466,7 +466,7 @@ def _find_clip_at_time(track, current_time):
         if isinstance(item, hiero.core.EffectTrackItem):
             continue
         try:
-            if item.timelineIn() <= current_time < item.timelineOut():
+            if item.timelineIn() <= current_time <= item.timelineOut():
                 return item
         except Exception:
             pass
@@ -661,10 +661,10 @@ def _find_video_track(seq, track_name):
     return None
 
 
-def _timeline_overlaps(track, timeline_in, timeline_out_exclusive):
+def _timeline_overlaps(track, timeline_in, timeline_out):
     overlaps = []
     new_in = int(timeline_in)
-    new_out = int(timeline_out_exclusive) - 1
+    new_out = int(timeline_out)
     for item in track.items():
         if isinstance(item, hiero.core.EffectTrackItem):
             continue
@@ -704,7 +704,7 @@ def _insert_v000_in_timeline(seq, clip, params):
 
     frame_count = int(params["frame_count"])
     timeline_in = int(params["timeline_in"])
-    timeline_out = int(params["timeline_out"]) - 1
+    timeline_out = int(params["timeline_out"])
     source_in = 0
     source_out = frame_count - 1
 

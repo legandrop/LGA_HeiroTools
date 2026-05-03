@@ -259,7 +259,7 @@ Task: roto              ← color de la task (#2abf7e para roto)
 Path: T:/VFX-MOR/101/MOR_1003_020/Roto/4_publish/MOR_1003_020_roto_v000
 Name: MOR_1003_020_roto_v000_####.exr
 Timeline: 3813 - 4242 (handle 4)
-Frames: 1001 - 1429 (429 frames)
+Frames: 1001 - 1430 (430 frames)
 Resolution: 4168 x 1612 (Timeline)
 ```
 
@@ -401,9 +401,9 @@ La funcion `_build_output()` retorna un diccionario con todos los parametros nec
     "handle": 4,
     "timeline_in": 3813,
     "timeline_out": 4242,
-    "frame_count": 429,
+    "frame_count": 430,
     "source_first_frame": 1001,
-    "source_last_frame": 1429,
+    "source_last_frame": 1430,
     "resolution": (4168, 1612),
     "resolution_source": "Timeline",
     "output_dir": "T:/VFX-MOR/101/MOR_1003_020/Roto/4_publish/MOR_1003_020_roto_v000",
@@ -411,7 +411,7 @@ La funcion `_build_output()` retorna un diccionario con todos los parametros nec
 }
 ```
 
-Nota: `timeline_out` es **exclusivo** (frame de corte, no el ultimo frame incluido). `frame_count = timeline_out - timeline_in`.
+Nota: `timeline_out` es **inclusivo** (ultimo frame incluido). `frame_count = timeline_out - timeline_in + 1`.
 
 ---
 
@@ -504,7 +504,7 @@ bin_item.setColor(QtGui.QColor(138, 138, 138))
 
 track_item = target_track.addTrackItem(clip, timeline_in)
 track_item.setName(shot_name)                   # Solo SHOT_CODE, no nombre completo de archivo
-track_item.setTimes(timeline_in, timeline_out - 1, 0, frame_count - 1)
+track_item.setTimes(timeline_in, timeline_out, 0, frame_count - 1)
 track_item.setVersionLinkedToBin(True)          # Debe llamarse al final
 track_item.setEnabled(False)                    # La v000 queda deshabilitada en timeline
 ```
@@ -522,7 +522,7 @@ track_item.setEnabled(False)                    # La v000 queda deshabilitada en
   - `Create + Import to Bin`
   - `Create + Import to Bin & Timeline`
 - Source relativo: `0` a `frame_count - 1`.
-- `TrackItem.setTimes()` recibe `timeline_out - 1` (inclusivo).
+- `TrackItem.setTimes()` recibe `timeline_out` inclusivo.
 - `setVersionLinkedToBin(True)` solo funciona despues de que el TrackItem ya fue agregado y sus tiempos ajustados.
 - Si se crea un clip en timeline, deshabilitar el `TrackItem` v000 con `setEnabled(False)`.
 - En una cola multi-task, `Cancel` en el dialogo de overlap o replace saltea solo la task actual y continua con la siguiente seleccionada.
