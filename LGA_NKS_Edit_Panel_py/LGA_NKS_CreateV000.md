@@ -25,6 +25,20 @@ Se activa con `open_create_v000_dialog()`.
 
 ---
 
+## Logging
+
+El script usa el sistema de logging dual documentado en `docs\Docu_Logging_System.md` con los valores por defecto:
+
+- `DEBUG = True`
+- `DEBUG_CONSOLE = False`
+- `DEBUG_LOG = True`
+
+La salida de debug no se propaga a consola y se escribe en `C:\Users\leg4-pc\.nuke\Python\Startup\logs\debugPy_CreateV000.log`.
+
+El archivo se reinicia en cada carga del modulo con encabezado `Fecha: YYYY-MM-DD HH:MM:SS` y usa formato relativo `[0.123s] mensaje`.
+
+---
+
 ## Funcionamiento general
 
 ### Prerequisitos para que el dialogo abra
@@ -530,7 +544,8 @@ C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-Trac
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py` | `open_create_v000_dialog()`, `_collect_context()`, `_collect_range_sources()`, `_build_outputs()`, `_preview_in_out()`, `_zoom_timeline_to_preview_range()`, `_create_v000_for_params()`, `_set_v000_clip_color()`, `_disable_timeline_item()`, `_create_black_exr_sequence()`, `_colorize_path()`, `CreateV000Dialog` |
+| `LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py` | `setup_debug_logging()`, `debug_print()`, `cleanup_logging()`, `open_create_v000_dialog()`, `_collect_context()`, `_collect_range_sources()`, `_build_outputs()`, `_preview_in_out()`, `_zoom_timeline_to_preview_range()`, `_create_v000_for_params()`, `_set_v000_clip_color()`, `_disable_timeline_item()`, `_create_black_exr_sequence()`, `_colorize_path()`, `CreateV000Dialog` |
+| `docs\Docu_Logging_System.md` | Valores por defecto y patron de `QueueHandler` / `QueueListener` |
 | `LGA_NKS_ViewerTL_Panel_py\LGA_NKS_InOut_Editref.py` | Referencia para `seq.setInTime()` y `seq.setOutTime()` |
 | `LGA_NKS_ViewerTL_Panel_py\LGA_NKS_PrevNext_Rev.py` | Referencia para mover playhead, enfocar timeline y ejecutar `Zoom to Fit` con `QTimer.singleShot()` |
 | `LGA_NKS_ClipColor_Panel.py` | Boton `v_00`, color `QtGui.QColor(138, 138, 138)` / `#8a8a8a` |
