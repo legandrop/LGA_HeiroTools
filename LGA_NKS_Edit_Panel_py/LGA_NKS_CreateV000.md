@@ -144,11 +144,15 @@ Control custom de incremento/decremento. No usa `QSpinBox`.
 [ ▼ ][ 4 ][ ▲ ]
 ```
 
-- Valor inicial: `4`.
+- Valor inicial por defecto: `4`.
 - Rango permitido: `0` a `99`.
 - **Solo se habilita si la seleccion de frame range incluye al menos un editref.**
 - Si la seleccion no tiene editref, el handle se fuerza a `0` y queda greyed out.
-- Si luego se vuelve a seleccionar un editref, el handle vuelve al default `4`.
+- El handle es persistente: al abrir la tool se lee desde `CreateV000.ini`.
+- Si no existe el archivo de settings, se crea con `handle=4`.
+- Cuando el usuario cambia el handle con las flechas, el nuevo valor se guarda inmediatamente.
+- Si luego se vuelve a seleccionar un editref, el handle vuelve al ultimo valor guardado.
+- El `0` temporal por seleccionar una fuente sin editref no se guarda.
 
 Cuando el handle esta activo, el rango efectivo se expande:
 
@@ -159,7 +163,24 @@ timeline_out = base_timeline_out + handle
 
 Cualquier cambio en el handle recalcula el preview de OUTPUT en vivo.
 
-**Implementacion:** `_build_handle_box()`, `_step_handle()`, `_set_handle_enabled()`
+**Implementacion:** `_read_handle_setting()`, `_write_handle_setting()`, `_build_handle_box()`, `_step_handle()`, `_set_handle_enabled()`
+
+### Settings de Create v000
+
+La preferencia del handle se guarda en:
+
+| Sistema | Ruta |
+|---------|------|
+| Windows | `%APPDATA%/LGA/HieroTools/CreateV000.ini` |
+| macOS | `~/Library/Application Support/LGA/HieroTools/CreateV000.ini` |
+| Fallback | `~/.config/LGA/HieroTools/CreateV000.ini` |
+
+Formato:
+
+```ini
+[Settings]
+handle = 4
+```
 
 ---
 
@@ -420,6 +441,11 @@ START_FRAME = 1001
 VERSION     = "v000"
 V000_CLIP_COLOR_RGB = (138, 138, 138)  # #8a8a8a, igual al boton v_00 de ClipColor
 DEFAULT_HANDLE = 4
+CONFIG_DIR_NAME = "LGA"
+CONFIG_SUBDIR_NAME = "HieroTools"
+CONFIG_FILE_NAME = "CreateV000.ini"
+CONFIG_SECTION = "Settings"
+CONFIG_HANDLE_KEY = "handle"
 TASKS       = ("comp", "roto", "cleanup")
 TASK_FOLDER = {"comp": "Comp", "roto": "Roto", "cleanup": "Cleanup"}
 

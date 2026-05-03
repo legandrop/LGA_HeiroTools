@@ -15,6 +15,7 @@ ____________________________________________________________________
 """
 
 import os
+import configparser
 import re
 import shutil
 import subprocess
@@ -28,6 +29,11 @@ START_FRAME = 1001
 VERSION = "v000"
 V000_CLIP_COLOR_RGB = (138, 138, 138)
 DEFAULT_HANDLE = 4
+CONFIG_DIR_NAME = "LGA"
+CONFIG_SUBDIR_NAME = "HieroTools"
+CONFIG_FILE_NAME = "CreateV000.ini"
+CONFIG_SECTION = "Settings"
+CONFIG_HANDLE_KEY = "handle"
 TASKS = ("comp", "roto", "cleanup")
 TASK_FOLDER = {
     "comp": "Comp",
@@ -77,6 +83,80 @@ from LGA_NKS_Flow_Task_Config import get_task_color
 
 def debug_print(*message):
     print("[Create v000]", *message)
+
+
+def _user_config_root():
+    if sys.platform.startswith("win"):
+        config_root = os.getenv("APPDATA")
+        if config_root:
+            return config_root
+        return os.path.expanduser("~")
+    if sys.platform == "darwin":
+        return os.path.expanduser("~/Library/Application Support")
+    return os.path.expanduser("~/.config")
+
+
+def _config_path():
+    return os.path.join(
+        _user_config_root(),
+        CONFIG_DIR_NAME,
+        CONFIG_SUBDIR_NAME,
+        CONFIG_FILE_NAME,
+    )
+
+
+def _clamp_handle(value):
+    try:
+        return max(0, min(99, int(value)))
+    except Exception:
+        return DEFAULT_HANDLE
+
+
+def _write_handle_setting(handle_value):
+    config_file = _config_path()
+    config_dir = os.path.dirname(config_file)
+    try:
+        if not os.path.isdir(config_dir):
+            os.makedirs(config_dir)
+
+        config = configparser.ConfigParser()
+        config[CONFIG_SECTION] = {
+            CONFIG_HANDLE_KEY: str(_clamp_handle(handle_value)),
+        }
+        with open(config_file, "w", encoding="utf-8") as file_handle:
+            config.write(file_handle)
+        return None
+    except Exception as exc:
+        return "Failed to write Create v000 settings: %s" % exc
+
+
+def _read_handle_setting():
+    config_file = _config_path()
+    if not os.path.isfile(config_file):
+        error = _write_handle_setting(DEFAULT_HANDLE)
+        if error:
+            debug_print(error)
+        return DEFAULT_HANDLE
+
+    config = configparser.ConfigParser()
+    try:
+        config.read(config_file, encoding="utf-8")
+        missing_setting = (
+            not config.has_section(CONFIG_SECTION)
+            or not config.has_option(CONFIG_SECTION, CONFIG_HANDLE_KEY)
+        )
+        value = config.get(CONFIG_SECTION, CONFIG_HANDLE_KEY, fallback=str(DEFAULT_HANDLE))
+    except Exception as exc:
+        debug_print("Failed to read Create v000 settings:", exc)
+        missing_setting = True
+        value = DEFAULT_HANDLE
+
+    handle = _clamp_handle(value)
+    if missing_setting or str(handle) != str(value).strip():
+        error = _write_handle_setting(handle)
+        if error:
+            debug_print(error)
+    return handle
 
 
 def _colorize_path(path, shot_root):
@@ -680,6 +760,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
         self._syncing_range_checks = False
         self.resolution_buttons = {}
         self.task_buttons = {}
+        self.saved_handle_value = _read_handle_setting()
 
         self.setWindowTitle("Create v000 - %s" % context["shot_code"])
         self.setMinimumWidth(720)
@@ -972,7 +1053,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
         layout = QtWidgets.QHBoxLayout()
         layout.setSpacing(0)
 
-        self.handle_value = DEFAULT_HANDLE
+        self.handle_value = self.saved_handle_value
         handle_style = """
             QPushButton {
                 background-color: #272727;
@@ -1059,7 +1140,11 @@ class CreateV000Dialog(QtWidgets.QDialog):
         if not self.handle_up_btn.isEnabled():
             return
         self.handle_value = max(0, min(99, self.handle_value + delta))
+        self.saved_handle_value = self.handle_value
         self.handle_value_label.setText(str(self.handle_value))
+        save_error = _write_handle_setting(self.saved_handle_value)
+        if save_error:
+            debug_print(save_error)
         self._update_state()
 
     def _build_task_box(self):
@@ -1249,8 +1334,8 @@ class CreateV000Dialog(QtWidgets.QDialog):
         self.handle_up_btn.setEnabled(enabled)
         self.handle_value_label.setEnabled(enabled)
         if enabled and self.handle_value == 0:
-            self.handle_value = DEFAULT_HANDLE
-            self.handle_value_label.setText(str(DEFAULT_HANDLE))
+            self.handle_value = self.saved_handle_value
+            self.handle_value_label.setText(str(self.saved_handle_value))
         if not enabled and self.handle_value != 0:
             self.handle_value = 0
             self.handle_value_label.setText("0")
