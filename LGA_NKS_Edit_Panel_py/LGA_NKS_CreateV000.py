@@ -34,6 +34,11 @@ TASK_FOLDER = {
     "cleanup": "Cleanup",
 }
 RANGE_SOURCE_EDITREF = "editref"
+TASK_COLORS = {
+    "comp":    "#3381e0",
+    "roto":    "#2abf7e",
+    "cleanup": "#27c8c3",
+}
 RANGE_SOURCE_PLATE = "plate"
 
 CURRENT_DIR = Path(__file__).resolve().parent
@@ -959,18 +964,11 @@ class CreateV000Dialog(QtWidgets.QDialog):
     def _build_task_box(self):
         layout = QtWidgets.QHBoxLayout()
 
-        # Paleta de colores para tareas: azul (comp) → azul-celeste (roto) → celeste-verdoso (cleanup)
-        task_colors = {
-            "comp": "#3381e0",  # Azul puro
-            "roto": "#2abf7e",  # Azul-Celeste
-            "cleanup": "#27c8c3",  # Celeste-Verdoso
-        }
-
         for task in TASKS:
             btn = QtWidgets.QPushButton(task)
             btn.setCheckable(True)
             btn.setMinimumWidth(90)
-            task_color = task_colors.get(task.lower(), "#3B9ACA")
+            task_color = TASK_COLORS.get(task.lower(), "#3B9ACA")
             btn.setStyleSheet(
                 """
                 QPushButton {
@@ -1202,19 +1200,103 @@ class CreateV000Dialog(QtWidgets.QDialog):
         else:
             self._update_state()
 
+    def _task_confirm_dialog(self, task, message, confirm_label, cancel_label="Cancelar"):
+        """Diálogo de confirmación con badge de task coloreado.
+
+        Devuelve True si el usuario confirma, False si cancela.
+        """
+        task_color = TASK_COLORS.get(task.lower(), "#a7a7a7")
+        parent = self
+
+        dialog = QtWidgets.QDialog(parent)
+        dialog.setWindowTitle("Create v000")
+        dialog.setModal(True)
+        dialog.setStyleSheet(
+            """
+            QDialog {
+                background-color: #2B2B2B;
+                border: 1px solid #555555;
+            }
+            """
+        )
+
+        layout = QtWidgets.QVBoxLayout(dialog)
+        layout.setSpacing(10)
+        layout.setContentsMargins(16, 14, 16, 14)
+
+        # Header: badge de task coloreado
+        header_row = QtWidgets.QHBoxLayout()
+        badge = QtWidgets.QLabel(task.upper())
+        badge.setStyleSheet(
+            "color: %s; font-weight: bold; font-size: 13px; padding: 2px 0px;" % task_color
+        )
+        header_row.addWidget(badge)
+        header_row.addStretch()
+        layout.addLayout(header_row)
+
+        # Separador
+        sep = QtWidgets.QFrame()
+        sep.setFrameShape(QtWidgets.QFrame.HLine)
+        sep.setFrameShadow(QtWidgets.QFrame.Sunken)
+        sep.setStyleSheet("color: #444444; margin: 0px;")
+        layout.addWidget(sep)
+
+        # Mensaje
+        msg_label = QtWidgets.QLabel(message)
+        msg_label.setWordWrap(True)
+        msg_label.setStyleSheet("color: #CCCCCC; padding: 4px 0px;")
+        layout.addWidget(msg_label)
+
+        # Botones
+        btn_row = QtWidgets.QHBoxLayout()
+        btn_row.addStretch()
+
+        cancel_btn = QtWidgets.QPushButton(cancel_label)
+        cancel_btn.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #555555;
+                border: 1px solid #666666;
+                color: #CCCCCC;
+                padding: 6px 14px;
+                border-radius: 3px;
+            }
+            QPushButton:hover { background-color: #666666; }
+            """
+        )
+        cancel_btn.clicked.connect(dialog.reject)
+
+        confirm_btn = QtWidgets.QPushButton(confirm_label)
+        confirm_btn.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #443a91;
+                color: #b2b2b2;
+                padding: 6px 14px;
+                border-radius: 3px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #774dcb; color: #CCCCCC; }
+            """
+        )
+        confirm_btn.clicked.connect(dialog.accept)
+
+        btn_row.addWidget(cancel_btn)
+        btn_row.addSpacing(8)
+        btn_row.addWidget(confirm_btn)
+        layout.addLayout(btn_row)
+
+        return dialog.exec_() == QtWidgets.QDialog.Accepted
+
     def _create_v000_for_params(self, seq, project, params):
         replace_existing = False
         if _output_has_exrs(params):
-            replace_box = QtWidgets.QMessageBox(self)
-            replace_box.setWindowTitle("Create v000")
-            replace_box.setIcon(QtWidgets.QMessageBox.Warning)
-            replace_box.setText("Output folder already contains EXR files: %s" % params["output_dir"])
-            replace_box.setInformativeText("Replace will delete the existing v000 folder and create it again.")
-            replace_btn = replace_box.addButton("Replace", QtWidgets.QMessageBox.DestructiveRole)
-            cancel_btn = replace_box.addButton(QtWidgets.QMessageBox.Cancel)
-            replace_box.setDefaultButton(cancel_btn)
-            replace_box.exec_()
-            if replace_box.clickedButton() != replace_btn:
+            confirmed = self._task_confirm_dialog(
+                task=params["task"],
+                message="Ya existe una seq de EXR para la v000\n¿Eliminarlos y crear nuevos?",
+                confirm_label="Reemplazar",
+            )
+            if not confirmed:
                 return False
             replace_existing = True
 
