@@ -473,17 +473,19 @@ def test_final_flow(project, seq, clip):
             ))
 
         shot_name = shot_name_from_v000_path(TEST_EXR_PATH)
-        track_item = target_track.createTrackItem(shot_name)
-        track_item.setSource(source_clip)
+        track_item = target_track.addTrackItem(source_clip, TEST_TIMELINE_IN)
         track_item.setName(shot_name)
+        log("TrackItem creado con target_track.addTrackItem(source_clip, %s)" % TEST_TIMELINE_IN)
+        log("Estado inicial addTrackItem:")
+        inspect_track_item(track_item)
+
         source_in = 0
         source_out = int(TEST_TIMELINE_OUT) - int(TEST_TIMELINE_IN) - 1
         timeline_out = int(TEST_TIMELINE_OUT) - 1
         log("Usando source relativo: %s - %s" % (source_in, source_out))
         log("Usando timeline out inclusivo para TrackItem: %s - %s" % (TEST_TIMELINE_IN, timeline_out))
         track_item.setTimes(TEST_TIMELINE_IN, timeline_out, source_in, source_out)
-        target_track.addItem(track_item)
-        log("Agregado TrackItem a %s." % target_track_name)
+        log("TrackItem ajustado en %s." % target_track_name)
         inspect_track_item(track_item)
         return track_item
 
@@ -498,6 +500,7 @@ def inspect_track_item(track_item):
     log("Timeline: %s - %s" % (safe_call(track_item, "timelineIn", "?"), safe_call(track_item, "timelineOut", "?")))
     log("Source: %s - %s" % (safe_call(track_item, "sourceIn", "?"), safe_call(track_item, "sourceOut", "?")))
     log("Source duration: %s" % safe_call(track_item, "sourceDuration", "?"))
+    log("Version linked to bin: %s" % safe_call(track_item, "versionLinkedToBin", "<no disponible>"))
     log("Parent track: %s" % safe_call(safe_call(track_item, "parentTrack"), "name", "<sin track>"))
 
 

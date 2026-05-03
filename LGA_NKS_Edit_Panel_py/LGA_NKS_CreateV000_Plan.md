@@ -805,3 +805,215 @@ Dst In
 Dst Out
 Dst Duration
 ```
+
+---
+
+## Exploracion Link Status del TrackItem
+
+Fecha: 2026-05-03
+
+Motivo:
+
+- El clip creado por Python queda con un icono distinto en la columna `Link Status`.
+- El mismo clip, importado al proyecto por el script pero arrastrado manualmente desde el bin al timeline, queda con el icono normal/linkeado.
+
+Documentacion oficial consultada:
+
+- Foundry Hiero Python API:
+  - `TrackItem.versionLinkedToBin()` obtiene si la version del `TrackItem` esta linkeada al `BinItem` asociado.
+  - `TrackItem.setVersionLinkedToBin(linked)` setea ese link.
+  - `Project.trackItemVersionsLinkedToBin()` obtiene si los track items nuevos deberian linkear versiones al bin por defecto.
+  - `Project.setTrackItemVersionsLinkedToBin(linked)` setea ese default a nivel proyecto.
+
+Script de exploracion creado:
+
+```text
+C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-TrackItem_LinkStatus_Explore.py
+```
+
+Caracteristicas del script:
+
+- Read-only.
+- Analiza los clips seleccionados en timeline.
+- Imprime:
+  - `versionLinkedToBin()`
+  - `linkedItems()`
+  - `currentVersion()`
+  - `numVersions()`
+  - source `Clip`
+  - source `BinItem`
+  - `BinItem.activeVersion()`
+  - media path
+  - parent bin
+  - metodos disponibles relacionados con `link`, `version`, `bin`, `current`, `active`, `source`.
+
+### Resultado clip creado por Python
+
+```text
+Project trackItemVersionsLinkedToBin: True
+
+TrackItem name: MOR_1003_020
+Track: _roto_
+Timeline: 3813 - 4241
+duration: 429
+Source: 0.0 - 428.0
+sourceDuration: 429.0
+Playback speed: 1.0
+versionLinkedToBin: False
+linkedItems count: 0
+
+TrackItem currentVersion: Version('MOR_1003_020_roto_v000')
+SourceClip name: MOR_1003_020_roto_v000
+BinItem name: MOR_1003_020_roto
+BinItem numVersions: 1
+BinItem activeVersion: Version('MOR_1003_020_roto_v000')
+Source media path:
+T:/VFX-MOR/101/MOR_1003_020/Roto/4_publish/MOR_1003_020_roto_v000/MOR_1003_020_roto_v000_%04d.exr
+BinItem parent bin: MOR_1003_020
+```
+
+### Resultado mismo clip arrastrado manualmente desde el bin
+
+```text
+Project trackItemVersionsLinkedToBin: True
+
+TrackItem name: MOR_1003_020_roto
+Track: _cleanup_
+Timeline: 3812 - 4240
+duration: 429
+Source: 0.0 - 428.0
+sourceDuration: 429.0
+Playback speed: 1.0
+versionLinkedToBin: True
+linkedItems count: 0
+
+TrackItem currentVersion: Version('MOR_1003_020_roto_v000')
+SourceClip name: MOR_1003_020_roto_v000
+BinItem name: MOR_1003_020_roto
+BinItem numVersions: 1
+BinItem activeVersion: Version('MOR_1003_020_roto_v000')
+Source media path:
+T:/VFX-MOR/101/MOR_1003_020/Roto/4_publish/MOR_1003_020_roto_v000/MOR_1003_020_roto_v000_%04d.exr
+BinItem parent bin: MOR_1003_020
+```
+
+### Diferencias confirmadas
+
+La diferencia relevante entre el clip creado por Python y el arrastrado manualmente es:
+
+```text
+Python: versionLinkedToBin = False
+Manual: versionLinkedToBin = True
+```
+
+Todo lo demas importante coincide o esta correcto:
+
+```text
+sourceDuration: 429.0
+Playback speed: 1.0
+currentVersion: Version('MOR_1003_020_roto_v000')
+SourceClip: MOR_1003_020_roto_v000
+BinItem: MOR_1003_020_roto
+BinItem activeVersion: Version('MOR_1003_020_roto_v000')
+Media path: mismo
+Parent bin: MOR_1003_020
+linkedItems count: 0 en ambos
+```
+
+Conclusion:
+
+- El icono de `Link Status` corresponde a `TrackItem.versionLinkedToBin()`.
+- No corresponde a `linkedItems()`, porque ambos casos devuelven `linkedItems count: 0`.
+- El default del proyecto esta activado:
+
+```text
+Project trackItemVersionsLinkedToBin: True
+```
+
+- Sin embargo, el flujo Python usado hasta ahora deja el `TrackItem` en:
+
+```text
+versionLinkedToBin: False
+```
+
+- Esto ocurre incluso probando `target_track.addTrackItem(source_clip, TEST_TIMELINE_IN)`.
+- Por lo tanto, el default del proyecto no se aplica automaticamente a este flujo de creacion por Python, o no se aplica en el momento/forma en que se esta creando el item.
+
+### Intento fallido
+
+Se intento llamar:
+
+```python
+track_item.setVersionLinkedToBin(True)
+```
+
+y tambien una variante robusta:
+
+```python
+try:
+    track_item.setVersionLinkedToBin(True, True)
+except TypeError:
+    track_item.setVersionLinkedToBin(True)
+```
+
+Resultado:
+
+- Hiero crasheo por completo.
+- Al reiniciar y volver a ejecutar, Hiero volvio a crashear.
+- El cambio fue revertido del building block.
+
+Conclusion de seguridad:
+
+- No usar `setVersionLinkedToBin()` dentro del flujo actual de creacion del TrackItem.
+- Aunque la API existe y aparece en documentacion/local `dir()`, no es segura en este contexto.
+- La llamada podria requerir que el TrackItem ya este completamente registrado en el timeline, que el BinItem/source este en otro estado interno, o podria ser inestable en esta version local.
+
+### Estado actual de la investigacion
+
+Resuelto:
+
+- Creacion de EXR v000 en disco.
+- Deteccion de secuencia EXR por Hiero.
+- Importacion/creacion de `Clip`.
+- Ubicacion del `BinItem` en el bin correcto:
+
+```text
+Sequences/F 101/MOR_1003_020
+```
+
+- Ubicacion del `TrackItem` en el track correcto:
+
+```text
+_roto_
+```
+
+- Timing correcto con source relativo:
+
+```text
+Timeline: 3813 - 4241
+Source: 0.0 - 428.0
+Duration: 429
+Speed: 1.0
+```
+
+Pendiente:
+
+- Encontrar un flujo seguro para que el `TrackItem` quede con:
+
+```text
+versionLinkedToBin: True
+```
+
+sin crashear Hiero.
+
+### Proximas pruebas posibles
+
+1. Probar `setVersionLinkedToBin(True)` en un script separado, sobre un `TrackItem` ya existente y seleccionado, no recien creado.
+   - Riesgo: podria crashear otra vez.
+   - Ventaja: confirma si el crash era por timing/ciclo de creacion o por la llamada en si.
+
+2. Explorar si existe una forma de crear el `TrackItem` a partir del `BinItem`/Version activa en vez de desde el `Clip`.
+
+3. Explorar metodos de UI o acciones registradas que imiten el drag manual desde bin al timeline, si existen.
+
+4. Considerar dejar `versionLinkedToBin=False` si funcionalmente no bloquea el flujo, pero documentarlo como diferencia visible respecto de clips manuales.
