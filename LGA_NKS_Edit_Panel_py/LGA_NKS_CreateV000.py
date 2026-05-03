@@ -3,9 +3,12 @@ ____________________________________________________________________
 
   LGA_NKS_CreateV000 v1.00 | Lega
 
-  Create v000 dialog for Hiero/Nuke Studio.
-  Phase 1 only: validates context, previews output params and prints the collected
-  dictionary. It does not write EXR files.
+  Crea una secuencia EXR negra v000 para el shot activo en Hiero/Nuke Studio.
+  Despues de crear los EXRs, importa el clip al bin del shot y lo coloca en el
+  track de la task seleccionada si el rango destino no tiene solapes.
+
+  Si ya existen EXRs, permite reemplazarlos. Si hay solape en timeline, permite
+  crear solo los EXRs o crear/importar al bin sin insertar en timeline.
 ____________________________________________________________________
 
 """
@@ -314,6 +317,174 @@ def _oiio_tool_path():
 
 def _frame_file_name(pattern, frame):
     return pattern.replace("####", "%04d" % frame)
+
+
+def _first_frame_path(params):
+    return "/".join(
+        [
+            params["output_dir"].rstrip("/\\"),
+            _frame_file_name(params["output_name_pattern"], params["source_first_frame"]),
+        ]
+    )
+
+
+def _output_has_exrs(params):
+    output_dir = Path(params["output_dir"])
+    return output_dir.exists() and bool(list(output_dir.glob("*.exr")))
+
+
+def _active_project_for_sequence(seq):
+    try:
+        project = seq.project()
+        if project:
+            return project
+    except Exception:
+        pass
+
+    projects = hiero.core.projects()
+    return projects[-1] if projects else None
+
+
+def _find_child_bin(parent_bin, bin_name):
+    if not parent_bin:
+        return None
+    for item in parent_bin.items():
+        if isinstance(item, hiero.core.Bin) and item.name() == bin_name:
+            return item
+    return None
+
+
+def _find_or_create_child_bin(parent_bin, bin_name):
+    found = _find_child_bin(parent_bin, bin_name)
+    if found:
+        return found
+    new_bin = hiero.core.Bin(bin_name)
+    parent_bin.addItem(new_bin)
+    return new_bin
+
+
+def _target_bin_path_from_media_path(media_path):
+    normalized = media_path.replace("\\", "/")
+    parts = normalized.split("/")
+    if len(parts) <= 3:
+        return None
+    return "F %s/%s" % (parts[2], parts[3])
+
+
+def _find_or_create_bin_path(project, bin_path):
+    current_bin = project.clipsBin()
+    for bin_name in [part for part in bin_path.split("/") if part]:
+        current_bin = _find_or_create_child_bin(current_bin, bin_name)
+    return current_bin
+
+
+def _find_bin_item_by_media_path(bin_item, first_frame_path):
+    first_frame_path = first_frame_path.replace("\\", "/")
+    for item in bin_item.items():
+        if isinstance(item, hiero.core.Bin):
+            found = _find_bin_item_by_media_path(item, first_frame_path)
+            if found:
+                return found
+            continue
+        if not isinstance(item, hiero.core.BinItem):
+            continue
+        try:
+            active_item = item.activeItem()
+        except Exception:
+            continue
+        if not isinstance(active_item, hiero.core.Clip):
+            continue
+        try:
+            fileinfos = active_item.mediaSource().fileinfos()
+        except Exception:
+            fileinfos = []
+        for fileinfo in fileinfos:
+            try:
+                filename = fileinfo.filename().replace("\\", "/")
+            except Exception:
+                continue
+            if filename == first_frame_path or filename.replace("%04d", "1001") == first_frame_path:
+                return item
+    return None
+
+
+def _import_v000_to_bin(project, params):
+    first_frame_path = _first_frame_path(params)
+    bin_path = _target_bin_path_from_media_path(first_frame_path)
+    if not bin_path:
+        return None, None, "Could not derive target bin path from: %s" % first_frame_path
+
+    target_bin = _find_or_create_bin_path(project, bin_path)
+    existing_bin_item = _find_bin_item_by_media_path(target_bin, first_frame_path)
+    if existing_bin_item:
+        return existing_bin_item.activeItem(), existing_bin_item, None
+
+    clip = hiero.core.Clip(first_frame_path)
+    clip.setName("%s_%s" % (params["shot_code"], params["task"]))
+    bin_item = hiero.core.BinItem(clip)
+    target_bin.addItem(bin_item)
+    return clip, bin_item, None
+
+
+def _find_video_track(seq, track_name):
+    for track in seq.videoTracks():
+        if track.name() == track_name:
+            return track
+    return None
+
+
+def _timeline_overlaps(track, timeline_in, timeline_out_exclusive):
+    overlaps = []
+    new_in = int(timeline_in)
+    new_out = int(timeline_out_exclusive) - 1
+    for item in track.items():
+        if isinstance(item, hiero.core.EffectTrackItem):
+            continue
+        try:
+            item_in = int(item.timelineIn())
+            item_out = int(item.timelineOut())
+        except Exception:
+            continue
+        if item_in <= new_out and item_out >= new_in:
+            overlaps.append(item)
+    return overlaps
+
+
+def _overlap_summary(overlaps):
+    lines = []
+    for item in overlaps:
+        try:
+            track_name = item.parentTrack().name()
+        except Exception:
+            track_name = "<unknown>"
+        lines.append(
+            "%s | %s | %s - %s"
+            % (item.name(), track_name, item.timelineIn(), item.timelineOut())
+        )
+    return "\n".join(lines)
+
+
+def _insert_v000_in_timeline(seq, clip, params):
+    track_name = track_for_task(params["task"])
+    target_track = _find_video_track(seq, track_name)
+    if not target_track:
+        return None, "Target track not found: %s" % track_name
+
+    overlaps = _timeline_overlaps(target_track, params["timeline_in"], params["timeline_out"])
+    if overlaps:
+        return None, "Target track has overlaps:\n%s" % _overlap_summary(overlaps)
+
+    frame_count = int(params["frame_count"])
+    timeline_in = int(params["timeline_in"])
+    timeline_out = int(params["timeline_out"]) - 1
+    source_in = 0
+    source_out = frame_count - 1
+
+    track_item = target_track.addTrackItem(clip, timeline_in)
+    track_item.setName(params["shot_code"])
+    track_item.setTimes(timeline_in, timeline_out, source_in, source_out)
+    track_item.setVersionLinkedToBin(True)
+    return track_item, None
 
 
 def _show_path_in_browser(path):
@@ -1033,12 +1204,12 @@ class CreateV000Dialog(QtWidgets.QDialog):
             self._set_warning(warning)
             return
 
-        success, status, message = _create_black_exr_sequence(params)
-        if status == "exists":
+        replace_existing = False
+        if _output_has_exrs(params):
             replace_box = QtWidgets.QMessageBox(self)
             replace_box.setWindowTitle("Create v000")
             replace_box.setIcon(QtWidgets.QMessageBox.Warning)
-            replace_box.setText(message)
+            replace_box.setText("Output folder already contains EXR files: %s" % params["output_dir"])
             replace_box.setInformativeText("Replace will delete the existing v000 folder and create it again.")
             replace_btn = replace_box.addButton("Replace", QtWidgets.QMessageBox.DestructiveRole)
             cancel_btn = replace_box.addButton(QtWidgets.QMessageBox.Cancel)
@@ -1046,7 +1217,48 @@ class CreateV000Dialog(QtWidgets.QDialog):
             replace_box.exec_()
             if replace_box.clickedButton() != replace_btn:
                 return
-            success, status, message = _create_black_exr_sequence(params, replace=True)
+            replace_existing = True
+
+        seq = self.context["sequence"]
+        project = _active_project_for_sequence(seq)
+        if not project:
+            message = "No active project found."
+            self._set_warning(message)
+            QtWidgets.QMessageBox.warning(self, "Create v000", message)
+            return
+
+        integration_mode = "timeline"
+        target_track_name = track_for_task(params["task"])
+        target_track = _find_video_track(seq, target_track_name)
+        if not target_track:
+            message = "Target track not found: %s" % target_track_name
+            self._set_warning(message)
+            QtWidgets.QMessageBox.warning(self, "Create v000", message)
+            return
+
+        overlaps = _timeline_overlaps(target_track, params["timeline_in"], params["timeline_out"])
+        if overlaps:
+            overlap_box = QtWidgets.QMessageBox(self)
+            overlap_box.setWindowTitle("Create v000")
+            overlap_box.setIcon(QtWidgets.QMessageBox.Warning)
+            overlap_box.setText("The target track already has clip(s) in the v000 range.")
+            overlap_box.setInformativeText(_overlap_summary(overlaps))
+            cancel_btn = overlap_box.addButton(QtWidgets.QMessageBox.Cancel)
+            exrs_only_btn = overlap_box.addButton("Create EXRs Only", QtWidgets.QMessageBox.ActionRole)
+            import_bin_btn = overlap_box.addButton("Create + Import to Bin", QtWidgets.QMessageBox.ActionRole)
+            overlap_box.setDefaultButton(cancel_btn)
+            overlap_box.exec_()
+            clicked = overlap_box.clickedButton()
+            if clicked == cancel_btn:
+                return
+            if clicked == exrs_only_btn:
+                integration_mode = "exrs_only"
+            elif clicked == import_bin_btn:
+                integration_mode = "bin_only"
+            else:
+                return
+
+        success, status, message = _create_black_exr_sequence(params, replace=replace_existing)
 
         if not success:
             self._set_warning(message)
@@ -1054,11 +1266,36 @@ class CreateV000Dialog(QtWidgets.QDialog):
             debug_print("error:", message)
             return
 
+        import_message = ""
+        if integration_mode != "exrs_only":
+            try:
+                with project.beginUndo("Import Create v000"):
+                    clip, bin_item, import_error = _import_v000_to_bin(project, params)
+                    if import_error:
+                        raise RuntimeError(import_error)
+
+                    import_message = "\nImported to bin: %s" % bin_item.parentBin().name()
+                    if integration_mode == "timeline":
+                        track_item, timeline_error = _insert_v000_in_timeline(seq, clip, params)
+                        if timeline_error:
+                            raise RuntimeError(timeline_error)
+                        import_message += "\nPlaced in timeline: %s (%s - %s)" % (
+                            track_item.parentTrack().name(),
+                            track_item.timelineIn(),
+                            track_item.timelineOut(),
+                        )
+            except Exception as exc:
+                message = "%s\n\nEXRs were created, but Hiero import/placement failed:\n%s" % (message, exc)
+                self._set_warning(str(exc))
+                QtWidgets.QMessageBox.warning(self, "Create v000", message)
+                debug_print("import error:", exc)
+                return
+
         debug_print("created:", params)
         msg_box = QtWidgets.QMessageBox(self)
         msg_box.setWindowTitle("Create v000")
         msg_box.setIcon(QtWidgets.QMessageBox.Information)
-        msg_box.setText(message)
+        msg_box.setText(message + import_message)
         show_btn = msg_box.addButton("Show in Browser", QtWidgets.QMessageBox.ActionRole)
         ok_btn = msg_box.addButton(QtWidgets.QMessageBox.Ok)
         msg_box.setDefaultButton(ok_btn)
