@@ -1,4 +1,4 @@
-# LGA_NKS Create v000 - Estado actual
+﻿# LGA_NKS Create v000 - Estado actual
 
 Documento actualizado para reflejar la implementacion actual de:
 
@@ -505,515 +505,197 @@ En esta primera exploracion, el script puede imprimir resultados y no deberia mo
 
 ---
 
-## Exploracion inicial de importacion a Hiero
-
-Fecha: 2026-05-02
-
-Script creado:
-
-```text
-C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-CreateV000_ImportExplore.py
-```
-
-Estado:
-
-- No modifica el proyecto por defecto.
-- Detecta proyecto activo y sequence activa.
-- Imprime `clipsBin`, arbol inicial de bins y tracks de video.
-- Imprime metodos relevantes disponibles en:
-  - `hiero.core.Project`
-  - `hiero.core.Bin`
-  - `hiero.core.BinItem`
-  - `hiero.core.Clip`
-  - `hiero.core.Sequence`
-  - `hiero.core.VideoTrack`
-  - `hiero.core.TrackItem`
-- Permite setear `TEST_EXR_PATH` para probar `hiero.core.Clip(path)` sin agregarlo al proyecto.
-- Tiene flags desactivados para pruebas posteriores con mutacion:
-  - `ALLOW_PROJECT_MUTATION`
-  - `ALLOW_TEMP_BIN_ADD`
-  - `ALLOW_TIMELINE_ADD`
-
-Documentacion oficial consultada:
-
-- Foundry Hiero Python Developers Guide 15.1, `hiero.core.Clip`:
-  - `Clip(mediaSource)` acepta un `MediaSource` o un string con media path.
-  - `Clip(mediaSource, first, last)` restringe el rango reproducible.
-- Foundry Hiero Python Developers Guide 15.1, `MediaFileInfo.filename()`:
-  - una secuencia de imagenes puede representarse como `imagesequence.######.dpx (1-40)`.
-- Foundry Hiero Python Developers Guide 15.1, `VideoTrack.addTrackItem(clip, position)`:
-  - si recibe un `Clip`, crea y agrega un `TrackItem` en esa posicion.
-  - puede cortar o borrar items que se superpongan, por eso no debe usarse sin validar conflicto.
-- Foundry Hiero Python Developers Guide 15.1, `TrackItem`:
-  - existen `setSourceIn`, `setSourceOut`, `setTimelineIn`, `setTimelineOut` y `setTimes`.
-- Foundry Getting Started with `hiero.core`:
-  - los clips se guardan en bins envueltos como `BinItem(clip)`.
-  - flujo manual alternativo: `track.createTrackItem(name)`, `trackItem.setSource(clip)`, `setTimelineIn/Out`, `track.addItem(trackItem)`.
-- Foundry Using the Script Editor:
-  - ejemplo oficial de `bin.addItem(Bin("Plates"))` y `bin["Plates"].importFolder(path)`.
-
-Conclusiones preliminares:
-
-- Hay al menos tres flujos candidatos para integrar la v000:
-  1. `hiero.core.Clip(path)` + `hiero.core.BinItem(clip)` + `target_bin.addItem(bin_item)` + `track.addTrackItem(clip, timeline_in)`.
-  2. `target_bin.importFolder(output_dir)` y luego localizar el `BinItem` creado.
-  3. `track.createTrackItem(name)` + `setSource(clip)` + `setTimes(...)` + `track.addItem(track_item)`.
-- El flujo 1 parece el mas directo, pero hay que validar en la version local como Hiero interpreta el path de una secuencia EXR generada (`primer frame`, `####`, `%04d`, o representacion propia).
-- `VideoTrack.addTrackItem` debe tratarse con cuidado porque la documentacion indica que puede cortar o borrar items solapados.
-- La estructura de bin a respetar segun `LGA_NKS_OrganizeProject.py` es:
-
-```text
-project.clipsBin()/F <parts[2]>/<parts[3]>
-```
-
-Para un path tipo:
-
-```text
-T:/VFX-MOR/101/MOR_1003_020/Roto/4_publish/MOR_1003_020_roto_v000/...
-```
-
-la estructura esperada seria:
-
-```text
-F 101/MOR_1003_020
-```
-
-- El nombre visible del timeline item puede setearse con la misma logica de `Set Shot Name`: limpiar filename y usar `extract_shot_code(...)`. Para `MOR_1003_020_roto_v000_1001.exr` esto deberia devolver `MOR_1003_020`.
-
----
-
-## Exploracion v000 real MOR_1003_020 roto
-
-Fecha: 2026-05-02
-
-v000 creada por `Create v000`:
-
-```text
-Path: T:/VFX-MOR/101/MOR_1003_020/Roto/4_publish/MOR_1003_020_roto_v000
-Name: MOR_1003_020_roto_v000_####.exr
-Timeline: 3813 - 4242 (handle 4)
-Frames: 1001 - 1429 (429 frames)
-Resolution: 4168 x 1612 (Timeline)
-```
-
-Parametros logueados por `Create v000`:
-
-```python
-{
-    "shot_code": "MOR_1003_020",
-    "task": "roto",
-    "selected_range_sources": [
-        {"track_name": "EditRef", "source_type": "editref"},
-    ],
-    "selected_plates": ["EditRef"],
-    "base_timeline_in": 3817,
-    "base_timeline_out": 4238,
-    "handle": 4,
-    "timeline_in": 3813,
-    "timeline_out": 4242,
-    "frame_count": 429,
-    "source_first_frame": 1001,
-    "source_last_frame": 1429,
-    "resolution": (4168, 1612),
-    "resolution_source": "Timeline",
-    "output_dir": "T:/VFX-MOR/101/MOR_1003_020/Roto/4_publish/MOR_1003_020_roto_v000",
-    "output_name_pattern": "MOR_1003_020_roto_v000_####.exr",
-}
-```
-
-### Resultado de exploracion read-only
-
-Contexto validado:
-
-```text
-Proyecto: MOR_SUP_v095
-Sequence: 101
-Task: roto
-Formato sequence: 4168x1612 @ 25
-Bin esperado segun OrganizeProject: Sequences/F 101/MOR_1003_020
-Bin destino existe: True
-Track destino: _roto_
-Track destino existe: True
-Overlaps en _roto_ para 3813-4242: 0
-```
-
-Creacion de `hiero.core.Clip(path)`:
-
-- Funciona correctamente usando el primer frame real:
-
-```text
-T:/VFX-MOR/101/MOR_1003_020/Roto/4_publish/MOR_1003_020_roto_v000/MOR_1003_020_roto_v000_1001.exr
-```
-
-- Tambien funciona usando:
-
-```text
-MOR_1003_020_roto_v000_####.exr
-MOR_1003_020_roto_v000_%04d.exr
-MOR_1003_020_roto_v000_######.exr
-```
-
-- En todos los casos Hiero normaliza internamente el `MediaFileInfo.filename()` a:
-
-```text
-T:/VFX-MOR/101/MOR_1003_020/Roto/4_publish/MOR_1003_020_roto_v000/MOR_1003_020_roto_v000_%04d.exr
-```
-
-- Metadata detectada por Hiero:
-
-```text
-Clip name: MOR_1003_020_roto_v000
-Clip sourceIn/sourceOut: 1001 - 1429
-Clip duration: 429
-Media duration/startTime: 429 / 1001
-Media hasVideo/hasAudio: True / False
-Media width/height: 4168 x 1612
-fileinfos count: 1
-fileinfo start/end: 1001 - 1429
-```
-
-Conclusion de importacion de media:
-
-- El path mas simple y seguro para crear el clip es el primer frame real (`*_1001.exr`).
-- Hiero detecta la secuencia completa y la representa como `%04d`.
-- No hace falta construir manualmente el patron `%04d` para importar, aunque puede usarse.
-
-### Resultado de prueba controlada con mutacion
-
-Flags usados:
-
-```python
-ALLOW_PROJECT_MUTATION = True
-ALLOW_TEMP_BIN_ADD = False
-ALLOW_TIMELINE_ADD = False
-ALLOW_FINAL_FLOW_TEST = True
-```
-
-Resultado:
-
-```text
-Agregado BinItem a Sequences/F 101/MOR_1003_020: MOR_1003_020_roto
-Agregado TrackItem a _roto_.
-Name: MOR_1003_020
-Timeline: 3813 - 4242
-Source: 1001.0 - 1429.0
-Source duration: 428.997668997669
-Parent track: _roto_
-```
-
-Observaciones visuales en Hiero:
-
-- El `BinItem` queda en el bin correcto:
-
-```text
-Sequences/F 101/MOR_1003_020
-```
-
-- El `TrackItem` queda en el track correcto:
-
-```text
-_roto_
-```
-
-- El `TrackItem` queda colocado en la zona correcta del timeline.
-- Pero en el timeline aparece con velocidad aproximada `99.8%`.
-- En la vista tipo planilla, el item agregado por script muestra:
-
-```text
-Speed: 99.8%
-Src Duration: 428
-Dst Duration: 430
-```
-
-- Al estirar el clip hacia la izquierda, aparece la imagen, lo que sugiere que no esta realmente offline sino desfasado internamente respecto del source.
-
-Comparacion con un clip importado manualmente por el usuario:
-
-```text
-Manual:
-Speed: 100.0%
-Src Duration: 429
-Dst Duration: 429
-
-Script:
-Speed: 99.8%
-Src Duration: 428
-Dst Duration: 430
-```
-
-Conclusion preliminar:
-
-- La importacion al bin esta resuelta.
-- La deteccion de la secuencia EXR esta resuelta.
-- La eleccion de bin segun `OrganizeProject` esta resuelta.
-- La eleccion de track destino esta resuelta.
-- El problema pendiente esta en la forma de crear/temporizar el `TrackItem`.
-- El flujo actual con `createTrackItem + setSource + setTimes(3813, 4242, 1001, 1429) + addItem` no reproduce exactamente el comportamiento de una colocacion manual en timeline.
-- La diferencia `Src Duration 428` vs `Dst Duration 430` explica el retime `99.8%`.
-- Hay que explorar si `setTimes` espera valores out inclusivos/exclusivos distintos a los que usa la herramienta, o si conviene crear el item con otro flujo (`track.addTrackItem(clip, timeline_in)` o `seq.addClip(...)`) y luego ajustar trims.
-
-### Hipotesis siguiente
-
-La herramienta `Create v000` trata `timeline_out` como valor exclusivo para calcular frames:
-
-```python
-frame_count = timeline_out - timeline_in
-```
-
-Para:
-
-```text
-3813 - 4242
-```
-
-eso da:
-
-```text
-429 frames
-```
-
-Pero la prueba con `setTimes(3813, 4242, 1001, 1429)` parece dejar al `TrackItem` con una interpretacion de duracion diferente en Hiero, generando:
-
-```text
-Src Duration: 428
-Dst Duration: 430
-Speed: 99.8%
-```
-
-Proximas pruebas recomendadas en building block, antes de integrar:
-
-1. No usar `setTimes` directamente.
-2. Probar `target_track.addTrackItem(clip, TEST_TIMELINE_IN)` y observar que source/timeline genera Hiero automaticamente.
-3. Probar crear el `TrackItem` con `createTrackItem/setSource`, luego setear:
-
-```python
-track_item.setTimelineIn(3813)
-track_item.setTimelineOut(4241)
-track_item.setSourceIn(1001)
-track_item.setSourceOut(1429)
-```
-
-4. Probar variantes con `sourceOut=1428` y/o `timelineOut=4241` para confirmar si esos setters esperan out inclusivo o exclusivo.
-5. Comparar contra el clip manual usando la misma tabla de Hiero:
-
-```text
-Speed
-Src In
-Src Out
-Src Duration
-Dst In
-Dst Out
-Dst Duration
-```
-
----
-
-## Exploracion Link Status del TrackItem
+## Resultado validado: importar y colocar v000 en Hiero
 
 Fecha: 2026-05-03
 
-Motivo:
-
-- El clip creado por Python queda con un icono distinto en la columna `Link Status`.
-- El mismo clip, importado al proyecto por el script pero arrastrado manualmente desde el bin al timeline, queda con el icono normal/linkeado.
-
-Documentacion oficial consultada:
-
-- Foundry Hiero Python API:
-  - `TrackItem.versionLinkedToBin()` obtiene si la version del `TrackItem` esta linkeada al `BinItem` asociado.
-  - `TrackItem.setVersionLinkedToBin(linked)` setea ese link.
-  - `Project.trackItemVersionsLinkedToBin()` obtiene si los track items nuevos deberian linkear versiones al bin por defecto.
-  - `Project.setTrackItemVersionsLinkedToBin(linked)` setea ese default a nivel proyecto.
-
-Script de exploracion creado:
+Scripts de exploracion usados:
 
 ```text
+C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-CreateV000_ImportExplore.py
 C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-TrackItem_LinkStatus_Explore.py
+C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-TrackItem_LinkStatus_SetSelected.py
 ```
 
-Caracteristicas del script:
+### Media EXR
 
-- Read-only.
-- Analiza los clips seleccionados en timeline.
-- Imprime:
-  - `versionLinkedToBin()`
-  - `linkedItems()`
-  - `currentVersion()`
-  - `numVersions()`
-  - source `Clip`
-  - source `BinItem`
-  - `BinItem.activeVersion()`
-  - media path
-  - parent bin
-  - metodos disponibles relacionados con `link`, `version`, `bin`, `current`, `active`, `source`.
-
-### Resultado clip creado por Python
-
-```text
-Project trackItemVersionsLinkedToBin: True
-
-TrackItem name: MOR_1003_020
-Track: _roto_
-Timeline: 3813 - 4241
-duration: 429
-Source: 0.0 - 428.0
-sourceDuration: 429.0
-Playback speed: 1.0
-versionLinkedToBin: False
-linkedItems count: 0
-
-TrackItem currentVersion: Version('MOR_1003_020_roto_v000')
-SourceClip name: MOR_1003_020_roto_v000
-BinItem name: MOR_1003_020_roto
-BinItem numVersions: 1
-BinItem activeVersion: Version('MOR_1003_020_roto_v000')
-Source media path:
-T:/VFX-MOR/101/MOR_1003_020/Roto/4_publish/MOR_1003_020_roto_v000/MOR_1003_020_roto_v000_%04d.exr
-BinItem parent bin: MOR_1003_020
-```
-
-### Resultado mismo clip arrastrado manualmente desde el bin
-
-```text
-Project trackItemVersionsLinkedToBin: True
-
-TrackItem name: MOR_1003_020_roto
-Track: _cleanup_
-Timeline: 3812 - 4240
-duration: 429
-Source: 0.0 - 428.0
-sourceDuration: 429.0
-Playback speed: 1.0
-versionLinkedToBin: True
-linkedItems count: 0
-
-TrackItem currentVersion: Version('MOR_1003_020_roto_v000')
-SourceClip name: MOR_1003_020_roto_v000
-BinItem name: MOR_1003_020_roto
-BinItem numVersions: 1
-BinItem activeVersion: Version('MOR_1003_020_roto_v000')
-Source media path:
-T:/VFX-MOR/101/MOR_1003_020/Roto/4_publish/MOR_1003_020_roto_v000/MOR_1003_020_roto_v000_%04d.exr
-BinItem parent bin: MOR_1003_020
-```
-
-### Diferencias confirmadas
-
-La diferencia relevante entre el clip creado por Python y el arrastrado manualmente es:
-
-```text
-Python: versionLinkedToBin = False
-Manual: versionLinkedToBin = True
-```
-
-Todo lo demas importante coincide o esta correcto:
-
-```text
-sourceDuration: 429.0
-Playback speed: 1.0
-currentVersion: Version('MOR_1003_020_roto_v000')
-SourceClip: MOR_1003_020_roto_v000
-BinItem: MOR_1003_020_roto
-BinItem activeVersion: Version('MOR_1003_020_roto_v000')
-Media path: mismo
-Parent bin: MOR_1003_020
-linkedItems count: 0 en ambos
-```
-
-Conclusion:
-
-- El icono de `Link Status` corresponde a `TrackItem.versionLinkedToBin()`.
-- No corresponde a `linkedItems()`, porque ambos casos devuelven `linkedItems count: 0`.
-- El default del proyecto esta activado:
-
-```text
-Project trackItemVersionsLinkedToBin: True
-```
-
-- Sin embargo, el flujo Python usado hasta ahora deja el `TrackItem` en:
-
-```text
-versionLinkedToBin: False
-```
-
-- Esto ocurre incluso probando `target_track.addTrackItem(source_clip, TEST_TIMELINE_IN)`.
-- Por lo tanto, el default del proyecto no se aplica automaticamente a este flujo de creacion por Python, o no se aplica en el momento/forma en que se esta creando el item.
-
-### Intento fallido
-
-Se intento llamar:
+Funciona crear un `hiero.core.Clip` desde el primer frame real de la secuencia:
 
 ```python
-track_item.setVersionLinkedToBin(True)
+clip = hiero.core.Clip("T:/.../MOR_1003_020_roto_v000_1001.exr")
 ```
 
-y tambien una variante robusta:
+Hiero detecta la secuencia completa y normaliza internamente el path a `%04d`:
 
-```python
-try:
-    track_item.setVersionLinkedToBin(True, True)
-except TypeError:
-    track_item.setVersionLinkedToBin(True)
+```text
+MOR_1003_020_roto_v000_%04d.exr
 ```
 
-Resultado:
+Validado en la v000 de prueba:
 
-- Hiero crasheo por completo.
-- Al reiniciar y volver a ejecutar, Hiero volvio a crashear.
-- El cambio fue revertido del building block.
+```text
+sourceIn/sourceOut: 1001 - 1429
+duration: 429
+media startTime: 1001
+media duration: 429
+resolution: 4168 x 1612
+hasVideo: True
+hasAudio: False
+```
 
-Conclusion de seguridad:
+Tambien funcionan como input `####`, `%04d` y `######`, pero el primer frame real es el path mas simple y confiable.
 
-- No usar `setVersionLinkedToBin()` dentro del flujo actual de creacion del TrackItem.
-- Aunque la API existe y aparece en documentacion/local `dir()`, no es segura en este contexto.
-- La llamada podria requerir que el TrackItem ya este completamente registrado en el timeline, que el BinItem/source este en otro estado interno, o podria ser inestable en esta version local.
+### Bin destino
 
-### Estado actual de la investigacion
+Segun `LGA_NKS_OrganizeProject.py`, la v000 debe importarse como `BinItem` directo dentro del shot bin:
 
-Resuelto:
+```text
+project.clipsBin()/F <Secuencia>/<ShotName>
+```
 
-- Creacion de EXR v000 en disco.
-- Deteccion de secuencia EXR por Hiero.
-- Importacion/creacion de `Clip`.
-- Ubicacion del `BinItem` en el bin correcto:
+Ejemplo validado:
 
 ```text
 Sequences/F 101/MOR_1003_020
 ```
 
-- Ubicacion del `TrackItem` en el track correcto:
+No debe importarse en sub-bins `Comp`, `Roto`, `Cleanup`, `4_publish` ni `v000` si se quiere respetar la logica actual de `Organize Project`.
+
+### Track destino
+
+Tracks confirmados para task:
 
 ```text
-_roto_
+comp    -> _comp_
+roto    -> _roto_
+cleanup -> _cleanup_
 ```
 
-- Timing correcto con source relativo:
+Si el track destino no existe, la integracion deberia cancelar y avisar. No crear tracks automaticamente en esta etapa.
+
+Antes de insertar, hay que chequear overlaps en el rango destino. `VideoTrack.addTrackItem` puede cortar o borrar clips superpuestos, asi que no debe llamarse sin validar conflicto.
+
+### Timing correcto del TrackItem
+
+El source del `TrackItem` debe setearse relativo al clip, no con frames absolutos de archivo.
+
+Correcto para una secuencia `1001-1429` de 429 frames:
+
+```python
+source_in = 0
+source_out = 428
+timeline_in = 3813
+timeline_out = 4241
+track_item.setTimes(timeline_in, timeline_out, source_in, source_out)
+```
+
+Resultado validado:
 
 ```text
 Timeline: 3813 - 4241
 Source: 0.0 - 428.0
 Duration: 429
-Speed: 1.0
+Source duration: 429.0
+Playback speed: 1.0
 ```
 
-Pendiente:
+Incorrecto:
 
-- Encontrar un flujo seguro para que el `TrackItem` quede con:
+```python
+track_item.setTimes(3813, 4242, 1001, 1429)
+```
+
+Ese flujo genera offset interno y retime porque Hiero interpreta el source del `TrackItem` relativo al clip. Resultado observado:
 
 ```text
-versionLinkedToBin: True
+Speed: 99.8%
+Src Duration: 428
+Dst Duration: 430
 ```
 
-sin crashear Hiero.
+### Flujo validado de creacion
 
-### Proximas pruebas posibles
+Flujo que funciona:
 
-1. Probar `setVersionLinkedToBin(True)` en un script separado, sobre un `TrackItem` ya existente y seleccionado, no recien creado.
-   - Riesgo: podria crashear otra vez.
-   - Ventaja: confirma si el crash era por timing/ciclo de creacion o por la llamada en si.
+```python
+clip = hiero.core.Clip(first_frame_path)
+bin_item = hiero.core.BinItem(clip)
+target_bin.addItem(bin_item)
 
-2. Explorar si existe una forma de crear el `TrackItem` a partir del `BinItem`/Version activa en vez de desde el `Clip`.
+track_item = target_track.addTrackItem(clip, timeline_in)
+track_item.setName(shot_name)
+track_item.setTimes(timeline_in, timeline_out - 1, 0, frame_count - 1)
+track_item.setVersionLinkedToBin(True)
+```
 
-3. Explorar metodos de UI o acciones registradas que imiten el drag manual desde bin al timeline, si existen.
+Notas:
 
-4. Considerar dejar `versionLinkedToBin=False` si funcionalmente no bloquea el flujo, pero documentarlo como diferencia visible respecto de clips manuales.
+- `timeline_out` de los parametros de `Create v000` es exclusivo.
+- `TrackItem.setTimes()` debe recibir `timeline_out - 1`.
+- `source_out` debe ser `frame_count - 1`.
+- `setVersionLinkedToBin(True)` debe llamarse despues de que el `TrackItem` ya fue creado/agregado por `addTrackItem` y despues de ajustar tiempos.
+
+### Link Status
+
+El icono de la columna `Link Status` corresponde a:
+
+```python
+track_item.versionLinkedToBin()
+```
+
+Validado:
+
+```text
+Clip creado por Python antes del fix: versionLinkedToBin = False
+Clip arrastrado manualmente desde bin: versionLinkedToBin = True
+Clip creado por Python despues del fix: versionLinkedToBin = True
+```
+
+`linkedItems()` no explica ese icono: manual y Python devuelven `linkedItems count: 0`.
+
+El proyecto tiene el default activo:
+
+```text
+project.trackItemVersionsLinkedToBin() == True
+```
+
+pero ese default no se aplica automaticamente al flujo Python probado. Hay que llamar `setVersionLinkedToBin(True)` explicitamente al final del flujo.
+
+### No usar
+
+No usar este orden, porque crashea Hiero:
+
+```python
+track_item = target_track.createTrackItem(name)
+track_item.setSource(clip)
+track_item.setTimes(...)
+track_item.setVersionLinkedToBin(True)
+target_track.addItem(track_item)
+```
+
+Tampoco usar la variante de dos argumentos:
+
+```python
+track_item.setVersionLinkedToBin(True, True)
+```
+
+El crash se produjo al llamar `setVersionLinkedToBin` sobre un `TrackItem` todavia no agregado/registrado completamente en timeline. La llamada si funciono sobre un item ya existente y tambien al final del flujo con `addTrackItem`.
+
+### Pendiente para integrar
+
+Integrar el flujo validado en:
+
+```text
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py
+```
+
+Politicas que debe respetar la integracion:
+
+- Importar al bin `F <Secuencia>/<ShotName>`.
+- Insertar en `_comp_`, `_roto_` o `_cleanup_` segun task.
+- Cancelar si el track destino no existe.
+- Cancelar o pedir confirmacion si hay overlap en el rango destino.
+- Usar source relativo `0..frame_count-1`.
+- Usar timeline out inclusivo para `TrackItem`: `params["timeline_out"] - 1`.
+- Setear nombre visible con la logica de `Set Shot Name` (`SHOT`, no `SHOT_task_v000`).
+- Llamar `setVersionLinkedToBin(True)` al final, despues de crear/agregar el TrackItem y ajustar tiempos.

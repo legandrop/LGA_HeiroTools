@@ -1,0 +1,440 @@
+> **Regla de documentacion**: este archivo describe el estado actual del codigo. No es un historial de cambios, changelog ni bitacora temporal.
+> **Regla de documentacion**: este archivo debe incluir una seccion de referencias tecnicas con rutas completas a los archivos mas importantes relacionados, y para cada archivo nombrar las funciones, clases o metodos clave vinculados a este tema.
+
+# LGA_NKS_CreateV000
+
+Herramienta para crear una secuencia EXR negra `v000` para el shot activo en Hiero/Nuke Studio.
+
+## Descripcion
+
+Abre un dialogo desde el Edit Panel que recolecta el contexto del shot bajo el playhead (secuencia, tracks, rango de frames, resolucion) y presenta una preview de los parametros de salida. Al confirmar, crea en disco una secuencia de frames EXR negros listos para ser importados en Hiero como punto de partida de compositing, roto o cleanup.
+
+La herramienta **solo crea archivos en disco**. La importacion al bin y la insercion en el timeline son el siguiente paso (pendiente de integracion).
+
+## Archivos principales
+
+- **Script principal:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py`
+- **Panel de control:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel.py`
+- **Plan / log de desarrollo:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000_Plan.md`
+
+## Acceso
+
+**Boton del panel:** "Create v000" en el Edit Panel, ubicado despues del boton "Set Shot Name".
+
+Se activa con `open_create_v000_dialog()`.
+
+---
+
+## Funcionamiento general
+
+### Prerequisitos para que el dialogo abra
+
+- Debe haber una sequence activa en Hiero.
+- El viewer debe estar activo (playhead posicionado).
+- Debe haber al menos un clip bajo el playhead en un track cuyo nombre contenga `editref` o termine en `plate` (case-insensitive).
+- Debe haber al menos un track `plate` con clip bajo el playhead (se usa para derivar el shot root y la resolucion).
+- El path de ese plate debe contener un segmento `_input` para derivar el shot root.
+
+Si alguna condicion no se cumple, el dialogo no abre y se muestra un warning descriptivo.
+
+### Flujo principal
+
+```
+_collect_context()
+    |
+    ├── hiero.ui.activeSequence()       -> sequence activa
+    ├── hiero.ui.currentViewer().time() -> posicion del playhead
+    ├── _collect_range_sources()        -> clips en tracks editref/plate bajo el playhead
+    ├── _derive_shot_root()             -> shot root desde _input en el path del plate
+    ├── _derive_shot_code()             -> shot code desde el nombre del archivo plate
+    ├── _timeline_resolution()          -> resolucion de la sequence
+    └── _existing_versions_by_task()    -> versiones ya existentes en tracks de task
+
+CreateV000Dialog(context)
+    |
+    ├── _build_ui()                     -> construye el dialogo Qt
+    ├── _update_state()                 -> recalcula preview de output en vivo
+    └── _create_v000()
+            |
+            └── _create_black_exr_sequence(params)
+                    |
+                    ├── oiiotool --create   -> crea el primer frame negro
+                    └── shutil.copyfile()   -> duplica el primer frame para todos los restantes
+```
+
+---
+
+## UI del dialogo
+
+```
+[proyecto] / [shot_code]                                    Create v000
+
+FRAME RANGE                         RESOLUTION
+[ ] Track    TL IN  TL OUT  Frames  ( ) Timeline   WxH
+[ ] Track    TL IN  TL OUT  Frames  ( ) aPlate     WxH
+                                    ( ) cPlate     WxH
+
+HANDLE                              TASK
+[ ▼ ][ 4 ][ ▲ ]                    [ comp ] [ roto ] [ cleanup ]
+
+OUTPUT
+Path: ...
+Name: ...
+Timeline: ... - ... (handle ...)
+Frames: ... - ... (... frames)
+Resolution: ... x ... (fuente)
+
+                                            [ Cancel ] [ Create v000 ]
+```
+
+- Ancho minimo de la ventana: `720px`.
+- Estilo: fondo oscuro `#2B2B2B`, texto `#a7a7a7`/`#CCCCCC`, separadores y botones custom.
+- La tabla de frame range no muestra grid ni scroll vertical.
+
+---
+
+## Seccion: Frame Range
+
+Lista los tracks disponibles bajo el playhead en este orden:
+
+1. Tracks cuyo nombre contiene `editref` (case-insensitive).
+2. Tracks cuyo nombre termina en `plate` (case-insensitive).
+
+Cada fila muestra: checkbox `Use`, nombre del track, `TL IN`, `TL OUT`, `Frames`.
+
+**Reglas de seleccion:**
+
+- Por defecto se selecciona la primera fila (editref si existe, sino plate).
+- `editref` y `plate` no son combinables entre si.
+  - Seleccionar un editref deselecciona todos los plates y viceversa.
+- Varios editref pueden combinarse entre si.
+- Varios plates pueden combinarse entre si.
+- El rango base se calcula con:
+  - `base_timeline_in = min(timelineIn de seleccionados)`
+  - `base_timeline_out = max(timelineOut de seleccionados)`
+
+**Implementacion:** `_collect_range_sources()`, `_is_editref_track()`, `_is_plate_track()`, `_on_range_check_changed()`
+
+---
+
+## Seccion: Resolution
+
+Opciones disponibles:
+
+- `Timeline` (default): resolucion de la sequence activa via `seq.format()`.
+- Una opcion por cada track `plate` detectado con su resolucion real.
+
+La resolucion del plate se extrae en cascada desde:
+1. Metodos directos del objeto `source` o `mediaSource` (`width()`, `height()`).
+2. Metadata del `mediaSource` (claves `foundry.source.width/height`, `input/width/height`, `exr/displayWindow/...`).
+3. `fileinfos()` del `mediaSource`.
+
+Si un plate no devuelve resolucion valida, su radio button queda deshabilitado.
+
+Los tracks `editref` no se usan como fuente de resolucion.
+
+**Implementacion:** `_timeline_resolution()`, `_plate_resolution()`, `_metadata_resolution()`, `_call_int_method()`
+
+---
+
+## Seccion: Handle
+
+Control custom de incremento/decremento. No usa `QSpinBox`.
+
+```
+[ ▼ ][ 4 ][ ▲ ]
+```
+
+- Valor inicial: `4`.
+- Rango permitido: `0` a `99`.
+- **Solo se habilita si la seleccion de frame range incluye al menos un editref.**
+- Si la seleccion no tiene editref, el handle se fuerza a `0` y queda greyed out.
+
+Cuando el handle esta activo, el rango efectivo se expande:
+
+```
+timeline_in  = base_timeline_in  - handle
+timeline_out = base_timeline_out + handle
+```
+
+Cualquier cambio en el handle recalcula el preview de OUTPUT en vivo.
+
+**Implementacion:** `_build_handle_box()`, `_step_handle()`, `_set_handle_enabled()`
+
+---
+
+## Seccion: Task
+
+Botones de seleccion exclusiva para las tres tasks disponibles:
+
+| Task      | Track destino | Carpeta de salida |
+|-----------|---------------|-------------------|
+| `comp`    | `_comp_`      | `Comp`            |
+| `roto`    | `_roto_`      | `Roto`            |
+| `cleanup` | `_cleanup_`   | `Cleanup`         |
+
+**Reglas:**
+
+- Si ya existe una version en el track correspondiente bajo el playhead, la task queda deshabilitada con tooltip.
+- Por defecto se selecciona la primera task disponible (normalmente `comp`).
+- Si todas las tasks estan deshabilitadas, el boton `Create v000` queda deshabilitado.
+
+La deteccion de version existente se hace via `find_clip_at_playhead_in_track()` + `_clip_version_label()`.
+
+**Implementacion:** `_existing_versions_by_task()`, `_select_default_task()`, `_clip_version_label()`
+
+---
+
+## Seccion: Output (preview)
+
+Se recalcula en vivo con cada cambio en el dialogo. Muestra:
+
+```
+Path: T:/VFX-MOR/101/MOR_1003_020/Roto/4_publish/MOR_1003_020_roto_v000
+Name: MOR_1003_020_roto_v000_####.exr
+Timeline: 3813 - 4242 (handle 4)
+Frames: 1001 - 1429 (429 frames)
+Resolution: 4168 x 1612 (Timeline)
+```
+
+**Implementacion:** `_build_output()`, `_update_state()`
+
+---
+
+## Derivacion del path de salida
+
+El shot root se extrae del path del plate buscando el segmento `_input`:
+
+```
+T:/VFX-MOR/101/MOR_1003_020/_input/...
+                             ^^^^^^^
+shot_root = T:/VFX-MOR/101/MOR_1003_020
+```
+
+El output se construye como:
+
+```
+{shot_root}/{TASK_FOLDER[task]}/4_publish/{shot_code}_{task}_v000/
+```
+
+Ejemplo para `roto`:
+
+```
+T:/VFX-MOR/101/MOR_1003_020/Roto/4_publish/MOR_1003_020_roto_v000/
+```
+
+**Implementacion:** `_derive_shot_root()`, `_build_output()`
+
+---
+
+## Naming de la secuencia
+
+Patron de nombre de archivo:
+
+```
+{shot_code}_{task}_v000_####.exr
+```
+
+Ejemplo:
+
+```
+MOR_1003_020_roto_v000_1001.exr
+MOR_1003_020_roto_v000_1002.exr
+...
+MOR_1003_020_roto_v000_1429.exr
+```
+
+El primer frame de salida siempre es `1001` (constante `START_FRAME`).
+La version siempre es `v000` (constante `VERSION`).
+
+---
+
+## Creacion de EXR en disco
+
+### Herramienta: oiiotool (Windows)
+
+La secuencia se crea en dos pasos usando `oiiotool.exe` vendorizado en `LGA_NKS_Shared`:
+
+```
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Shared\OIIO_Win\oiiotool.exe
+```
+
+**Paso 1 - Crear el primer frame negro:**
+
+```
+oiiotool --create WIDTHxHEIGHT 3 --chnames R,G,B -d half --compression zip -o SHOT_task_v000_1001.exr
+```
+
+Parametros del EXR generado:
+
+| Parametro   | Valor    |
+|-------------|----------|
+| Canales     | `R,G,B`  |
+| Data type   | `half`   |
+| Compresion  | `zip`    |
+| Valor pixel | negro    |
+
+**Paso 2 - Duplicar para todos los frames restantes:**
+
+```python
+shutil.copyfile(first_file, target_frame_file)
+```
+
+Este enfoque es rapido y garantiza que todos los frames son identicos al primero.
+
+Al finalizar se valida que la cantidad de archivos `.exr` en la carpeta coincida con `frame_count`.
+
+### Flujo de creacion y manejo de conflictos
+
+1. Resolver `oiiotool.exe` relativo a `LGA_NKS_Shared`.
+2. Si la carpeta de salida **no existe**: crearla.
+3. Si la carpeta de salida **ya existe y tiene EXRs**: mostrar dialogo de confirmacion con opciones `Cancel` / `Replace`.
+   - `Replace`: borra la carpeta completa y la recrea desde cero.
+4. Crear el primer frame con oiiotool.
+5. Duplicar el primer frame para los frames restantes.
+6. Validar cantidad de archivos escritos.
+
+### Dialogo de exito
+
+Al completar correctamente, muestra un mensaje con:
+
+- `OK`: cierra el dialogo.
+- `Show in Browser`: abre la carpeta creada en el Explorador de Windows (o Finder en macOS).
+
+### macOS
+
+Pendiente. No implementado hasta cerrar la version Windows.
+La futura implementacion debera usar su propio `oiiotool` en `LGA_NKS_Shared/OIIO_Mac`.
+El boton `Show in Browser` ya contempla `subprocess.Popen(["open", path])` para macOS.
+
+**Implementacion:** `_create_black_exr_sequence()`, `_oiio_tool_path()`, `_show_path_in_browser()`
+
+---
+
+## Parametros del diccionario de salida
+
+La funcion `_build_output()` retorna un diccionario con todos los parametros necesarios para la creacion:
+
+```python
+{
+    "shot_code": "MOR_1003_020",
+    "task": "roto",
+    "selected_range_sources": [
+        {"track_name": "EditRef", "source_type": "editref"},
+    ],
+    "selected_plates": ["EditRef"],
+    "base_timeline_in": 3817,
+    "base_timeline_out": 4238,
+    "handle": 4,
+    "timeline_in": 3813,
+    "timeline_out": 4242,
+    "frame_count": 429,
+    "source_first_frame": 1001,
+    "source_last_frame": 1429,
+    "resolution": (4168, 1612),
+    "resolution_source": "Timeline",
+    "output_dir": "T:/VFX-MOR/101/MOR_1003_020/Roto/4_publish/MOR_1003_020_roto_v000",
+    "output_name_pattern": "MOR_1003_020_roto_v000_####.exr",
+}
+```
+
+Nota: `timeline_out` es **exclusivo** (frame de corte, no el ultimo frame incluido). `frame_count = timeline_out - timeline_in`.
+
+---
+
+## Validaciones
+
+El dialogo bloquea `Create v000` y muestra un warning si:
+
+| Condicion                                              | Origen                     |
+|--------------------------------------------------------|----------------------------|
+| No hay sequence activa                                 | `_collect_context()`       |
+| No hay viewer / playhead activo                        | `_collect_context()`       |
+| No hay tracks editref ni plate bajo el playhead        | `_collect_context()`       |
+| No hay track plate (no se puede derivar path/resol.)   | `_collect_context()`       |
+| No se detecta shot code                                | `_collect_context()`       |
+| No hay fuente de frame range seleccionada              | `_build_output()`          |
+| No se puede derivar shot root desde `_input`           | `_build_output()`          |
+| La resolucion seleccionada no es valida                | `_build_output()`          |
+| El rango calculado resulta en 0 frames o menos         | `_build_output()`          |
+| Todas las tasks ya tienen version en el timeline       | `_update_state()`          |
+
+---
+
+## Dependencias y modulos usados
+
+| Modulo                              | Uso                                                                 |
+|-------------------------------------|---------------------------------------------------------------------|
+| `hiero.core`, `hiero.ui`            | API de Hiero: sequence, tracks, clips, viewer                       |
+| `LGA_NKS_Shared.LGA_QtAdapter_HieroTools` | Qt compatible con Hiero (PyQt5/PySide2 segun version)         |
+| `LGA_NKS_Flow_NamingUtils`          | `clean_base_name()`, `extract_project_name()`, `extract_shot_code()` |
+| `LGA_NKS_GetClip`                   | `find_clip_at_playhead_in_track()` para detectar versiones existentes |
+| `LGA_NKS_TaskSelectionDialog`       | `track_for_task()` para mapear task a nombre de track               |
+| `LGA_NKS_Flow_Task_Config`          | `get_task_color()` para colores de botones de task                  |
+| `oiiotool.exe` (vendorizado)        | Creacion del primer frame EXR negro                                 |
+| `shutil.copyfile`                   | Duplicacion del primer frame para el resto de la secuencia          |
+
+---
+
+## Constantes del script
+
+```python
+START_FRAME = 1001
+VERSION     = "v000"
+TASKS       = ("comp", "roto", "cleanup")
+TASK_FOLDER = {"comp": "Comp", "roto": "Roto", "cleanup": "Cleanup"}
+```
+
+---
+
+## Pendiente: importar y colocar la v000 en Hiero
+
+Luego de crear la secuencia EXR en disco, el siguiente paso es importarla automaticamente al proyecto de Hiero e insertarla en el timeline.
+
+El flujo fue validado en scripts de exploracion. Ver resultados en `LGA_NKS_CreateV000_Plan.md`.
+
+**Flujo validado:**
+
+```python
+clip = hiero.core.Clip(first_frame_path)        # Detecta secuencia completa automaticamente
+bin_item = hiero.core.BinItem(clip)
+target_bin.addItem(bin_item)
+
+track_item = target_track.addTrackItem(clip, timeline_in)
+track_item.setName(shot_name)                   # Solo SHOT_CODE, no nombre completo de archivo
+track_item.setTimes(timeline_in, timeline_out - 1, 0, frame_count - 1)
+track_item.setVersionLinkedToBin(True)          # Debe llamarse al final
+```
+
+**Politicas de la integracion pendiente:**
+
+- Importar al bin `F <Secuencia>/<ShotName>` (estructura de `Organize Project`).
+- Insertar en `_comp_`, `_roto_` o `_cleanup_` segun task.
+- Cancelar si el track destino no existe (no crear tracks automaticamente).
+- Cancelar o pedir confirmacion si hay overlap en el rango destino.
+- Source relativo: `0` a `frame_count - 1`.
+- `TrackItem.setTimes()` recibe `timeline_out - 1` (inclusivo).
+- `setVersionLinkedToBin(True)` solo funciona despues de que el TrackItem ya fue agregado y sus tiempos ajustados.
+
+**Scripts de exploracion de referencia:**
+
+```
+C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-CreateV000_ImportExplore.py
+C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-TrackItem_LinkStatus_Explore.py
+C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-TrackItem_LinkStatus_SetSelected.py
+```
+
+---
+
+## Referencias tecnicas
+
+| Archivo | Funciones / clases clave |
+|---------|--------------------------|
+| `LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py` | `open_create_v000_dialog()`, `_collect_context()`, `_collect_range_sources()`, `_create_black_exr_sequence()`, `CreateV000Dialog` |
+| `LGA_NKS_Shared\LGA_NKS_GetClip.py` | `find_clip_at_playhead_in_track()` |
+| `LGA_NKS_Shared\LGA_NKS_TaskSelectionDialog.py` | `track_for_task()` |
+| `LGA_NKS_Shared\LGA_NKS_Flow_NamingUtils.py` | `clean_base_name()`, `extract_project_name()`, `extract_shot_code()` |
+| `LGA_NKS_Shared\LGA_NKS_Flow_Task_Config.py` | `get_task_color()` |
+| `LGA_NKS_Shared\OIIO_Win\oiiotool.exe` | Creacion de EXR negro |
+| `LGA_NKS_Edit_Panel_py\LGA_NKS_OrganizeProject.py` | Estructura de bins usada como referencia para la importacion pendiente |
+| `LGA_NKS_Edit_Panel_py\LGA_NKS_SetShotName.py` | Logica de naming de clips usada como referencia para la importacion pendiente |
