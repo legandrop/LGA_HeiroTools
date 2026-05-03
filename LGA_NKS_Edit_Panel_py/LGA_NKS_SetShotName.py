@@ -1,8 +1,11 @@
 """
-LGA_NKS_SetShotName.py
-Script para establecer nombres de shots basado en rutas de archivos.
+____________________________________________________________________
 
-Extraído de LGA_NKS_Edit_Panel.py
+  LGA_NKS_SetShotName v1.00 | Lega
+
+  Script para establecer nombres de shots basado en rutas de archivos.
+____________________________________________________________________
+
 """
 
 import hiero.ui

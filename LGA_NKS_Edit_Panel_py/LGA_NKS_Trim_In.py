@@ -2,14 +2,16 @@
 # -*- coding: utf-8 -*-
 
 """
-_____________________________________________________________________________________________________
+____________________________________________________________________
 
-  LGA_NKS_Trim_In v1.0 | Lega
+  LGA_NKS_Trim_In v1.00 | Lega
+
   Script para recortar el material antes del playhead en clips seleccionados.
   El clip se recorta tanto en el source como en el timeline, eliminando los frames antes del playhead
   y manteniendo la relación 1:1 para evitar retimes.
   Si el playhead está antes del inicio del clip, extiende el clip hasta el límite mínimo posible.
-_____________________________________________________________________________________________________
+____________________________________________________________________
+
 """
 
 import hiero.core

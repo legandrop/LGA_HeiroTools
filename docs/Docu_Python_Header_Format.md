@@ -63,8 +63,12 @@ Si hay descripción, debe haber una línea en blanco antes de las versiones.
 ### 7. **Sección de Changelog (Versiones)**
 - Formato: `  v[X.XX]: [Descripción del cambio]`
 - Dos espacios de indentación
+- **Las versiones SIEMPRE tienen dos dígitos después del punto** (v2.00, v1.09, nunca v2.0 o v1.9)
 - **SIN líneas en blanco entre versiones**
-- Las versiones deben estar ordenadas de mayor a menor
+- **Las versiones DEBEN estar en orden descendente** (de mayor a menor)
+  - ✅ Correcto: v1.18, v1.16, v1.15, v1.10
+  - ❌ Incorrecto: v1.16, v1.15, v1.10, v1.18 (desordenado o inverso)
+  - Si encuentras un changelog desordenado, reorganiza las versiones antes de standarizar
 - Si una versión ocupa múltiples líneas, las siguientes líneas se indentan más:
 
 ```python
@@ -147,7 +151,8 @@ ____________________________________________________________________
 - [ ] Descripción (si aplica) sin inventar contenido
 - [ ] Línea en blanco antes del changelog
 - [ ] Changelog sin líneas en blanco entre versiones
-- [ ] Versiones ordenadas de mayor a menor
+- [ ] **Versiones en orden descendente ESTRICTO** (v1.18, v1.16, v1.15, v1.10 – nunca desordenadas)
+- [ ] Todas las versiones con dos dígitos (`v1.00`, `v1.99`, nunca `v1.0` o `v1.9`)
 - [ ] Guiones de cierre sin línea en blanco antes
 
 ---
@@ -159,10 +164,15 @@ ____________________________________________________________________
 2. **Mantener versiones**: Respeta las versiones existentes. Solo agrega nueva versión si hay un cambio real.
 
 3. **Dos dígitos en versión**: Siempre `v1.09`, nunca `v1.9`. Esto mantiene consistencia visual.
+   - Aplica a la versión en el título (ej: `v2.15 | Lega`)
+   - Aplica a TODAS las versiones en el changelog (ej: `v2.15:`, `v2.00:`, `v1.99:` – NUNCA `v2.0:` o `v1.9:`)
 
 4. **Indentación**: Todos los niveles usan **2 espacios**, nunca tabs.
 
-5. **Ordenamiento**: El changelog siempre de versión más nueva a más antigua.
+5. **Ordenamiento DESCENDENTE ESTRICTO**: El changelog SIEMPRE de versión más nueva (arriba) a más antigua (abajo).
+   - No puede haber versiones desordenadas en el changelog
+   - Si encuentras: v1.16, v1.15, v1.10, v1.18 → reorganiza a: v1.18, v1.16, v1.15, v1.10
+   - Esto asegura que el cambio más reciente siempre está al principio
 
 ---
 

@@ -1,9 +1,13 @@
-# _________________________________________________
-#
-#   LGA_NKS_ColorTransforms v1.02 | Lega
-#   Módulo unificado para transformaciones de color de clips
-#   Soporta: Rec.709, Default, Compositing Log
-# _________________________________________________
+"""
+____________________________________________________________________
+
+  LGA_NKS_ColorTransforms v1.02 | Lega
+
+  Módulo unificado para transformaciones de color de clips
+  Soporta: Rec.709, Default, Compositing Log
+____________________________________________________________________
+
+"""
 
 import hiero.ui
 import hiero.core

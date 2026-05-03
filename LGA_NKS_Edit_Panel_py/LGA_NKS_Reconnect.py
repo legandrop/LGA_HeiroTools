@@ -1,7 +1,8 @@
 """
-______________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_Reconnect v1.19 | Lega
+
   Reconecta clips seleccionados a diferentes rutas, manteniendo el color original.
 
   v1.19: Fix reconnect de archivos sin versión en Win que en Mac existen con _vXX:
@@ -26,7 +27,7 @@ ______________________________________________________________________
          de T: (Win) a /Volumes/T Viaja/T (Mac), preservando color y trims.
   v1.11: Agregado parámetro force_all_clips para procesar todos los clips del timeline
          o solo los seleccionados. Compatible con el botón Reconnect Win > Mac del Edit Panel.
-______________________________________________________________________
+____________________________________________________________________
 
 """
 

@@ -1,16 +1,17 @@
 """
-_______________________________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_CompareEXR_to_aPlate v1.14 | Lega
+
   Compara los rangos de frames de los clips del track especificado (por defecto _comp_) con
   los clips correspondientes del track aPlate para verificar coincidencias.
 
-  v1.14 - Actualizado para ser compatible con ambos sistemas de nomenclatura:
-          - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
-          - PROYECTO_SEQ_SHOT (3 bloques simplificado)
-  v1.13 - Usa el módulo utilitario LGA_NKS_GetClip para obtener clips (permite selecciones múltiples)
-          Prioridad: selecciones múltiples > force_all_clips > playhead
-_______________________________________________________________________________________
+  v1.14: Actualizado para ser compatible con ambos sistemas de nomenclatura:
+         - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+         - PROYECTO_SEQ_SHOT (3 bloques simplificado)
+  v1.13: Usa el módulo utilitario LGA_NKS_GetClip para obtener clips (permite selecciones múltiples)
+         Prioridad: selecciones múltiples > force_all_clips > playhead
+____________________________________________________________________
 
 """
 
