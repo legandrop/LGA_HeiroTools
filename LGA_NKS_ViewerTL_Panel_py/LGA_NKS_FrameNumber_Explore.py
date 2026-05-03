@@ -1,7 +1,8 @@
 """
-______________________________________________________
+____________________________________________________________________
 
-  LGA_NKS_FrameNumber_Explore v1.0 | Lega
+  LGA_NKS_FrameNumber_Explore v1.00 | Lega
+
   Script de exploración para capturar todas las propiedades
   del soft effect 'Frame_Only' en el track 'BurnIn'
 
@@ -10,9 +11,7 @@ ______________________________________________________
   - Todas las propiedades del nodo (knobs y valores)
   - Información de duración y posición en el timeline
   - Cualquier otra propiedad relevante para recrear el efecto
-
-______________________________________________________
-
+____________________________________________________________________
 """
 
 import hiero.core

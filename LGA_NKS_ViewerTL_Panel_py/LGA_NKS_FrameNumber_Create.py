@@ -1,16 +1,16 @@
 """
-______________________________________________________
+____________________________________________________________________
 
   LGA_NKS_FrameNumber_Create v0.21 | Lega
+
   Script para crear el soft effect 'Frame_Only' en el track 'BurnIn'
   con todas las propiedades capturadas de un efecto existente.
 
-  Este script se usa como función auxiliar desde 
+  Este script se usa como función auxiliar desde
   el script maestro LGA_NKS_FrameNumber.py para crear el soft effect 'Frame_Only' en el track 'BurnIn'.
 
   v0.21: Se corrigió el problema cuando se creaba el efecto con el nombre 'Frame_Only' y ya existía uno con ese nombre.
-
-______________________________________________________
+____________________________________________________________________
 
 """import hiero.core
 import hiero.ui

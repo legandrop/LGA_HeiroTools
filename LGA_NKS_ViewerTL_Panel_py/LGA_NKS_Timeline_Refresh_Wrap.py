@@ -1,5 +1,5 @@
 """
-____________________________________________________________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_Timeline_Refresh_Wrap v1.41 | Lega
 
@@ -17,7 +17,7 @@ ________________________________________________________________________________
   v1.41: Agregado pre-cleanup del timeline antes del refresh.
          Elimina tracks con tag icon 'icons:NukeVFX.png' y extiende BurnIn hasta el último clip visible.
   v1.40: Implementado cierre simultáneo de viewers + timelines para mantener equilibrio delicado de Hiero
-____________________________________________________________________________________________________________________
+____________________________________________________________________
 """
 
 import hiero.core

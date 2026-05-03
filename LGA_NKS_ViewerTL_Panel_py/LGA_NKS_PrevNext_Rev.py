@@ -1,5 +1,5 @@
 """
-______________________________________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_PrevNext_Rev v1.24 | Lega
 
@@ -13,9 +13,9 @@ ________________________________________________________________________________
   6. Ajusta el zoom para que se ajuste al clip seleccionado.
   7. Deselecciona todos los clips.
 
-  v1.24 - No descarta clips offline para navegación y agrega logging a archivo
-  v1.23 - Usa módulo centralizado LGA_NKS_GetClip con método híbrido para buscar clips EditRef cuando la posición coincide con el playhead
-______________________________________________________________________________________________
+  v1.24: No descarta clips offline para navegación y agrega logging a archivo
+  v1.23: Usa módulo centralizado LGA_NKS_GetClip con método híbrido para buscar clips EditRef cuando la posición coincide con el playhead
+____________________________________________________________________
 """
 
 import hiero.core

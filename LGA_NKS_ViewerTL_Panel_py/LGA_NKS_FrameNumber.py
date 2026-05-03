@@ -1,19 +1,19 @@
 """
-______________________________________________________
+____________________________________________________________________
 
-  LGA_NKS_FrameNumber v1.0 | Lega
+  LGA_NKS_FrameNumber v1.00 | Lega
+
   Busca el clip 'Frame_Only' en el track 'BurnIn' y posiciona el box
   alineado a la izquierda y al bottom con 30px de margen
   Incluye funcionalidad de toggle: si la posición no cambia y está enabled, lo deshabilita.
   Si está disabled, lo habilita.
   Si el efecto no existe, lo crea automáticamente.
 
-  v1.0: Creación automática del efecto si no existe
+  v1.00: Creación automática del efecto si no existe
   v0.57: Agregada funcionalidad de toggle
   v0.56: Se corrigió el problema de posición vertical (Y)
   v0.55: Logs simplificados
-______________________________________________________
-
+____________________________________________________________________
 """
 
 import hiero.core
