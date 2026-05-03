@@ -328,7 +328,7 @@ C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Shared\OIIO_Win\oiiotool.exe
 **Paso 1 - Crear el primer frame negro:**
 
 ```
-oiiotool --create WIDTHxHEIGHT 3 --chnames R,G,B -d half --compression zip -o SHOT_task_v000_1001.exr
+oiiotool --create WIDTHxHEIGHT 3 --chnames R,G,B -d half --compression dwaa -o SHOT_task_v000_1001.exr
 ```
 
 Parametros del EXR generado:
@@ -337,7 +337,7 @@ Parametros del EXR generado:
 |-------------|----------|
 | Canales     | `R,G,B`  |
 | Data type   | `half`   |
-| Compresion  | `zip`    |
+| Compresion  | `dwaa`   |
 | Valor pixel | negro    |
 
 **Paso 2 - Duplicar para todos los frames restantes:**

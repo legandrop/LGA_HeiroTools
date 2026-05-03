@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_CreateV000 v1.00 | Lega
+  LGA_NKS_CreateV000 v1.01 | Lega
 
   Crea una secuencia EXR negra v000 para el shot activo en Hiero/Nuke Studio.
   Permite elegir frame range, resolucion, handle persistente y una o varias
@@ -14,7 +14,9 @@ ____________________________________________________________________
   Si ya existen EXRs, permite reemplazarlos. Si hay solape en timeline, permite
   crear solo los EXRs, crear/importar al bin sin insertar, o reemplazar los
   clips solapados por la nueva v000.
-  
+
+  v1.01: Actualizado para usar compression dwaa en oiiotool
+
 ____________________________________________________________________
 
 """
@@ -680,7 +682,7 @@ def _create_black_exr_sequence(params, replace=False):
         "-d",
         "half",
         "--compression",
-        "zip",
+        "dwaa",
         "-o",
         str(first_file),
     ]
