@@ -45,8 +45,8 @@ El archivo se reinicia en cada carga del modulo con encabezado `Fecha: YYYY-MM-D
 
 - Debe haber una sequence activa en Hiero.
 - El viewer debe estar activo (playhead posicionado).
-- Debe haber al menos un clip bajo el playhead en un track cuyo nombre contenga `editref` o termine en `plate` (case-insensitive).
-- Debe haber al menos un track `plate` con clip bajo el playhead (se usa para derivar el shot root y la resolucion).
+- Debe haber al menos un clip bajo el playhead en un track cuyo nombre contenga `editref` o termine en `plate` (case-insensitive), usado como ancla del shot.
+- Debe detectarse al menos un track `plate` dentro de la isla temporal del shot (se usa para derivar el shot root y la resolucion).
 - El path de ese plate debe contener un segmento `_input` para derivar el shot root.
 
 Si alguna condicion no se cumple, el dialogo no abre y se muestra un warning descriptivo.
@@ -58,7 +58,7 @@ _collect_context()
     |
     ├── hiero.ui.activeSequence()       -> sequence activa
     ├── hiero.ui.currentViewer().time() -> posicion del playhead
-    ├── _collect_range_sources()        -> clips en tracks editref/plate bajo el playhead
+    ├── _collect_range_sources()        -> isla de clips editref/plate del shot bajo el playhead
     ├── _derive_shot_root()             -> shot root desde _input en el path del plate
     ├── _derive_shot_code()             -> shot code desde el nombre del archivo plate
     ├── _timeline_resolution()          -> resolucion de la sequence
@@ -74,6 +74,26 @@ CreateV000Dialog(context)
                     ├── oiiotool --create   -> crea el primer frame negro
                     └── shutil.copyfile()   -> duplica el primer frame para todos los restantes
 ```
+
+---
+
+### Deteccion de isla del shot
+
+La tabla de `FRAME RANGE` no se limita a clips exactamente bajo el playhead. El playhead se usa como ancla para identificar el shot actual y luego se expande una isla temporal de clips relacionados.
+
+El proceso es:
+
+1. Buscar clips ancla bajo el playhead en tracks `editref` y tracks que terminan en `plate`.
+2. Elegir como ancla preferida un plate; si no hay plate bajo el playhead, usar el primer clip relevante disponible.
+3. Derivar identidad del shot desde el ancla:
+   - `shot_root`, cuando el path permite cortar antes de `_input`.
+   - `shot_code`, usando `clean_base_name()` y `extract_shot_code()`.
+4. Recorrer tracks relevantes y agregar clips que solapen con la isla temporal actual y coincidan por `shot_root` o `shot_code`.
+5. Si un clip aceptado expande el rango de la isla, repetir hasta que no entren clips nuevos.
+
+Esto permite detectar, por ejemplo, un `editref` que empieza varios frames despues del primer frame del `aPlate`, siempre que pertenezca al mismo shot.
+
+**Implementacion:** `_collect_range_sources()`, `_range_track_entries()`, `_clip_shot_identity()`, `_clip_matches_shot_identity()`, `_timeline_ranges_overlap()`.
 
 ---
 

@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_CreateV000 v1.03 | Lega
+  LGA_NKS_CreateV000 v1.04 | Lega
 
   Crea una secuencia EXR negra v000 para el shot activo en Hiero/Nuke Studio.
   Permite elegir frame range, resolucion, handle persistente y una o varias
@@ -15,6 +15,8 @@ ____________________________________________________________________
   crear solo los EXRs, crear/importar al bin sin insertar, o reemplazar los
   clips solapados por la nueva v000.
 
+  v1.04: La tabla de rangos ahora detecta la isla del shot por solape, shot_root y shot_code.
+         Fix: key estable para clips aceptados, guard de iteracion y logs acotados.
   v1.03: Corregido frame range inclusivo, reemplazo de BinItem existente y rescan() validado tras importar.
   v1.02: Agregado sistema de logging dual con archivo propio debugPy_CreateV000.log
   v1.01: Actualizado para usar compression dwaa en oiiotool
@@ -503,6 +505,39 @@ def _derive_shot_code(clip, shot_root):
         return ""
 
 
+def _clip_shot_identity(clip):
+    media_path = _clip_media_path(clip)
+    shot_root = _derive_shot_root(media_path) if media_path else None
+    shot_code = _derive_shot_code(clip, shot_root)
+    return {
+        "media_path": media_path,
+        "shot_root": shot_root,
+        "shot_code": shot_code,
+    }
+
+
+def _paths_share_shot_root(candidate_path, shot_root):
+    if not candidate_path or not shot_root:
+        return False
+    normalized_path = candidate_path.replace("\\", "/").rstrip("/")
+    normalized_root = shot_root.replace("\\", "/").rstrip("/")
+    return normalized_path == normalized_root or normalized_path.startswith(normalized_root + "/")
+
+
+def _clip_matches_shot_identity(clip, anchor_identity):
+    candidate_identity = _clip_shot_identity(clip)
+    root_match = _paths_share_shot_root(
+        candidate_identity["media_path"],
+        anchor_identity.get("shot_root"),
+    )
+    shot_code_match = bool(
+        candidate_identity.get("shot_code")
+        and anchor_identity.get("shot_code")
+        and candidate_identity["shot_code"] == anchor_identity["shot_code"]
+    )
+    return root_match or shot_code_match, root_match, shot_code_match, candidate_identity
+
+
 def _find_clip_at_time(track, current_time):
     if current_time is None:
         return None
@@ -525,6 +560,10 @@ def _is_editref_track(track_name):
     return bool(re.search(r"editref", track_name, flags=re.IGNORECASE))
 
 
+def _timeline_ranges_overlap(in_a, out_a, in_b, out_b):
+    return int(in_a) <= int(out_b) and int(out_a) >= int(in_b)
+
+
 def _range_source_from_clip(track_name, track_index, clip, source_type):
     media_path = _clip_media_path(clip)
     width, height = _plate_resolution(clip) if source_type == RANGE_SOURCE_PLATE else (None, None)
@@ -543,11 +582,9 @@ def _range_source_from_clip(track_name, track_index, clip, source_type):
     }
 
 
-def _collect_range_sources(seq, current_time):
+def _range_track_entries(seq):
+    entries = []
     tracks = list(seq.videoTracks())
-    editrefs = []
-    plates = []
-
     # Hiero usually exposes tracks bottom-to-top; reverse keeps the visual top first.
     for track_index, track in reversed(list(enumerate(tracks))):
         track_name = track.name()
@@ -557,13 +594,168 @@ def _collect_range_sources(seq, current_time):
             source_type = RANGE_SOURCE_PLATE
         else:
             continue
+        entries.append(
+            {
+                "track": track,
+                "track_index": track_index,
+                "track_name": track_name,
+                "source_type": source_type,
+            }
+        )
+    return entries
 
-        clip = _find_clip_at_time(track, current_time)
-        if not clip:
+
+def _entry_clip_key(entry, clip):
+    media_path = _clip_media_path(clip).replace("\\", "/")
+    return "%s:%s:%s:%s" % (
+        entry["track_index"],
+        int(clip.timelineIn()),
+        int(clip.timelineOut()),
+        media_path or clip.name(),
+    )
+
+
+def _choose_anchor_seed(seed_items):
+    plate_seeds = [
+        item for item in seed_items
+        if item["entry"]["source_type"] == RANGE_SOURCE_PLATE
+    ]
+    candidates = plate_seeds or seed_items
+    for item in candidates:
+        identity = _clip_shot_identity(item["clip"])
+        if identity.get("shot_root") or identity.get("shot_code"):
+            return item, identity
+    return candidates[0], _clip_shot_identity(candidates[0]["clip"])
+
+
+def _collect_range_sources(seq, current_time):
+    entries = _range_track_entries(seq)
+    seed_items = []
+    for entry in entries:
+        clip = _find_clip_at_time(entry["track"], current_time)
+        if clip:
+            seed_items.append({"entry": entry, "clip": clip})
+
+    if not seed_items:
+        return [], []
+
+    anchor_seed, anchor_identity = _choose_anchor_seed(seed_items)
+    debug_print(
+        "Shot island anchor:",
+        anchor_seed["entry"]["track_name"],
+        anchor_seed["clip"].name(),
+        "shot_root:",
+        anchor_identity.get("shot_root"),
+        "shot_code:",
+        anchor_identity.get("shot_code"),
+    )
+
+    accepted = {}
+    search_in = None
+    search_out = None
+
+    def accept_clip(entry, clip, reason):
+        nonlocal search_in, search_out
+        key = _entry_clip_key(entry, clip)
+        if key in accepted:
+            return False
+        accepted[key] = {"entry": entry, "clip": clip, "reason": reason}
+        clip_in = int(clip.timelineIn())
+        clip_out = int(clip.timelineOut())
+        old_in, old_out = search_in, search_out
+        search_in = clip_in if search_in is None else min(search_in, clip_in)
+        search_out = clip_out if search_out is None else max(search_out, clip_out)
+        if old_in is not None and (old_in != search_in or old_out != search_out):
+            debug_print(
+                "Shot island range expanded:",
+                "%s-%s" % (old_in, old_out),
+                "->",
+                "%s-%s" % (search_in, search_out),
+            )
+        debug_print(
+            "Shot island accepted:",
+            entry["track_name"],
+            clip.name(),
+            "%s-%s" % (clip_in, clip_out),
+            "reason:",
+            reason,
+        )
+        return True
+
+    for item in seed_items:
+        entry = item["entry"]
+        clip = item["clip"]
+        if item is anchor_seed:
+            accept_clip(entry, clip, "anchor")
             continue
+        matches, root_match, shot_code_match, _identity = _clip_matches_shot_identity(clip, anchor_identity)
+        if matches:
+            accept_clip(entry, clip, "root" if root_match else "shot_code")
 
-        source = _range_source_from_clip(track_name, track_index, clip, source_type)
-        if source_type == RANGE_SOURCE_EDITREF:
+    changed = True
+    iteration_count = 0
+    rejected_count = 0
+    while changed and search_in is not None and search_out is not None:
+        iteration_count += 1
+        if iteration_count > len(entries) + 1:
+            debug_print(
+                "Shot island stopped by iteration guard:",
+                iteration_count,
+                "accepted:",
+                len(accepted),
+            )
+            break
+        changed = False
+        for entry in entries:
+            for clip in entry["track"].items():
+                if isinstance(clip, hiero.core.EffectTrackItem):
+                    continue
+                try:
+                    clip_in = int(clip.timelineIn())
+                    clip_out = int(clip.timelineOut())
+                except Exception:
+                    continue
+
+                key = _entry_clip_key(entry, clip)
+                if key in accepted:
+                    continue
+
+                overlaps = _timeline_ranges_overlap(clip_in, clip_out, search_in, search_out)
+                matches, root_match, shot_code_match, _identity = _clip_matches_shot_identity(clip, anchor_identity)
+                should_accept = overlaps and matches
+                if should_accept:
+                    changed = accept_clip(
+                        entry,
+                        clip,
+                        "root" if root_match else "shot_code",
+                    ) or changed
+                else:
+                    rejected_count += 1
+
+    debug_print(
+        "Shot island summary:",
+        "range:",
+        "%s-%s" % (search_in, search_out),
+        "accepted:",
+        len(accepted),
+        "iterations:",
+        iteration_count,
+        "rejected:",
+        rejected_count,
+    )
+
+    editrefs = []
+    plates = []
+    for item in accepted.values():
+        entry = item["entry"]
+        clip = item["clip"]
+        source = _range_source_from_clip(
+            entry["track_name"],
+            entry["track_index"],
+            clip,
+            entry["source_type"],
+        )
+        if entry["source_type"] == RANGE_SOURCE_EDITREF:
             editrefs.append(source)
         else:
             plates.append(source)
