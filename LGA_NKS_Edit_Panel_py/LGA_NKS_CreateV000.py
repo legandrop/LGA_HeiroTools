@@ -4,12 +4,17 @@ ____________________________________________________________________
   LGA_NKS_CreateV000 v1.00 | Lega
 
   Crea una secuencia EXR negra v000 para el shot activo en Hiero/Nuke Studio.
-  Despues de crear los EXRs, importa el clip al bin del shot y lo coloca en el
-  track de la task seleccionada si el rango destino no tiene solapes.
+  Permite elegir frame range, resolucion, handle persistente y una o varias
+  tasks destino (comp, roto, cleanup), procesadas en orden.
+
+  La v000 se importa al bin del shot, se colorea como v_00, y si se coloca en
+  timeline queda deshabilitada. Tambien permite previsualizar el rango con
+  Preview In/Out antes de crearla.
 
   Si ya existen EXRs, permite reemplazarlos. Si hay solape en timeline, permite
-  crear solo los EXRs, crear/importar al bin sin insertar en timeline, o
-  reemplazar el/los clips solapados por la nueva v000.
+  crear solo los EXRs, crear/importar al bin sin insertar, o reemplazar los
+  clips solapados por la nueva v000.
+  
 ____________________________________________________________________
 
 """
