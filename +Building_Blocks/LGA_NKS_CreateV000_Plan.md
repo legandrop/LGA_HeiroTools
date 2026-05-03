@@ -80,6 +80,8 @@ Resolution: ...
 
 Notas:
 
+- La ventana principal se abre no modal para permitir seguir usando Hiero/Nuke Studio en segundo plano.
+- Las confirmaciones internas puntuales, como reemplazar EXRs existentes o resolver solapes, siguen siendo modales.
 - La ventana usa un ancho minimo de `720`.
 - El estilo actual usa fondo oscuro, textos `#a7a7a7`/`#CCCCCC`, separadores y botones custom.
 - La tabla no muestra grid.
