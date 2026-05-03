@@ -190,10 +190,14 @@ Los conflictos de timeline se validan durante la creacion de cada task con `_tim
 
 ## Seccion: Output (preview)
 
-Se recalcula en vivo con cada cambio en el dialogo. Muestra un bloque por cada task seleccionada:
+Se recalcula en vivo con cada cambio en el dialogo. Muestra un bloque por cada task seleccionada usando HTML con colores (el widget es `QTextEdit` en modo readonly).
+
+- **Task:** nombre de la task en negrita con su color definido en `TASK_COLORS`.
+- **Path:** coloreado por niveles de carpeta segun el sistema compartido con LGA_mediaManager y LGA_PipeSync (ver abajo).
+- Las demas lineas se muestran en gris claro `#a7a7a7`.
 
 ```
-Task: roto
+Task: roto              ← color de la task (#2abf7e para roto)
 Path: T:/VFX-MOR/101/MOR_1003_020/Roto/4_publish/MOR_1003_020_roto_v000
 Name: MOR_1003_020_roto_v000_####.exr
 Timeline: 3813 - 4242 (handle 4)
@@ -201,7 +205,21 @@ Frames: 1001 - 1429 (429 frames)
 Resolution: 4168 x 1612 (Timeline)
 ```
 
-**Implementacion:** `_build_output()`, `_build_outputs()`, `_update_state()`
+### Sistema de colores del path
+
+Los segmentos del path se colorean segun su posicion relativa al shot folder:
+
+| Segmento             | Color       | Descripcion             |
+|----------------------|-------------|-------------------------|
+| Dentro del shot root | `#c56cf0`   | Lavanda (disco/proj/grupo/shot) |
+| Nivel 4 (task folder)| `#ffd369`   | Amarillo mostaza        |
+| Nivel 5 (subfolder)  | `#28b5b5`   | Verde cian              |
+| Nivel 6+             | ciclo 4→5→6→7 | segun diccionario    |
+| Separador `/`        | `#bbbbbb`   | Gris claro              |
+
+El corte entre lavanda y colores por nivel ocurre al agotar los segmentos del `shot_root`. Esto se calcula a partir del `shot_root` disponible en `params`, sin comparacion externa.
+
+**Implementacion:** `_build_output()`, `_build_outputs()`, `_update_state()`, `_colorize_path()`
 
 ---
 
@@ -315,6 +333,7 @@ La funcion `_build_output()` retorna un diccionario con todos los parametros nec
 {
     "shot_code": "MOR_1003_020",
     "task": "roto",
+    "shot_root": "T:/VFX-MOR/101/MOR_1003_020",   # usado para coloreado del path
     "selected_range_sources": [
         {"track_name": "EditRef", "source_type": "editref"},
     ],
@@ -379,6 +398,28 @@ VERSION     = "v000"
 V000_CLIP_COLOR_RGB = (138, 138, 138)  # #8a8a8a, igual al boton v_00 de ClipColor
 TASKS       = ("comp", "roto", "cleanup")
 TASK_FOLDER = {"comp": "Comp", "roto": "Roto", "cleanup": "Cleanup"}
+
+# Colores de los botones de task en la UI
+TASK_COLORS = {
+    "comp":    "#3381e0",  # Azul
+    "roto":    "#2abf7e",  # Verde
+    "cleanup": "#27c8c3",  # Cyan
+}
+
+# Sistema de colores de path (compartido con LGA_mediaManager / LGA_PipeSync)
+PATH_SHOT_COLOR   = "#c56cf0"   # Lavanda — segmentos del shot folder
+PATH_SEP_COLOR    = "#bbbbbb"   # Gris claro — separadores /
+PATH_LEVEL_COLORS = {
+    0: "#ffff66",   # Amarillo       (disco)
+    1: "#28b5b5",   # Verde cian     (proyecto)
+    2: "#ff9a8a",   # Naranja pastel (grupo)
+    3: "#0088ff",   # Azul           (shot)
+    4: "#ffd369",   # Amarillo mostaza
+    5: "#28b5b5",   # Verde cian
+    6: "#ff9a8a",   # Naranja pastel
+    7: "#6bc9ff",   # Celeste
+    # ... ciclo 4-7 para niveles mayores
+}
 ```
 
 ---
@@ -439,7 +480,7 @@ C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-Trac
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py` | `open_create_v000_dialog()`, `_collect_context()`, `_collect_range_sources()`, `_build_outputs()`, `_create_v000_for_params()`, `_set_v000_clip_color()`, `_disable_timeline_item()`, `_create_black_exr_sequence()`, `CreateV000Dialog` |
+| `LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py` | `open_create_v000_dialog()`, `_collect_context()`, `_collect_range_sources()`, `_build_outputs()`, `_create_v000_for_params()`, `_set_v000_clip_color()`, `_disable_timeline_item()`, `_create_black_exr_sequence()`, `_colorize_path()`, `CreateV000Dialog` |
 | `LGA_NKS_ClipColor_Panel.py` | Boton `v_00`, color `QtGui.QColor(138, 138, 138)` / `#8a8a8a` |
 | `LGA_NKS_Review_Panel_py\LGA_NKS_ON_Clips_OFF_v00-Clips.py` | Usa `TrackItem.setEnabled(False)` para desactivar clips v00/v000 |
 | `LGA_NKS_Shared\LGA_NKS_TaskSelectionDialog.py` | `track_for_task()` |

@@ -39,6 +39,24 @@ TASK_COLORS = {
     "roto":    "#2abf7e",
     "cleanup": "#27c8c3",
 }
+
+# Sistema de colores de path por nivel (igual que LGA_mediaManager / LGA_PipeSync)
+PATH_SHOT_COLOR = "#c56cf0"   # lavanda — segmentos dentro del shot folder
+PATH_SEP_COLOR  = "#bbbbbb"   # gris claro — separadores /
+PATH_LEVEL_COLORS = {
+    0: "#ffff66",   # Amarillo       disco
+    1: "#28b5b5",   # Verde cian     proyecto
+    2: "#ff9a8a",   # Naranja pastel grupo
+    3: "#0088ff",   # Azul           shot
+    4: "#ffd369",   # Amarillo mostaza
+    5: "#28b5b5",   # Verde cian
+    6: "#ff9a8a",   # Naranja pastel
+    7: "#6bc9ff",   # Celeste
+    8: "#ffd369",
+    9: "#28b5b5",
+    10: "#ff9a8a",
+    11: "#6bc9ff",
+}
 RANGE_SOURCE_PLATE = "plate"
 
 CURRENT_DIR = Path(__file__).resolve().parent
@@ -57,6 +75,31 @@ from LGA_NKS_Flow_Task_Config import get_task_color
 
 def debug_print(*message):
     print("[Create v000]", *message)
+
+
+def _colorize_path(path, shot_root):
+    """Retorna el path como HTML coloreado por niveles.
+
+    Los segmentos dentro del shot_root reciben el color lavanda (PATH_SHOT_COLOR).
+    Los segmentos posteriores reciben el color de su nivel absoluto (PATH_LEVEL_COLORS).
+    Los separadores / van en gris claro (PATH_SEP_COLOR).
+    """
+    parts = path.replace("\\", "/").split("/")
+    shot_depth = len(shot_root.replace("\\", "/").split("/"))
+
+    colored = []
+    for i, part in enumerate(parts):
+        if not part:
+            continue
+        if i < shot_depth:
+            color = PATH_SHOT_COLOR
+        else:
+            color = PATH_LEVEL_COLORS.get(i, "#bbbbbb")
+        colored.append('<span style="color: %s;">%s</span>' % (color, part))
+
+    sep = '<span style="color: %s;">/</span>' % PATH_SEP_COLOR
+    return sep.join(colored)
+
 
 
 def _current_time():
@@ -692,12 +735,12 @@ class CreateV000Dialog(QtWidgets.QDialog):
         layout.addSpacing(5)
 
         layout.addWidget(self._section_label("OUTPUT"))
-        self.output_text = QtWidgets.QPlainTextEdit()
+        self.output_text = QtWidgets.QTextEdit()
         self.output_text.setReadOnly(True)
         self.output_text.setMaximumHeight(128)
         self.output_text.setStyleSheet(
             """
-            QPlainTextEdit {
+            QTextEdit {
                 background-color: #272727;
                 border: 1px solid #333333;
                 color: #a7a7a7;
@@ -1099,6 +1142,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
         return {
             "shot_code": shot_code,
             "task": task,
+            "shot_root": shot_root,
             "selected_range_sources": [
                 {
                     "track_name": p["track_name"],
@@ -1155,26 +1199,36 @@ class CreateV000Dialog(QtWidgets.QDialog):
         if warning:
             self._set_warning(warning)
             self.create_btn.setEnabled(False)
-            self.output_text.setPlainText(warning)
+            self.output_text.setHtml(warning.replace("\n", "<br>"))
             return
 
         self._set_warning("")
         self.create_btn.setEnabled(True)
         preview_blocks = []
         for params in params_list:
+            task = params["task"]
+            task_color = TASK_COLORS.get(task.lower(), "#a7a7a7")
+            format_dict = dict(params)
+            format_dict["task_colored"] = '<span style="color: {color}; font-weight: bold;">{task}</span>'.format(
+                color=task_color,
+                task=task.capitalize()
+            )
+            format_dict["path_colored"] = _colorize_path(
+                params["output_dir"], params["shot_root"]
+            )
             preview_blocks.append(
-                "Task: {task}\n"
-                "Path: {output_dir}\n"
-                "Name: {output_name_pattern}\n"
-                "Timeline: {timeline_in} - {timeline_out} (handle {handle})\n"
-                "Frames: {source_first_frame} - {source_last_frame} ({frame_count} frames)\n"
-                "Resolution: {0} x {1} ({resolution_source})".format(
+                'Task: {task_colored}<br>'
+                'Path: {path_colored}<br>'
+                'Name: {output_name_pattern}<br>'
+                'Timeline: {timeline_in} - {timeline_out} (handle {handle})<br>'
+                'Frames: {source_first_frame} - {source_last_frame} ({frame_count} frames)<br>'
+                'Resolution: {0} x {1} ({resolution_source})'.format(
                     params["resolution"][0],
                     params["resolution"][1],
-                    **params
+                    **format_dict
                 )
             )
-        self.output_text.setPlainText("\n\n".join(preview_blocks))
+        self.output_text.setHtml("<br><br>".join(preview_blocks))
 
     def _create_v000(self):
         params_list, warning = self._build_outputs()
