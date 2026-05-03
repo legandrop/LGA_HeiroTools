@@ -34,6 +34,7 @@ Esta guía documenta cómo implementar un sistema de logging robusto que escribe
   - `LGA_NKS_Edit_Panel.py`
   - `LGA_NKS_Review_Panel.py`
   - `LGA_NKS_Assignee_Panel.py`
+  - `LGA_NKS_Edit_Panel_py/LGA_NKS_CreateV000.py` (log: `debugPy_CreateV000.log`)
   - `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.py`
   - `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ModifyShot.py`
   - `LGA_NKS_Edit/LGA_NKS_OrganizeProject.py`
