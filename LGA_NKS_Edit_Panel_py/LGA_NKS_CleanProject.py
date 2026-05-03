@@ -1,5 +1,5 @@
 """
-______________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_CleanProject v2.02 | Safe Hiero Cleaning System
 
@@ -13,11 +13,11 @@ ______________________________________________________________________
          Implements anti-sequence protection with blacklist
          Compatible with all formats (.exr, .mov, .nk)
          Detailed logging with debug_print for output control
-  v2.0: Main script that integrates both cleaning functionalities
-        Implements anti-sequence protection with blacklist
-        Compatible with all formats (.exr, .mov, .nk)
-        Detailed logging with debug_print for output control
-______________________________________________________________________
+  v2.00: Main script that integrates both cleaning functionalities
+         Implements anti-sequence protection with blacklist
+         Compatible with all formats (.exr, .mov, .nk)
+         Detailed logging with debug_print for output control
+____________________________________________________________________
 
 """
 

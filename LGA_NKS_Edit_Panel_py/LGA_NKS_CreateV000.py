@@ -1,8 +1,13 @@
 """
-Create v000 dialog for Hiero/Nuke Studio.
+____________________________________________________________________
 
-Phase 1 only: validates context, previews output params and prints the collected
-dictionary. It does not write EXR files.
+  LGA_NKS_CreateV000 v1.00 | Lega
+
+  Create v000 dialog for Hiero/Nuke Studio.
+  Phase 1 only: validates context, previews output params and prints the collected
+  dictionary. It does not write EXR files.
+____________________________________________________________________
+
 """
 
 import os

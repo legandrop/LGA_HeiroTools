@@ -1,8 +1,11 @@
 """
-LGA_NKS_OrganizeProject.py
-Script para organizar clips en bins basado en rutas de archivos.
+____________________________________________________________________
 
-Extraído de LGA_NKS_Edit_Panel.py
+  LGA_NKS_OrganizeProject v1.00 | Lega
+
+  Script para organizar clips en bins basado en rutas de archivos.
+____________________________________________________________________
+
 """
 
 import hiero.ui

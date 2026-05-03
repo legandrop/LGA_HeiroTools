@@ -1,10 +1,14 @@
-# _________________________________________________
-#
-#   LGA_NKS_FixColorspaces v1.1 | Lega
-#   Detecta clips con colorspace "rec709" o "gamma2.2"
-#   y cambia su color transform a "Output - Rec.709"
-#   (ahora busca en todos los clips del proyecto)
-# _________________________________________________
+"""
+____________________________________________________________________
+
+  LGA_NKS_FixColorspaces v1.10 | Lega
+
+  Detecta clips con colorspace "rec709" o "gamma2.2"
+  y cambia su color transform a "Output - Rec.709"
+  (ahora busca en todos los clips del proyecto)
+____________________________________________________________________
+
+"""
 
 import hiero.core
 
