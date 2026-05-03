@@ -681,21 +681,65 @@ track_item.setVersionLinkedToBin(True, True)
 
 El crash se produjo al llamar `setVersionLinkedToBin` sobre un `TrackItem` todavia no agregado/registrado completamente en timeline. La llamada si funciono sobre un item ya existente y tambien al final del flujo con `addTrackItem`.
 
-### Pendiente para integrar
+### Integracion fase 1 implementada
 
-Integrar el flujo validado en:
+Implementado y probado en:
 
 ```text
 C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py
 ```
 
-Politicas que debe respetar la integracion:
+Funciona:
 
 - Importar al bin `F <Secuencia>/<ShotName>`.
 - Insertar en `_comp_`, `_roto_` o `_cleanup_` segun task.
 - Cancelar si el track destino no existe.
-- Cancelar o pedir confirmacion si hay overlap en el rango destino.
+- Chequear overlap en el track destino antes de insertar.
 - Usar source relativo `0..frame_count-1`.
 - Usar timeline out inclusivo para `TrackItem`: `params["timeline_out"] - 1`.
 - Setear nombre visible con la logica de `Set Shot Name` (`SHOT`, no `SHOT_task_v000`).
 - Llamar `setVersionLinkedToBin(True)` al final, despues de crear/agregar el TrackItem y ajustar tiempos.
+
+### Politica propuesta para overlaps
+
+Al clickear `Create v000`, el flujo debe:
+
+1. Chequear si ya existen EXRs `v000` en disco.
+   - Si existen, mostrar el dialogo actual `Cancel / Replace`.
+   - Si el usuario cancela, no hacer nada.
+   - Si el usuario elige `Replace`, borrar y recrear los EXRs.
+2. Antes de insertar en timeline, chequear si el rango destino se solapa con clips existentes en el track de la task.
+   - Ejemplo: `roto -> _roto_`, rango `3813-4242`.
+   - El chequeo debe mirar solo el track destino.
+   - Ignorar `EffectTrackItem`.
+
+Si hay overlap, mostrar un dialogo informando:
+
+```text
+Existing clip: <clip_name>
+Track: <track_name>
+Range: <timeline_in> - <timeline_out>
+```
+
+Opciones propuestas:
+
+- `Cancel`: cancelar toda la operacion.
+- `Create EXRs Only`: crear/reemplazar EXRs en disco, sin importar a Hiero.
+- `Create + Import to Bin`: crear/reemplazar EXRs e importar al bin correcto, sin poner en timeline.
+- `Replace Timeline Clip`: crear/reemplazar EXRs, importar al bin, borrar el/los clips solapados del track destino y colocar la v000.
+
+Estado de implementacion:
+
+1. Primera integracion: implementada y funcionando.
+   - Sin overlap: crear EXRs, importar al bin y colocar en timeline.
+   - Con overlap: ofrecer solo `Cancel`, `Create EXRs Only`, `Create + Import to Bin`.
+2. Segunda integracion: pendiente.
+   - Agregar `Replace Timeline Clip`.
+
+Notas de seguridad:
+
+- `VideoTrack.addTrackItem()` puede modificar items superpuestos; por eso el chequeo de overlap debe hacerse antes.
+- `Replace Timeline Clip` debe borrar solo clips reales del track destino, no efectos ni clips de otros tracks.
+- Si hay multiples overlaps, el dialogo debe listarlos o indicar claramente cuantos son.
+- El borrado debe ocurrir dentro de `project.beginUndo(...)`.
+- No borrar nada del timeline si la creacion EXR o la importacion al bin falla.
