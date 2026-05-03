@@ -620,33 +620,97 @@ class CreateV000Dialog(QtWidgets.QDialog):
 
     def _build_handle_box(self):
         layout = QtWidgets.QHBoxLayout()
-        self.handle_spin = QtWidgets.QSpinBox()
-        self.handle_spin.setRange(0, 999)
-        self.handle_spin.setValue(4)
-        self.handle_spin.setMinimumWidth(72)
-        # Style only the QSpinBox itself; leaving subcontrols un-styled lets Qt
-        # draw native arrows. Partially styling subcontrols causes the empty
-        # white squares glitch (Qt disables native rendering once you touch a
-        # subcontrol but only honours fully-defined image rules).
-        self.handle_spin.setStyleSheet(
-            """
-            QSpinBox {
+        layout.setSpacing(0)
+
+        self.handle_value = 4
+        handle_style = """
+            QPushButton {
                 background-color: #272727;
                 border: 1px solid #333333;
                 color: #a7a7a7;
-                padding: 2px 5px;
-                border-radius: 3px;
-                selection-background-color: #cfcfcf;
-                selection-color: #2B2B2B;
+                padding: 2px 0px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #333333;
+                color: #cfcfcf;
+            }
+            QPushButton:pressed {
+                background-color: #3a3a3a;
+                color: #ffffff;
+            }
+            QPushButton:disabled {
+                background-color: #232323;
+                border: 1px solid #303030;
+                color: #555555;
+            }
+        """
+
+        self.handle_down_btn = QtWidgets.QPushButton("▼")
+        self.handle_down_btn.setFixedSize(22, 24)
+        self.handle_down_btn.setStyleSheet(
+            handle_style
+            + """
+            QPushButton {
+                border-top-left-radius: 3px;
+                border-bottom-left-radius: 3px;
+                border-right: 0px;
             }
             """
         )
-        layout.addWidget(self.handle_spin)
+        self.handle_down_btn.clicked.connect(lambda: self._step_handle(-1))
+
+        self.handle_value_label = QtWidgets.QLineEdit(str(self.handle_value))
+        self.handle_value_label.setAlignment(QtCore.Qt.AlignCenter)
+        self.handle_value_label.setReadOnly(True)
+        self.handle_value_label.setFixedSize(30, 24)
+        self.handle_value_label.setStyleSheet(
+            """
+            QLineEdit {
+                background-color: #272727;
+                border: 1px solid #333333;
+                color: #a7a7a7;
+                padding: 2px 0px;
+                selection-background-color: #cfcfcf;
+                selection-color: #2B2B2B;
+            }
+            QLineEdit:disabled {
+                background-color: #232323;
+                border: 1px solid #303030;
+                color: #555555;
+            }
+            """
+        )
+
+        self.handle_up_btn = QtWidgets.QPushButton("▲")
+        self.handle_up_btn.setFixedSize(22, 24)
+        self.handle_up_btn.setStyleSheet(
+            handle_style
+            + """
+            QPushButton {
+                border-top-right-radius: 3px;
+                border-bottom-right-radius: 3px;
+                border-left: 0px;
+            }
+            """
+        )
+        self.handle_up_btn.clicked.connect(lambda: self._step_handle(1))
+
+        layout.addWidget(self.handle_down_btn)
+        layout.addWidget(self.handle_value_label)
+        layout.addWidget(self.handle_up_btn)
         layout.addStretch()
 
         container = QtWidgets.QWidget()
         container.setLayout(layout)
         return container
+
+    def _step_handle(self, delta):
+        if not self.handle_up_btn.isEnabled():
+            return
+        self.handle_value = max(0, min(99, self.handle_value + delta))
+        self.handle_value_label.setText(str(self.handle_value))
+        self._update_state()
 
     def _build_task_box(self):
         layout = QtWidgets.QHBoxLayout()
@@ -732,6 +796,13 @@ class CreateV000Dialog(QtWidgets.QDialog):
     def _selected_plates(self):
         return [plate for check, plate in self.plate_checks if check.isChecked()]
 
+    def _selected_range_uses_editref(self):
+        return any(
+            source["source_type"] == RANGE_SOURCE_EDITREF
+            for check, source in self.plate_checks
+            if check.isChecked()
+        )
+
     def _selected_task(self):
         for task, btn in self.task_buttons.items():
             if btn.isChecked():
@@ -758,8 +829,11 @@ class CreateV000Dialog(QtWidgets.QDialog):
         if not resolution.get("width") or not resolution.get("height"):
             return None, "Selected resolution is unavailable."
 
-        timeline_in = min(p["timeline_in"] for p in plates)
-        timeline_out = max(p["timeline_out"] for p in plates)
+        base_timeline_in = min(p["timeline_in"] for p in plates)
+        base_timeline_out = max(p["timeline_out"] for p in plates)
+        handle = self.handle_value if self._selected_range_uses_editref() else 0
+        timeline_in = base_timeline_in - handle
+        timeline_out = base_timeline_out + handle
         frame_count = _frame_count(timeline_in, timeline_out)
         if frame_count <= 0:
             return None, "Invalid frame range."
@@ -787,6 +861,9 @@ class CreateV000Dialog(QtWidgets.QDialog):
                 for p in plates
             ],
             "selected_plates": [p["track_name"] for p in plates],
+            "base_timeline_in": base_timeline_in,
+            "base_timeline_out": base_timeline_out,
+            "handle": handle,
             "timeline_in": timeline_in,
             "timeline_out": timeline_out,
             "frame_count": frame_count,
@@ -806,7 +883,17 @@ class CreateV000Dialog(QtWidgets.QDialog):
             self.warning_label.setText("")
             self.warning_label.setVisible(False)
 
+    def _set_handle_enabled(self, enabled):
+        self.handle_down_btn.setEnabled(enabled)
+        self.handle_up_btn.setEnabled(enabled)
+        self.handle_value_label.setEnabled(enabled)
+        if not enabled and self.handle_value != 0:
+            self.handle_value = 0
+            self.handle_value_label.setText("0")
+
     def _update_state(self, *args):
+        self._set_handle_enabled(self._selected_range_uses_editref())
+
         task = self._selected_task()
         if not task and all(not btn.isEnabled() for btn in self.task_buttons.values()):
             warning = "All tasks already have versions in timeline."
@@ -827,7 +914,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
         self.output_text.setPlainText(
             "Path: {output_dir}\n"
             "Name: {output_name_pattern}\n"
-            "Timeline: {timeline_in} - {timeline_out}\n"
+            "Timeline: {timeline_in} - {timeline_out} (handle {handle})\n"
             "Frames: {source_first_frame} - {source_last_frame} ({frame_count} frames)\n"
             "Resolution: {0} x {1} ({resolution_source})".format(
                 params["resolution"][0],
