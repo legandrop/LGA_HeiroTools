@@ -27,6 +27,7 @@ import hiero.ui
 START_FRAME = 1001
 VERSION = "v000"
 V000_CLIP_COLOR_RGB = (138, 138, 138)
+DEFAULT_HANDLE = 4
 TASKS = ("comp", "roto", "cleanup")
 TASK_FOLDER = {
     "comp": "Comp",
@@ -691,7 +692,6 @@ class CreateV000Dialog(QtWidgets.QDialog):
             """
         )
         self._build_ui()
-        self._select_default_task()
         self._update_state()
 
     def _build_ui(self):
@@ -972,7 +972,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
         layout = QtWidgets.QHBoxLayout()
         layout.setSpacing(0)
 
-        self.handle_value = 4
+        self.handle_value = DEFAULT_HANDLE
         handle_style = """
             QPushButton {
                 background-color: #272727;
@@ -1106,8 +1106,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
         return container
 
     def _select_default_task(self):
-        if TASKS:
-            self.task_buttons[TASKS[0]].setChecked(True)
+        return
 
     def _on_range_check_changed(self, changed_check):
         if self._syncing_range_checks:
@@ -1126,7 +1125,10 @@ class CreateV000Dialog(QtWidgets.QDialog):
                 for check, source in self.plate_checks:
                     if check is changed_check:
                         continue
-                    if source["source_type"] != selected_type:
+                    if (
+                        selected_type == RANGE_SOURCE_EDITREF
+                        or source["source_type"] != selected_type
+                    ):
                         check.setChecked(False)
             finally:
                 self._syncing_range_checks = False
@@ -1246,6 +1248,9 @@ class CreateV000Dialog(QtWidgets.QDialog):
         self.handle_down_btn.setEnabled(enabled)
         self.handle_up_btn.setEnabled(enabled)
         self.handle_value_label.setEnabled(enabled)
+        if enabled and self.handle_value == 0:
+            self.handle_value = DEFAULT_HANDLE
+            self.handle_value_label.setText(str(DEFAULT_HANDLE))
         if not enabled and self.handle_value != 0:
             self.handle_value = 0
             self.handle_value_label.setText("0")
