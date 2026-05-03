@@ -512,6 +512,46 @@ def _disable_timeline_item(track_item):
         return "Failed to disable v000 timeline clip: %s" % exc
 
 
+def _zoom_timeline_to_preview_range(seq, timeline_in, timeline_items=None, dialog=None):
+    try:
+        if dialog:
+            dialog.hide()
+            QtWidgets.QApplication.processEvents()
+
+        viewer = hiero.ui.currentViewer()
+        if viewer:
+            viewer.setTime(int(timeline_in))
+
+        timeline_editor = hiero.ui.getTimelineEditor(seq)
+        if timeline_editor:
+            if timeline_items:
+                timeline_editor.setSelection(list(timeline_items))
+            window = timeline_editor.window()
+            window.activateWindow()
+            window.setFocus()
+
+        def zoom_to_fit():
+            hiero.ui.findMenuAction("Zoom to Fit").trigger()
+
+        def restore_dialog():
+            if timeline_editor:
+                timeline_editor.selectNone()
+            if dialog:
+                dialog.show()
+                dialog.raise_()
+                dialog.activateWindow()
+
+        QtCore.QTimer.singleShot(50, zoom_to_fit)
+        QtCore.QTimer.singleShot(250, restore_dialog)
+        return None
+    except Exception as exc:
+        if dialog:
+            dialog.show()
+            dialog.raise_()
+            dialog.activateWindow()
+        return "Failed to zoom timeline to v000 range: %s" % exc
+
+
 def _remove_timeline_items(track, items):
     for item in list(items):
         track.removeItem(item)
@@ -1260,12 +1300,22 @@ class CreateV000Dialog(QtWidgets.QDialog):
         try:
             seq.setInTime(int(params["timeline_in"]))
             seq.setOutTime(int(params["timeline_out"]))
+            zoom_items = [source["clip"] for source in self._selected_plates()]
+            zoom_error = _zoom_timeline_to_preview_range(
+                seq,
+                params["timeline_in"],
+                zoom_items,
+                self,
+            )
         except Exception as exc:
             message = "Failed to set timeline In/Out: %s" % exc
             self._set_warning(message)
             QtWidgets.QMessageBox.warning(self, "Create v000", message)
             debug_print(message)
             return
+
+        if zoom_error:
+            debug_print(zoom_error)
 
         self._set_warning("")
         debug_print(

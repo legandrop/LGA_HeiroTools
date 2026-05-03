@@ -169,13 +169,18 @@ Boton secundario ubicado abajo a la izquierda del dialogo. Usa el mismo rango ca
 ```python
 seq.setInTime(timeline_in)
 seq.setOutTime(timeline_out)
+viewer.setTime(timeline_in)
+timeline_editor.setSelection(selected_range_clips)
+QtCore.QTimer.singleShot(0, lambda: hiero.ui.findMenuAction("Zoom to Fit").trigger())
 ```
 
 Esto permite previsualizar en el timeline el espacio que va a ocupar la v000 antes de crearla. Si hay varias tasks seleccionadas, el rango es el mismo para todas; se usa el primer bloque de parametros calculado por `_build_outputs()`.
 
+Despues de setear el rango, oculta temporalmente el dialogo modal, mueve el playhead al `timeline_in`, selecciona temporalmente los clips usados como frame range, activa/focaliza la ventana del timeline y ejecuta `Zoom to Fit` con `QtCore.QTimer.singleShot(...)`, siguiendo el patron de `LGA_NKS_PrevNext_Rev.py`. Al terminar el zoom limpia la seleccion y vuelve a mostrar el dialogo.
+
 El boton se deshabilita cuando el dialogo no tiene parametros validos (por ejemplo, sin frame range, sin task o sin resolucion).
 
-**Implementacion:** `_preview_in_out()`, `_build_outputs()`
+**Implementacion:** `_preview_in_out()`, `_zoom_timeline_to_preview_range()`, `_build_outputs()`
 
 ---
 
@@ -497,8 +502,9 @@ C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-Trac
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py` | `open_create_v000_dialog()`, `_collect_context()`, `_collect_range_sources()`, `_build_outputs()`, `_preview_in_out()`, `_create_v000_for_params()`, `_set_v000_clip_color()`, `_disable_timeline_item()`, `_create_black_exr_sequence()`, `_colorize_path()`, `CreateV000Dialog` |
+| `LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py` | `open_create_v000_dialog()`, `_collect_context()`, `_collect_range_sources()`, `_build_outputs()`, `_preview_in_out()`, `_zoom_timeline_to_preview_range()`, `_create_v000_for_params()`, `_set_v000_clip_color()`, `_disable_timeline_item()`, `_create_black_exr_sequence()`, `_colorize_path()`, `CreateV000Dialog` |
 | `LGA_NKS_ViewerTL_Panel_py\LGA_NKS_InOut_Editref.py` | Referencia para `seq.setInTime()` y `seq.setOutTime()` |
+| `LGA_NKS_ViewerTL_Panel_py\LGA_NKS_PrevNext_Rev.py` | Referencia para mover playhead, enfocar timeline y ejecutar `Zoom to Fit` con `QTimer.singleShot()` |
 | `LGA_NKS_ClipColor_Panel.py` | Boton `v_00`, color `QtGui.QColor(138, 138, 138)` / `#8a8a8a` |
 | `LGA_NKS_Review_Panel_py\LGA_NKS_ON_Clips_OFF_v00-Clips.py` | Usa `TrackItem.setEnabled(False)` para desactivar clips v00/v000 |
 | `LGA_NKS_Shared\LGA_NKS_TaskSelectionDialog.py` | `track_for_task()` |
