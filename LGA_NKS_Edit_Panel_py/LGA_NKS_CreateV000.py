@@ -316,16 +316,32 @@ def _frame_file_name(pattern, frame):
     return pattern.replace("####", "%04d" % frame)
 
 
-def _create_black_exr_sequence(params):
+def _show_path_in_browser(path):
+    if os.name == "nt":
+        os.startfile(str(path))
+    elif os.name == "posix":
+        subprocess.Popen(["open", str(path)])
+    else:
+        return False, "Sistema operativo no soportado para abrir el explorador de archivos."
+    return True, None
+
+
+def _create_black_exr_sequence(params, replace=False):
     oiiotool = _oiio_tool_path()
     if not oiiotool:
-        return False, "OIIO Windows tool not found. Mac implementation is pending."
+        return False, "error", "OIIO Windows tool not found. Mac implementation is pending."
 
     output_dir = Path(params["output_dir"])
     if output_dir.exists():
         existing_exrs = list(output_dir.glob("*.exr"))
         if existing_exrs:
-            return False, "Output folder already contains EXR files: %s" % output_dir
+            if not replace:
+                return False, "exists", "Output folder already contains EXR files: %s" % output_dir
+            try:
+                shutil.rmtree(str(output_dir))
+            except Exception as exc:
+                return False, "error", "Failed to remove existing v000 folder: %s" % exc
+            output_dir.mkdir(parents=True)
     else:
         output_dir.mkdir(parents=True)
 
@@ -364,26 +380,26 @@ def _create_black_exr_sequence(params):
             check=False,
         )
     except Exception as exc:
-        return False, "Failed to run oiiotool: %s" % exc
+        return False, "error", "Failed to run oiiotool: %s" % exc
 
     if result.returncode != 0:
         stderr = result.stderr.decode("utf-8", errors="replace").strip()
-        return False, "oiiotool failed: %s" % (stderr or result.returncode)
+        return False, "error", "oiiotool failed: %s" % (stderr or result.returncode)
     if not first_file.exists():
-        return False, "oiiotool did not create the first EXR frame."
+        return False, "error", "oiiotool did not create the first EXR frame."
 
     try:
         for frame in range(first_frame + 1, last_frame + 1):
             target = output_dir / _frame_file_name(pattern, frame)
             shutil.copyfile(str(first_file), str(target))
     except Exception as exc:
-        return False, "Failed while duplicating EXR frames: %s" % exc
+        return False, "error", "Failed while duplicating EXR frames: %s" % exc
 
     written = list(output_dir.glob("*.exr"))
     if len(written) != frame_count:
-        return False, "Expected %d EXR files, found %d." % (frame_count, len(written))
+        return False, "error", "Expected %d EXR files, found %d." % (frame_count, len(written))
 
-    return True, "Created %d EXR frames in %s" % (frame_count, output_dir)
+    return True, "created", "Created %d EXR frames in %s" % (frame_count, output_dir)
 
 
 def _collect_context():
@@ -1016,7 +1032,22 @@ class CreateV000Dialog(QtWidgets.QDialog):
         if warning:
             self._set_warning(warning)
             return
-        success, message = _create_black_exr_sequence(params)
+
+        success, status, message = _create_black_exr_sequence(params)
+        if status == "exists":
+            replace_box = QtWidgets.QMessageBox(self)
+            replace_box.setWindowTitle("Create v000")
+            replace_box.setIcon(QtWidgets.QMessageBox.Warning)
+            replace_box.setText(message)
+            replace_box.setInformativeText("Replace will delete the existing v000 folder and create it again.")
+            replace_btn = replace_box.addButton("Replace", QtWidgets.QMessageBox.DestructiveRole)
+            cancel_btn = replace_box.addButton(QtWidgets.QMessageBox.Cancel)
+            replace_box.setDefaultButton(cancel_btn)
+            replace_box.exec_()
+            if replace_box.clickedButton() != replace_btn:
+                return
+            success, status, message = _create_black_exr_sequence(params, replace=True)
+
         if not success:
             self._set_warning(message)
             QtWidgets.QMessageBox.warning(self, "Create v000", message)
@@ -1024,7 +1055,18 @@ class CreateV000Dialog(QtWidgets.QDialog):
             return
 
         debug_print("created:", params)
-        QtWidgets.QMessageBox.information(self, "Create v000", message)
+        msg_box = QtWidgets.QMessageBox(self)
+        msg_box.setWindowTitle("Create v000")
+        msg_box.setIcon(QtWidgets.QMessageBox.Information)
+        msg_box.setText(message)
+        show_btn = msg_box.addButton("Show in Browser", QtWidgets.QMessageBox.ActionRole)
+        ok_btn = msg_box.addButton(QtWidgets.QMessageBox.Ok)
+        msg_box.setDefaultButton(ok_btn)
+        msg_box.exec_()
+        if msg_box.clickedButton() == show_btn:
+            opened, open_error = _show_path_in_browser(params["output_dir"])
+            if not opened:
+                QtWidgets.QMessageBox.warning(self, "Create v000", open_error)
         self.accept()
 
 
