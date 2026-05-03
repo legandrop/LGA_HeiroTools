@@ -518,6 +518,8 @@ class CreateV000Dialog(QtWidgets.QDialog):
         table.verticalHeader().setVisible(False)
         table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
         table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        table.setFocusPolicy(QtCore.Qt.NoFocus)
+        table.setShowGrid(False)
         table.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         table.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
         table.setStyleSheet(
@@ -622,6 +624,10 @@ class CreateV000Dialog(QtWidgets.QDialog):
         self.handle_spin.setRange(0, 999)
         self.handle_spin.setValue(4)
         self.handle_spin.setMinimumWidth(72)
+        # Style only the QSpinBox itself; leaving subcontrols un-styled lets Qt
+        # draw native arrows. Partially styling subcontrols causes the empty
+        # white squares glitch (Qt disables native rendering once you touch a
+        # subcontrol but only honours fully-defined image rules).
         self.handle_spin.setStyleSheet(
             """
             QSpinBox {
@@ -630,40 +636,8 @@ class CreateV000Dialog(QtWidgets.QDialog):
                 color: #a7a7a7;
                 padding: 2px 5px;
                 border-radius: 3px;
-                height: 20px;
-            }
-            QSpinBox::up-button {
-                subcontrol-origin: border;
-                subcontrol-position: top right;
-                width: 16px;
-                background-color: #2B2B2B;
-                border-left: 1px solid #333333;
-                border-top-right-radius: 3px;
-            }
-            QSpinBox::down-button {
-                subcontrol-origin: border;
-                subcontrol-position: bottom right;
-                width: 16px;
-                background-color: #2B2B2B;
-                border-left: 1px solid #333333;
-                border-bottom-right-radius: 3px;
-            }
-            QSpinBox::up-button:hover, QSpinBox::down-button:hover {
-                background-color: #333333;
-            }
-            QSpinBox::up-arrow {
-                width: 0px;
-                height: 0px;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-bottom: 5px solid #a7a7a7;
-            }
-            QSpinBox::down-arrow {
-                width: 0px;
-                height: 0px;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 5px solid #a7a7a7;
+                selection-background-color: #cfcfcf;
+                selection-color: #2B2B2B;
             }
             """
         )
