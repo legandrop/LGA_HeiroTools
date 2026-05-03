@@ -1,10 +1,11 @@
 """
-____________________________________________________________________________________
+____________________________________________________________________
 
-  LGA_NKS_PipeSync_CreatePsync v1.0 | Lega
+  LGA_NKS_PipeSync_CreatePsync v1.00 | Lega
+
   Genera un archivo .psync portátil con la ruta del shot seleccionado.
   Shift+Click en el panel crea el token en el Desktop listo para compartir.
-____________________________________________________________________________________
+____________________________________________________________________
 """
 
 from pathlib import Path

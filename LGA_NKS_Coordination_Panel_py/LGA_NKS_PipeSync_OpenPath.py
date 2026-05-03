@@ -1,11 +1,12 @@
 """
-____________________________________________________________________________________
+____________________________________________________________________
 
-  LGA_NKS_PipeSync_OpenPath v1.0 | Lega
-  Abre la carpeta del shot seleccionado en PipeSync usando CLI (--path)
-  Extrae la ruta del shot tomando las primeras 4 partes: unidad/proyecto/grupo/shot
-  Soporta modo desarrollo con variable Desarrollo = True y verificación automática
-____________________________________________________________________________________
+  LGA_NKS_PipeSync_OpenPath v1.00 | Lega
+
+  Abre la carpeta del shot seleccionado en PipeSync usando CLI (--path).
+  Extrae la ruta del shot tomando las primeras 4 partes: unidad/proyecto/grupo/shot.
+  Soporta modo desarrollo con variable Desarrollo = True y verificación automática.
+____________________________________________________________________
 """
 
 from pathlib import Path

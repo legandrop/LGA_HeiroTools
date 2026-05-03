@@ -1,10 +1,10 @@
 """
-______________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_Wasabi_PolicyUnassign v0.60 | Lega
-  Muestra y gestiona shots asignados en políticas IAM de Wasabi
-______________________________________________________________________
 
+  Muestra y gestiona shots asignados en políticas IAM de Wasabi
+____________________________________________________________________
 """
 
 import os

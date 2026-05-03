@@ -1,22 +1,19 @@
 """
-________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_Flow_Assign_Assignee v1.24 | Lega
+
   Asigna un usuario a una tarea en ShotGrid (Flow) a partir del base_name y nombre de usuario
 
-  v1.24: Actualiza la UI para mostrar las tasks y los asignados en Flow. 
+  v1.24: Actualiza la UI para mostrar las tasks y los asignados en Flow.
          Funciona con todas las tasks disponibles en Flow.
-
   v1.23: Actualiza la base de datos local pipesync.db con la asignación
-  
   v1.22: Verifica y asigna automáticamente el proyecto al usuario si no lo tiene asignado
-        antes de asignar la task comp
-
+         antes de asignar la task comp
   v1.21: Actualizado para ser compatible con ambos sistemas de nomenclatura:
-        - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
-        - PROYECTO_SEQ_SHOT (3 bloques simplificado)
-
-________________________________________________________________
+         - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+         - PROYECTO_SEQ_SHOT (3 bloques simplificado)
+____________________________________________________________________
 """
 
 import os

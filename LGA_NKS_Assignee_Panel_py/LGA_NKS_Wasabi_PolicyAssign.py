@@ -1,10 +1,10 @@
 """
-______________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_Wasabi_PolicyAssign v0.96 | Lega
-  Crea y asigna políticas IAM de Wasabi basadas en rutas de clips seleccionados
-______________________________________________________________________
 
+  Crea y asigna políticas IAM de Wasabi basadas en rutas de clips seleccionados
+____________________________________________________________________
 """
 
 import os

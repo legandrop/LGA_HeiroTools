@@ -1,59 +1,45 @@
 """
-____________________________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_Flow_CreateShot v1.34 | Lega
-  Script para crear shots en ShotGrid basado en el nombre del clip seleccionado en Hiero
-  SIN usar templates predefinidos - crea tasks manualmente para mayor control
+
+  Script para crear shots en ShotGrid basado en el nombre del clip seleccionado en Hiero.
+  SIN usar templates predefinidos - crea tasks manualmente para mayor control.
 
   v1.34: Creación automática de estructura de carpetas por task
          Integración con módulo LGA_NKS_Flow_CreateShot_Folders
          Crea carpetas automáticamente después de crear shot y tasks en Flow
-
   v1.33: Pre-chequeo inteligente de existencia antes de mostrar la UI
          Muestra ventana "Comprobando existencia de los shots en Flow"
          Bloquea la creación si alguno ya existe (multi selección)
          Lanza automáticamente Modify Shot cuando el shot único ya existe
-
   v1.32: Agregado modo de modificación de shots existentes
          Reutiliza la misma UI compacta de creación
          Permite agregar/eliminar tasks y actualizar la descripción
          No afecta estados ni tiempos de las tasks existentes
-
   v1.31: Migración al método híbrido centralizado de selección de clips
          Soporte para selección múltiple usando módulo LGA_NKS_GetClip
          Respeta TRACK_comp_EXR del módulo (actualmente "_comp_")
-
   v1.30: Reducción automática del 30% en tiempo estimado antes de subir a Flow
-           (ej: 1 día ingresado → 0.7 días en Flow)
-
+         (ej: 1 día ingresado → 0.7 días en Flow)
   v1.29: UI compacta - Tasks deshabilitadas ocupan 1 línea sin campos ni divisores
          Checkbox a la izquierda del nombre, columnas aparecen solo cuando se habilita
-
   v1.28: Todas las tasks del pipeline agregadas con colores específicos
          Comp, Roto, Cleanup, DMP, Model, Retopo, Rigging, Shaders,
          Match Move, Animation, FX, Lighting
-
   v1.27: Sistema modular de tasks - Fácil agregar nuevas tasks (DRY)
          Agregada task Roto + enable/disable dinámico de campos
-
   v1.26: UI reorganizada en columnas
-
   v1.25: Agregado checkbox "High Priority" para asignar sg_prioridad="high"
-
   v1.24: Mensajes diferenciados para shots existentes vs creados + pipeline step Comp
-
   v1.23: Sistema de Logging Seguro para Hilos
-
   v1.22: Agregado campo para tiempo estimado en días (sg_estdias)
-
   v1.21: Asigna reviewers a la task usando el campo task_reviewers
-
   v1.20: Creación sin Templates
-
   v1.10: Sistema Dual de Nomenclatura:
-  - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
-  - PROYECTO_SEQ_SHOT (3 bloques simplificado)
-_________________________________
+         - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+         - PROYECTO_SEQ_SHOT (3 bloques simplificado)
+____________________________________________________________________
 """
 
 import hiero.core

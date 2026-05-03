@@ -1,15 +1,15 @@
 """
-______________________________________________________
+____________________________________________________________________
 
   LGA_NKS_Flow_Thumbs v1.01 | Lega
-  Crea un snapshot del viewer actual con zoom to fill y lo guarda en N:/(proyecto)/Thumbs
-  organizando por nombre de proyecto extraido del archivo
-  Maneja el track BurnIn temporalmente para la captura y lo restaura al final
+
+  Crea un snapshot del viewer actual con zoom to fill y lo guarda en N:/(proyecto)/Thumbs.
+  Organiza por nombre de proyecto extraído del archivo.
+  Maneja el track BurnIn temporalmente para la captura y lo restaura al final.
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
-______________________________________________________
-
+____________________________________________________________________
 """
 
 import hiero.core

@@ -1,16 +1,16 @@
 """
-____________________________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_Flow_ShotPriority v1.00 | Lega
-  Script para cambiar la prioridad de shots en ShotGrid basado en el clip seleccionado en Hiero
+
+  Script para cambiar la prioridad de shots en ShotGrid basado en el clip seleccionado.
   - Si la prioridad es normal (o no existe) → cambia a alta
   - Si la prioridad es alta → cambia a normal
-  
-  Usa el método híbrido centralizado de selección de clips
+  Usa el método híbrido centralizado de selección de clips.
   Compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
-____________________________________________________________________________________
+____________________________________________________________________
 """
 
 import hiero.core
