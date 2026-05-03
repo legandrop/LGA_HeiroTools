@@ -1275,10 +1275,15 @@ class CreateV000Dialog(QtWidgets.QDialog):
             format_dict["path_colored"] = _colorize_path(
                 params["output_dir"], params["shot_root"]
             )
+            file_level = len(params["output_dir"].replace("\\", "/").split("/"))
+            file_color = PATH_LEVEL_COLORS.get(file_level, "#bbbbbb")
+            format_dict["name_colored"] = '<span style="color: %s;">%s</span>' % (
+                file_color, params["output_name_pattern"]
+            )
             preview_blocks.append(
                 'Task: {task_colored}<br>'
                 'Path: {path_colored}<br>'
-                'Name: {output_name_pattern}<br>'
+                'Name: {name_colored}<br>'
                 'Timeline: {timeline_in} - {timeline_out} (handle {handle})<br>'
                 'Frames: {source_first_frame} - {source_last_frame} ({frame_count} frames)<br>'
                 'Resolution: {0} x {1} ({resolution_source})'.format(
