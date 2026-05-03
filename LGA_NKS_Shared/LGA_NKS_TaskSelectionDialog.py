@@ -1,7 +1,8 @@
 """
-____________________________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_TaskSelectionDialog v1.3 | Lega
+
   Detección y selección de task entre los tracks EXR del playhead.
 
   Pensado como helper compartido para herramientas que actúan sobre una sola task
@@ -31,7 +32,7 @@ ________________________________________________________________________________
   v1.1: Agrega `get_valid_tasks_at_playhead_with_check` y
         `resolve_task_with_mismatch_check`.
   v1.0: Versión inicial.
-____________________________________________________________________________________
+____________________________________________________________________
 """
 
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtCore, PYSIDE_VER

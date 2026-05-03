@@ -1,11 +1,12 @@
 """
-______________________________________________________
+____________________________________________________________________
 
-  LGA_NKS_ON_Clips_OFF_v00-Clips v1.2 | Lega
+  LGA_NKS_ON_Clips_OFF_v00-Clips v1.20 | Lega
+
   Activa todos los clips y desactiva clips v00/v000
 
-  v1.2: Soporta versiones de 2 y 3 dígitos
-______________________________________________________
+  v1.20: Soporta versiones de 2 y 3 dígitos
+____________________________________________________________________
 
 """
 

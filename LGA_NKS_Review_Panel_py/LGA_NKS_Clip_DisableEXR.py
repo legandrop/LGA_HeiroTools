@@ -1,5 +1,5 @@
 """
-______________________________________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_Clip_DisableEXR v1.22 | Lega
 
@@ -10,10 +10,11 @@ ________________________________________________________________________________
   2. Si no encuentra clip en playhead, usa el clip seleccionado como fallback
   3. Invierte el estado de habilitación del clip (enabled/disabled)
 
-  v1.22 - main() acepta track_name opcional para reusar desde otros scripts (ej: DisableRoto)
-  v1.21 - Usa TRACK_comp_EXR del módulo en lugar de hardcodear "EXR", permitiendo cambiar el track por defecto
-  v1.10 - Usa el módulo utilitario LGA_NKS_GetClip para obtener el clip (no permite selecciones múltiples)
-______________________________________________________________________________________________
+  v1.22: main() acepta track_name opcional para reusar desde otros scripts (ej: DisableRoto)
+  v1.21: Usa TRACK_comp_EXR del módulo en lugar de hardcodear "EXR", permitiendo cambiar el track por defecto
+  v1.10: Usa el módulo utilitario LGA_NKS_GetClip para obtener el clip (no permite selecciones múltiples)
+____________________________________________________________________
+
 """
 
 import hiero.core

@@ -1,3 +1,13 @@
+"""
+____________________________________________________________________
+
+  LGA_NKS_Compare_Versions_OFF v1.00 | Lega
+
+  Desactiva la comparación de versiones.
+____________________________________________________________________
+
+"""
+
 import hiero.core
 import hiero.ui
 from pathlib import Path

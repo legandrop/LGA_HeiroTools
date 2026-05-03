@@ -1,21 +1,22 @@
 """
-________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_Flow_Task_Config v1.24 | Lega
+
   Usado por runtime activo:
   - LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assignee.py
   - LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assign_Assignee.py
   - LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Clear_Assignees.py
   - LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.py
 
-    Configuración centralizada de tasks del pipeline usadas por los paneles de Flow.
-    La lista está sincronizada con los scripts de creación/modificación de shots y
-    provee colores consistentes para las UIs compactas (assignee panel, create shot, etc.).
+  Configuración centralizada de tasks del pipeline usadas por los paneles de Flow.
+  La lista está sincronizada con los scripts de creación/modificación de shots y
+  provee colores consistentes para las UIs compactas (assignee panel, create shot, etc.).
 
   v1.24: Actualiza la UI para mostrar las tasks y los asignados en Flow.
          Funciona con todas las tasks disponibles en Flow.
+____________________________________________________________________
 
-________________________________________________________________
 """
 
 from typing import Dict, List
