@@ -1,6 +1,13 @@
 # -*- coding: utf-8 -*-
+
 """
-Gestor de manejo de proyectos para el panel de proyectos LGA.
+____________________________________________________________________
+
+  LGA_NKS_ProjectHandler v1.00 | Lega
+
+  Gestor de manejo de proyectos para el panel de proyectos LGA.
+____________________________________________________________________
+
 """
 
 import os

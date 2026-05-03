@@ -1,12 +1,14 @@
 """
-____________________________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_ProjectsPanel_Logging v1.01 | Lega
+
   Helper de logging compartido para el Projects Panel.
 
   v1.01: Agregado reset del log por cambio de timeline y setup compartido para scripts del panel
   v1.00: Helper inicial de logging asincrono a archivo para Projects Panel
-____________________________________________________________________________________
+____________________________________________________________________
+
 """
 
 import atexit

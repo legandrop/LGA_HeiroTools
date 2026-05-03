@@ -1,15 +1,16 @@
 """
-____________________________________________________________________________________
+____________________________________________________________________
 
-  LGA_Projects_Panel_Smart_Reload v2.22 | Lega
+  LGA_NKS_Projects_Panel_Smart_Reload v2.22 | Lega
+
   Script para recarga inteligente del panel Projects
-
   Destruye el panel actual, crea uno nuevo y lo dockea automáticamente
   usando el método nativo de Hiero wm.showWindow().
 
   v2.22: Migrado al logger compartido del Projects Panel y removidos prints directos de análisis y resultado
   v2.21: Mejorada lógica de versiones: búsqueda en anteúltimo bloque y priorización de sufijos (_Mac)
-____________________________________________________________________________________
+____________________________________________________________________
+
 """
 
 import hiero.ui

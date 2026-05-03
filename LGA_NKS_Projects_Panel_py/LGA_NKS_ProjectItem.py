@@ -1,6 +1,13 @@
 # -*- coding: utf-8 -*-
+
 """
-Widget personalizado para mostrar proyectos y secuencias en el panel de proyectos LGA.
+____________________________________________________________________
+
+  LGA_NKS_ProjectItem v1.00 | Lega
+
+  Widget personalizado para mostrar proyectos y secuencias en el panel de proyectos LGA.
+____________________________________________________________________
+
 """
 
 # Forzar recarga del módulo para evitar problemas de cache en Nuke
