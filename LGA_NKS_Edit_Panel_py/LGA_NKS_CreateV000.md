@@ -294,20 +294,12 @@ Al finalizar se valida que la cantidad de archivos `.exr` en la carpeta coincida
 5. Duplicar el primer frame para los frames restantes.
 6. Validar cantidad de archivos escritos.
 
-### Dialogo de exito
-
-Al completar correctamente, muestra un mensaje con:
-
-- `OK`: cierra el dialogo.
-- `Show in Browser`: abre la carpeta creada en el Explorador de Windows (o Finder en macOS).
-
 ### macOS
 
 Pendiente. No implementado hasta cerrar la version Windows.
 La futura implementacion debera usar su propio `oiiotool` en `LGA_NKS_Shared/OIIO_Mac`.
-El boton `Show in Browser` ya contempla `subprocess.Popen(["open", path])` para macOS.
 
-**Implementacion:** `_create_black_exr_sequence()`, `_oiio_tool_path()`, `_show_path_in_browser()`
+**Implementacion:** `_create_black_exr_sequence()`, `_oiio_tool_path()`
 
 ---
 

@@ -493,16 +493,6 @@ def _remove_timeline_items(track, items):
         track.removeItem(item)
 
 
-def _show_path_in_browser(path):
-    if os.name == "nt":
-        os.startfile(str(path))
-    elif os.name == "posix":
-        subprocess.Popen(["open", str(path)])
-    else:
-        return False, "Sistema operativo no soportado para abrir el explorador de archivos."
-    return True, None
-
-
 def _create_black_exr_sequence(params, replace=False):
     oiiotool = _oiio_tool_path()
     if not oiiotool:
@@ -1252,7 +1242,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
             cancel_btn = overlap_box.addButton("Cancel", QtWidgets.QMessageBox.ActionRole)
             exrs_only_btn = overlap_box.addButton("Create EXRs Only", QtWidgets.QMessageBox.ActionRole)
             import_bin_btn = overlap_box.addButton("Create + Import to Bin", QtWidgets.QMessageBox.ActionRole)
-            replace_timeline_btn = overlap_box.addButton("Create + Import to Bin & Timeline", QtWidgets.QMessageBox.ActionRole)
+            replace_timeline_btn = overlap_box.addButton("Create + Import to Bin && Timeline", QtWidgets.QMessageBox.ActionRole)
             overlap_box.setDefaultButton(cancel_btn)
             overlap_box.exec_()
             clicked = overlap_box.clickedButton()
@@ -1315,18 +1305,8 @@ class CreateV000Dialog(QtWidgets.QDialog):
                 return
 
         debug_print("created:", params)
-        msg_box = QtWidgets.QMessageBox(self)
-        msg_box.setWindowTitle("Create v000")
-        msg_box.setIcon(QtWidgets.QMessageBox.Information)
-        msg_box.setText(message + import_message)
-        show_btn = msg_box.addButton("Show in Browser", QtWidgets.QMessageBox.ActionRole)
-        ok_btn = msg_box.addButton(QtWidgets.QMessageBox.Ok)
-        msg_box.setDefaultButton(ok_btn)
-        msg_box.exec_()
-        if msg_box.clickedButton() == show_btn:
-            opened, open_error = _show_path_in_browser(params["output_dir"])
-            if not opened:
-                QtWidgets.QMessageBox.warning(self, "Create v000", open_error)
+        if import_message:
+            debug_print(import_message.strip())
         self.accept()
 
 
