@@ -28,6 +28,23 @@ El dialogo recolecta y previsualiza:
 Al presionar `Create v000`, crea la carpeta de salida y escribe la secuencia
 EXR negra.
 
+Cuando termina correctamente, muestra un dialogo de confirmacion con:
+
+- `OK`
+- `Show in Browser`
+
+`Show in Browser` abre la carpeta donde se creo la v000:
+
+- Windows: Explorer
+- macOS: Finder
+
+Si la carpeta de salida ya existe y contiene EXR, muestra una confirmacion con:
+
+- `Cancel`
+- `Replace`
+
+`Replace` borra la carpeta v000 existente y crea una secuencia nueva desde cero.
+
 ---
 
 ## Integracion con Edit Panel
@@ -306,10 +323,12 @@ Flujo:
 
 1. Resolver `oiiotool.exe` relativo a `LGA_NKS_Shared`.
 2. Crear la carpeta `output_dir` si no existe.
-3. Si la carpeta ya existe y contiene `.exr`, cancelar para no sobrescribir.
-4. Crear el primer frame negro a la resolucion seleccionada.
-5. Duplicar ese primer EXR para todos los frames restantes.
-6. Validar que la cantidad de EXR escritos coincida con `frame_count`.
+3. Si la carpeta ya existe y contiene `.exr`, pedir confirmacion.
+4. Si el usuario elige `Replace`, borrar la carpeta v000 existente y recrearla desde cero.
+5. Crear el primer frame negro a la resolucion seleccionada.
+6. Duplicar ese primer EXR para todos los frames restantes.
+7. Validar que la cantidad de EXR escritos coincida con `frame_count`.
+8. Mostrar un dialogo de exito con opcion `Show in Browser`.
 
 Comando base usado:
 
@@ -330,6 +349,7 @@ macOS:
 - Pendiente.
 - No se implementa hasta terminar/cerrar la version Windows.
 - La futura version macOS debera tener su propia carpeta vendorizada, por ejemplo `LGA_NKS_Shared/OIIO_Mac`.
+- El boton `Show in Browser` ya contempla `open`/Finder, pero la creacion EXR en macOS sigue pendiente.
 
 ---
 
@@ -370,7 +390,6 @@ C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_NKS_MatchVerToEX
 
 - Detectar proxima version disponible.
 - Crear `v001`, `v002`, etc.
-- Sobrescribir una carpeta `v000` existente.
 - Importar automaticamente la secuencia creada a Hiero.
 - Agregar el clip resultante a tracks.
 - Implementacion macOS.
