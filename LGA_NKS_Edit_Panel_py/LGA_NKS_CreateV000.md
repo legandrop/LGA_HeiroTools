@@ -48,7 +48,6 @@ _collect_context()
     ├── _derive_shot_root()             -> shot root desde _input en el path del plate
     ├── _derive_shot_code()             -> shot code desde el nombre del archivo plate
     ├── _timeline_resolution()          -> resolucion de la sequence
-    └── _existing_versions_by_task()    -> versiones ya existentes en tracks de task
 
 CreateV000Dialog(context)
     |
@@ -165,7 +164,7 @@ Cualquier cambio en el handle recalcula el preview de OUTPUT en vivo.
 
 ## Seccion: Task
 
-Botones de seleccion exclusiva para las tres tasks disponibles:
+Botones toggle independientes para las tres tasks disponibles:
 
 | Task      | Track destino | Carpeta de salida |
 |-----------|---------------|-------------------|
@@ -175,21 +174,26 @@ Botones de seleccion exclusiva para las tres tasks disponibles:
 
 **Reglas:**
 
-- Si ya existe una version en el track correspondiente bajo el playhead, la task queda deshabilitada con tooltip.
-- Por defecto se selecciona la primera task disponible (normalmente `comp`).
-- Si todas las tasks estan deshabilitadas, el boton `Create v000` queda deshabilitado.
+- Por defecto se selecciona `comp`.
+- Se puede seleccionar una o varias tasks al mismo tiempo.
+- Si no hay ninguna task seleccionada, el boton `Create v000` queda deshabilitado.
+- La existencia de clips o versiones en los tracks destino no deshabilita ninguna task.
+- Al confirmar multiples tasks, se procesan secuencialmente en el orden `comp`, `roto`, `cleanup`.
+- Si el usuario cancela una comprobacion de una task, solo se saltea esa task y el proceso continua con la siguiente task seleccionada.
 
-La deteccion de version existente se hace via `find_clip_at_playhead_in_track()` + `_clip_version_label()`.
+Los conflictos de timeline se validan durante la creacion de cada task con `_timeline_overlaps()`.
 
-**Implementacion:** `_existing_versions_by_task()`, `_select_default_task()`, `_clip_version_label()`
+**Implementacion:** `_build_task_box()`, `_select_default_task()`, `_selected_tasks()`, `_build_outputs()`
+
 
 ---
 
 ## Seccion: Output (preview)
 
-Se recalcula en vivo con cada cambio en el dialogo. Muestra:
+Se recalcula en vivo con cada cambio en el dialogo. Muestra un bloque por cada task seleccionada:
 
 ```
+Task: roto
 Path: T:/VFX-MOR/101/MOR_1003_020/Roto/4_publish/MOR_1003_020_roto_v000
 Name: MOR_1003_020_roto_v000_####.exr
 Timeline: 3813 - 4242 (handle 4)
@@ -197,7 +201,7 @@ Frames: 1001 - 1429 (429 frames)
 Resolution: 4168 x 1612 (Timeline)
 ```
 
-**Implementacion:** `_build_output()`, `_update_state()`
+**Implementacion:** `_build_output()`, `_build_outputs()`, `_update_state()`
 
 ---
 
@@ -346,10 +350,10 @@ El dialogo bloquea `Create v000` y muestra un warning si:
 | No hay track plate (no se puede derivar path/resol.)   | `_collect_context()`       |
 | No se detecta shot code                                | `_collect_context()`       |
 | No hay fuente de frame range seleccionada              | `_build_output()`          |
+| No hay task seleccionada                               | `_build_outputs()`         |
 | No se puede derivar shot root desde `_input`           | `_build_output()`          |
 | La resolucion seleccionada no es valida                | `_build_output()`          |
 | El rango calculado resulta en 0 frames o menos         | `_build_output()`          |
-| Todas las tasks ya tienen version en el timeline       | `_update_state()`          |
 
 ---
 
@@ -360,7 +364,6 @@ El dialogo bloquea `Create v000` y muestra un warning si:
 | `hiero.core`, `hiero.ui`            | API de Hiero: sequence, tracks, clips, viewer                       |
 | `LGA_NKS_Shared.LGA_QtAdapter_HieroTools` | Qt compatible con Hiero (PyQt5/PySide2 segun version)         |
 | `LGA_NKS_Flow_NamingUtils`          | `clean_base_name()`, `extract_project_name()`, `extract_shot_code()` |
-| `LGA_NKS_GetClip`                   | `find_clip_at_playhead_in_track()` para detectar versiones existentes |
 | `LGA_NKS_TaskSelectionDialog`       | `track_for_task()` para mapear task a nombre de track               |
 | `LGA_NKS_Flow_Task_Config`          | `get_task_color()` para colores de botones de task                  |
 | `oiiotool.exe` (vendorizado)        | Creacion del primer frame EXR negro                                 |
@@ -402,6 +405,7 @@ track_item.setVersionLinkedToBin(True)          # Debe llamarse al final
 
 - Importar al bin `F <Secuencia>/<ShotName>` (estructura de `Organize Project`).
 - Insertar en `_comp_`, `_roto_` o `_cleanup_` segun task.
+- Si hay multiples tasks seleccionadas, ejecutar una task por vez en el orden `comp`, `roto`, `cleanup`.
 - Cancelar si el track destino no existe (no crear tracks automaticamente).
 - Si hay overlap en el rango destino, mostrar opciones:
   - `Cancel`
@@ -411,6 +415,7 @@ track_item.setVersionLinkedToBin(True)          # Debe llamarse al final
 - Source relativo: `0` a `frame_count - 1`.
 - `TrackItem.setTimes()` recibe `timeline_out - 1` (inclusivo).
 - `setVersionLinkedToBin(True)` solo funciona despues de que el TrackItem ya fue agregado y sus tiempos ajustados.
+- En una cola multi-task, `Cancel` en el dialogo de overlap o replace saltea solo la task actual y continua con la siguiente seleccionada.
 
 `Create + Import to Bin & Timeline` borra solo clips reales del track destino que se solapan con el rango de la v000, importa el nuevo clip y lo coloca en timeline. No borra efectos ni clips de otros tracks.
 
@@ -428,8 +433,7 @@ C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-Trac
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py` | `open_create_v000_dialog()`, `_collect_context()`, `_collect_range_sources()`, `_create_black_exr_sequence()`, `CreateV000Dialog` |
-| `LGA_NKS_Shared\LGA_NKS_GetClip.py` | `find_clip_at_playhead_in_track()` |
+| `LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py` | `open_create_v000_dialog()`, `_collect_context()`, `_collect_range_sources()`, `_build_outputs()`, `_create_v000_for_params()`, `_create_black_exr_sequence()`, `CreateV000Dialog` |
 | `LGA_NKS_Shared\LGA_NKS_TaskSelectionDialog.py` | `track_for_task()` |
 | `LGA_NKS_Shared\LGA_NKS_Flow_NamingUtils.py` | `clean_base_name()`, `extract_project_name()`, `extract_shot_code()` |
 | `LGA_NKS_Shared\LGA_NKS_Flow_Task_Config.py` | `get_task_color()` |
