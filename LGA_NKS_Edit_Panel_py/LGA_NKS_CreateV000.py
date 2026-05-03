@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_CreateV000 v1.04 | Lega
+  LGA_NKS_CreateV000 v1.05 | Lega
 
   Crea una secuencia EXR negra v000 para el shot activo en Hiero/Nuke Studio.
   Permite elegir frame range, resolucion, handle persistente y una o varias
@@ -15,6 +15,7 @@ ____________________________________________________________________
   crear solo los EXRs, crear/importar al bin sin insertar, o reemplazar los
   clips solapados por la nueva v000.
 
+  v1.05: La ventana principal ahora abre no modal para permitir usar Hiero en segundo plano.
   v1.04: La tabla de rangos ahora detecta la isla del shot por solape, shot_root y shot_code.
          Fix: key estable para clips aceptados, guard de iteracion y logs acotados.
   v1.03: Corregido frame range inclusivo, reemplazo de BinItem existente y rescan() validado tras importar.
@@ -168,6 +169,7 @@ def setup_debug_logging(script_name="CreateV000"):
 
 
 debug_logger = setup_debug_logging(script_name="CreateV000")
+_create_v000_dialog_instance = None
 
 
 def debug_print(*message, level="info"):
@@ -1164,6 +1166,9 @@ class CreateV000Dialog(QtWidgets.QDialog):
         self.saved_handle_value = _read_handle_setting()
 
         self.setWindowTitle("Create v000 - %s" % context["shot_code"])
+        self.setObjectName("LGA_NKS_CreateV000Dialog")
+        self.setModal(False)
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose, False)
         self.setMinimumWidth(720)
         self.setStyleSheet(
             """
@@ -2197,7 +2202,42 @@ class CreateV000Dialog(QtWidgets.QDialog):
         return True
 
 
+def _clear_create_v000_dialog_instance(*args):
+    global _create_v000_dialog_instance
+    _create_v000_dialog_instance = None
+
+
+def _visible_create_v000_dialog():
+    app = QtWidgets.QApplication.instance()
+    if not app:
+        return None
+
+    for widget in app.topLevelWidgets():
+        try:
+            if (
+                widget.objectName() == "LGA_NKS_CreateV000Dialog"
+                and widget.isVisible()
+            ):
+                return widget
+        except Exception:
+            continue
+    return None
+
+
 def open_create_v000_dialog():
+    global _create_v000_dialog_instance
+
+    existing_dialog = _visible_create_v000_dialog()
+    if existing_dialog:
+        existing_dialog.raise_()
+        existing_dialog.activateWindow()
+        return existing_dialog
+
+    if _create_v000_dialog_instance and _create_v000_dialog_instance.isVisible():
+        _create_v000_dialog_instance.raise_()
+        _create_v000_dialog_instance.activateWindow()
+        return _create_v000_dialog_instance
+
     context, error = _collect_context()
     if error:
         QtWidgets.QMessageBox.warning(None, "Create v000", error)
@@ -2205,8 +2245,13 @@ def open_create_v000_dialog():
         return None
 
     dialog = CreateV000Dialog(context)
-    result = dialog.exec_()
-    return result
+    dialog.finished.connect(_clear_create_v000_dialog_instance)
+    dialog.destroyed.connect(_clear_create_v000_dialog_instance)
+    _create_v000_dialog_instance = dialog
+    dialog.show()
+    dialog.raise_()
+    dialog.activateWindow()
+    return dialog
 
 
 def main():
