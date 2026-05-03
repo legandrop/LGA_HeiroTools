@@ -752,6 +752,23 @@ class CreateV000Dialog(QtWidgets.QDialog):
         layout.addWidget(self.output_text)
 
         buttons = QtWidgets.QHBoxLayout()
+        self.preview_in_out_btn = QtWidgets.QPushButton("Preview In/Out")
+        self.preview_in_out_btn.clicked.connect(self._preview_in_out)
+        self.preview_in_out_btn.setToolTip("Set timeline In/Out to the v000 range")
+        self.preview_in_out_btn.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #3a3a3a;
+                border: 1px solid #555555;
+                color: #CCCCCC;
+                padding: 8px 15px;
+                border-radius: 3px;
+            }
+            QPushButton:hover { background-color: #4a4a4a; }
+            QPushButton:disabled { background-color: #2a2a2a; color: #666666; border: 1px solid #3a3a3a; }
+            """
+        )
+        buttons.addWidget(self.preview_in_out_btn)
         buttons.addStretch()
         cancel_btn = QtWidgets.QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)
@@ -1199,11 +1216,13 @@ class CreateV000Dialog(QtWidgets.QDialog):
         if warning:
             self._set_warning(warning)
             self.create_btn.setEnabled(False)
+            self.preview_in_out_btn.setEnabled(False)
             self.output_text.setHtml(warning.replace("\n", "<br>"))
             return
 
         self._set_warning("")
         self.create_btn.setEnabled(True)
+        self.preview_in_out_btn.setEnabled(True)
         preview_blocks = []
         for params in params_list:
             task = params["task"]
@@ -1229,6 +1248,31 @@ class CreateV000Dialog(QtWidgets.QDialog):
                 )
             )
         self.output_text.setHtml("<br><br>".join(preview_blocks))
+
+    def _preview_in_out(self):
+        params_list, warning = self._build_outputs()
+        if warning:
+            self._set_warning(warning)
+            return
+
+        params = params_list[0]
+        seq = self.context["sequence"]
+        try:
+            seq.setInTime(int(params["timeline_in"]))
+            seq.setOutTime(int(params["timeline_out"]))
+        except Exception as exc:
+            message = "Failed to set timeline In/Out: %s" % exc
+            self._set_warning(message)
+            QtWidgets.QMessageBox.warning(self, "Create v000", message)
+            debug_print(message)
+            return
+
+        self._set_warning("")
+        debug_print(
+            "Preview In/Out:",
+            params["timeline_in"],
+            params["timeline_out"],
+        )
 
     def _create_v000(self):
         params_list, warning = self._build_outputs()
