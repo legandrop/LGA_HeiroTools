@@ -20,6 +20,18 @@ I am sharing this repository both for the reusable tools and as a reference impl
   - Track names such as `_comp_`, `_roto_`, `_cleanup_`, `_compRev_`, `EditRef`, `aPlate`, and `BurnIn`
   - Track naming logic documented in [docs/Docu_Logica_Nombres_Tracks.md](/Users/leg4/.nuke/Python/Startup/docs/Docu_Logica_Nombres_Tracks.md)
 
+## User Settings
+
+Some Hiero Tools settings are stored outside the repository so user preferences survive updates.
+
+- **Windows:** `C:\Users\leg4-pc\AppData\Roaming\LGA\HieroTools\`
+- **macOS:** `~/Library/Application Support/LGA/HieroTools/`
+- **Fallback:** `~/.config/LGA/HieroTools/`
+
+Current persisted settings:
+
+- `CreateV000.ini`: stores the `Create v000` handle value.
+
 ## Reusability
 
 - **Broadly reusable:** several tools in `ViewerTL`, parts of `Edit`, parts of `Review`, and `ClipColor`
