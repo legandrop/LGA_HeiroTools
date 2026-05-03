@@ -129,6 +129,112 @@ Reglas:
 
 ---
 
+## Plan: busqueda de clips por isla de shot
+
+Problema detectado:
+
+La deteccion actual toma solo clips exactamente bajo el playhead. Esto falla cuando el playhead esta, por ejemplo, en el primer frame de un `aPlate`, pero otros elementos del mismo shot empiezan mas tarde:
+
+```text
+playhead: 2420
+
+aPlate   2420 - 3123
+editref  2440 - 3000
+dPlate   2460 - 3123
+```
+
+Con busqueda puntual, solo aparece `aPlate`. En la practica deberian aparecer tambien `editref` y `dPlate`, porque pertenecen al mismo shot y solapan con el rango temporal del shot.
+
+### Regla propuesta
+
+El playhead no debe definir todos los clips de la tabla. Debe usarse solo como ancla inicial para identificar el shot actual.
+
+Flujo propuesto:
+
+1. Buscar clips relevantes bajo el playhead en tracks `editref` y tracks cuyo nombre termine en `plate`.
+2. Usar esos clips como semilla para derivar:
+   - `shot_code`
+   - `shot_root`
+   - ventana temporal inicial (`search_in`, `search_out`)
+3. Recorrer tracks relevantes (`editref` y `*plate`) y agregar clips que:
+   - solapen con la ventana temporal actual
+   - y pertenezcan al mismo shot
+4. Si un clip agregado expande la ventana temporal, repetir la busqueda hasta que no entren clips nuevos.
+
+Esto crea una "isla conectada" del shot por solape temporal, filtrada por identidad de shot.
+
+### Validacion de identidad de shot
+
+Usar dos criterios, en orden de fuerza:
+
+1. **Shot root por ruta**
+
+   Si el path contiene `_input`, derivar el root:
+
+   ```text
+   T:/VFX-MOR/101/MOR_1001C_010/_input/...
+                                ^^^^^^^
+   shot_root = T:/VFX-MOR/101/MOR_1001C_010
+   ```
+
+   Un clip candidato pertenece al shot si su path esta dentro del mismo `shot_root`.
+
+2. **Shot code por nombre**
+
+   Usar la misma logica de `LGA_NKS_SetShotName.py`:
+
+   ```python
+   clean_base_name(file_name)
+   extract_shot_code(base_name)
+   ```
+
+   Si el shot code extraido del candidato coincide con el shot ancla, el clip puede entrar aunque el path no tenga `_input`.
+
+Regla final propuesta:
+
+```text
+candidato entra si:
+  solapa temporalmente con la isla actual
+  y (
+    coincide por shot_root
+    o coincide por shot_code
+  )
+```
+
+### Logs recomendados
+
+Agregar debug para cada clip candidato:
+
+```text
+candidate: <track> <name> <in>-<out>
+  overlap: yes/no
+  shot_root_match: yes/no
+  shot_code_match: yes/no
+  accepted: yes/no
+  reason: root|shot_code|rejected
+```
+
+Tambien loguear cada expansion de ventana:
+
+```text
+shot island range expanded: 2420-3123 -> 2420-3200
+```
+
+### Riesgos y decisiones
+
+- Si hay dos instancias del mismo shot code en la misma timeline, el filtro por isla de solape evita capturar la otra instancia salvo que se toquen o solapen.
+- Si un clip esta mal nombrado y fuera del `shot_root`, no entra. Es preferible a mezclar shots.
+- Si un clip pertenece al shot pero esta en un track que no es `editref` ni termina en `plate`, queda fuera por scope de la tool.
+- Si un plate cruza sobre otro shot, el filtro por `shot_root` / `shot_code` deberia evitar capturas incorrectas.
+- La expansion debe ser iterativa, pero acotada a clips de tracks relevantes para evitar arrastrar media no relacionada.
+
+Estado:
+
+- Implementado en `LGA_NKS_CreateV000.py` v1.04.
+- La UI mantiene las mismas columnas. Sus filas ahora representan clips relacionados con el shot bajo playhead, no solo clips exactamente bajo playhead.
+
+---
+
 ## Handle
 
 El control `HANDLE` es custom. No usa `QSpinBox`.
