@@ -4,7 +4,11 @@ Documento actualizado para reflejar la implementacion actual de:
 
 `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py`
 
-La herramienta sigue en fase de UI/validacion. Todavia no crea EXR reales.
+La herramienta ya crea la secuencia EXR v000 en Windows usando `oiiotool`
+vendorizado dentro de `LGA_NKS_Shared`.
+
+La implementacion para macOS queda pendiente para una etapa posterior, cuando
+este cerrada la implementacion de Windows.
 
 ---
 
@@ -21,7 +25,8 @@ El dialogo recolecta y previsualiza:
 - nombre de secuencia
 - handle, solo cuando el frame range viene de `editref`
 
-Al presionar `Create v000`, por ahora solo imprime/loguea los parametros.
+Al presionar `Create v000`, crea la carpeta de salida y escribe la secuencia
+EXR negra.
 
 ---
 
@@ -224,7 +229,7 @@ El naming de salida usa:
 SHOT_task_v000_####.exr
 ```
 
-Y en fase futura debera escribir frames reales como:
+La implementacion actual escribe frames reales como:
 
 ```text
 SHOT_task_v000_1001.exr
@@ -250,7 +255,7 @@ Ejemplo para comp:
 T:/VFX-MOR/101/MOR_1003_020/Comp/4_publish/MOR_1003_020_comp_v000
 ```
 
-Ejemplo de archivo futuro:
+Ejemplo de archivo generado:
 
 ```text
 T:/VFX-MOR/101/MOR_1003_020/Comp/4_publish/MOR_1003_020_comp_v000/MOR_1003_020_comp_v000_1001.exr
@@ -260,7 +265,7 @@ T:/VFX-MOR/101/MOR_1003_020/Comp/4_publish/MOR_1003_020_comp_v000/MOR_1003_020_c
 
 ## Parametros recolectados
 
-El stub imprime un diccionario con datos como:
+La herramienta arma un diccionario de parametros como:
 
 ```python
 {
@@ -286,6 +291,45 @@ El stub imprime un diccionario con datos como:
 ```
 
 Nota: `selected_plates` conserva el nombre historico de la key, pero actualmente puede contener `editref` porque representa las fuentes seleccionadas para frame range.
+
+---
+
+## Creacion de EXR en Windows
+
+Backend actual:
+
+```text
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Shared\OIIO_Win\oiiotool.exe
+```
+
+Flujo:
+
+1. Resolver `oiiotool.exe` relativo a `LGA_NKS_Shared`.
+2. Crear la carpeta `output_dir` si no existe.
+3. Si la carpeta ya existe y contiene `.exr`, cancelar para no sobrescribir.
+4. Crear el primer frame negro a la resolucion seleccionada.
+5. Duplicar ese primer EXR para todos los frames restantes.
+6. Validar que la cantidad de EXR escritos coincida con `frame_count`.
+
+Comando base usado:
+
+```text
+oiiotool --create WIDTHxHEIGHT 3 --chnames R,G,B -d half --compression zip -o FIRST_FRAME.exr
+```
+
+Formato actual:
+
+- canales: `R,G,B`
+- data type: `half`
+- compression: `zip`
+- primer frame: `1001`
+- version: `v000`
+
+macOS:
+
+- Pendiente.
+- No se implementa hasta terminar/cerrar la version Windows.
+- La futura version macOS debera tener su propia carpeta vendorizada, por ejemplo `LGA_NKS_Shared/OIIO_Mac`.
 
 ---
 
@@ -324,10 +368,9 @@ C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_NKS_MatchVerToEX
 
 ## Fuera de scope actual
 
-- Crear EXR negros reales.
-- Escribir archivos en disco.
 - Detectar proxima version disponible.
 - Crear `v001`, `v002`, etc.
 - Sobrescribir una carpeta `v000` existente.
 - Importar automaticamente la secuencia creada a Hiero.
 - Agregar el clip resultante a tracks.
+- Implementacion macOS.
