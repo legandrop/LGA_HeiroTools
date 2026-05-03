@@ -1,7 +1,8 @@
 """
-____________________________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_Flow_Assignee_Panel v1.54 | Lega
+
   Panel para obtener los asignados de la tarea del clip seleccionado en Flow,
   limpiarlos o sumar asignados a la tarea comp.
 
@@ -9,12 +10,12 @@ ________________________________________________________________________________
   v1.53: Actualizado para usar scroll bar cuando es necesario
   v1.52: Actualizado para usar estilos dinámicos con bordes y hover para todos los botones
          Agregado tooltip dinámico para todos los botones
-   v1.51: Actualiza la UI para mostrar las tasks y los asignados en Flow. 
+  v1.51: Actualiza la UI para mostrar las tasks y los asignados en Flow.
          Funciona con todas las tasks disponibles en Flow.
   v1.50: Actualizado para ser compatible con ambos sistemas de nomenclatura:
-  - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
-  - PROYECTO_SEQ_SHOT (3 bloques simplificado)
-____________________________________________________________________________________
+         - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
+         - PROYECTO_SEQ_SHOT (3 bloques simplificado)
+____________________________________________________________________
 """
 
 import hiero.ui

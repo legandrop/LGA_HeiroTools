@@ -1,7 +1,8 @@
 """
-____________________________________________________________________________________
+____________________________________________________________________
 
   LGA_NKS_Flow_Panel v2.51 | Lega
+
   Panel con herramientas que interactuan con las tasks de Flow Production Tracking
   que fueron descargadas previamente con la app LGA_NKS_Flow_Downloader
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
@@ -9,17 +10,14 @@ ________________________________________________________________________________
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 
   v2.51: Agregado logging a archivo con switches de debug
-
   v2.50: Actualizado para usar scroll bar cuando es necesario
-
   v2.49: Actualizado para usar estilos dinámicos con bordes y hover para todos los botones
          Agregado tooltip dinámico para todos los botones
          Optimizado espaciado del layout y dimensiones de botones para mejor UX
-
   v2.48: Actualizado para usar método centralizado de selección de clips (LGA_NKS_GetClip).
          Ahora usa el Método 2 híbrido (playhead primero, luego selección como fallback)
          para obtener clips del track TRACK_comp_EXR. Soporta selecciones múltiples.
-____________________________________________________________________________________
+____________________________________________________________________
 """
 
 import hiero.ui

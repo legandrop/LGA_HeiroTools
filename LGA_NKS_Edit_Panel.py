@@ -1,7 +1,8 @@
 """
-_________________________________________
+____________________________________________________________________
 
   LGA_EditToolsPanel v2.99 | Lega
+
   Tools panel for Hiero / Nuke Studio
 
   v2.99: Create v000
@@ -21,7 +22,7 @@ _________________________________________
          Shift+Click: Reconecta solo los clips seleccionados
          Agregado método execute_external_script_with_param para pasar parámetros a scripts
   v2.91: Se agregaron tooltips mejorados y descriptivos para todos los botones del panel
-_________________________________________
+____________________________________________________________________
 
 """
 

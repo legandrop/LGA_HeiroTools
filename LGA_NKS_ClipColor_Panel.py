@@ -1,9 +1,10 @@
 """
-_________________________
+____________________________________________________________________
 
-  LGA_colorPanel v1.9 | Lega
-  Actualizado para usar estilos dinámicos con bordes y hover
-_________________________
+  LGA_colorPanel v1.09 | Lega
+
+  v1.09: Actualizado para usar estilos dinámicos con bordes y hover
+____________________________________________________________________
 """
 
 import hiero.ui

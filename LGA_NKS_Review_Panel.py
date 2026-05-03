@@ -1,17 +1,17 @@
 """
-_________________________________________
+____________________________________________________________________
 
   LGA_ReviewPanel v2.79 | Lega
+
   Tools panel for Hiero / Nuke Studio
-  
+
   v2.79: Agregado botón ON OFF _roto_ con shortcut Ctrl+Shift+D
   v2.78: Agregado sistema de scroll, logging a archivo y gap vertical
   v2.77: Sin botón Check Project Versions
-         
   v2.76: Actualizado para usar estilos dinámicos con bordes y hover para todos los botones
          Agregado tooltip dinámico para todos los botones
          Optimizado espaciado del layout y dimensiones de botones para mejor UX
-_________________________________________
+____________________________________________________________________
 
 """
 
