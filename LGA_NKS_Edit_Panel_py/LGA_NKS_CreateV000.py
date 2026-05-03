@@ -1289,12 +1289,140 @@ class CreateV000Dialog(QtWidgets.QDialog):
 
         return dialog.exec_() == QtWidgets.QDialog.Accepted
 
+    def _task_overlap_dialog(self, task, overlaps):
+        """Diálogo de overlap con badge de task, lista de clips solapados y opciones de acción.
+
+        Devuelve uno de: 'exrs_only', 'bin_only', 'replace_timeline', None (cancelar).
+        """
+        task_color = TASK_COLORS.get(task.lower(), "#a7a7a7")
+
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle("Create v000")
+        dialog.setModal(True)
+        dialog.setMinimumWidth(380)
+        dialog.setStyleSheet(
+            """
+            QDialog {
+                background-color: #2B2B2B;
+                border: 1px solid #555555;
+            }
+            """
+        )
+
+        layout = QtWidgets.QVBoxLayout(dialog)
+        layout.setSpacing(10)
+        layout.setContentsMargins(16, 14, 16, 14)
+
+        # Badge de task
+        badge = QtWidgets.QLabel(task.upper())
+        badge.setStyleSheet(
+            "color: %s; font-weight: bold; font-size: 13px; padding: 2px 0px;" % task_color
+        )
+        layout.addWidget(badge)
+
+        # Separador
+        def make_sep():
+            sep = QtWidgets.QFrame()
+            sep.setFrameShape(QtWidgets.QFrame.HLine)
+            sep.setFrameShadow(QtWidgets.QFrame.Sunken)
+            sep.setStyleSheet("color: #444444; margin: 0px;")
+            return sep
+
+        layout.addWidget(make_sep())
+
+        # Mensaje principal
+        msg = QtWidgets.QLabel("actualmente en el track %s del timeline,\nhay clips ocupando el espacio donde debería ir esta v000:" % task.capitalize())
+        msg.setStyleSheet("color: #CCCCCC; padding: 4px 0px;")
+        layout.addWidget(msg)
+
+        # Lista de clips solapados
+        summary_lines = []
+        for item in overlaps:
+            try:
+                track_name = item.parentTrack().name()
+            except Exception:
+                track_name = "<unknown>"
+            summary_lines.append(
+                "%s  |  %s  |  %s - %s"
+                % (item.name(), track_name, item.timelineIn(), item.timelineOut())
+            )
+        summary_box = QtWidgets.QPlainTextEdit("\n".join(summary_lines))
+        summary_box.setReadOnly(True)
+        summary_box.setFocusPolicy(QtCore.Qt.NoFocus)
+        summary_box.setFont(QtGui.QFont("Monospace", 8))
+        summary_box.setMaximumHeight(20 + 18 * len(overlaps))
+        summary_box.setStyleSheet(
+            """
+            QPlainTextEdit {
+                background-color: #272727;
+                border: 1px solid #333333;
+                color: #a7a7a7;
+                padding: 4px 6px;
+                border-radius: 3px;
+            }
+            """
+        )
+        layout.addWidget(summary_box)
+
+        layout.addWidget(make_sep())
+
+        # Estilos de botones de acción
+        action_style = """
+            QPushButton {
+                background-color: #443a91;
+                color: #b2b2b2;
+                padding: 7px 14px;
+                border-radius: 3px;
+                font-weight: bold;
+                text-align: left;
+            }
+            QPushButton:hover { background-color: #774dcb; color: #CCCCCC; }
+        """
+
+        result = {"choice": None}
+
+        def make_action(label, value):
+            btn = QtWidgets.QPushButton(label)
+            btn.setStyleSheet(action_style)
+            def on_click():
+                result["choice"] = value
+                dialog.accept()
+            btn.clicked.connect(on_click)
+            return btn
+
+        layout.addWidget(make_action("  Solo crear EXRs", "exrs_only"))
+        layout.addWidget(make_action("  Crear + importar al Bin", "bin_only"))
+        layout.addWidget(make_action("  Crear + reemplazar en timeline", "replace_timeline"))
+
+        # Cancelar alineado a la derecha
+        cancel_row = QtWidgets.QHBoxLayout()
+        cancel_row.addStretch()
+        cancel_btn = QtWidgets.QPushButton("Cancelar")
+        cancel_btn.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #555555;
+                border: 1px solid #666666;
+                color: #CCCCCC;
+                padding: 6px 14px;
+                border-radius: 3px;
+            }
+            QPushButton:hover { background-color: #666666; }
+            """
+        )
+        cancel_btn.clicked.connect(dialog.reject)
+        cancel_row.addWidget(cancel_btn)
+        layout.addLayout(cancel_row)
+
+        dialog.exec_()
+        return result["choice"]
+
     def _create_v000_for_params(self, seq, project, params):
         replace_existing = False
         if _output_has_exrs(params):
             confirmed = self._task_confirm_dialog(
                 task=params["task"],
-                message="Ya existe una seq de EXR para la v000\n¿Eliminarlos y crear nuevos?",
+                message="Ya existe una seq de EXR para la v000\n¿Querés eliminarla y crear una nueva?",
                 confirm_label="Reemplazar",
             )
             if not confirmed:
@@ -1312,28 +1440,10 @@ class CreateV000Dialog(QtWidgets.QDialog):
 
         overlaps = _timeline_overlaps(target_track, params["timeline_in"], params["timeline_out"])
         if overlaps:
-            overlap_box = QtWidgets.QMessageBox(self)
-            overlap_box.setWindowTitle("Create v000")
-            overlap_box.setIcon(QtWidgets.QMessageBox.Warning)
-            overlap_box.setText("The target track already has clip(s) in the v000 range.")
-            overlap_box.setInformativeText(_overlap_summary(overlaps))
-            cancel_btn = overlap_box.addButton("Cancel", QtWidgets.QMessageBox.ActionRole)
-            exrs_only_btn = overlap_box.addButton("Create EXRs Only", QtWidgets.QMessageBox.ActionRole)
-            import_bin_btn = overlap_box.addButton("Create + Import to Bin", QtWidgets.QMessageBox.ActionRole)
-            replace_timeline_btn = overlap_box.addButton("Create + Import to Bin && Timeline", QtWidgets.QMessageBox.ActionRole)
-            overlap_box.setDefaultButton(cancel_btn)
-            overlap_box.exec_()
-            clicked = overlap_box.clickedButton()
-            if clicked == cancel_btn:
+            choice = self._task_overlap_dialog(params["task"], overlaps)
+            if not choice:
                 return False
-            if clicked == exrs_only_btn:
-                integration_mode = "exrs_only"
-            elif clicked == import_bin_btn:
-                integration_mode = "bin_only"
-            elif clicked == replace_timeline_btn:
-                integration_mode = "replace_timeline"
-            else:
-                return False
+            integration_mode = choice
 
         success, status, message = _create_black_exr_sequence(params, replace=replace_existing)
 
