@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_CreateV000 v1.02 | Lega
+  LGA_NKS_CreateV000 v1.03 | Lega
 
   Crea una secuencia EXR negra v000 para el shot activo en Hiero/Nuke Studio.
   Permite elegir frame range, resolucion, handle persistente y una o varias
@@ -15,6 +15,7 @@ ____________________________________________________________________
   crear solo los EXRs, crear/importar al bin sin insertar, o reemplazar los
   clips solapados por la nueva v000.
 
+  v1.03: Corregido frame range inclusivo, reemplazo de BinItem existente y rescan() validado tras importar.
   v1.02: Agregado sistema de logging dual con archivo propio debugPy_CreateV000.log
   v1.01: Actualizado para usar compression dwaa en oiiotool
 
@@ -338,6 +339,49 @@ def _clip_file_name(clip):
     return os.path.basename(_clip_media_path(clip).replace("\\", "/"))
 
 
+def _clip_media_range(clip):
+    try:
+        fileinfos = clip.mediaSource().fileinfos()
+        if fileinfos:
+            return int(fileinfos[0].startFrame()), int(fileinfos[0].endFrame())
+    except Exception:
+        pass
+    return None, None
+
+
+def _rescan_clip_range(clip, expected_first=None, expected_last=None):
+    before_first, before_last = _clip_media_range(clip)
+    try:
+        clip.rescan()
+        try:
+            QtWidgets.QApplication.processEvents()
+        except Exception:
+            pass
+    except Exception as exc:
+        return "Failed to rescan clip range: %s" % exc, (before_first, before_last), (None, None)
+
+    after_first, after_last = _clip_media_range(clip)
+    debug_print(
+        "Rescanned clip range:",
+        before_first,
+        "-",
+        before_last,
+        "->",
+        after_first,
+        "-",
+        after_last,
+    )
+
+    if expected_first is not None and expected_last is not None:
+        if (after_first, after_last) != (int(expected_first), int(expected_last)):
+            return (
+                "Rescan range mismatch. Expected %s - %s, got %s - %s."
+                % (expected_first, expected_last, after_first, after_last)
+            ), (before_first, before_last), (after_first, after_last)
+
+    return None, (before_first, before_last), (after_first, after_last)
+
+
 def _frame_count(timeline_in, timeline_out):
     return max(0, int(timeline_out) - int(timeline_in) + 1)
 
@@ -597,13 +641,12 @@ def _find_or_create_bin_path(project, bin_path):
     return current_bin
 
 
-def _find_bin_item_by_media_path(bin_item, first_frame_path):
+def _find_bin_items_by_media_path(bin_item, first_frame_path):
     first_frame_path = first_frame_path.replace("\\", "/")
+    matches = []
     for item in bin_item.items():
         if isinstance(item, hiero.core.Bin):
-            found = _find_bin_item_by_media_path(item, first_frame_path)
-            if found:
-                return found
+            matches.extend(_find_bin_items_by_media_path(item, first_frame_path))
             continue
         if not isinstance(item, hiero.core.BinItem):
             continue
@@ -623,8 +666,21 @@ def _find_bin_item_by_media_path(bin_item, first_frame_path):
             except Exception:
                 continue
             if filename == first_frame_path or filename.replace("%04d", "1001") == first_frame_path:
-                return item
-    return None
+                matches.append(item)
+                break
+    return matches
+
+
+def _remove_bin_items(bin_items):
+    removed_count = 0
+    for bin_item in list(bin_items):
+        try:
+            parent_bin = bin_item.parentBin()
+            parent_bin.removeItem(bin_item)
+            removed_count += 1
+        except Exception as exc:
+            return removed_count, "Failed to remove existing bin item %s: %s" % (bin_item, exc)
+    return removed_count, None
 
 
 def _import_v000_to_bin(project, params):
@@ -634,14 +690,25 @@ def _import_v000_to_bin(project, params):
         return None, None, "Could not derive target bin path from: %s" % first_frame_path
 
     target_bin = _find_or_create_bin_path(project, bin_path)
-    existing_bin_item = _find_bin_item_by_media_path(target_bin, first_frame_path)
-    if existing_bin_item:
-        return existing_bin_item.activeItem(), existing_bin_item, None
+    existing_bin_items = _find_bin_items_by_media_path(target_bin, first_frame_path)
+    if existing_bin_items:
+        removed_count, remove_error = _remove_bin_items(existing_bin_items)
+        debug_print(
+            "Removed existing v000 bin item(s):",
+            removed_count,
+            "path:",
+            first_frame_path,
+        )
+        if remove_error:
+            return None, None, remove_error
 
     clip = hiero.core.Clip(first_frame_path)
     clip.setName("%s_%s" % (params["shot_code"], params["task"]))
     bin_item = hiero.core.BinItem(clip)
     target_bin.addItem(bin_item)
+    debug_print("Imported fresh v000 bin item:", bin_item.name(), "path:", first_frame_path)
+    media_first, media_last = _clip_media_range(clip)
+    debug_print("Fresh v000 media range:", media_first, "-", media_last)
     return clip, bin_item, None
 
 
@@ -792,6 +859,18 @@ def _create_black_exr_sequence(params, replace=False):
     frame_count = int(params["frame_count"])
     width, height = params["resolution"]
     pattern = params["output_name_pattern"]
+    debug_print(
+        "Creating black EXR sequence:",
+        output_dir,
+        "frames:",
+        first_frame,
+        "-",
+        last_frame,
+        "count:",
+        frame_count,
+        "replace:",
+        replace,
+    )
 
     first_file = output_dir / _frame_file_name(pattern, first_frame)
     cmd = [
@@ -841,6 +920,7 @@ def _create_black_exr_sequence(params, replace=False):
     if len(written) != frame_count:
         return False, "error", "Expected %d EXR files, found %d." % (frame_count, len(written))
 
+    debug_print("Validated EXR count:", len(written), "expected:", frame_count)
     return True, "created", "Created %d EXR frames in %s" % (frame_count, output_dir)
 
 
@@ -1796,16 +1876,33 @@ class CreateV000Dialog(QtWidgets.QDialog):
         return result["choice"]
 
     def _create_v000_for_params(self, seq, project, params):
+        debug_print(
+            "Starting Create v000 task:",
+            params["task"],
+            "timeline:",
+            params["timeline_in"],
+            "-",
+            params["timeline_out"],
+            "frames:",
+            params["source_first_frame"],
+            "-",
+            params["source_last_frame"],
+            "count:",
+            params["frame_count"],
+        )
         replace_existing = False
         if _output_has_exrs(params):
+            debug_print("Existing EXR sequence detected:", params["output_dir"])
             confirmed = self._task_confirm_dialog(
                 task=params["task"],
                 message="Ya existe una seq de EXR para la v000\n¿Querés eliminarla y crear una nueva?",
                 confirm_label="Reemplazar",
             )
             if not confirmed:
+                debug_print("Create v000 skipped by user at EXR replace dialog:", params["task"])
                 return False
             replace_existing = True
+            debug_print("User confirmed EXR replacement:", params["output_dir"])
 
         integration_mode = "timeline"
         target_track_name = track_for_task(params["task"])
@@ -1818,12 +1915,16 @@ class CreateV000Dialog(QtWidgets.QDialog):
 
         overlaps = _timeline_overlaps(target_track, params["timeline_in"], params["timeline_out"])
         if overlaps:
+            debug_print("Timeline overlaps detected:", len(overlaps), "track:", target_track_name)
             choice = self._task_overlap_dialog(params["task"], overlaps)
             if not choice:
+                debug_print("Create v000 skipped by user at overlap dialog:", params["task"])
                 return False
             integration_mode = choice
+        debug_print("Create v000 integration mode:", integration_mode)
 
         success, status, message = _create_black_exr_sequence(params, replace=replace_existing)
+        debug_print("EXR creation result:", status, message)
 
         if not success:
             self._set_warning(message)
@@ -1845,6 +1946,19 @@ class CreateV000Dialog(QtWidgets.QDialog):
                         debug_print(color_error)
                     else:
                         import_message += "\nClip color: #8a8a8a"
+                    rescan_error, rescan_before, rescan_after = _rescan_clip_range(
+                        clip,
+                        params["source_first_frame"],
+                        params["source_last_frame"],
+                    )
+                    if rescan_error:
+                        raise RuntimeError(rescan_error)
+                    import_message += "\nRescanned clip range: %s - %s -> %s - %s" % (
+                        rescan_before[0],
+                        rescan_before[1],
+                        rescan_after[0],
+                        rescan_after[1],
+                    )
                     if integration_mode == "timeline":
                         track_item, timeline_error = _insert_v000_in_timeline(seq, clip, params)
                         if timeline_error:

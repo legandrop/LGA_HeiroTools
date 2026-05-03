@@ -512,7 +512,9 @@ track_item.setEnabled(False)                    # La v000 queda deshabilitada en
 **Politicas de la integracion:**
 
 - Importar al bin `F <Secuencia>/<ShotName>` (estructura de `Organize Project`).
+- Si ya existe un `BinItem` con el mismo media path de la v000, borrarlo del bin antes de importar. Esto fuerza a Hiero a crear un `Clip` fresco y releer el frame range real de los EXR.
 - Al importar, aplicar al `BinItem` el color gris `v_00` (`#8a8a8a`, `QtGui.QColor(138, 138, 138)`).
+- Despues de importar y colorear, ejecutar `clip.rescan()` y validar que el rango detectado por Hiero coincida con los EXR creados. Si no coincide, no insertar en timeline.
 - Insertar en `_comp_`, `_roto_` o `_cleanup_` segun task.
 - Si hay multiples tasks seleccionadas, ejecutar una task por vez en el orden `comp`, `roto`, `cleanup`.
 - Cancelar si el track destino no existe (no crear tracks automaticamente).
