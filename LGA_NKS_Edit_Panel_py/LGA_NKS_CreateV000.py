@@ -7,6 +7,8 @@ dictionary. It does not write EXR files.
 
 import os
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -296,6 +298,87 @@ def _existing_versions_by_task(seq):
         clip = find_clip_at_playhead_in_track(seq, track_for_task(task))
         versions[task] = _clip_version_label(clip) if clip else None
     return versions
+
+
+def _oiio_tool_path():
+    if not sys.platform.startswith("win"):
+        return None
+    tool_path = SHARED_DIR / "OIIO_Win" / "oiiotool.exe"
+    return tool_path if tool_path.exists() else None
+
+
+def _frame_file_name(pattern, frame):
+    return pattern.replace("####", "%04d" % frame)
+
+
+def _create_black_exr_sequence(params):
+    oiiotool = _oiio_tool_path()
+    if not oiiotool:
+        return False, "OIIO Windows tool not found. Mac implementation is pending."
+
+    output_dir = Path(params["output_dir"])
+    if output_dir.exists():
+        existing_exrs = list(output_dir.glob("*.exr"))
+        if existing_exrs:
+            return False, "Output folder already contains EXR files: %s" % output_dir
+    else:
+        output_dir.mkdir(parents=True)
+
+    first_frame = int(params["source_first_frame"])
+    last_frame = int(params["source_last_frame"])
+    frame_count = int(params["frame_count"])
+    width, height = params["resolution"]
+    pattern = params["output_name_pattern"]
+
+    first_file = output_dir / _frame_file_name(pattern, first_frame)
+    cmd = [
+        str(oiiotool),
+        "--create",
+        "%dx%d" % (int(width), int(height)),
+        "3",
+        "--chnames",
+        "R,G,B",
+        "-d",
+        "half",
+        "--compression",
+        "zip",
+        "-o",
+        str(first_file),
+    ]
+
+    env = os.environ.copy()
+    env["PATH"] = str(oiiotool.parent) + os.pathsep + env.get("PATH", "")
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=str(oiiotool.parent),
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=False,
+            check=False,
+        )
+    except Exception as exc:
+        return False, "Failed to run oiiotool: %s" % exc
+
+    if result.returncode != 0:
+        stderr = result.stderr.decode("utf-8", errors="replace").strip()
+        return False, "oiiotool failed: %s" % (stderr or result.returncode)
+    if not first_file.exists():
+        return False, "oiiotool did not create the first EXR frame."
+
+    try:
+        for frame in range(first_frame + 1, last_frame + 1):
+            target = output_dir / _frame_file_name(pattern, frame)
+            shutil.copyfile(str(first_file), str(target))
+    except Exception as exc:
+        return False, "Failed while duplicating EXR frames: %s" % exc
+
+    written = list(output_dir.glob("*.exr"))
+    if len(written) != frame_count:
+        return False, "Expected %d EXR files, found %d." % (frame_count, len(written))
+
+    return True, "Created %d EXR frames in %s" % (frame_count, output_dir)
 
 
 def _collect_context():
@@ -928,7 +1011,15 @@ class CreateV000Dialog(QtWidgets.QDialog):
         if warning:
             self._set_warning(warning)
             return
-        debug_print("params:", params)
+        success, message = _create_black_exr_sequence(params)
+        if not success:
+            self._set_warning(message)
+            QtWidgets.QMessageBox.warning(self, "Create v000", message)
+            debug_print("error:", message)
+            return
+
+        debug_print("created:", params)
+        QtWidgets.QMessageBox.information(self, "Create v000", message)
         self.accept()
 
 
