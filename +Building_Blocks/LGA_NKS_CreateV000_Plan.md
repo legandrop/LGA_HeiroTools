@@ -28,15 +28,7 @@ El dialogo recolecta y previsualiza:
 Al presionar `Create v000`, crea la carpeta de salida y escribe la secuencia
 EXR negra.
 
-Cuando termina correctamente, muestra un dialogo de confirmacion con:
-
-- `OK`
-- `Show in Browser`
-
-`Show in Browser` abre la carpeta donde se creo la v000:
-
-- Windows: Explorer
-- macOS: Finder
+Cuando termina correctamente, cierra el dialogo sin mostrar un mensaje extra.
 
 Si la carpeta de salida ya existe y contiene EXR, muestra una confirmacion con:
 
@@ -328,7 +320,7 @@ Flujo:
 5. Crear el primer frame negro a la resolucion seleccionada.
 6. Duplicar ese primer EXR para todos los frames restantes.
 7. Validar que la cantidad de EXR escritos coincida con `frame_count`.
-8. Mostrar un dialogo de exito con opcion `Show in Browser`.
+8. Cerrar el dialogo al finalizar correctamente.
 
 Comando base usado:
 
@@ -349,7 +341,6 @@ macOS:
 - Pendiente.
 - No se implementa hasta terminar/cerrar la version Windows.
 - La futura version macOS debera tener su propia carpeta vendorizada, por ejemplo `LGA_NKS_Shared/OIIO_Mac`.
-- El boton `Show in Browser` ya contempla `open`/Finder, pero la creacion EXR en macOS sigue pendiente.
 
 ---
 
