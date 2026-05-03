@@ -1211,6 +1211,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
         dialog = QtWidgets.QDialog(parent)
         dialog.setWindowTitle("Create v000")
         dialog.setModal(True)
+        dialog.setMinimumWidth(340)
         dialog.setStyleSheet(
             """
             QDialog {
