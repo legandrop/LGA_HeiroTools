@@ -43,6 +43,7 @@ TASK_COLORS = {
 # Sistema de colores de path por nivel (igual que LGA_mediaManager / LGA_PipeSync)
 PATH_SHOT_COLOR = "#c56cf0"   # lavanda — segmentos dentro del shot folder
 PATH_SEP_COLOR  = "#bbbbbb"   # gris claro — separadores /
+VALUE_COLOR     = "#e8c97a"   # amarillo dorado — valores numéricos en el output
 PATH_LEVEL_COLORS = {
     0: "#ffff66",   # Amarillo       disco
     1: "#28b5b5",   # Verde cian     proyecto
@@ -1280,15 +1281,20 @@ class CreateV000Dialog(QtWidgets.QDialog):
             format_dict["name_colored"] = '<span style="color: %s;">%s</span>' % (
                 file_color, params["output_name_pattern"]
             )
+            v = '<span style="color: %s;">%%s</span>' % VALUE_COLOR
             preview_blocks.append(
                 'Task: {task_colored}<br>'
                 'Path: {path_colored}<br>'
                 'Name: {name_colored}<br>'
-                'Timeline: {timeline_in} - {timeline_out} (handle {handle})<br>'
-                'Frames: {source_first_frame} - {source_last_frame} ({frame_count} frames)<br>'
-                'Resolution: {0} x {1} ({resolution_source})'.format(
-                    params["resolution"][0],
-                    params["resolution"][1],
+                'Timeline: {tl_in} - {tl_out} (handle {handle})<br>'
+                'Frames: {fr_first} - {fr_last} ({frame_count} frames)<br>'
+                'Resolution: {res_w} x {res_h} ({resolution_source})'.format(
+                    tl_in=v % params["timeline_in"],
+                    tl_out=v % params["timeline_out"],
+                    fr_first=v % params["source_first_frame"],
+                    fr_last=v % params["source_last_frame"],
+                    res_w=v % params["resolution"][0],
+                    res_h=v % params["resolution"][1],
                     **format_dict
                 )
             )
