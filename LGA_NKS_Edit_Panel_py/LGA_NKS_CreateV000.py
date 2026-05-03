@@ -32,10 +32,11 @@ if str(SHARED_DIR) not in sys.path:
 if str(STARTUP_DIR) not in sys.path:
     sys.path.insert(0, str(STARTUP_DIR))
 
-from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtCore
-from LGA_NKS_Flow_NamingUtils import clean_base_name, extract_shot_code
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
+from LGA_NKS_Flow_NamingUtils import clean_base_name, extract_project_name, extract_shot_code
 from LGA_NKS_GetClip import find_clip_at_playhead_in_track
 from LGA_NKS_TaskSelectionDialog import track_for_task
+from LGA_NKS_Flow_Task_Config import get_task_color
 
 
 def debug_print(*message):
@@ -319,9 +320,14 @@ def _collect_context():
         return None, "Could not detect shot."
 
     width, height = _timeline_resolution(seq)
+    try:
+        project_name = extract_project_name(clean_base_name(_clip_file_name(default_plate["clip"]))) or ""
+    except Exception:
+        project_name = ""
     return {
         "sequence": seq,
         "shot_code": shot_code,
+        "project_name": project_name,
         "shot_root_path": shot_root,
         "range_sources": range_sources,
         "plates": plates,
@@ -343,6 +349,14 @@ class CreateV000Dialog(QtWidgets.QDialog):
 
         self.setWindowTitle("Create v000 - %s" % context["shot_code"])
         self.setMinimumWidth(620)
+        self.setStyleSheet(
+            """
+            QDialog {
+                background-color: #2B2B2B;
+                border: 1px solid #555555;
+            }
+            """
+        )
         self._build_ui()
         self._select_default_task()
         self._update_state()
@@ -351,14 +365,37 @@ class CreateV000Dialog(QtWidgets.QDialog):
         layout = QtWidgets.QVBoxLayout(self)
         layout.setSpacing(10)
 
-        title = QtWidgets.QLabel("Create v000 - %s" % self.context["shot_code"])
-        title.setStyleSheet("font-size: 15px; font-weight: bold; color: #e6e6e6;")
+        title = QtWidgets.QLabel("Create v000")
+        title_font = QtGui.QFont()
+        title_font.setPointSize(12)
+        title_font.setBold(True)
+        title.setFont(title_font)
+        title.setAlignment(QtCore.Qt.AlignCenter)
+        title.setStyleSheet("color: #CCCCCC; padding: 5px;")
         layout.addWidget(title)
+
+        project_name = self.context.get("project_name") or ""
+        shot_code = self.context.get("shot_code") or ""
+        if project_name:
+            info_text = (
+                "<span style='color:#6AB5CA;'>%s</span> / "
+                "<span style='color:#B56AB5;'>%s</span>"
+            ) % (project_name, shot_code)
+        else:
+            info_text = "<span style='color:#B56AB5;'>%s</span>" % shot_code
+        info_label = QtWidgets.QLabel(info_text)
+        info_label.setTextFormat(QtCore.Qt.RichText)
+        info_label.setStyleSheet("color: #CCCCCC; padding: 2px 5px 0px 5px;")
+        layout.addWidget(info_label)
 
         self.warning_label = QtWidgets.QLabel("")
         self.warning_label.setStyleSheet("color: #d9a441;")
         self.warning_label.setWordWrap(True)
         layout.addWidget(self.warning_label)
+
+        layout.addSpacing(5)
+        layout.addWidget(self._build_separator())
+        layout.addSpacing(5)
 
         top_row = QtWidgets.QHBoxLayout()
         top_row.setSpacing(16)
@@ -376,6 +413,10 @@ class CreateV000Dialog(QtWidgets.QDialog):
         top_row.addLayout(resolution_col, 1)
         layout.addLayout(top_row)
 
+        layout.addSpacing(5)
+        layout.addWidget(self._build_separator())
+        layout.addSpacing(5)
+
         middle_row = QtWidgets.QHBoxLayout()
         middle_row.setSpacing(16)
 
@@ -392,12 +433,24 @@ class CreateV000Dialog(QtWidgets.QDialog):
         middle_row.addLayout(task_col, 1)
         layout.addLayout(middle_row)
 
+        layout.addSpacing(5)
+        layout.addWidget(self._build_separator())
+        layout.addSpacing(5)
+
         layout.addWidget(self._section_label("OUTPUT"))
         self.output_text = QtWidgets.QPlainTextEdit()
         self.output_text.setReadOnly(True)
         self.output_text.setMaximumHeight(128)
         self.output_text.setStyleSheet(
-            "QPlainTextEdit { background: #1f1f1f; color: #d8d8d8; border: 1px solid #3c3c3c; }"
+            """
+            QPlainTextEdit {
+                background-color: #272727;
+                border: 1px solid #333333;
+                color: #a7a7a7;
+                padding: 5px;
+                border-radius: 3px;
+            }
+            """
         )
         layout.addWidget(self.output_text)
 
@@ -405,16 +458,49 @@ class CreateV000Dialog(QtWidgets.QDialog):
         buttons.addStretch()
         cancel_btn = QtWidgets.QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)
+        cancel_btn.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #555555;
+                border: 1px solid #666666;
+                color: #CCCCCC;
+                padding: 8px 15px;
+                border-radius: 3px;
+            }
+            QPushButton:hover { background-color: #666666; }
+            """
+        )
         self.create_btn = QtWidgets.QPushButton("Create v000")
         self.create_btn.clicked.connect(self._create_v000)
+        self.create_btn.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #443a91;
+                color: #b2b2b2;
+                padding: 8px 15px;
+                border-radius: 3px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #774dcb; color: #CCCCCC; }
+            QPushButton:disabled { background-color: #2f2a5e; color: #6a6a6a; }
+            """
+        )
         buttons.addWidget(cancel_btn)
+        buttons.addSpacing(10)
         buttons.addWidget(self.create_btn)
         layout.addLayout(buttons)
 
     def _section_label(self, text):
         label = QtWidgets.QLabel(text)
-        label.setStyleSheet("font-weight: bold; color: #c9c9c9;")
+        label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 5px;")
         return label
+
+    def _build_separator(self):
+        sep = QtWidgets.QFrame()
+        sep.setFrameShape(QtWidgets.QFrame.HLine)
+        sep.setFrameShadow(QtWidgets.QFrame.Sunken)
+        sep.setStyleSheet("color: #444444; margin: 0px;")
+        return sep
 
     def _build_plates_table(self):
         table = QtWidgets.QTableWidget()
@@ -427,11 +513,28 @@ class CreateV000Dialog(QtWidgets.QDialog):
         table.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         table.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
         table.setStyleSheet(
-            "QTableWidget::item { padding-left: 10px; padding-right: 10px; }"
+            """
+            QTableWidget {
+                background-color: #272727;
+                border: 1px solid #333333;
+                color: #a7a7a7;
+                gridline-color: #333333;
+            }
+            QHeaderView::section {
+                background-color: #2B2B2B;
+                color: #CCCCCC;
+                padding: 4px 8px;
+                border: 0px;
+                border-bottom: 1px solid #444444;
+                font-weight: bold;
+            }
+            QTableWidget::item { padding-left: 10px; padding-right: 10px; }
+            """
         )
 
         for row, plate in enumerate(self.context["range_sources"]):
             check = QtWidgets.QCheckBox()
+            check.setStyleSheet("color: #a7a7a7; padding: 2px;")
             check.setChecked(row == 0)
             check.stateChanged.connect(lambda state, changed_check=check: self._on_range_check_changed(changed_check))
             self.plate_checks.append((check, plate))
@@ -471,6 +574,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
         tw, th = self.context["timeline_resolution"]
         timeline_text = "Timeline    %s x %s" % (tw or "N/A", th or "N/A")
         timeline_btn = QtWidgets.QRadioButton(timeline_text)
+        timeline_btn.setStyleSheet("color: #a7a7a7; padding: 2px;")
         timeline_btn.setChecked(True)
         timeline_btn.toggled.connect(self._update_state)
         group.addButton(timeline_btn)
@@ -489,6 +593,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
                 height or "N/A",
             )
             btn = QtWidgets.QRadioButton(text)
+            btn.setStyleSheet("color: #a7a7a7; padding: 2px;")
             btn.setEnabled(bool(width and height))
             btn.toggled.connect(self._update_state)
             group.addButton(btn)
@@ -509,6 +614,18 @@ class CreateV000Dialog(QtWidgets.QDialog):
         self.handle_spin.setRange(0, 999)
         self.handle_spin.setValue(4)
         self.handle_spin.setMinimumWidth(72)
+        self.handle_spin.setStyleSheet(
+            """
+            QSpinBox {
+                background-color: #272727;
+                border: 1px solid #333333;
+                color: #a7a7a7;
+                padding: 2px 5px;
+                border-radius: 3px;
+                height: 20px;
+            }
+            """
+        )
         layout.addWidget(self.handle_spin)
         layout.addStretch()
 
@@ -526,6 +643,33 @@ class CreateV000Dialog(QtWidgets.QDialog):
             btn = QtWidgets.QPushButton(task)
             btn.setCheckable(True)
             btn.setMinimumWidth(90)
+            task_color = get_task_color(task, fallback="#3B9ACA")
+            btn.setStyleSheet(
+                """
+                QPushButton {
+                    background-color: #2B2B2B;
+                    border: 1px solid #444444;
+                    color: %(color)s;
+                    padding: 6px 14px;
+                    border-radius: 3px;
+                    font-weight: bold;
+                }
+                QPushButton:hover:!checked:!disabled {
+                    background-color: #333333;
+                }
+                QPushButton:checked {
+                    background-color: #3a3a3a;
+                    color: %(color)s;
+                    border: 1px solid %(color)s;
+                }
+                QPushButton:disabled {
+                    background-color: #232323;
+                    color: #555555;
+                    border: 1px solid #333333;
+                }
+                """
+                % {"color": task_color}
+            )
             if existing.get(task):
                 btn.setEnabled(False)
                 btn.setToolTip("%s disabled - existing %s" % (task, existing[task]))
