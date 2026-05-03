@@ -376,6 +376,7 @@ El dialogo bloquea `Create v000` y muestra un warning si:
 ```python
 START_FRAME = 1001
 VERSION     = "v000"
+V000_CLIP_COLOR_RGB = (138, 138, 138)  # #8a8a8a, igual al boton v_00 de ClipColor
 TASKS       = ("comp", "roto", "cleanup")
 TASK_FOLDER = {"comp": "Comp", "roto": "Roto", "cleanup": "Cleanup"}
 ```
@@ -394,6 +395,7 @@ El flujo fue validado en scripts de exploracion. Ver resultados en `LGA_NKS_Crea
 clip = hiero.core.Clip(first_frame_path)        # Detecta secuencia completa automaticamente
 bin_item = hiero.core.BinItem(clip)
 target_bin.addItem(bin_item)
+bin_item.setColor(QtGui.QColor(138, 138, 138))
 
 track_item = target_track.addTrackItem(clip, timeline_in)
 track_item.setName(shot_name)                   # Solo SHOT_CODE, no nombre completo de archivo
@@ -404,6 +406,7 @@ track_item.setVersionLinkedToBin(True)          # Debe llamarse al final
 **Politicas de la integracion:**
 
 - Importar al bin `F <Secuencia>/<ShotName>` (estructura de `Organize Project`).
+- Al importar, aplicar al `BinItem` el color gris `v_00` (`#8a8a8a`, `QtGui.QColor(138, 138, 138)`).
 - Insertar en `_comp_`, `_roto_` o `_cleanup_` segun task.
 - Si hay multiples tasks seleccionadas, ejecutar una task por vez en el orden `comp`, `roto`, `cleanup`.
 - Cancelar si el track destino no existe (no crear tracks automaticamente).
@@ -416,6 +419,7 @@ track_item.setVersionLinkedToBin(True)          # Debe llamarse al final
 - `TrackItem.setTimes()` recibe `timeline_out - 1` (inclusivo).
 - `setVersionLinkedToBin(True)` solo funciona despues de que el TrackItem ya fue agregado y sus tiempos ajustados.
 - En una cola multi-task, `Cancel` en el dialogo de overlap o replace saltea solo la task actual y continua con la siguiente seleccionada.
+- Si el usuario elige `Create EXRs Only`, no hay importacion y no se cambia ningun color.
 
 `Create + Import to Bin & Timeline` borra solo clips reales del track destino que se solapan con el rango de la v000, importa el nuevo clip y lo coloca en timeline. No borra efectos ni clips de otros tracks.
 
@@ -433,7 +437,8 @@ C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-Trac
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py` | `open_create_v000_dialog()`, `_collect_context()`, `_collect_range_sources()`, `_build_outputs()`, `_create_v000_for_params()`, `_create_black_exr_sequence()`, `CreateV000Dialog` |
+| `LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py` | `open_create_v000_dialog()`, `_collect_context()`, `_collect_range_sources()`, `_build_outputs()`, `_create_v000_for_params()`, `_set_v000_clip_color()`, `_create_black_exr_sequence()`, `CreateV000Dialog` |
+| `LGA_NKS_ClipColor_Panel.py` | Boton `v_00`, color `QtGui.QColor(138, 138, 138)` / `#8a8a8a` |
 | `LGA_NKS_Shared\LGA_NKS_TaskSelectionDialog.py` | `track_for_task()` |
 | `LGA_NKS_Shared\LGA_NKS_Flow_NamingUtils.py` | `clean_base_name()`, `extract_project_name()`, `extract_shot_code()` |
 | `LGA_NKS_Shared\LGA_NKS_Flow_Task_Config.py` | `get_task_color()` |
