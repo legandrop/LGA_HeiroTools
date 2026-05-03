@@ -485,6 +485,9 @@ def test_final_flow(project, seq, clip):
         log("Usando source relativo: %s - %s" % (source_in, source_out))
         log("Usando timeline out inclusivo para TrackItem: %s - %s" % (TEST_TIMELINE_IN, timeline_out))
         track_item.setTimes(TEST_TIMELINE_IN, timeline_out, source_in, source_out)
+        log("versionLinkedToBin antes: %s" % safe_call(track_item, "versionLinkedToBin", "<no disponible>"))
+        track_item.setVersionLinkedToBin(True)
+        log("versionLinkedToBin despues: %s" % safe_call(track_item, "versionLinkedToBin", "<no disponible>"))
         log("TrackItem ajustado en %s." % target_track_name)
         inspect_track_item(track_item)
         return track_item
