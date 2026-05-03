@@ -13,7 +13,7 @@ ____________________________________________________________________
   - track destino segun task
   - variantes de path para construir un hiero.core.Clip detached
 
-  Para pruebas con modificacion, cambiar explicitamente los flags ALLOW_*.
+  Fase actual: prueba mutante controlada con source relativo.
 ____________________________________________________________________
 """
 
@@ -43,7 +43,7 @@ TEST_SOURCE_LAST = 1429
 # Crear un Clip en memoria desde TEST_EXR_PATH. En principio no lo agrega al proyecto.
 ALLOW_CREATE_DETACHED_CLIP = True
 
-# Flags destructivos/desactivados por defecto. No habilitar hasta validar la salida seca.
+# Prueba mutante controlada. El script cancela si hay overlap en el track destino.
 ALLOW_PROJECT_MUTATION = True
 ALLOW_TEMP_BIN_ADD = False
 ALLOW_TIMELINE_ADD = False
@@ -476,7 +476,12 @@ def test_final_flow(project, seq, clip):
         track_item = target_track.createTrackItem(shot_name)
         track_item.setSource(source_clip)
         track_item.setName(shot_name)
-        track_item.setTimes(TEST_TIMELINE_IN, TEST_TIMELINE_OUT, TEST_SOURCE_FIRST, TEST_SOURCE_LAST)
+        source_in = 0
+        source_out = int(TEST_TIMELINE_OUT) - int(TEST_TIMELINE_IN) - 1
+        timeline_out = int(TEST_TIMELINE_OUT) - 1
+        log("Usando source relativo: %s - %s" % (source_in, source_out))
+        log("Usando timeline out inclusivo para TrackItem: %s - %s" % (TEST_TIMELINE_IN, timeline_out))
+        track_item.setTimes(TEST_TIMELINE_IN, timeline_out, source_in, source_out)
         target_track.addItem(track_item)
         log("Agregado TrackItem a %s." % target_track_name)
         inspect_track_item(track_item)
