@@ -389,7 +389,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
         layout.addWidget(info_label)
 
         self.warning_label = QtWidgets.QLabel("")
-        self.warning_label.setStyleSheet("color: #d9a441;")
+        self.warning_label.setStyleSheet("color: #d9a441; padding: 2px 5px;")
         self.warning_label.setWordWrap(True)
         layout.addWidget(self.warning_label)
 
@@ -405,6 +405,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
         frame_range_col.addWidget(self._build_plates_table())
         frame_range_col.addStretch()
         top_row.addLayout(frame_range_col, 1)
+        top_row.addWidget(self._build_separator("v"))
 
         resolution_col = QtWidgets.QVBoxLayout()
         resolution_col.addWidget(self._section_label("RESOLUTION"))
@@ -425,6 +426,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
         handle_col.addWidget(self._build_handle_box())
         handle_col.addStretch()
         middle_row.addLayout(handle_col, 1)
+        middle_row.addWidget(self._build_separator("v"))
 
         task_col = QtWidgets.QVBoxLayout()
         task_col.addWidget(self._section_label("TASK"))
@@ -495,9 +497,12 @@ class CreateV000Dialog(QtWidgets.QDialog):
         label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 5px;")
         return label
 
-    def _build_separator(self):
+    def _build_separator(self, orientation="h"):
         sep = QtWidgets.QFrame()
-        sep.setFrameShape(QtWidgets.QFrame.HLine)
+        if orientation == "v":
+            sep.setFrameShape(QtWidgets.QFrame.VLine)
+        else:
+            sep.setFrameShape(QtWidgets.QFrame.HLine)
         sep.setFrameShadow(QtWidgets.QFrame.Sunken)
         sep.setStyleSheet("color: #444444; margin: 0px;")
         return sep
