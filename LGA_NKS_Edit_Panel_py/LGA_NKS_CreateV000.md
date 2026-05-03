@@ -9,7 +9,7 @@ Herramienta para crear una secuencia EXR negra `v000` para el shot activo en Hie
 
 Abre un dialogo desde el Edit Panel que recolecta el contexto del shot bajo el playhead (secuencia, tracks, rango de frames, resolucion) y presenta una preview de los parametros de salida. Al confirmar, crea en disco una secuencia de frames EXR negros listos para ser importados en Hiero como punto de partida de compositing, roto o cleanup.
 
-La herramienta **solo crea archivos en disco**. La importacion al bin y la insercion en el timeline son el siguiente paso (pendiente de integracion).
+La herramienta crea archivos en disco, importa la v000 al bin correcto del proyecto y la coloca en el timeline cuando el rango destino esta disponible.
 
 ## Archivos principales
 
@@ -387,9 +387,9 @@ TASK_FOLDER = {"comp": "Comp", "roto": "Roto", "cleanup": "Cleanup"}
 
 ---
 
-## Pendiente: importar y colocar la v000 en Hiero
+## Importacion y colocacion en Hiero
 
-Luego de crear la secuencia EXR en disco, el siguiente paso es importarla automaticamente al proyecto de Hiero e insertarla en el timeline.
+Luego de crear la secuencia EXR en disco, la herramienta la importa automaticamente al proyecto de Hiero e intenta insertarla en el timeline.
 
 El flujo fue validado en scripts de exploracion. Ver resultados en `LGA_NKS_CreateV000_Plan.md`.
 
@@ -406,15 +406,21 @@ track_item.setTimes(timeline_in, timeline_out - 1, 0, frame_count - 1)
 track_item.setVersionLinkedToBin(True)          # Debe llamarse al final
 ```
 
-**Politicas de la integracion pendiente:**
+**Politicas de la integracion:**
 
 - Importar al bin `F <Secuencia>/<ShotName>` (estructura de `Organize Project`).
 - Insertar en `_comp_`, `_roto_` o `_cleanup_` segun task.
 - Cancelar si el track destino no existe (no crear tracks automaticamente).
-- Cancelar o pedir confirmacion si hay overlap en el rango destino.
+- Si hay overlap en el rango destino, mostrar opciones:
+  - `Cancel`
+  - `Create EXRs Only`
+  - `Create + Import to Bin`
+  - `Create + Import to Bin & Timeline`
 - Source relativo: `0` a `frame_count - 1`.
 - `TrackItem.setTimes()` recibe `timeline_out - 1` (inclusivo).
 - `setVersionLinkedToBin(True)` solo funciona despues de que el TrackItem ya fue agregado y sus tiempos ajustados.
+
+`Create + Import to Bin & Timeline` borra solo clips reales del track destino que se solapan con el rango de la v000, importa el nuevo clip y lo coloca en timeline. No borra efectos ni clips de otros tracks.
 
 **Scripts de exploracion de referencia:**
 
@@ -436,5 +442,5 @@ C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-Trac
 | `LGA_NKS_Shared\LGA_NKS_Flow_NamingUtils.py` | `clean_base_name()`, `extract_project_name()`, `extract_shot_code()` |
 | `LGA_NKS_Shared\LGA_NKS_Flow_Task_Config.py` | `get_task_color()` |
 | `LGA_NKS_Shared\OIIO_Win\oiiotool.exe` | Creacion de EXR negro |
-| `LGA_NKS_Edit_Panel_py\LGA_NKS_OrganizeProject.py` | Estructura de bins usada como referencia para la importacion pendiente |
-| `LGA_NKS_Edit_Panel_py\LGA_NKS_SetShotName.py` | Logica de naming de clips usada como referencia para la importacion pendiente |
+| `LGA_NKS_Edit_Panel_py\LGA_NKS_OrganizeProject.py` | Estructura de bins usada por la importacion |
+| `LGA_NKS_Edit_Panel_py\LGA_NKS_SetShotName.py` | Logica de naming de clips usada por la importacion |
