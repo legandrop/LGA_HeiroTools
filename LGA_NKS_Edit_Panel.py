@@ -1,10 +1,11 @@
 """
 ____________________________________________________________________
 
-  LGA_EditToolsPanel v2.99 | Lega
+  LGA_EditToolsPanel v3.00 | Lega
 
   Tools panel for Hiero / Nuke Studio
 
+  v3.00: Reconnect colapsado en un solo botón con submenu flotante (T>N, N>T, Win>Mac)
   v2.99: Create v000
   v2.98: Agregado sistema de scroll, logging a archivo y gap vertical
   v2.97: Actualizado para usar estilos dinámicos con bordes y hover para todos los botones
@@ -198,6 +199,71 @@ class CustomButton(QtWidgets.QPushButton):
             super(CustomButton, self).mousePressEvent(event)
 
 
+class ReconnectPopup(QtWidgets.QFrame):
+    def __init__(self, parent=None):
+        super(ReconnectPopup, self).__init__(parent, QtCore.Qt.Popup)
+        self.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        self.setStyleSheet("""
+            QFrame {
+                background-color: #2a2a2a;
+                border: 1px solid #6a5a30;
+                border-radius: 4px;
+            }
+        """)
+        layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(3)
+        self.setLayout(layout)
+
+    def add_button(self, text, callback, style="#4a4329", tooltip=None, shift_callback=None):
+        border_color = calculate_dynamic_border(style)
+        hover_color = calculate_dynamic_hover(style)
+        btn_stylesheet = f"""
+            QPushButton {{
+                background-color: {style};
+                border: 1px solid {border_color};
+                border-radius: 3px;
+                color: #d8d8d8;
+                padding: 0px 8px;
+                min-height: 20px;
+                min-width: 110px;
+            }}
+            QPushButton:hover {{
+                background-color: {hover_color};
+            }}
+            QPushButton:pressed {{
+                background-color: {style}aa;
+            }}
+        """
+        popup = self
+        if shift_callback:
+            button = CustomButton(text)
+            def make_handlers(cb, scb):
+                def on_click():
+                    cb()
+                    popup.hide()
+                def on_shift():
+                    scb()
+                    popup.hide()
+                return on_click, on_shift
+            on_click, on_shift = make_handlers(callback, shift_callback)
+            button.setCustomClickHandler(on_click)
+            button.setShiftClickHandler(on_shift)
+        else:
+            button = QtWidgets.QPushButton(text)
+            def make_handler(cb):
+                def on_click():
+                    cb()
+                    popup.hide()
+                return on_click
+            button.clicked.connect(make_handler(callback))
+        button.setStyleSheet(btn_stylesheet)
+        if tooltip:
+            button.setToolTip(tooltip)
+        self.layout().addWidget(button)
+        return button
+
+
 class ReconnectMediaWidget(QtWidgets.QWidget):
     def __init__(self):
         super(ReconnectMediaWidget, self).__init__()
@@ -247,9 +313,7 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
             ("Extend &Edit", self.extend_edit_to_playhead, "#453434", "Alt+E", "Alt+E\nExtiende el punto de salida del clip hasta el playhead (cambiando su velocidad)"),
             ("Trim &In", self.trim_in, "#453434", "Alt+[", "Alt+[\nTrimea el IN del clip a la posicion del playhead"),
             ("Trim &Out", self.trim_out, "#453434", "Alt+]", "Alt+]\nTrimea el OUT del clip a la posicion del playhead"),
-            ("Reconnect T > N", self.reconnect_t_to_n, "#4a4329", None, "Reconecta clips cambiando rutas de t: a n:"),
-            ("Reconnect N > T", self.reconnect_n_to_t, "#4a4329", None, "Reconecta clips cambiando rutas de n: a t:"),
-            ("Reconnect Win > Mac", self.execute_reconnect_win_to_mac, "#4a4329", None, "Click: Reconecta todos los clips del timeline\nShift+Click: Reconecta solo los clips seleccionados"),
+            ("Reconnect ▸", self.show_reconnect_popup, "#4a4329", None, "Despliega las opciones de reconexión de media"),
             (
                 "Reconnect Media",
                 self.reconnectMediaFromTimeline,
@@ -287,6 +351,9 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
             ),
             ("Check Frames", self.check_frames, "#4a4329", None, "Revisa los clips seleccionados para ver si tienen frames faltantes o corruptos"),
         ]
+
+        self.reconnect_btn_ref = None
+        self._build_reconnect_popup()
 
         self.num_columns = 1  # Inicialmente una columna
         self.button_width_hint = 0
@@ -331,10 +398,10 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
                 button = CustomButton(name)
                 button.setCustomClickHandler(self.compare_exr_aplate)
                 button.setShiftClickHandler(self.compare_exr_aplate_force_all)
-            elif name == "Reconnect Win > Mac":
-                button = CustomButton(name)
-                button.setCustomClickHandler(self.execute_reconnect_win_to_mac)
-                button.setShiftClickHandler(self.execute_reconnect_win_to_mac_selected)
+            elif name == "Reconnect ▸":
+                button = QtWidgets.QPushButton(name)
+                button.clicked.connect(handler)
+                self.reconnect_btn_ref = button
             else:
                 button = QtWidgets.QPushButton(name)
                 button.clicked.connect(handler)
@@ -744,6 +811,30 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
             import traceback
 
             debug_print_b(traceback.format_exc())
+
+    def _build_reconnect_popup(self):
+        self.reconnect_popup = ReconnectPopup(self)
+        self.reconnect_popup.add_button(
+            "T > N", self.reconnect_t_to_n, "#4a4329",
+            "Reconecta clips cambiando rutas de t: a n:"
+        )
+        self.reconnect_popup.add_button(
+            "N > T", self.reconnect_n_to_t, "#4a4329",
+            "Reconecta clips cambiando rutas de n: a t:"
+        )
+        self.reconnect_popup.add_button(
+            "Win > Mac", self.execute_reconnect_win_to_mac, "#4a4329",
+            "Click: Reconecta todos los clips del timeline\nShift+Click: Reconecta solo los clips seleccionados",
+            shift_callback=self.execute_reconnect_win_to_mac_selected
+        )
+
+    def show_reconnect_popup(self):
+        if self.reconnect_btn_ref is None:
+            return
+        btn = self.reconnect_btn_ref
+        global_pos = btn.mapToGlobal(QtCore.QPoint(btn.width() + 2, 0))
+        self.reconnect_popup.move(global_pos)
+        self.reconnect_popup.show()
 
     ###### Reconnect
     def reconnect_t_to_n(self):
