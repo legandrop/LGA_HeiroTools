@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Projects_Panel_SwitchSequence v2.26 | Lega
+  LGA_NKS_Projects_Panel_SwitchSequence v2.27 | Lega
 
   Hiero / Nuke Studio - Switch V3: HÍBRIDO OPTIMIZADO + LIMPIEZA TOTAL + CROSS-PROJECT
 
@@ -19,6 +19,7 @@ ____________________________________________________________________
   INTEGRACIÓN EN PANEL DE PROYECTOS:
   from switch_sequence_v3_final import switch_to_sequence_hybrid
 
+  v2.27: Desactiva el Frame Number del ViewerTL al finalizar cada cambio de secuencia
   v2.26: Reinicia el log en cada cambio de timeline e inyecta el logger del Projects Panel en scripts shared
   v2.25: Agregado timeline pre-cleanup sobre la secuencia nueva.
          Elimina tracks NukeVFX y extiende BurnIn antes de los ajustes finales de UI.
@@ -563,6 +564,77 @@ def scroll_to_top_track(timeline_editor=None):
     return False
 
 
+def disable_frame_number_on_active_sequence():
+    """
+    Deshabilita el soft effect Frame_Only del track BurnIn en la secuencia activa.
+    No crea ni reposiciona el efecto; solo fuerza el overlay de frame a estado off.
+    """
+    try:
+        seq = hiero.ui.activeSequence()
+    except Exception as e:
+        debug_print(f"   Frame Number off: no se pudo obtener secuencia activa: {e}")
+        return False
+
+    if not seq:
+        debug_print("   Frame Number off: no hay secuencia activa")
+        return False
+
+    try:
+        from LGA_NKS_ViewerTL_Panel_py.LGA_NKS_FrameNumber import (
+            find_frame_only_effect,
+        )
+    except Exception as e:
+        debug_print(f"   Frame Number off: no se pudo importar helper: {e}")
+        return False
+
+    target_track = None
+    try:
+        for track in seq.videoTracks():
+            if track.name() == "BurnIn":
+                target_track = track
+                break
+    except Exception as e:
+        debug_print(f"   Frame Number off: error leyendo tracks: {e}")
+        return False
+
+    if not target_track:
+        debug_print("   Frame Number off: track BurnIn no encontrado")
+        return False
+
+    try:
+        frame_effect = find_frame_only_effect(target_track, "Frame_Only")
+    except Exception as e:
+        debug_print(f"   Frame Number off: error buscando Frame_Only: {e}")
+        return False
+
+    if not frame_effect:
+        debug_print("   Frame Number off: efecto Frame_Only no encontrado")
+        return False
+
+    try:
+        is_enabled = (
+            frame_effect.isEnabled() if hasattr(frame_effect, "isEnabled") else True
+        )
+    except Exception:
+        is_enabled = True
+
+    if not is_enabled:
+        debug_print("   Frame Number off: ya estaba desactivado")
+        return True
+
+    try:
+        if hasattr(frame_effect, "setEnabled"):
+            frame_effect.setEnabled(False)
+            debug_print("   Frame Number off: Frame_Only desactivado")
+            return True
+    except Exception as e:
+        debug_print(f"   Frame Number off: error desactivando Frame_Only: {e}")
+        return False
+
+    debug_print("   Frame Number off: Frame_Only no soporta setEnabled")
+    return False
+
+
 def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
     """
     Switch HÍBRIDO V3 PERFECTO: Mejor que v4 + LIMPIEZA TOTAL + CROSS-PROJECT
@@ -747,7 +819,17 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
         debug_print(f"   ├── Error aplicando LUT Rec.709: {e}")
     rec709_time = time.time() - step_start
 
-    # 14. Resultado final
+    # 14. Forzar Frame Number apagado tras el cambio de secuencia
+    frame_number_off_time = 0
+    frame_number_off_result = False
+    step_start = time.time()
+    try:
+        frame_number_off_result = disable_frame_number_on_active_sequence()
+    except Exception as e:
+        debug_print(f"   Frame Number off: error inesperado: {e}")
+    frame_number_off_time = time.time() - step_start
+
+    # 15. Resultado final
     total_time = time.time() - total_start
     debug_print(f"✅ Switch híbrido perfecto completado en {total_time:.2f}s")
     debug_print(f"   ├── Viewer capture: {viewer_capture_time:.3f}s")
@@ -759,6 +841,9 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
     debug_print(f"   ├── UI scroll: {scroll_time:.3f}s")
     debug_print(
         f"   ├── Rec.709 apply: {rec709_time:.3f}s | applied={rec709_applied}"
+    )
+    debug_print(
+        f"   Frame Number off: {frame_number_off_time:.3f}s | result={frame_number_off_result}"
     )
     if CLOSE_ALL_TIMELINES:
         debug_print(

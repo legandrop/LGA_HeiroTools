@@ -6,7 +6,7 @@
 ## Concepto rapido
 - Panel `com.lega.ProjectsPanel` para Hiero/Nuke Studio que escanea `T:\` (`VFX-*/*_SUP`), detecta la ultima version `.hrox`, y permite abrir proyectos y sus secuencias.
 - Barra superior: `Refresh` reescanea en background; estado visible; `Reimport` ejecuta el smart reload para redockear y aplicar cambios.
-- Click en proyecto lo abre; click en secuencia la abre en timeline (cross-project) preservando ajustes de viewer.
+- Click en proyecto lo abre; click en secuencia la abre en timeline (cross-project) preservando ajustes de viewer y dejando apagado el Frame Number del ViewerTL.
 - Boton `Update`: aparece al lado de proyectos abiertos cuando existe version mas nueva en disco y permite actualizar automaticamente.
 
 ## Archivos clave
@@ -17,7 +17,7 @@
 - `LGA_NKS_Projects_Panel_py/LGA_NKS_ScanManager.py` - Clase `ScanManager` para gestion de operaciones de escaneo.
 - `LGA_NKS_Projects_Panel_py/LGA_NKS_ProjectHandler.py` - Clase `ProjectHandler` para manejo de proyectos y apertura. `on_update_project_click()` actualiza proyectos.
 - `LGA_NKS_Projects_Panel_py/LGA_Projects_Panel_ScanProjects.py` - `scan_projects_on_disk()`, `get_open_projects_info()`, `is_project_open()`, `get_project_sequences()`, `get_projects_with_newer_versions()`.
-- `LGA_NKS_Projects_Panel_py/LGA_Projects_Panel_SwitchSequence.py` - `switch_to_sequence_hybrid()` (V3 hibrida: preserva gain/gamma/saturation/playhead, optimiza UI, hace pre-cleanup del timeline nuevo y funciona cross-project).
+- `LGA_NKS_Projects_Panel_py/LGA_Projects_Panel_SwitchSequence.py` - `switch_to_sequence_hybrid()` (V3 hibrida: preserva gain/gamma/saturation/playhead, optimiza UI, hace pre-cleanup del timeline nuevo, apaga `Frame_Only` y funciona cross-project). `disable_frame_number_on_active_sequence()` desactiva el Frame Number del ViewerTL sin crearlo ni reposicionarlo.
 - `LGA_NKS_Projects_Panel_py/LGA_NKS_ProjectsPanel_Logging.py` - Helper compartido de logging para todo el flujo del panel.
 - `LGA_NKS_Shared/LGA_NKS_Timeline_PreCleanup.py` - `main()`, `remove_nukevfx_tracks()`, `extend_burnin_to_last_visible()`. Limpieza compartida de timeline para ViewerTL y Projects Panel.
 - `LGA_NKS_Shared/LGA_NKS_ScrollTo_TopTrack.py` - `main()`, `obtener_limites_scrollbar()`, `scroll_to_position()`. Scroll vertical al top track, integrado al log del panel cuando se usa desde Projects Panel.
@@ -32,6 +32,7 @@
 - Update automatico: proyectos abiertos muestran boton `Update` cuando existe version mas nueva en disco.
 - Secuencias: solo de proyectos abiertos. Click llama `switch_to_sequence_hybrid()` y usa `hiero.ui.openInTimeline()` con el objeto `Sequence`.
 - En el cambio de secuencia se ejecuta un pre-cleanup sobre el timeline nuevo antes de los ajustes finales de UI: elimina tracks NukeVFX y extiende BurnIn hasta el ultimo clip visible.
+- Al final de cada cambio de secuencia, `disable_frame_number_on_active_sequence()` busca `Frame_Only` en el track `BurnIn` de la secuencia activa y lo deshabilita si estaba activo. No llama al toggle de posicionamiento, por lo que no crea el efecto ni lo enciende por accidente.
 - Contadores: etiqueta inferior muestra totales de proyectos encontrados y abiertos.
 - Reimport: ejecuta el smart reload externo para probar cambios sin reiniciar Hiero.
 
@@ -49,7 +50,14 @@
   - tiempos de ejecucion por etapa
   - resultados del pre-cleanup de timeline
   - resultados del scroll vertical al top track
+  - resultado de `Frame Number off`
   - mensajes del smart reload del panel
+
+## Referencias tecnicas
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Projects_Panel.py`: `ProjectsPanel`, import y wiring de `switch_to_sequence_hybrid()`.
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Projects_Panel_py\LGA_NKS_ProjectItem.py`: `ProjectItem.show_sequences()`, `ProjectItem.on_sequence_click()`.
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Projects_Panel_py\LGA_Projects_Panel_SwitchSequence.py`: `switch_to_sequence_hybrid()`, `disable_frame_number_on_active_sequence()`, `import_script()`.
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_ViewerTL_Panel_py\LGA_NKS_FrameNumber.py`: `find_frame_only_effect()`, `print_box_values()`.
 
 ## UI del panel
 - Titulo centrado `Projects`.

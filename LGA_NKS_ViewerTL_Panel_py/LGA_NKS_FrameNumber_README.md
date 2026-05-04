@@ -37,6 +37,10 @@ El script incluye una funcionalidad de toggle automático:
 
 Esta funcionalidad permite usar el script como un toggle rápido para mostrar/ocultar el frame number sin necesidad de cambiar manualmente el estado del efecto.
 
+### Apagado desde Projects Panel
+
+El cambio de secuencia del Projects Panel no llama a `print_box_values()` porque esa funcion es un toggle y podria crear o encender el efecto. En su lugar usa `disable_frame_number_on_active_sequence()` desde `LGA_Projects_Panel_SwitchSequence.py`, que reutiliza `find_frame_only_effect()` para localizar `Frame_Only` en `BurnIn` y solo ejecuta `setEnabled(False)` si el efecto estaba activo.
+
 ## Configuración
 
 Al inicio del script hay dos flags principales:
@@ -87,9 +91,16 @@ El script calcula el área visible del viewer usando:
 
 El cálculo de posición es consistente para ambos ejes (X e Y): se calcula el centro visible restando el pan del centro de la imagen, y luego se obtiene el offset restando la mitad de las dimensiones visibles.
 
-**Archivo principal**: `LGA_NKS_ViewerTL/LGA_NKS_FrameNumber.py`  
-**Función principal**: `print_box_values()`  
-**Script auxiliar**: `LGA_NKS_ViewerTL/LGA_NKS_FrameNumber_Create.py` (creación automática del efecto)
+**Archivo principal**: `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_FrameNumber.py`
+**Función principal**: `print_box_values()`
+**Helper compartido**: `find_frame_only_effect()`
+**Script auxiliar**: `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_FrameNumber_Create.py` (creación automática del efecto)
+
+## Referencias tecnicas
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_ViewerTL_Panel.py`: `ViewerPanel.frame_number_position()`.
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_ViewerTL_Panel_py\LGA_NKS_FrameNumber.py`: `print_box_values()`, `find_frame_only_effect()`.
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_ViewerTL_Panel_py\LGA_NKS_FrameNumber_Create.py`: `create_frame_only_effect()`.
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Projects_Panel_py\LGA_Projects_Panel_SwitchSequence.py`: `disable_frame_number_on_active_sequence()`.
 
 ## Dependencias
 

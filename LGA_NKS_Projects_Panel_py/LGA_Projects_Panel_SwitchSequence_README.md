@@ -18,6 +18,8 @@ Módulo auxiliar que implementa la **solución ganadora V3 Híbrida** para cambi
 - ✅ **UI completa:** Reduce panel + scroll automático
 - ✅ **Logging por switch:** reinicia `DebugPy_ProjectsPanel.log` al inicio de cada cambio de timeline
 
+Ademas, al terminar cada cambio de secuencia, el flujo desactiva el overlay de Frame Number (`Frame_Only`) del track `BurnIn` si estaba enabled. Este apagado no crea ni reposiciona el efecto.
+
 ## API
 
 ### Función Principal
@@ -122,7 +124,8 @@ def on_sequence_click(self, sequence_name):
 1. **Captura de Estado:** `_get_viewer_state()` - Gain/Gamma/Saturation
 2. **Lógica Principal:** `switch_to_sequence_hybrid()` - Algoritmo completo
 3. **Aplicación de Estado:** `_apply_viewer_settings()` - Restaura ajustes
-4. **UI Helpers:** `reduce_sequence_window()`, `scroll_to_top_track()`
+4. **Frame Number Off:** `disable_frame_number_on_active_sequence()` - Busca `Frame_Only` en `BurnIn` y lo deshabilita sin crear ni reposicionar el efecto
+5. **UI Helpers:** `reduce_sequence_window()`, `scroll_to_top_track()`
 
 ### Flujo de Ejecución
 ```
@@ -133,9 +136,12 @@ def on_sequence_click(self, sequence_name):
 5. Capturar viewer+timeline activos (originales)
 6. Abrir nueva secuencia (duplica, playhead automático)
 7. Cerrar viewer+timeline originales simultáneamente
-8. (Opcional) Cerrar TODOS los viewers+timelines viejos si `CLOSE_ALL_TIMELINES = True`
+8. Ejecutar pre-cleanup del timeline nuevo
 9. Aplicar ajustes preservados
-10. Optimizar UI (reduce + scroll)
+10. Optimizar UI (focus, reduce + scroll)
+11. (Opcional) Cerrar TODOS los viewers+timelines viejos si `CLOSE_ALL_TIMELINES = True`
+12. Aplicar LUT Rec.709 si existe
+13. Desactivar Frame Number (`Frame_Only`) de la secuencia activa
 ```
 
 ## Logs y Debugging
@@ -203,7 +209,14 @@ Una vez probado y funcionando en la ventana de testing:
 3. ✅ **Documentar** en documentación completa del panel - ✅ COMPLETADO
 4. ✅ **Resolver limitación entre proyectos** - ✅ COMPLETADO (usando objetos Sequence directamente)
 
-## Referencias
+## Referencias tecnicas
+
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Projects_Panel_py\LGA_Projects_Panel_SwitchSequence.py` - `switch_to_sequence_hybrid()`, `disable_frame_number_on_active_sequence()`, `_apply_rec709_if_available()`, `reduce_sequence_window()`, `scroll_to_top_track()`
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_ViewerTL_Panel_py\LGA_NKS_FrameNumber.py` - `find_frame_only_effect()`, `print_box_values()`
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Shared\LGA_NKS_Timeline_PreCleanup.py` - `main()`, `remove_nukevfx_tracks()`, `extend_burnin_to_last_visible()`
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Shared\LGA_NKS_ScrollTo_TopTrack.py` - `main()`, `scroll_to_position()`
+
+## Referencias historicas
 
 - [`DOCUMENTACION_COMPLETA_SWITCH_SEQUENCE.md`](../exploracion/DOCUMENTACION_COMPLETA_SWITCH_SEQUENCE.md) - Documentación técnica completa
 - [`test_sequence_switch_v3.py`](../exploracion/test_sequence_switch_v3.py) - Script de testing original
