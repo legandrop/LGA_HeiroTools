@@ -887,7 +887,17 @@ class ImportShotDialog(QtWidgets.QDialog):
             header.setSectionResizeMode(col, QtWidgets.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(len(headers) - 1, QtWidgets.QHeaderView.ResizeToContents)
 
+        # Click en cualquier celda (excepto col 0) togglea el checkbox de esa fila
+        table.cellClicked.connect(self._on_media_row_clicked)
+
         return table
+
+    def _on_media_row_clicked(self, row, col):
+        if col == 0:
+            return  # el checkbox maneja su propio click
+        if row in self._checkboxes:
+            chk = self._checkboxes[row]
+            chk.setChecked(not chk.isChecked())
 
     def _build_table_rows(self):
         """Construye la lista de filas para la tabla de media."""

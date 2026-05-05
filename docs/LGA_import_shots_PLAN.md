@@ -6,6 +6,25 @@
 
 ---
 
+## ⚠️ Regla de modularidad — OBLIGATORIA
+
+A medida que el script crece, los helpers se extraen a archivos separados.
+**Nunca agregar cientos de líneas nuevas al archivo principal.**
+
+Convención de nombres: `LGA_import_shots_<tipo>.py`
+
+| Archivo | Contenido |
+|---------|-----------|
+| `LGA_import_shots.py` | Entry point, clase `ImportShotDialog`, lógica de orquestación |
+| `LGA_import_shots_scan.py` | Helpers de escaneo de carpetas (`_scan_input_folder`, `_scan_publish_folders`, `_read_exr_metadata`, etc.) |
+| `LGA_import_shots_timeline.py` | Helpers de timeline (`_push_clips_right`, `_stretch_burnin`, `_find_insert_frame`, `_shot_exists_in_timeline`, etc.) |
+| `LGA_import_shots_bin.py` | Helpers de bin (`_find_or_create_bin`, `_import_clip_to_bin`, `_bin_path_for_shot`, etc.) |
+| `LGA_import_shots_ui.py` | Constantes de estilo, helpers de widgets (`_stepper_widget`, `_separator`, `_section_label`, estilos CSS, etc.) |
+
+Todos los módulos auxiliares viven en la misma carpeta: `LGA_NKS_Edit_Panel_py/`.
+
+---
+
 ## ⚠️ Referencias críticas de implementación
 
 ### LGA_NKS_CreateV000 — referencia principal
