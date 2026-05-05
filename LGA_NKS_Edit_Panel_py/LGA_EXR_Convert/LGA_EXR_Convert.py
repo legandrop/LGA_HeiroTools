@@ -16,9 +16,14 @@ from typing import Any
 
 
 BASE_DIR = Path(__file__).resolve().parent
-TOOLS_DIR = BASE_DIR / "Tools"
-EXRMETRICS = TOOLS_DIR / "OpenEXR" / "exrmetrics.exe"
-OIIOTOOL = TOOLS_DIR / "OIIO" / "oiiotool.exe"
+STARTUP_DIR = BASE_DIR.parent.parent
+SHARED_DIR = STARTUP_DIR / "LGA_NKS_Shared"
+OPENEXR_DIR = SHARED_DIR / "OpenEXR_Win"
+OIIO_DIR = SHARED_DIR / "OIIO_Win"
+FFMPEG_DIR = SHARED_DIR / "FFmpeg_Win" / "bin"
+EXRMETRICS = OPENEXR_DIR / "exrmetrics.exe"
+OIIOTOOL = OIIO_DIR / "oiiotool.exe"
+FFMPEG = FFMPEG_DIR / "ffmpeg.exe"
 
 
 @dataclass(frozen=True)

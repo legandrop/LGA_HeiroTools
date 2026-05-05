@@ -1,23 +1,33 @@
 # LGA_EXR_Convert
 
-Tool portable para convertir frames EXR, principalmente a DWAA, con soporte de resize y conversion OCIO.
+Tool para convertir frames EXR, principalmente a DWAA, con soporte de resize y conversion OCIO.
 
-El script esta pensado para ser llamado desde Hiero/Nuke Studio con un manifest JSON por job. Todas las rutas internas de tools se resuelven relativas a esta carpeta `BUILD`, asi se puede copiar la carpeta completa a otra repo o maquina.
+El script esta pensado para ser llamado desde Hiero/Nuke Studio con un manifest JSON por job. Las tools binarias compartidas se resuelven desde `LGA_NKS_Shared`, como carpeta hermana de los paneles.
 
 ## Estructura
 
 ```text
-BUILD/
-  LGA_EXR_Convert.py
-  LGA_EXR_Convert.MD
-  Tools/
-    OpenEXR/
+Startup/
+  LGA_NKS_Edit_Panel_py/
+    LGA_EXR_Convert/
+      LGA_EXR_Convert.py
+      LGA_EXR_Convert.MD
+  LGA_NKS_Shared/
+    OpenEXR_Win/
       exrmetrics.exe
       *.dll
-    OIIO/
+    OIIO_Win/
       oiiotool.exe
       iinfo.exe
       *.dll
+    FFmpeg_Win/
+      bin/
+        ffmpeg.exe
+        ffprobe.exe
+        ffplay.exe
+      LICENSE.txt
+      doc/
+      presets/
     OCIO/
       configs/
 ```
@@ -65,7 +75,7 @@ Cada task debe tener el path de entrada y el path final de salida. Si tu herrami
 
 `resize` y `ocio` pueden ser `null` o estar ausentes.
 
-Si `src` o `dst` son relativos, se resuelven relativos a la carpeta donde esta el manifest. Si `ocio.config` es relativo, se resuelve relativo a la carpeta `BUILD`.
+Si `src` o `dst` son relativos, se resuelven relativos a la carpeta donde esta el manifest. Si `ocio.config` es relativo, se resuelve relativo a `LGA_NKS_Edit_Panel_py/LGA_EXR_Convert`.
 
 ## Uso Manual
 
@@ -137,6 +147,15 @@ Los benchmarks validaron metadata con `iinfo -v`.
 ## Notas De Portabilidad
 
 - No depende de tools instaladas globalmente ni del `PATH` del sistema.
-- `config.ocio` puede estar dentro de `Tools/OCIO/configs` o venir desde una ruta externa del proyecto.
-- En manifest, los paths relativos de frames son relativos al manifest; el path relativo de `ocio.config` es relativo a `BUILD`.
-- Para copiar a otra repo, copiar la carpeta `BUILD` completa.
+- Las tools Windows compartidas viven en `LGA_NKS_Shared`: `OpenEXR_Win`, `OIIO_Win` y `FFmpeg_Win`.
+- `config.ocio` puede estar dentro de `LGA_NKS_Shared/OCIO/configs` o venir desde una ruta externa del proyecto.
+- En manifest, los paths relativos de frames son relativos al manifest; el path relativo de `ocio.config` es relativo a `LGA_EXR_Convert`.
+- Para copiar a otra repo, copiar `LGA_NKS_Edit_Panel_py/LGA_EXR_Convert` junto con las tools necesarias de `LGA_NKS_Shared`.
+
+## FFmpeg Incluido
+
+- Fuente: BtbN FFmpeg-Builds, asset `ffmpeg-master-latest-win64-gpl.zip`.
+- Release: `latest`, publicado el 2026-05-04.
+- Version testeada: `N-124387-gaa14727cd5-20260504`.
+- Binario principal local: `LGA_NKS_Shared/FFmpeg_Win/bin/ffmpeg.exe`.
+- Nota Git: `FFmpeg_Win` queda ignorado por tamano; reinstalarlo desde la misma fuente cuando se prepare una maquina nueva.
