@@ -794,6 +794,61 @@ def _separator(orientation="h"):
     return sep
 
 
+class GradientTextLabel(QtWidgets.QLabel):
+    """QLabel que pinta su texto con un gradiente lineal limitado al ancho del texto."""
+    _DEBUG_LOGGED = False
+
+    def __init__(self, text, colors, bg_color="#313131", parent=None):
+        super().__init__(text, parent)
+        self._colors = colors
+        self._bg_color = bg_color
+
+    def paintEvent(self, event):
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.TextAntialiasing)
+        painter.setFont(self.font())
+        # Fondo
+        painter.fillRect(self.rect(), QtGui.QColor(self._bg_color))
+
+        # Calcular el bounding rect real del texto
+        fm = QtGui.QFontMetrics(self.font())
+        text = self.text()
+        text_w = fm.horizontalAdvance(text) if hasattr(fm, "horizontalAdvance") else fm.width(text)
+        text_h = fm.height()
+        margins = self.contentsMargins()
+        # Posicion del texto: alineado a la izquierda con padding-left
+        x0 = margins.left()
+        y0 = (self.height() - text_h) // 2
+        text_rect = QtCore.QRect(x0, y0, text_w, text_h)
+
+        # Gradiente horizontal limitado al ancho del texto
+        gradient = QtGui.QLinearGradient(x0, 0, x0 + text_w, 0)
+        n = len(self._colors)
+        for i, c in enumerate(self._colors):
+            pos = i / (n - 1) if n > 1 else 0
+            gradient.setColorAt(pos, QtGui.QColor(c))
+        pen = QtGui.QPen(QtGui.QBrush(gradient), 1)
+        painter.setPen(pen)
+        painter.drawText(text_rect, QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter, text)
+        painter.end()
+
+        # Log unico (primer paint) para debug
+        if not GradientTextLabel._DEBUG_LOGGED:
+            GradientTextLabel._DEBUG_LOGGED = True
+            try:
+                debug_print(
+                    "GradientText paint: widget=%dx%d text='%s' "
+                    "text_w=%d text_h=%d text_rect=(%d,%d,%d,%d) "
+                    "gradient_x=(%d -> %d)" % (
+                        self.width(), self.height(), text,
+                        text_w, text_h, x0, y0, text_w, text_h,
+                        x0, x0 + text_w
+                    )
+                )
+            except Exception:
+                pass
+
+
 # ══════════════════════════════════════════════════════════════════
 #  Dialogo principal
 # ══════════════════════════════════════════════════════════════════
@@ -1053,36 +1108,6 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         return rows
 
-    def _debug_check_gradient(self, widget):
-        """Samplea pixeles del widget renderizado y loggea los colores reales."""
-        try:
-            w, h = widget.width(), widget.height()
-            x_pos, y_pos = widget.x(), widget.y()
-            debug_print("GradientBar geom: pos=(%d,%d) size=%dx%d  visible=%s" % (
-                x_pos, y_pos, w, h, widget.isVisible()))
-            parent = widget.parentWidget()
-            if parent:
-                debug_print("  parent: %s size=%dx%d" % (
-                    parent.__class__.__name__, parent.width(), parent.height()))
-            if w <= 0 or h <= 0:
-                debug_print("GradientBar tiene tamano 0, no se puede samplear", level="warning")
-                return
-            pix = widget.grab()
-            img = pix.toImage()
-            iw, ih = img.width(), img.height()
-            debug_print("Grabbed pixmap: %dx%d" % (iw, ih))
-            if iw == 0 or ih == 0:
-                debug_print("Pixmap vacio", level="warning")
-                return
-            x = iw // 2
-            samples = []
-            for label, y in [("top", 0), ("mid", ih // 2), ("bot", ih - 1)]:
-                c = QtGui.QColor(img.pixel(x, y))
-                samples.append("%s=%s" % (label, c.name()))
-            debug_print("GradientBar pixels: " + "  ".join(samples))
-        except Exception as e:
-            debug_print("Error en _debug_check_gradient: %s" % e, level="error")
-
     def _populate_section_header_row(self, table, row_i, row_data):
         ncols = table.columnCount()
         color = row_data["color"]
@@ -1100,8 +1125,6 @@ class ImportShotDialog(QtWidgets.QDialog):
             bar.setBackground(QtGui.QBrush(gradient))
             bar.setFlags(QtCore.Qt.NoItemFlags)
             table.setItem(row_i, 0, bar)
-            debug_print("Col 0 width: %d  row height: %d" % (
-                table.columnWidth(0), table.rowHeight(row_i)))
         else:
             # Para otras secciones, color sólido
             bar = QtWidgets.QTableWidgetItem()
@@ -1110,11 +1133,21 @@ class ImportShotDialog(QtWidgets.QDialog):
             table.setItem(row_i, 0, bar)
 
         table.setSpan(row_i, 1, 1, ncols - 1)
-        lbl = QtWidgets.QLabel("  " + label)
-        lbl.setStyleSheet(
-            "color: %s; font-weight: bold; font-size: 11px; "
-            "padding: 3px 8px; background: #313131; letter-spacing: 1px;" % text_color
-        )
+        if label == "PUBLISH":
+            lbl = GradientTextLabel(
+                "  " + label, ["#27c8c3", "#2abf7e", "#3381e0"]
+            )
+            lbl.setContentsMargins(8, 3, 8, 3)
+            font = lbl.font()
+            font.setBold(True)
+            font.setPointSize(8)
+            lbl.setFont(font)
+        else:
+            lbl = QtWidgets.QLabel("  " + label)
+            lbl.setStyleSheet(
+                "color: %s; font-weight: bold; font-size: 11px; "
+                "padding: 3px 8px; background: #313131; letter-spacing: 1px;" % text_color
+            )
         table.setCellWidget(row_i, 1, lbl)
         table.setRowHeight(row_i, 24)
 
