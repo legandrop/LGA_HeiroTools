@@ -794,7 +794,6 @@ def _separator(orientation="h"):
     return sep
 
 
-
 # ══════════════════════════════════════════════════════════════════
 #  Dialogo principal
 # ══════════════════════════════════════════════════════════════════
@@ -1054,18 +1053,64 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         return rows
 
+    def _debug_check_gradient(self, widget):
+        """Samplea pixeles del widget renderizado y loggea los colores reales."""
+        try:
+            w, h = widget.width(), widget.height()
+            x_pos, y_pos = widget.x(), widget.y()
+            debug_print("GradientBar geom: pos=(%d,%d) size=%dx%d  visible=%s" % (
+                x_pos, y_pos, w, h, widget.isVisible()))
+            parent = widget.parentWidget()
+            if parent:
+                debug_print("  parent: %s size=%dx%d" % (
+                    parent.__class__.__name__, parent.width(), parent.height()))
+            if w <= 0 or h <= 0:
+                debug_print("GradientBar tiene tamano 0, no se puede samplear", level="warning")
+                return
+            pix = widget.grab()
+            img = pix.toImage()
+            iw, ih = img.width(), img.height()
+            debug_print("Grabbed pixmap: %dx%d" % (iw, ih))
+            if iw == 0 or ih == 0:
+                debug_print("Pixmap vacio", level="warning")
+                return
+            x = iw // 2
+            samples = []
+            for label, y in [("top", 0), ("mid", ih // 2), ("bot", ih - 1)]:
+                c = QtGui.QColor(img.pixel(x, y))
+                samples.append("%s=%s" % (label, c.name()))
+            debug_print("GradientBar pixels: " + "  ".join(samples))
+        except Exception as e:
+            debug_print("Error en _debug_check_gradient: %s" % e, level="error")
+
     def _populate_section_header_row(self, table, row_i, row_data):
         ncols = table.columnCount()
         color = row_data["color"]
         text_color = row_data.get("text_color", color)
+        label = row_data["label"]
 
-        bar = QtWidgets.QTableWidgetItem()
-        bar.setBackground(QtGui.QColor(color))
-        bar.setFlags(QtCore.Qt.NoItemFlags)
-        table.setItem(row_i, 0, bar)
+        # Para PUBLISH, usar gradiente de colores (cleanup → roto → comp)
+        if label == "PUBLISH":
+            gradient = QtGui.QLinearGradient(0, 0, 0, 1)
+            gradient.setCoordinateMode(QtGui.QGradient.ObjectBoundingMode)
+            gradient.setColorAt(0.0, QtGui.QColor("#27c8c3"))   # cleanup
+            gradient.setColorAt(0.5, QtGui.QColor("#2abf7e"))   # roto
+            gradient.setColorAt(1.0, QtGui.QColor("#3381e0"))   # comp
+            bar = QtWidgets.QTableWidgetItem()
+            bar.setBackground(QtGui.QBrush(gradient))
+            bar.setFlags(QtCore.Qt.NoItemFlags)
+            table.setItem(row_i, 0, bar)
+            debug_print("Col 0 width: %d  row height: %d" % (
+                table.columnWidth(0), table.rowHeight(row_i)))
+        else:
+            # Para otras secciones, color sólido
+            bar = QtWidgets.QTableWidgetItem()
+            bar.setBackground(QtGui.QColor(color))
+            bar.setFlags(QtCore.Qt.NoItemFlags)
+            table.setItem(row_i, 0, bar)
 
         table.setSpan(row_i, 1, 1, ncols - 1)
-        lbl = QtWidgets.QLabel("  " + row_data["label"])
+        lbl = QtWidgets.QLabel("  " + label)
         lbl.setStyleSheet(
             "color: %s; font-weight: bold; font-size: 11px; "
             "padding: 3px 8px; background: #313131; letter-spacing: 1px;" % text_color
