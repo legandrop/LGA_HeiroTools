@@ -823,8 +823,8 @@ class ImportShotDialog(QtWidgets.QDialog):
         self.setObjectName("LGA_ImportShotDialog")
         self.setModal(True)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-        self.setMinimumWidth(820)
-        self.setMinimumHeight(500)
+        self.setMinimumWidth(970)
+        self.setMinimumHeight(650)
         self.setStyleSheet(_DIALOG_STYLE)
 
         self._root_layout = QtWidgets.QVBoxLayout(self)
@@ -979,8 +979,9 @@ class ImportShotDialog(QtWidgets.QDialog):
                 self._populate_data_row(table, i, row_data)
 
         header = table.horizontalHeader()
+        header.setMinimumSectionSize(1)
         header.setSectionResizeMode(0, QtWidgets.QHeaderView.Fixed)
-        table.setColumnWidth(0, 4)
+        table.setColumnWidth(0, 10)
         header.setSectionResizeMode(1, QtWidgets.QHeaderView.Fixed)
         table.setColumnWidth(1, 28)
         header.setSectionResizeMode(2, QtWidgets.QHeaderView.Stretch)
@@ -1013,7 +1014,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             key=lambda p: (_TASK_ORDER.get(p["task"], 9), -p["version_num"])
         )
         if pub_sorted:
-            rows.append({"type": "section_header", "label": "PUBLISH", "color": "#555555"})
+            rows.append({"type": "section_header", "label": "PUBLISH", "color": "#777777"})
             for p in pub_sorted:
                 idx = len(rows)
                 self._section_data_rows["publish"].append(idx)
@@ -1023,7 +1024,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         # PLATES — EXR sequences de _input (ya vienen ordenadas del scan)
         plates = [i for i in self.input_items if i["kind"] == "exr_seq"]
         if plates:
-            rows.append({"type": "section_header", "label": "PLATES", "color": _CLR_PLATES})
+            rows.append({"type": "section_header", "label": "PLATES", "color": "#6fc9d9"})
             for item in plates:
                 idx = len(rows)
                 self._section_data_rows["plates"].append(idx)
