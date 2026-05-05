@@ -242,7 +242,7 @@ Los tres botones operan sobre los items que tienen el checkbox marcado.
 | Boton | Color | Habilitado cuando | Accion |
 |-------|-------|-------------------|--------|
 | Rename | secundario `#3a3a3a` | hay al menos 1 item marcado | abre sub-vista de renombrado |
-| EXR Convert | secundario `#3a3a3a` | hay al menos 1 EXR seq de input marcado | abre sub-vista de conversion |
+| Transcode EXR | secundario `#3a3a3a` | hay al menos 1 EXR seq de input marcado | abre sub-vista de conversion |
 | Import | primario `#2a4d3a` | hay al menos 1 item marcado | ejecuta import (ver logica abajo) |
 
 ### Logica de Import (comportamiento previsto)
@@ -386,7 +386,7 @@ Basado en `LGA_NKS_CreateV000.py`:
 - Fondo: `#2B2B2B`, texto principal: `#CCCCCC`, texto secundario: `#a7a7a7`
 - Tablas: fondo `#272727`, borde `#333333`, headers `#999999`
 - Boton primario (Import): `#2a4d3a` con borde `#3a7a55`
-- Botones secundarios (Rename, EXR Convert): `#3a3a3a` con borde `#555555`
+- Botones secundarios (Rename, Transcode EXR): `#3a3a3a` con borde `#555555`
 - Botones pequenos (seleccion): `#2e2e2e` con borde `#444444`, texto `#999999`
 - Boton cancelar/volver: `#555555` con borde `#666666`
 - Ancho minimo del dialogo: `820px`

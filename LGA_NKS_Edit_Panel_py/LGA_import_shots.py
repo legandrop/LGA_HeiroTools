@@ -956,6 +956,7 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         # Botones de acción — operan sobre los items con checkbox marcado
         btn_row = QtWidgets.QHBoxLayout()
+        btn_row.addStretch()
 
         self._rename_btn = QtWidgets.QPushButton("Rename")
         self._rename_btn.setStyleSheet(_BTN_SECONDARY)
@@ -965,7 +966,7 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         btn_row.addSpacing(6)
 
-        self._convert_btn = QtWidgets.QPushButton("EXR Convert")
+        self._convert_btn = QtWidgets.QPushButton("Transcode EXR")
         self._convert_btn.setStyleSheet(_BTN_SECONDARY)
         self._convert_btn.setToolTip(
             "Convertir EXR sequences seleccionadas (DWAA, resolución, etc.)"
@@ -973,9 +974,9 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._convert_btn.clicked.connect(self._go_to_convert)
         btn_row.addWidget(self._convert_btn)
 
-        btn_row.addStretch()
+        btn_row.addSpacing(6)
 
-        self._import_btn = QtWidgets.QPushButton("✓  Import")
+        self._import_btn = QtWidgets.QPushButton("Import")
         self._import_btn.setStyleSheet(_BTN_PRIMARY)
         self._import_btn.setToolTip("Importar los items seleccionados al timeline")
         self._import_btn.clicked.connect(self.accept)
