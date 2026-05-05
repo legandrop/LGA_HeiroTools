@@ -319,8 +319,10 @@ donde se distribuya la repo.
 | Columna | EXR (oiiotool) | MOV/MXF (ffprobe) |
 |---------|---------------|-------------------|
 | Res | `W x H` de la primera linea de `--info -v` | `width` / `height` del video stream |
-| FPS | `—` (no aplica para secuencias) | `r_frame_rate` del video stream |
+| FPS | `framesPerSecond` (si el archivo lo tiene embebido) | `r_frame_rate` del video stream |
 | Compresion | `compression:` de la salida verbose | `codec_name` del video stream |
+| Frames | rango escaneado de la secuencia EXR | `nb_frames` del video stream (fallback: `duration × fps`) |
+| Tipo | `EXR seq` | extension real del archivo: `MOV`, `MXF`, `MP4` |
 
 ---
 

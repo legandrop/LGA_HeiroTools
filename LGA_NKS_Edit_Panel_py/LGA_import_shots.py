@@ -207,9 +207,10 @@ def _scan_exr_sequence(folder_path):
 
 def _read_exr_metadata(exr_path):
     """Resolucion y compresion de un frame EXR via oiiotool --info -v."""
-    w, h, comp = None, None, None
+    w, h, fps, comp = None, None, None, None
     if not (_OIIOTOOL and _OIIOTOOL.exists()):
-        return w, h, None, comp
+        debug_print("_read_exr_metadata: oiiotool no disponible", level="warning")
+        return w, h, fps, comp
     try:
         r = subprocess.run(
             [str(_OIIOTOOL), "--info", "-v", str(exr_path)],
@@ -217,24 +218,40 @@ def _read_exr_metadata(exr_path):
             **_SUBPROCESS_EXTRA,
         )
         out = r.stdout + r.stderr
+        debug_print("oiiotool output para %s:\n%s" % (Path(exr_path).name, out[:600]))
         # "path/to/file.exr:  1920 x 1080, 3 channel, half openexr"
         m = re.search(r"(\d+)\s*x\s*(\d+)", out)
         if m:
             w, h = int(m.group(1)), int(m.group(2))
+        # 'framesPerSecond: 24/1'  o  'framesPerSecond: 24'
+        m = re.search(r'[Ff]rames[Pp]er[Ss]econd[:\s]+"?(\d+)/(\d+)"?', out)
+        if m:
+            num, den = int(m.group(1)), int(m.group(2))
+            if den:
+                fps = float(num) / float(den)
+        if fps is None:
+            m = re.search(r'[Ff]rames[Pp]er[Ss]econd[:\s]+"?([\d.]+)"?', out)
+            if m:
+                try:
+                    fps = float(m.group(1))
+                except Exception:
+                    pass
         # '    compression: "zip"'  o  '    compression: dwaa'
         m = re.search(r'compression[:\s]+"?([A-Za-z0-9_]+)"?', out, re.IGNORECASE)
         if m:
             comp = m.group(1)
-    except Exception:
-        pass
-    return w, h, None, comp  # fps siempre None para secuencias EXR
+        debug_print("EXR meta: %sx%s fps=%s comp=%s" % (w, h, fps, comp))
+    except Exception as e:
+        debug_print("_read_exr_metadata error: %s" % e, level="error")
+    return w, h, fps, comp
 
 
 def _read_mov_metadata(mov_path):
-    """Resolucion, fps y codec de un MOV/MXF via ffprobe (JSON)."""
-    w, h, fps, codec = None, None, None, None
+    """Resolucion, fps, codec y nb_frames de un MOV/MXF via ffprobe (JSON)."""
+    w, h, fps, codec, nb_frames = None, None, None, None, None
     if not (_FFPROBE and _FFPROBE.exists()):
-        return w, h, fps, codec
+        debug_print("_read_mov_metadata: ffprobe no disponible", level="warning")
+        return w, h, fps, codec, nb_frames
     try:
         r = subprocess.run(
             [str(_FFPROBE), "-v", "quiet", "-print_format", "json",
@@ -255,11 +272,25 @@ def _read_mov_metadata(mov_path):
                         fps = float(num) / float(den)
                     except Exception:
                         pass
+                # nb_frames: campo directo o calculado desde duracion * fps
+                raw_nb = stream.get("nb_frames")
+                if raw_nb:
+                    try:
+                        nb_frames = int(raw_nb)
+                    except Exception:
+                        pass
+                if nb_frames is None and fps and stream.get("duration"):
+                    try:
+                        nb_frames = int(round(float(stream["duration"]) * fps))
+                    except Exception:
+                        pass
                 break
-    except Exception:
-        pass
+        debug_print("MOV meta %s: %sx%s fps=%s codec=%s frames=%s" % (
+            Path(mov_path).name, w, h, fps, codec, nb_frames))
+    except Exception as e:
+        debug_print("_read_mov_metadata error: %s" % e, level="error")
     # codec se almacena en el campo "compression" del item
-    return w, h, fps, codec
+    return w, h, fps, codec, nb_frames
 
 
 def _scan_input_folder(shot_root):
@@ -336,15 +367,16 @@ def _scan_input_folder(shot_root):
                 track = "EditRef"
             else:
                 track = "?"           # desconocido, usuario decide
-            mw, mh, mfps, mcodec = _read_mov_metadata(str(f))
+            mw, mh, mfps, mcodec, mnb = _read_mov_metadata(str(f))
             items.append({
                 "name": f.stem,
                 "path": str(f),
                 "kind": "mov",
+                "ext": f.suffix.lstrip(".").upper(),  # "MOV", "MXF", "MP4"
                 "track": track,
-                "first_frame": None,
-                "last_frame": None,
-                "frame_count": None,
+                "first_frame": 1 if mnb else None,
+                "last_frame": mnb,
+                "frame_count": mnb,
                 "first_file": str(f),
                 "width": mw, "height": mh, "fps": mfps, "compression": mcodec,
                 "is_latest": True,
@@ -1016,11 +1048,14 @@ class ImportShotDialog(QtWidgets.QDialog):
         table.setItem(row, 1, name_item)
 
         # Col 2: tipo
-        kind_map = {"exr_seq": "EXR seq", "mov": "MOV/MXF", "other": "Archivo"}
         if source == "publish":
             kind_str = "EXR seq"
+        elif item.get("kind") == "exr_seq":
+            kind_str = "EXR seq"
+        elif item.get("kind") == "mov":
+            kind_str = item.get("ext") or Path(item.get("path", "")).suffix.lstrip(".").upper() or "MOV"
         else:
-            kind_str = kind_map.get(item.get("kind", ""), "—")
+            kind_str = "Archivo"
         table.setItem(row, 2, QtWidgets.QTableWidgetItem(kind_str))
 
         # Col 3: resolución
