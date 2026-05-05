@@ -45,11 +45,54 @@ Llama a `main()` al ejecutarse como script externo desde el panel.
 
 ## Logging
 
-Usa el sistema de logging dual estandar del proyecto:
+Usa el sistema de logging dual estandar del proyecto (Sistema A — timer + limpieza por ejecucion).
 
-- `DEBUG = True`, `DEBUG_CONSOLE = False`, `DEBUG_LOG = True`
-- Archivo: `C:\Users\leg4-pc\.nuke\Python\Startup\logs\debugPy_ImportShots.log`
-- Formato relativo: `[0.123s] mensaje`
+### Variables de control
+
+```python
+DEBUG = True           # Master switch
+DEBUG_CONSOLE = False  # Salida a consola (off por defecto)
+DEBUG_LOG = True       # Escritura al archivo .log
+```
+
+### Archivo de log
+
+`C:\Users\leg4-pc\.nuke\Python\Startup\logs\debugPy_ImportShots.log`
+
+Formato: `[0.123s] mensaje`
+El archivo se borra y recrea en cada ejecucion con encabezado `Fecha: YYYY-MM-DD HH:MM:SS`.
+
+### Funciones del sistema
+
+| Funcion | Descripcion |
+|---------|-------------|
+| `RelativeTimeFormatter` | Formatter con tiempo relativo desde inicio |
+| `setup_debug_logging(script_name)` | Configura `QueueHandler + QueueListener`, `propagate=False` |
+| `debug_print(*message, level="info")` | Funcion de logging publica, acepta multiples argumentos |
+| `cleanup_logging()` | Detiene el listener; registrado con `atexit` |
+
+Logger name: `importshots_logger`
+
+### Como agregar debug prints
+
+Usar `debug_print()` (argumentos variadicos, igual que `print`):
+
+```python
+debug_print("=== Iniciando escaneo ===")
+debug_print("Shot root:", shot_root, "name:", shot_name)
+debug_print("Track no existe:", track_name, level="warning")
+debug_print("Error critico:", e, level="error")
+```
+
+Puntos clave donde ya hay instrumentacion:
+- `main()`: inicio, carpeta elegida, deteccion de duplicado
+- `_scan_input_folder()` / `_scan_publish_folders()`: cantidad de items encontrados
+- `_find_insert_frame()`: insert_frame, frames_to_push, duracion
+- `_push_clips_right()`: frame de insercion y cantidad desplazada
+- `_place_clip_in_timeline()`: nombre del clip, track, frame de colocacion
+- `_import_clip_to_bin()`: nombre del clip importado al bin
+- `_stretch_burnin()`: frame final del burnin
+- Errores de movimiento de clips y stretch
 
 ---
 

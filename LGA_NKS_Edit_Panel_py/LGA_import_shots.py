@@ -42,7 +42,7 @@ script_start_time = None
 debug_log_listener = None
 
 
-class _RelativeTimeFormatter(logging.Formatter):
+class RelativeTimeFormatter(logging.Formatter):
     def format(self, record):
         global script_start_time
         if script_start_time is None:
@@ -51,22 +51,22 @@ class _RelativeTimeFormatter(logging.Formatter):
         return super().format(record)
 
 
-def _setup_logging():
+def setup_debug_logging(script_name="ImportShots"):
     global debug_log_listener
-    log_path = STARTUP_DIR / "logs" / "debugPy_ImportShots.log"
+    log_path = STARTUP_DIR / "logs" / ("debugPy_%s.log" % script_name)
     log_path.parent.mkdir(exist_ok=True)
     try:
         log_path.write_text("Fecha: %s\n" % time.strftime("%Y-%m-%d %H:%M:%S"), encoding="utf-8")
     except Exception:
         pass
-    logger = logging.getLogger("import_shots_logger")
+    logger = logging.getLogger("%s_logger" % script_name.lower())
     logger.setLevel(logging.DEBUG)
     logger.propagate = False
     if logger.handlers:
         logger.handlers.clear()
     fh = logging.FileHandler(str(log_path), encoding="utf-8")
     fh.setLevel(logging.DEBUG)
-    fh.setFormatter(_RelativeTimeFormatter("[%(relative_time)s] %(message)s"))
+    fh.setFormatter(RelativeTimeFormatter("[%(relative_time)s] %(message)s"))
     lq = queue.Queue()
     qh = QueueHandler(lq)
     qh.setLevel(logging.DEBUG)
@@ -82,18 +82,32 @@ def _setup_logging():
     return logger
 
 
-_logger = _setup_logging()
+debug_logger = setup_debug_logging(script_name="ImportShots")
 
 
-def _log(msg, level="info"):
+def debug_print(*message, level="info"):
     global script_start_time
     if not (DEBUG and DEBUG_LOG):
         return
+    msg = " ".join(str(a) for a in message)
     if script_start_time is None:
         script_start_time = time.time()
-    getattr(_logger, level)(msg)
-    if DEBUG_CONSOLE:
+    getattr(debug_logger, level)(msg)
+    if DEBUG and DEBUG_CONSOLE:
         print("[%.3fs] %s" % (time.time() - script_start_time, msg))
+
+
+def cleanup_logging():
+    global debug_log_listener
+    if debug_log_listener:
+        try:
+            debug_log_listener.stop()
+        except Exception:
+            pass
+
+
+import atexit
+atexit.register(cleanup_logging)
 
 
 # ── colores (igual que CreateV000) ────────────────────────────────
@@ -520,7 +534,7 @@ def _push_clips_right(seq, from_frame, amount):
                 src_out = int(item.sourceOut())
                 item.setTimes(tl_in + amount, tl_out + amount, src_in, src_out)
             except Exception as e:
-                _log("Error moving clip %s: %s" % (item.name(), e), "warning")
+                debug_print("Error moving clip %s: %s" % (item.name(), e), level="warning")
 
 
 def _stretch_burnin(seq, new_end_frame):
@@ -537,9 +551,9 @@ def _stretch_burnin(seq, new_end_frame):
                 new_out = max(int(item.timelineOut()), new_end_frame)
                 new_src_out = src_in + (new_out - tl_in)
                 item.setTimes(tl_in, new_out, src_in, new_src_out)
-                _log("BurnIn stretched to frame %d" % new_out)
+                debug_print("BurnIn stretched to frame %d" % new_out)
             except Exception as e:
-                _log("Could not stretch BurnIn: %s" % e, "warning")
+                debug_print("Could not stretch BurnIn: %s" % e, level="warning")
         break
 
 
@@ -578,7 +592,7 @@ def _import_clip_to_bin(target_bin, first_file_path, clip_name):
         clip.setName(clip_name)
         bin_item = hiero.core.BinItem(clip)
         target_bin.addItem(bin_item)
-        _log("Imported to bin: %s" % clip_name)
+        debug_print("Imported to bin: %s" % clip_name)
         return clip, bin_item, None
     except Exception as e:
         return None, None, str(e)
@@ -1481,7 +1495,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             # 1. Push de clips existentes
             if self.frames_to_push > 0:
                 _push_clips_right(self.seq, self.insert_frame, shot_duration)
-                _log("Pushed clips from frame %d by %d" % (self.insert_frame, shot_duration))
+                debug_print("Pushed clips from frame %d by %d" % (self.insert_frame, shot_duration))
 
             # 2. Importar y colocar cada item
             placed_clips = []
@@ -1513,7 +1527,7 @@ class ImportShotDialog(QtWidgets.QDialog):
                         prow["name"], prow["track"], err2))
                 else:
                     placed_clips.append(track_item)
-                    _log("Placed %s in %s at frame %d" % (
+                    debug_print("Placed %s in %s at frame %d" % (
                         prow["name"], prow["track"], self.insert_frame))
 
             # 3. Stretch BurnIn
@@ -1577,7 +1591,7 @@ class ImportShotDialog(QtWidgets.QDialog):
 # ══════════════════════════════════════════════════════════════════
 
 def main():
-    _log("=== LGA_import_shots start ===")
+    debug_print("=== LGA_import_shots start ===")
 
     seq = hiero.ui.activeSequence()
     if not seq:
@@ -1594,12 +1608,12 @@ def main():
         QtWidgets.QFileDialog.ShowDirsOnly,
     )
     if not shot_root:
-        _log("Cancelled — no folder selected")
+        debug_print("Cancelled — no folder selected")
         return
 
     shot_root = shot_root.replace("\\", "/")
     shot_name = _get_shot_name_from_folder(shot_root)
-    _log("Shot root: %s  shot_name: %s" % (shot_root, shot_name))
+    debug_print("Shot root: %s  shot_name: %s" % (shot_root, shot_name))
 
     # Verificar si ya existe
     if _shot_exists_in_timeline(seq, shot_name, shot_root):
@@ -1609,17 +1623,17 @@ def main():
             "El shot '%s' ya existe en el timeline.\n\n"
             "No se puede importar un shot duplicado." % shot_name,
         )
-        _log("Aborted — shot already exists: %s" % shot_name)
+        debug_print("Aborted — shot already exists: %s" % shot_name, level="warning")
         return
 
     # Analizar carpeta
-    _log("Scanning _input...")
+    debug_print("Scanning _input...")
     input_items = _scan_input_folder(shot_root)
-    _log("Found %d input items" % len(input_items))
+    debug_print("Found %d input items" % len(input_items))
 
-    _log("Scanning publish folders...")
+    debug_print("Scanning publish folders...")
     publish_items = _scan_publish_folders(shot_root)
-    _log("Found %d publish entries" % len(publish_items))
+    debug_print("Found %d publish entries" % len(publish_items))
 
     # Calcular duracion del plate mas largo para posicionamiento
     max_frames = max(
@@ -1631,7 +1645,7 @@ def main():
         max_frames = 100  # fallback si no hay EXR todavia
 
     insert_frame, frames_to_push = _find_insert_frame(seq, shot_name, max_frames)
-    _log("Insert frame: %d  push: %d  duration: %d" % (
+    debug_print("Insert frame: %d  push: %d  duration: %d" % (
         insert_frame, frames_to_push, max_frames))
 
     # Abrir dialogo
