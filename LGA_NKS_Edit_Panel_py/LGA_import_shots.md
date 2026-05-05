@@ -9,10 +9,8 @@ y los coloca automaticamente en el timeline en la posicion alfabeticamente corre
 
 ## Descripcion
 
-Abre un file browser para elegir la carpeta raiz del shot. Luego presenta una
-ventana de tres fases (stepper) que guia al usuario a traves del analisis,
-el procesamiento opcional de media (Prep Media), y la importacion final al
-timeline y al bin del proyecto.
+Abre un file browser para elegir la carpeta raiz del shot. Luego presenta
+una ventana principal con la tabla de media detectada y tres botones de accion.
 
 La posicion de insercion en el timeline se calcula automaticamente escaneando
 los shots existentes y determinando la posicion alfabeticamente correcta,
@@ -31,7 +29,7 @@ sin depender del playhead.
 | `LGA_import_shots_scan.py` | Helpers de escaneo de carpetas y metadata |
 | `LGA_import_shots_timeline.py` | Helpers de timeline (push, stretch, posicionamiento) |
 | `LGA_import_shots_bin.py` | Helpers de bin (find/create, import) |
-| `LGA_import_shots_ui.py` | Estilos CSS, widgets helpers (stepper, separator) |
+| `LGA_import_shots_ui.py` | Estilos CSS, widgets helpers, separadores |
 
 ---
 
@@ -107,14 +105,15 @@ main()
     ├── _scan_input_folder()                -> lista de media en _input/
     ├── _scan_publish_folders()             -> versiones en {Task}/4_publish/
     ├── _find_insert_frame()                -> posicion alfabetica en el timeline
-    └── ImportShotDialog(...)
+    └── ImportShotDialog(...)               -> ventana principal con tabla + 3 botones
             |
-            ├── Fase 2: tabla de media (PHASE_MEDIA)
-            │       └── _build_media_table()
-            ├── Sub-vista: Prep Media (PHASE_PREP)
-            │       └── rename / convert (conversion pendiente herramienta externa)
-            └── Fase 3: preview placement (PHASE_IMPORT)
-                    └── _do_import()
+            ├── [Rename]  -> sub-vista de renombrado para items marcados
+            │                (stub: ventana temporal con Rename / Cancel)
+            ├── [Convert] -> sub-vista de conversion EXR para items marcados
+            │                Solo opera sobre EXR sequences. Si hay MOVs marcados,
+            │                muestra advertencia por cada uno y los excluye.
+            │                Si no hay ningun EXR marcado, no abre la sub-vista.
+            └── [Import]  -> _do_import() sobre items marcados
                             ├── _push_clips_right()
                             ├── _import_clip_to_bin()
                             ├── _place_clip_in_timeline()
@@ -145,7 +144,7 @@ T:/VFX-PROYECTO/101/MOR_1012C_010/          <- shot root
 
 ---
 
-## Fase 2 — Tabla de media
+## Ventana principal — Tabla de media
 
 ### Fuentes analizadas
 
@@ -182,22 +181,43 @@ T:/VFX-PROYECTO/101/MOR_1012C_010/          <- shot root
 Fallback: EXR sin coincidencia se asignan alfabeticamente (`aPlate`, `bPlate`...).
 MOV/MXF sin coincidencia → `EditRef`.
 
----
+### Botones de accion
 
-## Sub-vista Prep Media
+Los tres botones operan sobre los items que tienen el checkbox marcado.
 
-Permite renombrar y/o convertir los items marcados antes de importar.
-
-- **Rename:** estilo PowerRename (find/replace con preview en tiempo real)
-- **Convert:** checkbox DWAA, selector de resolucion con presets, opciones de Originals
-- **Log panel:** 3 lineas visibles, expandible con boton ▲/▼
-
-> La conversion real esta pendiente de integracion con la herramienta externa `.py`
-> que se agregara a `LGA_NKS_Edit_Panel_py/` cuando este lista.
+| Boton | Color | Habilitado cuando | Accion |
+|-------|-------|-------------------|--------|
+| Rename | secundario `#3a3a3a` | hay al menos 1 item marcado | abre sub-vista de renombrado |
+| Convert | secundario `#3a3a3a` | hay al menos 1 EXR seq marcado | abre sub-vista de conversion |
+| Import | primario `#2a4d3a` | hay al menos 1 item marcado | ejecuta `_do_import()` |
 
 ---
 
-## Fase 3 — Placement
+## Sub-vista Rename
+
+Estilo PowerRename: find/replace con preview en tiempo real sobre los nombres
+de los items marcados.
+
+> **Estado actual:** stub. Muestra una ventana temporal con botones Rename y Cancel.
+> Cancel vuelve a la ventana principal sin cambios.
+
+---
+
+## Sub-vista Convert
+
+Conversion de EXR sequences para los items marcados.
+
+- Solo opera sobre `exr_seq`. Los MOVs marcados se listan con un aviso
+  `"<nombre>.mov no sera convertido"` y se excluyen del proceso.
+- Si no hay ningun EXR marcado (solo MOVs u otros), el boton no hace nada.
+- **Opciones previstas:** codec DWAA, selector de resolucion con presets, manejo de Originals.
+- **Log panel:** 3 lineas visibles, expandible con boton ▲/▼.
+
+> **Estado actual:** pendiente de integracion con la herramienta externa de conversion.
+
+---
+
+## Placement (Import)
 
 ### Logica de posicionamiento en el timeline
 
@@ -241,7 +261,7 @@ Si cualquiera de los dos se cumple → error, el script se cancela.
 ### SeqRef
 
 El SeqRef se importa al bin del shot (si no estaba ya). No se coloca en el timeline.
-Se muestra con icono ⚠ en la tabla de Fase 2 y en el preview de Fase 3.
+Se muestra con icono ⚠ en la tabla principal.
 
 ---
 
@@ -291,8 +311,8 @@ Basado en `LGA_NKS_CreateV000.py`:
 
 - Fondo: `#2B2B2B`, texto principal: `#CCCCCC`, texto secundario: `#a7a7a7`
 - Tablas: fondo `#272727`, borde `#333333`, headers `#999999`
-- Boton primario (Import/Continuar): `#2a4d3a` con borde `#3a7a55`
-- Boton secundario (Prep Media): `#3a3a3a` con borde `#555555`
+- Boton primario (Import): `#2a4d3a` con borde `#3a7a55`
+- Botones secundarios (Rename, Convert): `#3a3a3a` con borde `#555555`
 - Boton cancelar/volver: `#555555` con borde `#666666`
 - Ancho minimo del dialogo: `820px`
 - SeqRef y warnings: `#d9a441` (amarillo dorado)
@@ -328,8 +348,9 @@ donde se distribuya la repo.
 
 ## Pendiente de implementacion
 
-- **Prep Media — Convert:** logica real de conversion (pendiente herramienta externa)
-- **Prep Media — Presets:** guardado de presets de rename y resolucion en `.ini`
+- **Sub-vista Rename:** implementacion real del find/replace con preview (hoy es stub)
+- **Sub-vista Convert:** logica real de conversion EXR (pendiente herramienta externa)
+- **Convert — Presets:** guardado de presets de resolucion en `.ini`
 - **SetShotName:** llamada correcta al script externo post-importacion
 - **CreateV000:** trigger correcto para tasks sin versiones
 - **Modularizacion:** extraer helpers a `LGA_import_shots_scan.py`,
@@ -341,7 +362,7 @@ donde se distribuya la repo.
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `main()`, `ImportShotDialog`, `_scan_input_folder()`, `_scan_publish_folders()`, `_read_exr_metadata()`, `_read_mov_metadata()`, `_find_insert_frame()`, `_push_clips_right()`, `_stretch_burnin()`, `_shot_exists_in_timeline()`, `_import_clip_to_bin()`, `_place_clip_in_timeline()`, `_find_or_create_bin()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `main()`, `ImportShotDialog`, `_show_page()`, `_build_page_media()`, `_build_page_rename()`, `_build_page_convert()`, `_update_action_btns()`, `_update_convert_page()`, `_scan_input_folder()`, `_scan_publish_folders()`, `_read_exr_metadata()`, `_read_mov_metadata()`, `_find_insert_frame()`, `_push_clips_right()`, `_stretch_burnin()`, `_shot_exists_in_timeline()`, `_import_clip_to_bin()`, `_place_clip_in_timeline()`, `_find_or_create_bin()` |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_CreateV000.py` | Referencia de UI, bin import, timeline placement, colorize path |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_SetShotName.py` | Renombrado de clips post-importacion |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_OrganizeProject.py` | Estructura de bins `F <grupo>/<shot>` |

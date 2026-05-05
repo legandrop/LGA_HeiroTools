@@ -779,38 +779,6 @@ def _separator(orientation="h"):
     return sep
 
 
-def _stepper_widget(current_step):
-    """Retorna un QWidget con el indicador de pasos 1-2-3."""
-    w = QtWidgets.QWidget()
-    layout = QtWidgets.QHBoxLayout(w)
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.setSpacing(0)
-
-    steps = ["1. Analizar", "2. Prep Media", "3. Importar"]
-    for i, label in enumerate(steps):
-        step_num = i + 1
-        done = step_num < current_step
-        active = step_num == current_step
-
-        lbl = QtWidgets.QLabel(("✓ " if done else "") + label)
-        if active:
-            lbl.setStyleSheet(
-                "color: #3a7a55; font-weight: bold; padding: 4px 10px;"
-            )
-        elif done:
-            lbl.setStyleSheet("color: #666666; padding: 4px 10px;")
-        else:
-            lbl.setStyleSheet("color: #555555; padding: 4px 10px;")
-        layout.addWidget(lbl)
-
-        if i < len(steps) - 1:
-            arrow = QtWidgets.QLabel("→")
-            arrow.setStyleSheet("color: #444444; padding: 4px 0px;")
-            layout.addWidget(arrow)
-
-    layout.addStretch()
-    return w
-
 
 # ══════════════════════════════════════════════════════════════════
 #  Dialogo principal
@@ -818,9 +786,9 @@ def _stepper_widget(current_step):
 
 class ImportShotDialog(QtWidgets.QDialog):
 
-    PHASE_MEDIA   = 2
-    PHASE_PREP    = 2.5   # sub-vista de Prep Media
-    PHASE_IMPORT  = 3
+    PAGE_MEDIA   = "media"
+    PAGE_RENAME  = "rename"
+    PAGE_CONVERT = "convert"
 
     def __init__(self, shot_root, shot_name, seq, insert_frame, frames_to_push,
                  input_items, publish_items, parent=None):
@@ -830,12 +798,11 @@ class ImportShotDialog(QtWidgets.QDialog):
         self.seq            = seq
         self.insert_frame   = insert_frame
         self.frames_to_push = frames_to_push
-        self.input_items    = input_items    # list de dicts de _scan_input_folder
-        self.publish_items  = publish_items  # list de dicts de _scan_publish_folders
+        self.input_items    = input_items
+        self.publish_items  = publish_items
 
-        self._phase = self.PHASE_MEDIA
-        self._track_overrides = {}   # row_id → track_name (ediciones del usuario)
-        self._create_v000_tasks = set()  # tasks marcadas para crear v000
+        self._track_overrides = {}
+        self._create_v000_tasks = set()
 
         self.setWindowTitle("Import Shot — %s" % shot_name)
         self.setObjectName("LGA_ImportShotDialog")
@@ -848,24 +815,21 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._root_layout = QtWidgets.QVBoxLayout(self)
         self._root_layout.setSpacing(8)
 
-        # Header fijo
         self._build_header()
         self._root_layout.addWidget(_separator())
 
-        # Area de contenido (intercambiable)
         self._content_area = QtWidgets.QStackedWidget()
         self._root_layout.addWidget(self._content_area, 1)
 
-        # Construir las tres paginas
-        self._page_media  = self._build_page_media()
-        self._page_prep   = self._build_page_prep()
-        self._page_import = self._build_page_import()
+        self._page_media   = self._build_page_media()
+        self._page_rename  = self._build_page_rename()
+        self._page_convert = self._build_page_convert()
 
         self._content_area.addWidget(self._page_media)
-        self._content_area.addWidget(self._page_prep)
-        self._content_area.addWidget(self._page_import)
+        self._content_area.addWidget(self._page_rename)
+        self._content_area.addWidget(self._page_convert)
 
-        self._show_phase(self.PHASE_MEDIA)
+        self._show_page(self.PAGE_MEDIA)
 
     # ── header ───────────────────────────────────────────────────
 
@@ -895,29 +859,18 @@ class ImportShotDialog(QtWidgets.QDialog):
         except Exception:
             return ""
 
-    # ── stepper ──────────────────────────────────────────────────
+    # ── navegación entre páginas ─────────────────────────────────
 
-    def _show_phase(self, phase):
-        self._phase = phase
-        step = 1 if phase < 2 else (2 if phase < 3 else 3)
-        # Reemplazar el stepper en el layout si existe
-        if hasattr(self, "_stepper_widget_ref"):
-            self._root_layout.removeWidget(self._stepper_widget_ref)
-            self._stepper_widget_ref.deleteLater()
-        sw = _stepper_widget(step)
-        self._stepper_widget_ref = sw
-        # Insertar justo despues del header (index 1, antes del separador)
-        self._root_layout.insertWidget(1, sw)
-
-        if phase == self.PHASE_MEDIA:
+    def _show_page(self, page):
+        if page == self.PAGE_MEDIA:
             self._content_area.setCurrentWidget(self._page_media)
-        elif phase == self.PHASE_PREP:
-            self._content_area.setCurrentWidget(self._page_prep)
-        elif phase == self.PHASE_IMPORT:
-            self._content_area.setCurrentWidget(self._page_import)
+        elif page == self.PAGE_RENAME:
+            self._content_area.setCurrentWidget(self._page_rename)
+        elif page == self.PAGE_CONVERT:
+            self._content_area.setCurrentWidget(self._page_convert)
 
     # ══════════════════════════════════════════════════════════
-    #  PAGINA 2: tabla de media
+    #  PAGINA PRINCIPAL: tabla de media
     # ══════════════════════════════════════════════════════════
 
     def _build_page_media(self):
@@ -930,23 +883,38 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._media_table = self._build_media_table()
         layout.addWidget(self._media_table, 1)
 
-        # Fila de botones
+        layout.addWidget(_separator())
+
+        # Botones de acción — operan sobre los items con checkbox marcado
         btn_row = QtWidgets.QHBoxLayout()
-        self._prep_btn = QtWidgets.QPushButton("Prep Media")
-        self._prep_btn.setStyleSheet(_BTN_SECONDARY)
-        self._prep_btn.setToolTip(
-            "Renombrar y/o convertir los items seleccionados antes de importar"
+
+        self._rename_btn = QtWidgets.QPushButton("Rename")
+        self._rename_btn.setStyleSheet(_BTN_SECONDARY)
+        self._rename_btn.setToolTip("Renombrar los items seleccionados")
+        self._rename_btn.clicked.connect(self._go_to_rename)
+        btn_row.addWidget(self._rename_btn)
+
+        btn_row.addSpacing(6)
+
+        self._convert_btn = QtWidgets.QPushButton("EXR Convert")
+        self._convert_btn.setStyleSheet(_BTN_SECONDARY)
+        self._convert_btn.setToolTip(
+            "Convertir EXR sequences seleccionadas (DWAA, resolución, etc.)"
         )
-        self._prep_btn.clicked.connect(self._go_to_prep)
-        btn_row.addWidget(self._prep_btn)
+        self._convert_btn.clicked.connect(self._go_to_convert)
+        btn_row.addWidget(self._convert_btn)
+
         btn_row.addStretch()
-        continue_btn = QtWidgets.QPushButton("Continuar →")
-        continue_btn.setStyleSheet(_BTN_PRIMARY)
-        continue_btn.clicked.connect(self._go_to_import_phase)
-        btn_row.addWidget(continue_btn)
+
+        self._import_btn = QtWidgets.QPushButton("✓  Import")
+        self._import_btn.setStyleSheet(_BTN_PRIMARY)
+        self._import_btn.setToolTip("Importar los items seleccionados al timeline")
+        self._import_btn.clicked.connect(self.accept)
+        btn_row.addWidget(self._import_btn)
+
         layout.addLayout(btn_row)
 
-        self._update_prep_btn()
+        self._update_action_btns()
         return page
 
     def _build_media_table(self):
@@ -1019,7 +987,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         chk.setStyleSheet("color:#a7a7a7; padding:2px;")
         # Solo EXR de input marcados por defecto (la version mas alta)
         chk.setChecked(is_input_exr and is_latest)
-        chk.stateChanged.connect(self._update_prep_btn)
+        chk.stateChanged.connect(self._update_action_btns)
         self._checkboxes[row] = chk
         container = QtWidgets.QWidget()
         cl = QtWidgets.QHBoxLayout(container)
@@ -1159,88 +1127,97 @@ class ImportShotDialog(QtWidgets.QDialog):
             return txt
         return self._table_rows[row]["item"].get("track")
 
-    def _update_prep_btn(self):
+    def _update_action_btns(self):
         any_checked = any(chk.isChecked() for chk in self._checkboxes.values())
-        self._prep_btn.setEnabled(any_checked)
+        has_exr_checked = any(
+            chk.isChecked()
+            and self._table_rows[row]["source"] == "input"
+            and self._table_rows[row]["item"].get("kind") == "exr_seq"
+            for row, chk in self._checkboxes.items()
+        )
+        self._rename_btn.setEnabled(any_checked)
+        self._convert_btn.setEnabled(has_exr_checked)
+        self._import_btn.setEnabled(any_checked)
 
-    def _go_to_prep(self):
-        self._show_phase(self.PHASE_PREP)
+    def _go_to_rename(self):
+        self._show_page(self.PAGE_RENAME)
 
-    def _go_to_import_phase(self):
-        self._build_import_page_content()
-        self._show_phase(self.PHASE_IMPORT)
+    def _go_to_convert(self):
+        self._update_convert_page()
+        self._show_page(self.PAGE_CONVERT)
 
     # ══════════════════════════════════════════════════════════
-    #  PAGINA 2.5: Prep Media
+    #  PAGINA: Rename (stub)
     # ══════════════════════════════════════════════════════════
 
-    def _build_page_prep(self):
+    def _build_page_rename(self):
         page = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(page)
         layout.setSpacing(8)
 
-        layout.addWidget(_section_label("PREP MEDIA"))
+        layout.addWidget(_section_label("RENOMBRAR"))
 
-        # Items seleccionados (informativo)
-        self._prep_list_label = QtWidgets.QLabel("")
-        self._prep_list_label.setStyleSheet("color:#888888; padding:2px 0px;")
-        self._prep_list_label.setWordWrap(True)
-        layout.addWidget(self._prep_list_label)
+        placeholder = QtWidgets.QLabel(
+            "Rename en desarrollo. Próximamente: find/replace con preview en tiempo real."
+        )
+        placeholder.setStyleSheet(
+            "color:#666666; font-style:italic; padding:20px 6px;"
+        )
+        layout.addWidget(placeholder)
+
+        layout.addStretch()
+        layout.addWidget(_separator())
+
+        btn_row = QtWidgets.QHBoxLayout()
+        cancel_btn = QtWidgets.QPushButton("← Cancelar")
+        cancel_btn.setStyleSheet(_BTN_CANCEL)
+        cancel_btn.clicked.connect(lambda: self._show_page(self.PAGE_MEDIA))
+        btn_row.addWidget(cancel_btn)
+        btn_row.addStretch()
+        rename_btn = QtWidgets.QPushButton("Rename")
+        rename_btn.setStyleSheet(_BTN_SECONDARY)
+        rename_btn.setEnabled(False)
+        rename_btn.setToolTip("Pendiente de implementación")
+        btn_row.addWidget(rename_btn)
+        layout.addLayout(btn_row)
+
+        return page
+
+    # ══════════════════════════════════════════════════════════
+    #  PAGINA: EXR Convert (stub)
+    # ══════════════════════════════════════════════════════════
+
+    def _build_page_convert(self):
+        page = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(page)
+        layout.setSpacing(8)
+
+        layout.addWidget(_section_label("EXR CONVERT"))
+
+        # Advertencias por MOVs seleccionados
+        self._convert_warnings_lbl = QtWidgets.QLabel("")
+        self._convert_warnings_lbl.setStyleSheet("color:#d9a441; padding:2px 0px;")
+        self._convert_warnings_lbl.setWordWrap(True)
+        self._convert_warnings_lbl.hide()
+        layout.addWidget(self._convert_warnings_lbl)
+
+        # Lista de EXRs a convertir
+        self._convert_items_lbl = QtWidgets.QLabel("")
+        self._convert_items_lbl.setStyleSheet("color:#888888; padding:2px 0px;")
+        self._convert_items_lbl.setWordWrap(True)
+        layout.addWidget(self._convert_items_lbl)
 
         layout.addWidget(_separator())
 
-        # Dos columnas: Rename | Convert
-        cols = QtWidgets.QHBoxLayout()
-        cols.setSpacing(16)
-
-        # ── Rename ──────────────────────────────────────────
-        rename_col = QtWidgets.QVBoxLayout()
-        rename_col.addWidget(_section_label("Renombrar"))
-
-        find_row = QtWidgets.QHBoxLayout()
-        find_row.addWidget(QtWidgets.QLabel("Buscar:"))
-        self._rename_find = QtWidgets.QLineEdit()
-        self._rename_find.setStyleSheet(
-            "background:#272727; border:1px solid #444; color:#cccccc; padding:3px 5px;"
-        )
-        self._rename_find.textChanged.connect(self._update_rename_preview)
-        find_row.addWidget(self._rename_find)
-        rename_col.addLayout(find_row)
-
-        repl_row = QtWidgets.QHBoxLayout()
-        repl_row.addWidget(QtWidgets.QLabel("Reemplazar:"))
-        self._rename_replace = QtWidgets.QLineEdit()
-        self._rename_replace.setStyleSheet(
-            "background:#272727; border:1px solid #444; color:#cccccc; padding:3px 5px;"
-        )
-        self._rename_replace.textChanged.connect(self._update_rename_preview)
-        repl_row.addWidget(self._rename_replace)
-        rename_col.addLayout(repl_row)
-
-        rename_col.addWidget(_section_label("Preview"))
-        self._rename_preview = QtWidgets.QTextEdit()
-        self._rename_preview.setReadOnly(True)
-        self._rename_preview.setMaximumHeight(120)
-        self._rename_preview.setStyleSheet(
-            "background:#272727; border:1px solid #333; color:#a7a7a7; padding:4px;"
-        )
-        rename_col.addWidget(self._rename_preview)
-        rename_col.addStretch()
-        cols.addLayout(rename_col, 1)
-
-        cols.addWidget(_separator("v"))
-
-        # ── Convert ─────────────────────────────────────────
-        convert_col = QtWidgets.QVBoxLayout()
-        convert_col.addWidget(_section_label("Convertir"))
-
+        # Opciones de conversión
         self._convert_dwaa_chk = QtWidgets.QCheckBox("Convertir a DWAA")
+        self._convert_dwaa_chk.setChecked(True)
         self._convert_dwaa_chk.setStyleSheet("color:#a7a7a7; padding:2px;")
-        convert_col.addWidget(self._convert_dwaa_chk)
+        layout.addWidget(self._convert_dwaa_chk)
 
         res_lbl = QtWidgets.QLabel("Resolución destino:")
         res_lbl.setStyleSheet("color:#a7a7a7; margin-top:6px;")
-        convert_col.addWidget(res_lbl)
+        layout.addWidget(res_lbl)
 
         self._res_combo = QtWidgets.QComboBox()
         self._res_combo.setStyleSheet("""
@@ -1248,7 +1225,14 @@ class ImportShotDialog(QtWidgets.QDialog):
                 background-color: #272727; border: 1px solid #444;
                 color: #a7a7a7; padding: 3px 6px;
             }
-            QComboBox::drop-down { border: 0px; }
+            QComboBox::drop-down { border: 0px; width: 14px; }
+            QComboBox::down-arrow {
+                image: none;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-top: 5px solid #666666;
+                width: 0px; height: 0px;
+            }
             QComboBox QAbstractItemView {
                 background-color: #2B2B2B; color: #a7a7a7;
                 selection-background-color: #3a3a3a;
@@ -1256,392 +1240,110 @@ class ImportShotDialog(QtWidgets.QDialog):
         """)
         for preset in ["Original", "2K — 2048×1152", "4K — 4096×2304", "Custom..."]:
             self._res_combo.addItem(preset)
-        convert_col.addWidget(self._res_combo)
+        layout.addWidget(self._res_combo)
 
         self._move_originals_chk = QtWidgets.QCheckBox("Mover originales a /Originals")
         self._move_originals_chk.setChecked(True)
         self._move_originals_chk.setStyleSheet("color:#a7a7a7; padding:2px; margin-top:8px;")
-        convert_col.addWidget(self._move_originals_chk)
+        layout.addWidget(self._move_originals_chk)
 
         self._delete_originals_chk = QtWidgets.QCheckBox("Borrar /Originals al terminar")
         self._delete_originals_chk.setChecked(False)
         self._delete_originals_chk.setStyleSheet("color:#a7a7a7; padding:2px;")
-        convert_col.addWidget(self._delete_originals_chk)
+        layout.addWidget(self._delete_originals_chk)
 
-        convert_col.addSpacing(12)
         pending_note = QtWidgets.QLabel(
-            "⚠ La conversión real se habilitará\ncuando se integre la herramienta externa."
+            "⚠  La conversión real se habilitará cuando se integre la herramienta externa."
         )
-        pending_note.setStyleSheet("color:#888888; font-style:italic;")
-        convert_col.addWidget(pending_note)
-        convert_col.addStretch()
-        cols.addLayout(convert_col, 1)
+        pending_note.setStyleSheet("color:#888888; font-style:italic; margin-top:12px;")
+        layout.addWidget(pending_note)
 
-        layout.addLayout(cols, 1)
+        layout.addStretch()
+
+        # Log panel (3 líneas, expandible)
         layout.addWidget(_separator())
-
-        # Log panel (3 líneas)
         log_row = QtWidgets.QHBoxLayout()
-        self._prep_log = QtWidgets.QPlainTextEdit()
-        self._prep_log.setReadOnly(True)
-        self._prep_log.setMaximumHeight(60)
-        self._prep_log.setStyleSheet(
+        self._convert_log = QtWidgets.QPlainTextEdit()
+        self._convert_log.setReadOnly(True)
+        self._convert_log.setMaximumHeight(60)
+        self._convert_log.setStyleSheet(
             "background:#1e1e1e; border:1px solid #333; color:#888888; padding:3px;"
         )
-        log_row.addWidget(self._prep_log, 1)
+        log_row.addWidget(self._convert_log, 1)
         self._log_expand_btn = QtWidgets.QPushButton("▲")
         self._log_expand_btn.setFixedSize(24, 24)
         self._log_expand_btn.setStyleSheet(
             "background:#333; border:1px solid #555; color:#aaa; border-radius:3px;"
         )
         self._log_expand_btn.setToolTip("Expandir log")
-        self._log_expand_btn.clicked.connect(self._toggle_log)
+        self._log_expand_btn.clicked.connect(self._toggle_convert_log)
         self._log_expanded = False
         log_row.addWidget(self._log_expand_btn, 0, QtCore.Qt.AlignBottom)
         layout.addLayout(log_row)
 
         # Botones
         btn_row = QtWidgets.QHBoxLayout()
-        back_btn = QtWidgets.QPushButton("← Volver")
-        back_btn.setStyleSheet(_BTN_CANCEL)
-        back_btn.clicked.connect(lambda: self._show_phase(self.PHASE_MEDIA))
-        btn_row.addWidget(back_btn)
+        cancel_btn = QtWidgets.QPushButton("← Cancelar")
+        cancel_btn.setStyleSheet(_BTN_CANCEL)
+        cancel_btn.clicked.connect(lambda: self._show_page(self.PAGE_MEDIA))
+        btn_row.addWidget(cancel_btn)
         btn_row.addStretch()
-
-        self._exec_btn = QtWidgets.QPushButton("Ejecutar")
-        self._exec_btn.setStyleSheet(_BTN_PRIMARY)
-        self._exec_btn.clicked.connect(self._execute_prep)
-        btn_row.addWidget(self._exec_btn)
+        convert_btn = QtWidgets.QPushButton("Convertir")
+        convert_btn.setStyleSheet(_BTN_SECONDARY)
+        convert_btn.setEnabled(False)
+        convert_btn.setToolTip("Pendiente de implementación")
+        btn_row.addWidget(convert_btn)
         layout.addLayout(btn_row)
 
         return page
 
-    def _update_rename_preview(self):
-        find = self._rename_find.text()
-        replace = self._rename_replace.text()
-        lines = []
+    def _update_convert_page(self):
+        exr_names = []
+        mov_names = []
         for row, chk in self._checkboxes.items():
             if not chk.isChecked():
                 continue
-            name = self._table_rows[row]["item"].get("name", "")
-            if find:
-                new_name = name.replace(find, replace)
-            else:
-                new_name = name
-            if new_name != name:
-                lines.append(
-                    '<span style="color:#888">%s</span>'
-                    ' → <span style="color:#cccccc">%s</span>' % (name, new_name)
-                )
-        self._rename_preview.setHtml("<br>".join(lines) if lines else
-                                     '<span style="color:#555">Sin cambios</span>')
+            row_data = self._table_rows[row]
+            item = row_data["item"]
+            name = item.get("name", "")
+            if row_data["source"] == "input" and item.get("kind") == "exr_seq":
+                exr_names.append(name)
+            elif row_data["source"] == "input" and item.get("kind") == "mov":
+                mov_names.append(name)
 
-    def _toggle_log(self):
+        if mov_names:
+            warnings = "\n".join(
+                "⚠  %s no será convertido (solo EXR sequences)" % n for n in mov_names
+            )
+            self._convert_warnings_lbl.setText(warnings)
+            self._convert_warnings_lbl.show()
+        else:
+            self._convert_warnings_lbl.hide()
+
+        if exr_names:
+            self._convert_items_lbl.setText(
+                "EXR sequences a convertir:\n" + "\n".join("  •  " + n for n in exr_names)
+            )
+        else:
+            self._convert_items_lbl.setText("No hay EXR sequences seleccionadas.")
+
+    def _toggle_convert_log(self):
         self._log_expanded = not self._log_expanded
         if self._log_expanded:
-            self._prep_log.setMaximumHeight(16777215)
+            self._convert_log.setMaximumHeight(16777215)
             self._log_expand_btn.setText("▼")
             self._log_expand_btn.setToolTip("Colapsar log")
         else:
-            self._prep_log.setMaximumHeight(60)
+            self._convert_log.setMaximumHeight(60)
             self._log_expand_btn.setText("▲")
             self._log_expand_btn.setToolTip("Expandir log")
 
-    def _execute_prep(self):
-        self._prep_log.appendPlainText(
-            "⚠ Conversión pendiente: integración con herramienta externa no disponible aún."
-        )
-
     # ══════════════════════════════════════════════════════════
-    #  PAGINA 3: preview de placement
+    #  Helpers
     # ══════════════════════════════════════════════════════════
 
-    def _build_page_import(self):
-        page = QtWidgets.QWidget()
-        self._import_page_layout = QtWidgets.QVBoxLayout(page)
-        self._import_page_layout.setSpacing(8)
-        # El contenido se genera dinamicamente en _build_import_page_content()
-        return page
-
-    def _build_import_page_content(self):
-        layout = self._import_page_layout
-        # Limpiar contenido anterior si existe
-        while layout.count():
-            child = layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
-
-        layout.addWidget(_section_label("PLACEMENT EN TIMELINE"))
-
-        # Informacion de insercion
-        info_lbl = QtWidgets.QLabel(
-            "Insertar en frame <b style='color:#CCCCCC'>%d</b>  |  "
-            "Empujar <b style='color:#CCCCCC'>%d</b> frames"
-            % (self.insert_frame, self.frames_to_push)
-        )
-        info_lbl.setTextFormat(QtCore.Qt.RichText)
-        info_lbl.setStyleSheet("color:#888888; padding:0 0 4px 0;")
-        layout.addWidget(info_lbl)
-
-        self._import_table = self._build_import_table()
-        layout.addWidget(self._import_table, 1)
-
-        layout.addWidget(_separator())
-
-        btn_row = QtWidgets.QHBoxLayout()
-        back_btn = QtWidgets.QPushButton("← Volver")
-        back_btn.setStyleSheet(_BTN_CANCEL)
-        back_btn.clicked.connect(lambda: self._show_phase(self.PHASE_MEDIA))
-        btn_row.addWidget(back_btn)
-        btn_row.addStretch()
-
-        self._import_btn = QtWidgets.QPushButton("✓ Importar")
-        self._import_btn.setStyleSheet(_BTN_PRIMARY)
-        self._import_btn.clicked.connect(self._do_import)
-        btn_row.addWidget(self._import_btn)
-        layout.addLayout(btn_row)
-
-    def _build_import_table(self):
-        headers = ["Track", "Clip", "Duración", "Origen", "v000"]
-        table = QtWidgets.QTableWidget()
-        table.setColumnCount(len(headers))
-        table.setHorizontalHeaderLabels(headers)
-        table.verticalHeader().setVisible(False)
-        table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
-        table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
-        table.setFocusPolicy(QtCore.Qt.NoFocus)
-        table.setShowGrid(False)
-        table.setStyleSheet(_TABLE_STYLE)
-
-        self._v000_checks = {}
-        placement_rows = self._build_placement_rows()
-        self._placement_rows = placement_rows
-        table.setRowCount(len(placement_rows))
-
-        for i, prow in enumerate(placement_rows):
-            self._populate_import_row(table, i, prow)
-
-        header = table.horizontalHeader()
-        header.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(1, QtWidgets.QHeaderView.Stretch)
-        header.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(4, QtWidgets.QHeaderView.Fixed)
-        table.setColumnWidth(4, 50)
-        return table
-
-    def _build_placement_rows(self):
-        rows = []
-
-        # Plates de _input (solo los que tienen track y son la version mas alta)
-        for row_idx, row_data in enumerate(self._table_rows):
-            if row_data["source"] != "input":
-                continue
-            item = row_data["item"]
-            if item["kind"] not in ("exr_seq", "mov"):
-                continue
-            if not item.get("is_latest", True):
-                continue
-            track = self._get_track_for_row(row_idx)
-            is_seqref = (track is None and "seqref" in item.get("name", "").lower())
-            fc = item.get("frame_count") or 0
-            rows.append({
-                "track": track,
-                "name": item.get("name", ""),
-                "frame_count": fc,
-                "first_file": item.get("first_file"),
-                "source": "_input",
-                "is_seqref": is_seqref,
-                "v000": False,
-                "kind": item["kind"],
-            })
-
-        # Publish items
-        for pub in self.publish_items:
-            if not pub["has_versions"] and pub["publish_exists"]:
-                # Sin versiones: ofrecer v000
-                rows.append({
-                    "track": pub["track"],
-                    "name": "— sin versiones —",
-                    "frame_count": 0,
-                    "first_file": None,
-                    "source": pub["folder_name"] + "/4_publish",
-                    "is_seqref": False,
-                    "v000": True,
-                    "kind": "exr_seq",
-                    "task": pub["task"],
-                })
-            elif pub["has_versions"]:
-                rows.append({
-                    "track": pub["track"],
-                    "name": pub.get("version_name", ""),
-                    "frame_count": pub.get("frame_count") or 0,
-                    "first_file": pub.get("first_file"),
-                    "source": pub["folder_name"] + "/4_publish",
-                    "is_seqref": False,
-                    "v000": False,
-                    "kind": "exr_seq",
-                })
-
-        return rows
-
-    def _populate_import_row(self, table, row, prow):
-        is_seqref = prow.get("is_seqref", False)
-        no_versions = (prow["name"] == "— sin versiones —")
-
-        # Track
-        track_str = prow["track"] if prow["track"] else "— solo bin —"
-        track_item = QtWidgets.QTableWidgetItem(track_str)
-        track_item.setForeground(
-            QtGui.QColor("#d9a441") if is_seqref else QtGui.QColor("#a7a7a7")
-        )
-        table.setItem(row, 0, track_item)
-
-        # Nombre
-        disp_name = (prow["name"] + " ⚠") if is_seqref else prow["name"]
-        name_item = QtWidgets.QTableWidgetItem(disp_name)
-        name_item.setForeground(
-            QtGui.QColor("#d9a441") if is_seqref else
-            QtGui.QColor("#777777") if no_versions else
-            QtGui.QColor("#CCCCCC")
-        )
-        if is_seqref:
-            name_item.setToolTip("Solo se importará al bin, no al timeline.")
-        table.setItem(row, 1, name_item)
-
-        # Duración
-        fc = prow["frame_count"]
-        dur_str = ("%d frames" % fc) if fc else "—"
-        table.setItem(row, 2, QtWidgets.QTableWidgetItem(dur_str))
-
-        # Origen
-        table.setItem(row, 3, QtWidgets.QTableWidgetItem(prow["source"]))
-
-        # v000 checkbox
-        if prow.get("v000"):
-            chk = QtWidgets.QCheckBox()
-            chk.setChecked(True)
-            chk.setStyleSheet("padding:2px;")
-            chk.setToolTip("Crear v000 para esta task")
-            self._v000_checks[row] = chk
-            container = QtWidgets.QWidget()
-            cl = QtWidgets.QHBoxLayout(container)
-            cl.setContentsMargins(0, 0, 0, 0)
-            cl.setAlignment(QtCore.Qt.AlignCenter)
-            cl.addWidget(chk)
-            table.setCellWidget(row, 4, container)
-        else:
-            table.setItem(row, 4, QtWidgets.QTableWidgetItem(""))
-
-    # ══════════════════════════════════════════════════════════
-    #  Importación final
-    # ══════════════════════════════════════════════════════════
-
-    def _longest_input_plate_frames(self):
-        best = 0
-        for prow in self._placement_rows:
-            if prow["source"] == "_input" and not prow["is_seqref"]:
-                best = max(best, prow.get("frame_count") or 0)
-        return best
-
-    def _do_import(self):
-        self._import_btn.setEnabled(False)
-        project = self.seq.project()
-        if not project:
-            projects = hiero.core.projects()
-            project = projects[-1] if projects else None
-        if not project:
-            self._show_error("No se encontró proyecto activo.")
-            self._import_btn.setEnabled(True)
-            return
-
-        shot_duration = self._longest_input_plate_frames()
-        if shot_duration == 0:
-            self._show_error("No se encontraron plates con duración válida.")
-            self._import_btn.setEnabled(True)
-            return
-
-        bin_path = _bin_path_for_shot(self.shot_root, self.shot_name)
-        target_bin = _find_or_create_bin(project, bin_path)
-
-        with project.beginUndo("Import Shot: %s" % self.shot_name):
-            # 1. Push de clips existentes
-            if self.frames_to_push > 0:
-                _push_clips_right(self.seq, self.insert_frame, shot_duration)
-                debug_print("Pushed clips from frame %d by %d" % (self.insert_frame, shot_duration))
-
-            # 2. Importar y colocar cada item
-            placed_clips = []
-            errors = []
-
-            for prow in self._placement_rows:
-                if prow["is_seqref"]:
-                    # Solo importar al bin si no existe ya
-                    if prow["first_file"] and not self._seqref_in_bin(target_bin, prow["first_file"]):
-                        _import_clip_to_bin(target_bin, prow["first_file"], prow["name"])
-                    continue
-
-                if prow.get("v000") or not prow["first_file"] or not prow["track"]:
-                    continue
-
-                clip, bin_item, err = _import_clip_to_bin(
-                    target_bin, prow["first_file"], self.shot_name
-                )
-                if err:
-                    errors.append("Bin import error (%s): %s" % (prow["name"], err))
-                    continue
-
-                track_item, err2 = _place_clip_in_timeline(
-                    self.seq, clip, prow["track"],
-                    self.insert_frame, prow["frame_count"], self.shot_name
-                )
-                if err2:
-                    errors.append("Timeline error (%s → %s): %s" % (
-                        prow["name"], prow["track"], err2))
-                else:
-                    placed_clips.append(track_item)
-                    debug_print("Placed %s in %s at frame %d" % (
-                        prow["name"], prow["track"], self.insert_frame))
-
-            # 3. Stretch BurnIn
-            new_end = self.insert_frame + shot_duration
-            _stretch_burnin(self.seq, new_end)
-
-        # 4. Set Shot Name (llamada al script externo)
-        if placed_clips:
-            self._run_set_shot_name()
-
-        # 5. Create v000 para tasks marcadas
-        v000_tasks = [
-            self._placement_rows[r].get("task")
-            for r, chk in self._v000_checks.items()
-            if chk.isChecked() and self._placement_rows[r].get("task")
-        ]
-        if v000_tasks:
-            self._run_create_v000()
-
-        if errors:
-            msg = "Importación completada con errores:\n\n" + "\n".join(errors)
-            QtWidgets.QMessageBox.warning(self, "Import Shot", msg)
-        else:
-            QtWidgets.QMessageBox.information(
-                self, "Import Shot",
-                "Shot '%s' importado correctamente." % self.shot_name
-            )
-        self.accept()
-
-    def _seqref_in_bin(self, target_bin, file_path):
-        norm = file_path.replace("\\", "/")
-        for item in target_bin.items():
-            if not isinstance(item, hiero.core.BinItem):
-                continue
-            try:
-                fi = item.activeItem().mediaSource().fileinfos()
-                if fi and fi[0].filename().replace("\\", "/") == norm:
-                    return True
-            except Exception:
-                pass
-        return False
+    def _show_error(self, msg):
+        QtWidgets.QMessageBox.critical(self, "Import Shot — Error", msg)
 
     def _run_set_shot_name(self):
         try:
@@ -1654,9 +1356,6 @@ class ImportShotDialog(QtWidgets.QDialog):
             from LGA_NKS_Edit_Panel_py import LGA_NKS_CreateV000  # noqa: F401
         except Exception:
             pass
-
-    def _show_error(self, msg):
-        QtWidgets.QMessageBox.critical(self, "Import Shot — Error", msg)
 
 
 # ══════════════════════════════════════════════════════════════════
