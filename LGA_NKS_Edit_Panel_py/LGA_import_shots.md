@@ -146,23 +146,65 @@ T:/VFX-PROYECTO/101/MOR_1012C_010/          <- shot root
 
 ## Ventana principal — Tabla de media
 
+La tabla esta organizada en **secciones**, no como un file browser plano.
+Solo se muestran las secciones que contienen media.
+
+### Orden de secciones (de arriba a abajo)
+
+1. **PUBLISH** — EXR sequences en `{Task}/4_publish/`
+2. **PLATES** — EXR sequences en `_input/`
+3. **REFERENCES** — MOVs de `_input/` (editref, seqref)
+
+### Sistema de colores por fila
+
+Cada fila tiene una barra de color de 4 px en el borde izquierdo que indica su tipo:
+
+| Tipo | Color |
+|------|-------|
+| comp (publish) | `#3381e0` azul |
+| roto (publish) | `#2abf7e` verde |
+| cleanup (publish) | `#27c8c3` cyan |
+| dmp (publish) | `#e08033` naranja |
+| plates (input EXR) | `#42616d` azul petróleo |
+| references (editref/seqref) | `#aa9e54` dorado |
+
+Los mismos colores se usan en los titulos de las secciones.
+
 ### Fuentes analizadas
 
-| Carpeta | Contenido | Track destino |
-|---------|-----------|---------------|
-| `{shot}/_input/*/` | Subcarpetas con EXR sequences | `aPlate`, `bPlate`, etc. |
-| `{shot}/_input/` | `.mov`/`.mxf` con keyword `editref` | `EditRef` |
-| `{shot}/_input/` | `.mov`/`.mxf` con keyword `seqref` | *(solo bin)* |
-| `{shot}/_input/` | Archivos sueltos (jpg, etc.) | *(listados, sin track)* |
-| `{shot}/{Task}/4_publish/` | EXR seq version mas alta | `_{task}_` |
+| Carpeta | Contenido | Seccion | Track destino |
+|---------|-----------|---------|---------------|
+| `{shot}/_input/*/` | Subcarpetas con EXR sequences | PLATES | `aPlate`, `bPlate`, etc. |
+| `{shot}/_input/` | `.mov`/`.mxf` con keyword `editref` | REFERENCES | `EditRef` |
+| `{shot}/_input/` | `.mov`/`.mxf` con keyword `seqref` | REFERENCES | *(solo bin)* |
+| `{shot}/{Task}/4_publish/` | **Todas** las versiones EXR | PUBLISH | `_{task}_` |
+
+### Comportamiento de la seccion PUBLISH
+
+- Se listan **todas las versiones** encontradas (no solo la mas alta).
+- Ordenadas: por task (`comp → roto → cleanup → dmp`), luego por version descendente.
+- La version mas alta de cada task aparece primera y con texto mas claro (`#CCCCCC`).
+- Versiones anteriores en gris oscuro (`#777777`).
 
 ### Comportamiento de checkboxes
 
-- EXR de `_input` version mas alta (★) → checked por defecto
-- Versiones anteriores → unchecked
-- MOV, publish, sueltos → unchecked
-- Hacer click en cualquier celda de la fila (excepto la columna del checkbox) tambien
-  togglea el checkbox. Click directo sobre el checkbox funciona independientemente.
+- EXR de `_input` con `is_latest=True` → checked por defecto.
+- Todo lo demas (publish, versiones anteriores, MOVs) → unchecked por defecto.
+- Click en cualquier celda de la fila (excepto la barra de color y el checkbox) togglea el checkbox.
+
+### Columnas
+
+| Col | Contenido | Formato |
+|-----|-----------|---------|
+| (barra) | Color indicator | 4 px, sin header |
+| (checkbox) | Seleccion | 28 px, sin header |
+| Nombre | Nombre del clip/version | — |
+| Tipo | `EXR seq`, `MOV`, etc. | — |
+| Res | Resolucion | `2048×1152` |
+| FPS | Frames por segundo | `23.976` |
+| Compresion | Codec | `dwaa`, `H.264`, etc. |
+| Frames | Rango y duracion | `1001–1480  (480f)` |
+| Track | Asignacion de track | dropdown editable para inputs, label para publish |
 
 ### Deteccion de track por nombre de carpeta (case-insensitive)
 
@@ -181,6 +223,18 @@ T:/VFX-PROYECTO/101/MOR_1012C_010/          <- shot root
 Fallback: EXR sin coincidencia se asignan alfabeticamente (`aPlate`, `bPlate`...).
 MOV/MXF sin coincidencia → `EditRef`.
 
+### Botones de seleccion rapida
+
+Fila de botones pequenos encima de los botones de accion:
+
+| Boton | Accion |
+|-------|--------|
+| Select All | marca todos los checkboxes |
+| Clear | desmarca todos |
+| Plates | marca solo los items de la seccion PLATES |
+| References | marca solo los items de la seccion REFERENCES |
+| Publish | marca solo los items de la seccion PUBLISH |
+
 ### Botones de accion
 
 Los tres botones operan sobre los items que tienen el checkbox marcado.
@@ -188,8 +242,19 @@ Los tres botones operan sobre los items que tienen el checkbox marcado.
 | Boton | Color | Habilitado cuando | Accion |
 |-------|-------|-------------------|--------|
 | Rename | secundario `#3a3a3a` | hay al menos 1 item marcado | abre sub-vista de renombrado |
-| Convert | secundario `#3a3a3a` | hay al menos 1 EXR seq marcado | abre sub-vista de conversion |
-| Import | primario `#2a4d3a` | hay al menos 1 item marcado | ejecuta `_do_import()` |
+| EXR Convert | secundario `#3a3a3a` | hay al menos 1 EXR seq de input marcado | abre sub-vista de conversion |
+| Import | primario `#2a4d3a` | hay al menos 1 item marcado | ejecuta import (ver logica abajo) |
+
+### Logica de Import (comportamiento previsto)
+
+> **Estado actual:** Import cierra el dialogo sin importar nada (stub).
+
+Cuando se implemente:
+- **Plates / References:** se importan exactamente los items que tienen checkbox marcado.
+- **Publish:** para cada task que tenga al menos una version chequeada, se importa
+  **siempre la version mas alta** de esa task, independientemente de cual version
+  este chequeada. Esto previene importar accidentalmente una version obsoleta.
+- La seleccion de versiones anteriores de publish sirve exclusivamente para Rename o Convert.
 
 ---
 
@@ -301,6 +366,15 @@ TASK_FOLDERS = {
     "cleanup": ("Cleanup", "_cleanup_"),
     "dmp":     ("DMP",     "_dmp_"),
 }
+
+# Colores de borde izquierdo por tipo de fila (tabla de media)
+_CLR_COMP    = "#3381e0"   # comp publish    (= TASK_COLORS["comp"]    en CreateV000)
+_CLR_ROTO    = "#2abf7e"   # roto publish    (= TASK_COLORS["roto"]    en CreateV000)
+_CLR_CLEANUP = "#27c8c3"   # cleanup publish (= TASK_COLORS["cleanup"] en CreateV000)
+_CLR_DMP     = "#e08033"   # dmp publish
+_CLR_PLATES  = "#42616d"   # plates input (EXR)
+_CLR_REFS    = "#aa9e54"   # references (editref / seqref)
+_TASK_ORDER  = {"comp": 0, "roto": 1, "cleanup": 2, "dmp": 3}
 ```
 
 ---
@@ -312,10 +386,12 @@ Basado en `LGA_NKS_CreateV000.py`:
 - Fondo: `#2B2B2B`, texto principal: `#CCCCCC`, texto secundario: `#a7a7a7`
 - Tablas: fondo `#272727`, borde `#333333`, headers `#999999`
 - Boton primario (Import): `#2a4d3a` con borde `#3a7a55`
-- Botones secundarios (Rename, Convert): `#3a3a3a` con borde `#555555`
+- Botones secundarios (Rename, EXR Convert): `#3a3a3a` con borde `#555555`
+- Botones pequenos (seleccion): `#2e2e2e` con borde `#444444`, texto `#999999`
 - Boton cancelar/volver: `#555555` con borde `#666666`
 - Ancho minimo del dialogo: `820px`
-- SeqRef y warnings: `#d9a441` (amarillo dorado)
+- Titulos de seccion de tabla: color de la seccion sobre fondo `#313131`
+- Referencias (seqref en bin): texto color `#aa9e54`
 
 ---
 
@@ -362,7 +438,7 @@ donde se distribuya la repo.
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `main()`, `ImportShotDialog`, `_show_page()`, `_build_page_media()`, `_build_page_rename()`, `_build_page_convert()`, `_update_action_btns()`, `_update_convert_page()`, `_scan_input_folder()`, `_scan_publish_folders()`, `_read_exr_metadata()`, `_read_mov_metadata()`, `_find_insert_frame()`, `_push_clips_right()`, `_stretch_burnin()`, `_shot_exists_in_timeline()`, `_import_clip_to_bin()`, `_place_clip_in_timeline()`, `_find_or_create_bin()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `main()`, `ImportShotDialog`, `_show_page()`, `_build_page_media()`, `_build_media_table()`, `_build_table_rows()`, `_populate_section_header_row()`, `_populate_data_row()`, `_select_all()`, `_clear_selection()`, `_select_section()`, `_update_action_btns()`, `_build_page_rename()`, `_build_page_convert()`, `_update_convert_page()`, `_scan_input_folder()`, `_scan_publish_folders()`, `_read_exr_metadata()`, `_read_mov_metadata()`, `_find_insert_frame()`, `_push_clips_right()`, `_stretch_burnin()`, `_shot_exists_in_timeline()`, `_import_clip_to_bin()`, `_place_clip_in_timeline()`, `_find_or_create_bin()` |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_CreateV000.py` | Referencia de UI, bin import, timeline placement, colorize path |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_SetShotName.py` | Renombrado de clips post-importacion |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_OrganizeProject.py` | Estructura de bins `F <grupo>/<shot>` |

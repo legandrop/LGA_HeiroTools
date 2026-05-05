@@ -135,6 +135,23 @@ PATH_LEVEL_COLORS = {
     8: "#ffd369", 9: "#28b5b5", 10: "#ff9a8a", 11: "#6bc9ff",
 }
 
+# ── colores de tabla de media (borde izquierdo por tipo de fila) ──
+# task colors: igual que TASK_COLORS en CreateV000
+_CLR_COMP    = "#3381e0"   # comp publish
+_CLR_ROTO    = "#2abf7e"   # roto publish
+_CLR_CLEANUP = "#27c8c3"   # cleanup publish
+_CLR_DMP     = "#e08033"   # dmp publish
+_CLR_PLATES  = "#42616d"   # plates input (EXR seq)
+_CLR_REFS    = "#aa9e54"   # references (editref / seqref)
+
+_TASK_ROW_COLORS = {
+    "comp":    _CLR_COMP,
+    "roto":    _CLR_ROTO,
+    "cleanup": _CLR_CLEANUP,
+    "dmp":     _CLR_DMP,
+}
+_TASK_ORDER = {"comp": 0, "roto": 1, "cleanup": 2, "dmp": 3}
+
 # ── constantes de track ────────────────────────────────────────────
 BURNIN_TRACK_NAMES = {"burnin", "burn in", "burn_in"}
 
@@ -406,10 +423,10 @@ def _scan_input_folder(shot_root):
 
 def _scan_publish_folders(shot_root):
     """
-    Escanea las carpetas de task en shot_root y retorna lista de dicts.
-    {task, folder_name, track, publish_dir, version_dir, version_num,
-     first_file, first_frame, last_frame, frame_count,
-     width, height, fps, compression, has_versions, publish_exists}
+    Escanea las carpetas de task en shot_root y retorna una lista de dicts,
+    una entrada por cada version encontrada (no solo la mas alta).
+    Cada dict incluye is_latest=True solo para la version mas alta de cada task.
+    Orden: por task (TASK_FOLDERS insertion order), luego version descendente.
     """
     results = []
     shot_path = Path(shot_root)
@@ -418,20 +435,10 @@ def _scan_publish_folders(shot_root):
         if not task_dir.exists():
             continue
         publish_dir = task_dir / "4_publish"
-        publish_exists = publish_dir.exists()
-
-        if not publish_exists:
-            results.append({
-                "task": task, "folder_name": folder_name, "track": track,
-                "publish_exists": False, "has_versions": False,
-                "version_dir": None, "version_num": -1,
-                "first_file": None, "first_frame": None, "last_frame": None,
-                "frame_count": 0, "width": None, "height": None,
-                "fps": None, "compression": None,
-            })
+        if not publish_dir.exists():
             continue
 
-        # Buscar subcarpetas de version
+        # Buscar TODAS las subcarpetas de version
         try:
             version_dirs = [
                 d for d in publish_dir.iterdir()
@@ -441,33 +448,28 @@ def _scan_publish_folders(shot_root):
             version_dirs = []
 
         if not version_dirs:
-            results.append({
-                "task": task, "folder_name": folder_name, "track": track,
-                "publish_exists": True, "has_versions": False,
-                "version_dir": None, "version_num": -1,
-                "first_file": None, "first_frame": None, "last_frame": None,
-                "frame_count": 0, "width": None, "height": None,
-                "fps": None, "compression": None,
-            })
             continue
 
-        # Tomar la de version mas alta
-        version_dirs.sort(key=lambda d: _version_number(d.name))
-        best = version_dirs[-1]
-        first_f, last_f, count, first_file = _scan_exr_sequence(str(best))
-        w, h, fps, comp = (None, None, None, None)
-        if first_file:
-            w, h, fps, comp = _read_exr_metadata(first_file)
+        # Ordenar descendente (mayor version primero)
+        version_dirs.sort(key=lambda d: _version_number(d.name), reverse=True)
+        max_ver = _version_number(version_dirs[0].name)
 
-        results.append({
-            "task": task, "folder_name": folder_name, "track": track,
-            "publish_exists": True, "has_versions": True,
-            "version_dir": str(best), "version_name": best.name,
-            "version_num": _version_number(best.name),
-            "first_file": first_file,
-            "first_frame": first_f, "last_frame": last_f, "frame_count": count,
-            "width": w, "height": h, "fps": fps, "compression": comp,
-        })
+        for vd in version_dirs:
+            first_f, last_f, count, first_file = _scan_exr_sequence(str(vd))
+            w, h, fps, comp = (None, None, None, None)
+            if first_file:
+                w, h, fps, comp = _read_exr_metadata(first_file)
+            ver_num = _version_number(vd.name)
+            results.append({
+                "task": task, "folder_name": folder_name, "track": track,
+                "publish_exists": True, "has_versions": True,
+                "version_dir": str(vd), "version_name": vd.name,
+                "version_num": ver_num,
+                "is_latest": (ver_num == max_ver),
+                "first_file": first_file,
+                "first_frame": first_f, "last_frame": last_f, "frame_count": count,
+                "width": w, "height": h, "fps": fps, "compression": comp,
+            })
 
     return results
 
@@ -762,6 +764,19 @@ QPushButton:hover { background-color: #4a4a4a; }
 QPushButton:disabled { background-color: #2a2a2a; color: #666666; border-color: #3a3a3a; }
 """
 
+_BTN_SMALL = """
+QPushButton {
+    background-color: #2e2e2e;
+    border: 1px solid #444444;
+    color: #999999;
+    padding: 3px 10px;
+    border-radius: 3px;
+    font-size: 11px;
+}
+QPushButton:hover { background-color: #383838; color: #cccccc; }
+QPushButton:disabled { background-color: #272727; color: #555555; }
+"""
+
 
 def _section_label(text):
     lbl = QtWidgets.QLabel(text)
@@ -876,12 +891,29 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _build_page_media(self):
         page = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(page)
-        layout.setSpacing(8)
+        layout.setSpacing(6)
 
         layout.addWidget(_section_label("MEDIA ENCONTRADA"))
 
         self._media_table = self._build_media_table()
         layout.addWidget(self._media_table, 1)
+
+        # Fila de selección rápida
+        sel_row = QtWidgets.QHBoxLayout()
+        sel_row.setSpacing(4)
+        for label, slot in [
+            ("Select All",    self._select_all),
+            ("Clear",         self._clear_selection),
+            ("Plates",        lambda: self._select_section("plates")),
+            ("References",    lambda: self._select_section("refs")),
+            ("Publish",       lambda: self._select_section("publish")),
+        ]:
+            btn = QtWidgets.QPushButton(label)
+            btn.setStyleSheet(_BTN_SMALL)
+            btn.clicked.connect(slot)
+            sel_row.addWidget(btn)
+        sel_row.addStretch()
+        layout.addLayout(sel_row)
 
         layout.addWidget(_separator())
 
@@ -918,7 +950,9 @@ class ImportShotDialog(QtWidgets.QDialog):
         return page
 
     def _build_media_table(self):
-        headers = ["", "Nombre", "Tipo", "Res", "FPS", "Compresión", "Frames", "Track"]
+        # col 0: barra de color (4 px)  col 1: checkbox (28 px)
+        # col 2: Nombre  3: Tipo  4: Res  5: FPS  6: Compresión  7: Frames  8: Track
+        headers = ["", "", "Nombre", "Tipo", "Res", "FPS", "Compresión", "Frames", "Track"]
         table = QtWidgets.QTableWidget()
         table.setColumnCount(len(headers))
         table.setHorizontalHeaderLabels(headers)
@@ -932,142 +966,219 @@ class ImportShotDialog(QtWidgets.QDialog):
         table.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
 
         rows = self._build_table_rows()
-        self._table_rows = rows  # guardamos para referencias posteriores
+        self._table_rows = rows
         table.setRowCount(len(rows))
 
         self._checkboxes = {}
         self._track_combos = {}
 
         for i, row_data in enumerate(rows):
-            self._populate_media_row(table, i, row_data)
+            if row_data["type"] == "section_header":
+                self._populate_section_header_row(table, i, row_data)
+            else:
+                self._populate_data_row(table, i, row_data)
 
         header = table.horizontalHeader()
         header.setSectionResizeMode(0, QtWidgets.QHeaderView.Fixed)
-        table.setColumnWidth(0, 28)
-        header.setSectionResizeMode(1, QtWidgets.QHeaderView.Stretch)
-        for col in range(2, len(headers) - 1):
+        table.setColumnWidth(0, 4)
+        header.setSectionResizeMode(1, QtWidgets.QHeaderView.Fixed)
+        table.setColumnWidth(1, 28)
+        header.setSectionResizeMode(2, QtWidgets.QHeaderView.Stretch)
+        for col in range(3, len(headers) - 1):
             header.setSectionResizeMode(col, QtWidgets.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(len(headers) - 1, QtWidgets.QHeaderView.ResizeToContents)
 
-        # Click en cualquier celda (excepto col 0) togglea el checkbox de esa fila
         table.cellClicked.connect(self._on_media_row_clicked)
-
         return table
 
     def _on_media_row_clicked(self, row, col):
-        if col == 0:
-            return  # el checkbox maneja su propio click
+        if col <= 1:
+            return  # barra de color y checkbox manejan sus propios eventos
         if row in self._checkboxes:
             chk = self._checkboxes[row]
             chk.setChecked(not chk.isChecked())
 
     def _build_table_rows(self):
-        """Construye la lista de filas para la tabla de media."""
+        """
+        Construye la lista de filas con secciones intercaladas.
+        Tipos: 'section_header' | 'data'
+        También puebla self._section_data_rows: {section -> [row_indices]}.
+        """
         rows = []
-        # Input items
-        for item in self.input_items:
-            rows.append({"source": "input", "item": item})
-        # Publish items (solo los que tienen versiones)
-        for pub in self.publish_items:
-            if pub["has_versions"]:
-                rows.append({"source": "publish", "item": pub})
+        self._section_data_rows = {"publish": [], "plates": [], "refs": []}
+
+        # PUBLISH — todas las versiones, ordenadas por task y luego version desc
+        pub_sorted = sorted(
+            (p for p in self.publish_items if p.get("has_versions")),
+            key=lambda p: (_TASK_ORDER.get(p["task"], 9), -p["version_num"])
+        )
+        if pub_sorted:
+            rows.append({"type": "section_header", "label": "PUBLISH", "color": "#555555"})
+            for p in pub_sorted:
+                idx = len(rows)
+                self._section_data_rows["publish"].append(idx)
+                rows.append({"type": "data", "source": "publish", "item": p,
+                             "section": "publish"})
+
+        # PLATES — EXR sequences de _input (ya vienen ordenadas del scan)
+        plates = [i for i in self.input_items if i["kind"] == "exr_seq"]
+        if plates:
+            rows.append({"type": "section_header", "label": "PLATES", "color": _CLR_PLATES})
+            for item in plates:
+                idx = len(rows)
+                self._section_data_rows["plates"].append(idx)
+                rows.append({"type": "data", "source": "input", "item": item,
+                             "section": "plates"})
+
+        # REFERENCES — MOVs de _input (editref primero, seqref despues)
+        def _ref_sort_key(x):
+            n = x.get("name", "").lower()
+            if "editrefclean" in n: return 0
+            if "editref" in n:      return 1
+            if "seqref" in n:       return 2
+            return 3
+
+        refs = sorted(
+            [i for i in self.input_items if i["kind"] == "mov"],
+            key=_ref_sort_key
+        )
+        if refs:
+            rows.append({"type": "section_header", "label": "REFERENCES",
+                         "color": _CLR_REFS})
+            for item in refs:
+                idx = len(rows)
+                self._section_data_rows["refs"].append(idx)
+                rows.append({"type": "data", "source": "input", "item": item,
+                             "section": "refs"})
+
         return rows
 
-    def _populate_media_row(self, table, row, row_data):
-        source = row_data["source"]
-        item   = row_data["item"]
+    def _populate_section_header_row(self, table, row_i, row_data):
+        ncols = table.columnCount()
+        color = row_data["color"]
 
-        is_input_exr = (source == "input" and item["kind"] == "exr_seq")
-        is_seqref    = (item.get("track") is None and
-                        "seqref" in item.get("name", "").lower())
+        bar = QtWidgets.QTableWidgetItem()
+        bar.setBackground(QtGui.QColor(color))
+        bar.setFlags(QtCore.Qt.NoItemFlags)
+        table.setItem(row_i, 0, bar)
+
+        table.setSpan(row_i, 1, 1, ncols - 1)
+        lbl = QtWidgets.QLabel("  " + row_data["label"])
+        lbl.setStyleSheet(
+            "color: %s; font-weight: bold; font-size: 11px; "
+            "padding: 3px 8px; background: #313131; letter-spacing: 1px;" % color
+        )
+        table.setCellWidget(row_i, 1, lbl)
+        table.setRowHeight(row_i, 24)
+
+    def _populate_data_row(self, table, row_i, row_data):
+        source  = row_data["source"]
+        item    = row_data["item"]
+        section = row_data.get("section", "")
+
+        is_input_exr = (source == "input" and item.get("kind") == "exr_seq")
         is_latest    = item.get("is_latest", True)
+        is_seqref    = (source == "input" and item.get("track") is None
+                        and "seqref" in item.get("name", "").lower())
 
-        # Col 0: checkbox
+        # Col 0: barra de color (indica tipo/task de la fila)
+        if section == "publish":
+            bar_color = _TASK_ROW_COLORS.get(item.get("task", ""), "#555555")
+        elif section == "plates":
+            bar_color = _CLR_PLATES
+        else:
+            bar_color = _CLR_REFS
+        bar_item = QtWidgets.QTableWidgetItem()
+        bar_item.setBackground(QtGui.QColor(bar_color))
+        bar_item.setFlags(QtCore.Qt.NoItemFlags)
+        table.setItem(row_i, 0, bar_item)
+
+        # Col 1: checkbox
         chk = QtWidgets.QCheckBox()
         chk.setStyleSheet("color:#a7a7a7; padding:2px;")
-        # Solo EXR de input marcados por defecto (la version mas alta)
         chk.setChecked(is_input_exr and is_latest)
         chk.stateChanged.connect(self._update_action_btns)
-        self._checkboxes[row] = chk
+        self._checkboxes[row_i] = chk
         container = QtWidgets.QWidget()
         cl = QtWidgets.QHBoxLayout(container)
         cl.setContentsMargins(0, 0, 0, 0)
         cl.setAlignment(QtCore.Qt.AlignCenter)
         cl.addWidget(chk)
-        table.setCellWidget(row, 0, container)
+        table.setCellWidget(row_i, 1, container)
 
-        # Col 1: nombre (★ solo si hay varias versiones y es la mas alta, ⚠ si seqref)
+        # Col 2: Nombre
         name = item.get("name") or item.get("version_name") or ""
-        has_multi = item.get("has_multiple_versions", False)
-        if is_input_exr and is_latest and has_multi:
-            display_name = name + " ★"
-        elif is_seqref:
-            display_name = name + " ⚠"
-        else:
-            display_name = name
-        name_item = QtWidgets.QTableWidgetItem(display_name)
-        name_item.setForeground(
-            QtGui.QColor("#d9a441") if is_seqref else
-            QtGui.QColor("#CCCCCC") if (is_input_exr and is_latest) else
-            QtGui.QColor("#a7a7a7")
-        )
         if is_seqref:
-            name_item.setToolTip("Se importará al bin. No se coloca en el timeline.")
-        table.setItem(row, 1, name_item)
+            name_color = _CLR_REFS
+            tooltip    = "Se importará al bin. No se coloca en el timeline."
+        elif section == "publish":
+            name_color = "#CCCCCC" if is_latest else "#777777"
+            tooltip    = ""
+        else:
+            name_color = "#CCCCCC" if is_latest else "#888888"
+            tooltip    = ""
+        name_item = QtWidgets.QTableWidgetItem(name)
+        name_item.setForeground(QtGui.QColor(name_color))
+        if tooltip:
+            name_item.setToolTip(tooltip)
+        table.setItem(row_i, 2, name_item)
 
-        # Col 2: tipo
-        if source == "publish":
-            kind_str = "EXR seq"
-        elif item.get("kind") == "exr_seq":
+        # Col 3: Tipo
+        if source == "publish" or item.get("kind") == "exr_seq":
             kind_str = "EXR seq"
         elif item.get("kind") == "mov":
-            kind_str = item.get("ext") or Path(item.get("path", "")).suffix.lstrip(".").upper() or "MOV"
+            kind_str = (item.get("ext") or
+                        Path(item.get("path", "")).suffix.lstrip(".").upper() or "MOV")
         else:
             kind_str = "Archivo"
-        table.setItem(row, 2, QtWidgets.QTableWidgetItem(kind_str))
+        tipo_item = QtWidgets.QTableWidgetItem(kind_str)
+        tipo_item.setForeground(QtGui.QColor("#888888"))
+        table.setItem(row_i, 3, tipo_item)
 
-        # Col 3: resolución
+        # Col 4: Res
         w, h = item.get("width"), item.get("height")
         res_str = ("%d×%d" % (w, h)) if (w and h) else "—"
-        table.setItem(row, 3, QtWidgets.QTableWidgetItem(res_str))
+        res_item = QtWidgets.QTableWidgetItem(res_str)
+        res_item.setForeground(QtGui.QColor("#888888"))
+        table.setItem(row_i, 4, res_item)
 
-        # Col 4: fps
+        # Col 5: FPS
         fps = item.get("fps")
         fps_str = ("%.5g" % fps) if fps else "—"
-        table.setItem(row, 4, QtWidgets.QTableWidgetItem(fps_str))
+        fps_item = QtWidgets.QTableWidgetItem(fps_str)
+        fps_item.setForeground(QtGui.QColor("#888888"))
+        table.setItem(row_i, 5, fps_item)
 
-        # Col 5: compresión
+        # Col 6: Compresión
         comp = item.get("compression") or "—"
-        table.setItem(row, 5, QtWidgets.QTableWidgetItem(comp))
+        comp_item = QtWidgets.QTableWidgetItem(comp)
+        comp_item.setForeground(QtGui.QColor("#888888"))
+        table.setItem(row_i, 6, comp_item)
 
-        # Col 6: frames
-        ff, lf = item.get("first_frame"), item.get("last_frame")
+        # Col 7: Frames  "1001–1480  (480f)"
+        ff = item.get("first_frame")
+        lf = item.get("last_frame")
+        fc = item.get("frame_count")
         if ff is not None and lf is not None:
-            frames_str = "%d – %d" % (ff, lf)
+            fc_val = fc if fc is not None else (lf - ff + 1)
+            frames_str = "%d–%d  (%df)" % (ff, lf, fc_val)
         else:
             frames_str = "—"
-        table.setItem(row, 6, QtWidgets.QTableWidgetItem(frames_str))
+        frames_item = QtWidgets.QTableWidgetItem(frames_str)
+        frames_item.setForeground(QtGui.QColor("#888888"))
+        table.setItem(row_i, 7, frames_item)
 
-        # Col 7: track (combo editable para inputs, label para publish)
+        # Col 8: Track (dropdown editable para inputs, label para publish)
         track = item.get("track")
         if source == "input" and item.get("kind") in ("exr_seq", "mov"):
-            combo = self._build_track_combo(track, row)
-            table.setCellWidget(row, 7, combo)
-            self._track_combos[row] = combo
+            combo = self._build_track_combo(track, row_i)
+            table.setCellWidget(row_i, 8, combo)
+            self._track_combos[row_i] = combo
         else:
             track_str = track if track else "—"
-            if source == "publish":
-                track_str = item.get("track", "—")
             lbl = QtWidgets.QLabel(track_str)
             lbl.setStyleSheet("color:#888888; padding:2px 6px;")
-            table.setCellWidget(row, 7, lbl)
-
-        # Colorear fila de publish en gris mas oscuro
-        if source == "publish":
-            for col in range(1, 7):
-                it = table.item(row, col)
-                if it:
-                    it.setForeground(QtGui.QColor("#777777"))
+            table.setCellWidget(row_i, 8, lbl)
 
     def _build_track_combo(self, current_track, row_id):
         track_options = [
@@ -1125,7 +1236,10 @@ class ImportShotDialog(QtWidgets.QDialog):
             if txt in ("— sin track —", "?"):
                 return None
             return txt
-        return self._table_rows[row]["item"].get("track")
+        row_data = self._table_rows[row]
+        if row_data.get("type") == "section_header":
+            return None
+        return row_data["item"].get("track")
 
     def _update_action_btns(self):
         any_checked = any(chk.isChecked() for chk in self._checkboxes.values())
@@ -1138,6 +1252,21 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_btn.setEnabled(any_checked)
         self._convert_btn.setEnabled(has_exr_checked)
         self._import_btn.setEnabled(any_checked)
+
+    # ── selección rápida ─────────────────────────────────────────
+
+    def _select_all(self):
+        for chk in self._checkboxes.values():
+            chk.setChecked(True)
+
+    def _clear_selection(self):
+        for chk in self._checkboxes.values():
+            chk.setChecked(False)
+
+    def _select_section(self, section):
+        for row_i in self._section_data_rows.get(section, []):
+            if row_i in self._checkboxes:
+                self._checkboxes[row_i].setChecked(True)
 
     def _go_to_rename(self):
         self._show_page(self.PAGE_RENAME)
