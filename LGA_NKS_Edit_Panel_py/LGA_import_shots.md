@@ -258,6 +258,12 @@ Basado en `LGA_NKS_CreateV000.py`:
 
 ## Pendiente de implementacion
 
+- **Res / FPS / Compresion en tabla:** actualmente muestran `—`. La lectura confiable
+  requiere herramientas externas:
+  - EXR → `oiiotool --info` (ya disponible en `LGA_NKS_Shared/OIIO_Win/oiiotool.exe`)
+  - MOV → `ffprobe` (parte de ffmpeg)
+  Ambas herramientas estaran disponibles al integrar la conversion tool de Lega.
+  Hasta entonces las columnas quedan en `—`.
 - **Prep Media — Convert:** logica real de conversion (pendiente herramienta externa)
 - **Prep Media — Presets:** guardado de presets de rename y resolucion en `.ini`
 - **SetShotName:** llamada correcta al script externo post-importacion

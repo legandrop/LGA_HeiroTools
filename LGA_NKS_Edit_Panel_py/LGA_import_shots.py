@@ -254,8 +254,10 @@ def _scan_input_folder(shot_root):
     for base_key, group in plate_groups.items():
         group.sort(key=lambda x: x["version_num"])
         max_ver = max(x["version_num"] for x in group)
+        has_multiple_versions = len(group) > 1
         for entry in group:
             entry["is_latest"] = (entry["version_num"] == max_ver)
+            entry["has_multiple_versions"] = has_multiple_versions
             # Leer metadata solo del primer archivo
             w, h, fps, comp = (None, None, None, None)
             if entry["first_file"]:
@@ -272,9 +274,17 @@ def _scan_input_folder(shot_root):
     for f in loose:
         ext = f.suffix.lower()
         if ext in MOV_EXTENSIONS:
-            track = _detect_track_from_name(f.stem)
-            if track is None and "seqref" not in f.stem.lower():
+            # MOVs sueltos: solo detectamos seqref y editref.
+            # Nunca heredan track de plates aunque compartan nombre base con un EXR.
+            stem_lower = f.stem.lower()
+            if "seqref" in stem_lower:
+                track = None          # bin only
+            elif "editrefclean" in stem_lower:
+                track = "EditRefClean"
+            elif "editref" in stem_lower:
                 track = "EditRef"
+            else:
+                track = "?"           # desconocido, usuario decide
             items.append({
                 "name": f.stem,
                 "path": str(f),
@@ -934,9 +944,10 @@ class ImportShotDialog(QtWidgets.QDialog):
         cl.addWidget(chk)
         table.setCellWidget(row, 0, container)
 
-        # Col 1: nombre (con ★ si es latest de su grupo, con ⚠ si es seqref)
+        # Col 1: nombre (★ solo si hay varias versiones y es la mas alta, ⚠ si seqref)
         name = item.get("name") or item.get("version_name") or ""
-        if is_input_exr and is_latest and item["version_num"] > -1:
+        has_multi = item.get("has_multiple_versions", False)
+        if is_input_exr and is_latest and has_multi:
             display_name = name + " ★"
         elif is_seqref:
             display_name = name + " ⚠"
@@ -1012,24 +1023,41 @@ class ImportShotDialog(QtWidgets.QDialog):
         combo = QtWidgets.QComboBox()
         combo.setStyleSheet("""
             QComboBox {
+                background-color: #272727;
+                border: 0px;
+                color: #a7a7a7;
+                padding: 1px 4px;
+                selection-background-color: transparent;
+            }
+            QComboBox::drop-down {
+                border: 0px;
+                width: 14px;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-top: 5px solid #666666;
+                width: 0px;
+                height: 0px;
+            }
+            QComboBox QAbstractItemView {
                 background-color: #2B2B2B;
                 border: 1px solid #444444;
                 color: #a7a7a7;
-                padding: 1px 4px;
-            }
-            QComboBox::drop-down { border: 0px; }
-            QComboBox QAbstractItemView {
-                background-color: #2B2B2B;
-                color: #a7a7a7;
                 selection-background-color: #3a3a3a;
+                outline: none;
             }
         """)
-        track_options_display = ["— sin track —"] + track_options
+        # "?" como primera opcion para tracks desconocidos (MOVs no identificados)
+        track_options_display = ["— sin track —", "?"] + track_options
         for opt in track_options_display:
             combo.addItem(opt)
-        if current_track and current_track in track_options:
+        if current_track == "?":
+            combo.setCurrentText("?")
+        elif current_track and current_track in track_options:
             combo.setCurrentText(current_track)
-        elif not current_track:
+        else:
             combo.setCurrentIndex(0)
         combo.currentTextChanged.connect(
             lambda txt, rid=row_id: self._track_overrides.__setitem__(rid, txt)
@@ -1039,7 +1067,9 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _get_track_for_row(self, row):
         if row in self._track_combos:
             txt = self._track_combos[row].currentText()
-            return None if txt == "— sin track —" else txt
+            if txt in ("— sin track —", "?"):
+                return None
+            return txt
         return self._table_rows[row]["item"].get("track")
 
     def _update_prep_btn(self):
