@@ -1,9 +1,11 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_mediaMissingFrames v1.50 | Lega
+  LGA_NKS_mediaMissingFrames v1.51 | Lega
 
   Escanea los clips seleccionados en Hiero para secuencias EXR con frames faltantes o corruptos
+
+  v1.51: Actualizada la ruta de openexr a shared
 ____________________________________________________________________
 
 """
@@ -86,7 +88,7 @@ class WorkerThread(QtCore.QThread):
         if file_hash in self.exr_cache:
             return self.exr_cache[file_hash]
 
-        exrheader_path = os.path.join(os.path.dirname(__file__), 'OpenEXR', 'exrheader.exe')
+        exrheader_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'LGA_NKS_Shared', 'OpenEXR_Win', 'exrheader.exe')
         try:
             result = subprocess.run([exrheader_path, file_path], capture_output=True, text=True, timeout=5)
             
