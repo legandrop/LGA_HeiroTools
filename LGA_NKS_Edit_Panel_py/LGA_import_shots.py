@@ -1024,7 +1024,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         # PLATES — EXR sequences de _input (ya vienen ordenadas del scan)
         plates = [i for i in self.input_items if i["kind"] == "exr_seq"]
         if plates:
-            rows.append({"type": "section_header", "label": "PLATES", "color": "#6fc9d9"})
+            rows.append({"type": "section_header", "label": "PLATES", "color": _CLR_PLATES, "text_color": "#6fc9d9"})
             for item in plates:
                 idx = len(rows)
                 self._section_data_rows["plates"].append(idx)
@@ -1057,6 +1057,7 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _populate_section_header_row(self, table, row_i, row_data):
         ncols = table.columnCount()
         color = row_data["color"]
+        text_color = row_data.get("text_color", color)
 
         bar = QtWidgets.QTableWidgetItem()
         bar.setBackground(QtGui.QColor(color))
@@ -1067,7 +1068,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         lbl = QtWidgets.QLabel("  " + row_data["label"])
         lbl.setStyleSheet(
             "color: %s; font-weight: bold; font-size: 11px; "
-            "padding: 3px 8px; background: #313131; letter-spacing: 1px;" % color
+            "padding: 3px 8px; background: #313131; letter-spacing: 1px;" % text_color
         )
         table.setCellWidget(row_i, 1, lbl)
         table.setRowHeight(row_i, 24)
