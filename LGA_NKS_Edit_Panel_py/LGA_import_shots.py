@@ -3,15 +3,1606 @@ ____________________________________________________________________
 
   LGA_import_shots v1.00 | Lega
 
-  Importa shots al proyecto de Nuke Studio
+  Importa shots al proyecto de Nuke Studio.
+  Analiza la carpeta _input del shot, detecta plates/editrefs/seqrefs
+  y versiones en publish, y los coloca en el timeline en la posicion
+  alfabeticamente correcta.
 
 ____________________________________________________________________
 """
 
+import os
+import re
+import sys
+import logging
+import queue
+import time
+from pathlib import Path
+from logging.handlers import QueueHandler, QueueListener
 
+import hiero.core
+import hiero.ui
+
+CURRENT_DIR = Path(__file__).resolve().parent
+STARTUP_DIR = CURRENT_DIR.parent
+SHARED_DIR = STARTUP_DIR / "LGA_NKS_Shared"
+if str(SHARED_DIR) not in sys.path:
+    sys.path.insert(0, str(SHARED_DIR))
+if str(STARTUP_DIR) not in sys.path:
+    sys.path.insert(0, str(STARTUP_DIR))
+
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
+from LGA_NKS_Flow_NamingUtils import clean_base_name, extract_shot_code
+
+# ── logging ────────────────────────────────────────────────────────
+DEBUG = True
+DEBUG_CONSOLE = False
+DEBUG_LOG = True
+script_start_time = None
+debug_log_listener = None
+
+
+class _RelativeTimeFormatter(logging.Formatter):
+    def format(self, record):
+        global script_start_time
+        if script_start_time is None:
+            script_start_time = record.created
+        record.relative_time = "%.3fs" % (record.created - script_start_time)
+        return super().format(record)
+
+
+def _setup_logging():
+    global debug_log_listener
+    log_path = STARTUP_DIR / "logs" / "debugPy_ImportShots.log"
+    log_path.parent.mkdir(exist_ok=True)
+    try:
+        log_path.write_text("Fecha: %s\n" % time.strftime("%Y-%m-%d %H:%M:%S"), encoding="utf-8")
+    except Exception:
+        pass
+    logger = logging.getLogger("import_shots_logger")
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+    if logger.handlers:
+        logger.handlers.clear()
+    fh = logging.FileHandler(str(log_path), encoding="utf-8")
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(_RelativeTimeFormatter("[%(relative_time)s] %(message)s"))
+    lq = queue.Queue()
+    qh = QueueHandler(lq)
+    qh.setLevel(logging.DEBUG)
+    logger.addHandler(qh)
+    if debug_log_listener:
+        try:
+            debug_log_listener.stop()
+        except Exception:
+            pass
+    debug_log_listener = QueueListener(lq, fh, respect_handler_level=True)
+    debug_log_listener.daemon = True
+    debug_log_listener.start()
+    return logger
+
+
+_logger = _setup_logging()
+
+
+def _log(msg, level="info"):
+    global script_start_time
+    if not (DEBUG and DEBUG_LOG):
+        return
+    if script_start_time is None:
+        script_start_time = time.time()
+    getattr(_logger, level)(msg)
+    if DEBUG_CONSOLE:
+        print("[%.3fs] %s" % (time.time() - script_start_time, msg))
+
+
+# ── colores (igual que CreateV000) ────────────────────────────────
+PATH_SHOT_COLOR = "#c56cf0"
+PATH_SEP_COLOR  = "#bbbbbb"
+PATH_LEVEL_COLORS = {
+    0: "#ffff66", 1: "#28b5b5", 2: "#ff9a8a", 3: "#0088ff",
+    4: "#ffd369", 5: "#28b5b5", 6: "#ff9a8a", 7: "#6bc9ff",
+    8: "#ffd369", 9: "#28b5b5", 10: "#ff9a8a", 11: "#6bc9ff",
+}
+
+# ── constantes de track ────────────────────────────────────────────
+BURNIN_TRACK_NAMES = {"burnin", "burn in", "burn_in"}
+
+PLATE_KEYWORDS = [
+    ("seqref",       None),           # None = solo bin
+    ("editrefclean", "EditRefClean"),
+    ("editref",      "EditRef"),
+    ("fgplate",      "fgPlate"),
+    ("bgplate",      "bgPlate"),
+    ("aplate",       "aPlate"),
+    ("bplate",       "bPlate"),
+    ("cplate",       "cPlate"),
+    ("dplate",       "dPlate"),
+    ("eplate",       "ePlate"),
+]
+
+TASK_FOLDERS = {
+    "comp":    ("Comp",    "_comp_"),
+    "roto":    ("Roto",    "_roto_"),
+    "cleanup": ("Cleanup", "_cleanup_"),
+    "dmp":     ("DMP",     "_dmp_"),
+}
+
+EXR_EXTENSIONS  = {".exr"}
+MOV_EXTENSIONS  = {".mov", ".mxf", ".mp4"}
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".dpx"}
+
+
+# ══════════════════════════════════════════════════════════════════
+#  Helpers de carpeta / media
+# ══════════════════════════════════════════════════════════════════
+
+def _detect_track_from_name(name):
+    """Devuelve nombre de track o None (solo bin) segun keywords."""
+    lower = name.lower()
+    for kw, track in PLATE_KEYWORDS:
+        if kw in lower:
+            return track   # puede ser None (seqref)
+    return None
+
+
+def _version_number(name):
+    """Extrae numero de version de un nombre (v01, v001, v002). Retorna -1 si no hay."""
+    m = re.search(r"[_\-]v(\d+)", name, re.IGNORECASE)
+    return int(m.group(1)) if m else -1
+
+
+def _scan_exr_sequence(folder_path):
+    """Escanea una carpeta y retorna (first_frame, last_frame, count, first_file_path)."""
+    try:
+        files = sorted(
+            f for f in os.listdir(folder_path)
+            if os.path.splitext(f)[1].lower() in EXR_EXTENSIONS
+        )
+    except Exception:
+        return None, None, 0, None
+    if not files:
+        return None, None, 0, None
+
+    def _frame_num(fname):
+        m = re.search(r"(\d+)\.exr$", fname, re.IGNORECASE)
+        return int(m.group(1)) if m else 0
+
+    frames = [_frame_num(f) for f in files]
+    frames = [f for f in frames if f > 0]
+    if not frames:
+        return None, None, len(files), os.path.join(folder_path, files[0])
+    return min(frames), max(frames), len(files), os.path.join(folder_path, files[0])
+
+
+def _read_exr_metadata(exr_path):
+    """Lee resolucion, fps y compresion de un EXR via OpenEXR o hiero.core.Clip."""
+    w, h, fps, comp = None, None, None, None
+    try:
+        clip = hiero.core.Clip(exr_path)
+        ms = clip.mediaSource()
+        md = ms.metadata()
+
+        def _get(*keys):
+            for k in keys:
+                try:
+                    v = md.get(k)
+                    if v:
+                        return v
+                except Exception:
+                    pass
+            return None
+
+        w_raw = _get("foundry.source.width", "exr/displayWindow/width", "input/width")
+        h_raw = _get("foundry.source.height", "exr/displayWindow/height", "input/height")
+        if w_raw:
+            w = int(float(w_raw))
+        if h_raw:
+            h = int(float(h_raw))
+        fps_raw = _get("foundry.source.framerate", "exr/framesPerSecond", "framerate")
+        if fps_raw:
+            try:
+                fps = float(fps_raw)
+            except Exception:
+                pass
+        comp = _get("exr/compression", "compression")
+    except Exception:
+        pass
+    return w, h, fps, comp
+
+
+def _scan_input_folder(shot_root):
+    """
+    Escanea {shot_root}/_input/ y retorna lista de dicts con info de cada item.
+    Cada dict: {name, path, kind, track, first_frame, last_frame, frame_count,
+                first_file, width, height, fps, compression, is_latest, version_num}
+    kind: 'exr_seq' | 'mov' | 'other'
+    """
+    input_dir = Path(shot_root) / "_input"
+    if not input_dir.exists():
+        return []
+
+    items = []
+
+    # 1. Subcarpetas → secuencias EXR
+    try:
+        subdirs = sorted(d for d in input_dir.iterdir() if d.is_dir())
+    except Exception:
+        subdirs = []
+
+    # Agrupar por nombre base (sin version) para detectar la mas alta
+    plate_groups = {}  # base_key → [subdir, ...]
+    for sd in subdirs:
+        first_f, last_f, count, first_file = _scan_exr_sequence(str(sd))
+        if count == 0:
+            continue
+        track = _detect_track_from_name(sd.name)
+        # Agrupar: quitamos la parte _vNN al final para la clave de grupo
+        base_key = re.sub(r"[_\-]v\d+$", "", sd.name, flags=re.IGNORECASE).lower()
+        plate_groups.setdefault(base_key, []).append({
+            "name": sd.name,
+            "path": str(sd),
+            "kind": "exr_seq",
+            "track": track,
+            "first_frame": first_f,
+            "last_frame": last_f,
+            "frame_count": count,
+            "first_file": first_file,
+            "version_num": _version_number(sd.name),
+        })
+
+    for base_key, group in plate_groups.items():
+        group.sort(key=lambda x: x["version_num"])
+        max_ver = max(x["version_num"] for x in group)
+        for entry in group:
+            entry["is_latest"] = (entry["version_num"] == max_ver)
+            # Leer metadata solo del primer archivo
+            w, h, fps, comp = (None, None, None, None)
+            if entry["first_file"]:
+                w, h, fps, comp = _read_exr_metadata(entry["first_file"])
+            entry.update({"width": w, "height": h, "fps": fps, "compression": comp})
+            items.append(entry)
+
+    # 2. Archivos sueltos en _input/
+    try:
+        loose = sorted(f for f in input_dir.iterdir() if f.is_file())
+    except Exception:
+        loose = []
+
+    for f in loose:
+        ext = f.suffix.lower()
+        if ext in MOV_EXTENSIONS:
+            track = _detect_track_from_name(f.stem)
+            if track is None and "seqref" not in f.stem.lower():
+                track = "EditRef"
+            items.append({
+                "name": f.stem,
+                "path": str(f),
+                "kind": "mov",
+                "track": track,
+                "first_frame": None,
+                "last_frame": None,
+                "frame_count": None,
+                "first_file": str(f),
+                "width": None, "height": None, "fps": None, "compression": None,
+                "is_latest": True,
+                "version_num": _version_number(f.stem),
+            })
+        elif ext in IMAGE_EXTENSIONS:
+            items.append({
+                "name": f.name,
+                "path": str(f),
+                "kind": "other",
+                "track": None,
+                "first_frame": None, "last_frame": None, "frame_count": None,
+                "first_file": str(f),
+                "width": None, "height": None, "fps": None, "compression": None,
+                "is_latest": True,
+                "version_num": -1,
+            })
+
+    # Ordenar: plates por track-name luego version, movs, otros
+    def _sort_key(x):
+        order = {"exr_seq": 0, "mov": 1, "other": 2}
+        return (order.get(x["kind"], 9), x.get("track") or "zzz", x["version_num"])
+
+    items.sort(key=_sort_key)
+    return items
+
+
+def _scan_publish_folders(shot_root):
+    """
+    Escanea las carpetas de task en shot_root y retorna lista de dicts.
+    {task, folder_name, track, publish_dir, version_dir, version_num,
+     first_file, first_frame, last_frame, frame_count,
+     width, height, fps, compression, has_versions, publish_exists}
+    """
+    results = []
+    shot_path = Path(shot_root)
+    for task, (folder_name, track) in TASK_FOLDERS.items():
+        task_dir = shot_path / folder_name
+        if not task_dir.exists():
+            continue
+        publish_dir = task_dir / "4_publish"
+        publish_exists = publish_dir.exists()
+
+        if not publish_exists:
+            results.append({
+                "task": task, "folder_name": folder_name, "track": track,
+                "publish_exists": False, "has_versions": False,
+                "version_dir": None, "version_num": -1,
+                "first_file": None, "first_frame": None, "last_frame": None,
+                "frame_count": 0, "width": None, "height": None,
+                "fps": None, "compression": None,
+            })
+            continue
+
+        # Buscar subcarpetas de version
+        try:
+            version_dirs = [
+                d for d in publish_dir.iterdir()
+                if d.is_dir() and re.search(r"_v\d+$", d.name, re.IGNORECASE)
+            ]
+        except Exception:
+            version_dirs = []
+
+        if not version_dirs:
+            results.append({
+                "task": task, "folder_name": folder_name, "track": track,
+                "publish_exists": True, "has_versions": False,
+                "version_dir": None, "version_num": -1,
+                "first_file": None, "first_frame": None, "last_frame": None,
+                "frame_count": 0, "width": None, "height": None,
+                "fps": None, "compression": None,
+            })
+            continue
+
+        # Tomar la de version mas alta
+        version_dirs.sort(key=lambda d: _version_number(d.name))
+        best = version_dirs[-1]
+        first_f, last_f, count, first_file = _scan_exr_sequence(str(best))
+        w, h, fps, comp = (None, None, None, None)
+        if first_file:
+            w, h, fps, comp = _read_exr_metadata(first_file)
+
+        results.append({
+            "task": task, "folder_name": folder_name, "track": track,
+            "publish_exists": True, "has_versions": True,
+            "version_dir": str(best), "version_name": best.name,
+            "version_num": _version_number(best.name),
+            "first_file": first_file,
+            "first_frame": first_f, "last_frame": last_f, "frame_count": count,
+            "width": w, "height": h, "fps": fps, "compression": comp,
+        })
+
+    return results
+
+
+# ══════════════════════════════════════════════════════════════════
+#  Helpers de timeline
+# ══════════════════════════════════════════════════════════════════
+
+def _is_burnin_track(track_name):
+    return track_name.lower().strip() in BURNIN_TRACK_NAMES
+
+
+def _get_shot_name_from_folder(folder_path):
+    return Path(folder_path).name
+
+
+def _collect_timeline_shots(seq):
+    """
+    Escanea tracks aPlate y EditRef para construir lista de shots existentes.
+    Retorna list de {shot_name, timeline_in, timeline_out, track_name}.
+    """
+    shots = []
+    seen_names = set()
+    for track in seq.videoTracks():
+        tname = track.name()
+        if not (re.search(r"plate$", tname, re.IGNORECASE) or
+                re.search(r"editref", tname, re.IGNORECASE)):
+            continue
+        for item in track.items():
+            if isinstance(item, hiero.core.EffectTrackItem):
+                continue
+            try:
+                name = item.name()
+                tl_in = int(item.timelineIn())
+                tl_out = int(item.timelineOut())
+            except Exception:
+                continue
+            if name not in seen_names:
+                seen_names.add(name)
+                shots.append({
+                    "shot_name": name,
+                    "timeline_in": tl_in,
+                    "timeline_out": tl_out,
+                    "track_name": tname,
+                })
+    shots.sort(key=lambda x: x["timeline_in"])
+    return shots
+
+
+def _shot_exists_in_timeline(seq, shot_name, shot_root):
+    """
+    Doble criterio: nombre del TrackItem Y path de la media contiene el shot root.
+    """
+    shot_name_lower = shot_name.lower()
+    shot_root_norm = shot_root.replace("\\", "/").rstrip("/").lower()
+
+    for track in seq.videoTracks():
+        for item in track.items():
+            if isinstance(item, hiero.core.EffectTrackItem):
+                continue
+            try:
+                if item.name().lower() == shot_name_lower:
+                    return True
+                # Chequear path de media
+                try:
+                    fi = item.source().mediaSource().fileinfos()
+                    if fi:
+                        media_path = fi[0].filename().replace("\\", "/").lower()
+                        if shot_root_norm in media_path:
+                            return True
+                except Exception:
+                    pass
+            except Exception:
+                continue
+    return False
+
+
+def _find_insert_frame(seq, shot_name, duration):
+    """
+    Determina el frame donde insertar el shot nuevo basandose en orden alfabetico.
+    Retorna (insert_frame, frames_to_push).
+    """
+    shots = _collect_timeline_shots(seq)
+    if not shots:
+        return 0, 0
+
+    # Ordenar los shots existentes alfabeticamente por nombre
+    shots_alpha = sorted(shots, key=lambda x: x["shot_name"].lower())
+
+    # Encontrar donde encaja el nuevo shot
+    insert_before = None
+    for s in shots_alpha:
+        if shot_name.lower() < s["shot_name"].lower():
+            insert_before = s
+            break
+
+    if insert_before is None:
+        # El nuevo shot va al final
+        last = max(shots, key=lambda x: x["timeline_out"])
+        insert_frame = last["timeline_out"] + 1
+        return insert_frame, 0
+
+    # Insertar antes de insert_before: usamos su timeline_in actual
+    insert_frame = insert_before["timeline_in"]
+    return insert_frame, duration
+
+
+def _push_clips_right(seq, from_frame, amount):
+    """
+    Mueve todos los clips >= from_frame hacia la derecha por 'amount' frames.
+    Excluye tracks BurnIn.
+    """
+    if amount <= 0:
+        return
+    for track in seq.videoTracks():
+        if _is_burnin_track(track.name()):
+            continue
+        items_to_move = []
+        for item in track.items():
+            if isinstance(item, hiero.core.EffectTrackItem):
+                continue
+            try:
+                if int(item.timelineIn()) >= from_frame:
+                    items_to_move.append(item)
+            except Exception:
+                continue
+        # Mover de derecha a izquierda para evitar colisiones
+        items_to_move.sort(key=lambda x: x.timelineIn(), reverse=True)
+        for item in items_to_move:
+            try:
+                tl_in = int(item.timelineIn())
+                tl_out = int(item.timelineOut())
+                src_in = int(item.sourceIn())
+                src_out = int(item.sourceOut())
+                item.setTimes(tl_in + amount, tl_out + amount, src_in, src_out)
+            except Exception as e:
+                _log("Error moving clip %s: %s" % (item.name(), e), "warning")
+
+
+def _stretch_burnin(seq, new_end_frame):
+    """Estira el clip BurnIn para cubrir hasta new_end_frame."""
+    for track in seq.videoTracks():
+        if not _is_burnin_track(track.name()):
+            continue
+        for item in track.items():
+            if isinstance(item, hiero.core.EffectTrackItem):
+                continue
+            try:
+                tl_in = int(item.timelineIn())
+                src_in = int(item.sourceIn())
+                new_out = max(int(item.timelineOut()), new_end_frame)
+                new_src_out = src_in + (new_out - tl_in)
+                item.setTimes(tl_in, new_out, src_in, new_src_out)
+                _log("BurnIn stretched to frame %d" % new_out)
+            except Exception as e:
+                _log("Could not stretch BurnIn: %s" % e, "warning")
+        break
+
+
+def _find_or_create_bin(project, bin_path):
+    """Navega/crea la ruta de bin. bin_path ej: 'F 101/MOR_1012C_010'"""
+    current = project.clipsBin()
+    for part in [p for p in bin_path.split("/") if p]:
+        found = None
+        for child in current.items():
+            if isinstance(child, hiero.core.Bin) and child.name() == part:
+                found = child
+                break
+        if not found:
+            found = hiero.core.Bin(part)
+            current.addItem(found)
+        current = found
+    return current
+
+
+def _bin_path_for_shot(shot_root, shot_name):
+    """Construye 'F <grupo>/<shot_name>' desde el shot_root."""
+    parts = Path(shot_root).parts
+    # Estructura: disco / proyecto / grupo / shot
+    # Ej: T: / VFX-MOR / 101 / MOR_1012C_010
+    if len(parts) >= 3:
+        grupo = parts[-2]
+    else:
+        grupo = "Shots"
+    return "F %s/%s" % (grupo, shot_name)
+
+
+def _import_clip_to_bin(target_bin, first_file_path, clip_name):
+    """Importa una secuencia al bin. Retorna (clip, bin_item, error)."""
+    try:
+        clip = hiero.core.Clip(first_file_path)
+        clip.setName(clip_name)
+        bin_item = hiero.core.BinItem(clip)
+        target_bin.addItem(bin_item)
+        _log("Imported to bin: %s" % clip_name)
+        return clip, bin_item, None
+    except Exception as e:
+        return None, None, str(e)
+
+
+def _find_video_track(seq, track_name):
+    for track in seq.videoTracks():
+        if track.name() == track_name:
+            return track
+    return None
+
+
+def _place_clip_in_timeline(seq, clip, track_name, tl_in, frame_count, shot_name):
+    """Coloca el clip en el track indicado. Retorna (track_item, error)."""
+    target_track = _find_video_track(seq, track_name)
+    if not target_track:
+        return None, "Track no encontrado: %s" % track_name
+
+    tl_out = tl_in + frame_count - 1
+    try:
+        track_item = target_track.addTrackItem(clip, tl_in)
+        track_item.setName(shot_name)
+        track_item.setTimes(tl_in, tl_out, 0, frame_count - 1)
+        track_item.setVersionLinkedToBin(True)
+        return track_item, None
+    except Exception as e:
+        return None, str(e)
+
+
+# ══════════════════════════════════════════════════════════════════
+#  Helpers UI
+# ══════════════════════════════════════════════════════════════════
+
+_DIALOG_STYLE = """
+QDialog {
+    background-color: #2B2B2B;
+    border: 1px solid #555555;
+}
+QLabel {
+    color: #a7a7a7;
+}
+"""
+
+_TABLE_STYLE = """
+QTableWidget {
+    background-color: #272727;
+    border: 1px solid #333333;
+    color: #a7a7a7;
+    gridline-color: #333333;
+    outline: none;
+}
+QHeaderView::section {
+    background-color: #2B2B2B;
+    color: #999999;
+    padding: 4px 8px;
+    border: 0px;
+    border-bottom: 1px solid #444444;
+    font-weight: bold;
+}
+QTableWidget::item { padding-left: 6px; padding-right: 6px; }
+QTableWidget::item:selected { background-color: #353535; color: #cccccc; }
+"""
+
+_BTN_CANCEL = """
+QPushButton {
+    background-color: #555555;
+    border: 1px solid #666666;
+    color: #CCCCCC;
+    padding: 7px 18px;
+    border-radius: 3px;
+}
+QPushButton:hover { background-color: #666666; }
+"""
+
+_BTN_PRIMARY = """
+QPushButton {
+    background-color: #2a4d3a;
+    border: 1px solid #3a7a55;
+    color: #CCCCCC;
+    padding: 7px 18px;
+    border-radius: 3px;
+    font-weight: bold;
+}
+QPushButton:hover { background-color: #3a6b50; }
+QPushButton:disabled { background-color: #1e3328; color: #666666; border-color: #2a4d3a; }
+"""
+
+_BTN_SECONDARY = """
+QPushButton {
+    background-color: #3a3a3a;
+    border: 1px solid #555555;
+    color: #CCCCCC;
+    padding: 7px 18px;
+    border-radius: 3px;
+}
+QPushButton:hover { background-color: #4a4a4a; }
+QPushButton:disabled { background-color: #2a2a2a; color: #666666; border-color: #3a3a3a; }
+"""
+
+
+def _section_label(text):
+    lbl = QtWidgets.QLabel(text)
+    lbl.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 4px;")
+    return lbl
+
+
+def _separator(orientation="h"):
+    sep = QtWidgets.QFrame()
+    sep.setFrameShape(
+        QtWidgets.QFrame.HLine if orientation == "h" else QtWidgets.QFrame.VLine
+    )
+    sep.setFrameShadow(QtWidgets.QFrame.Sunken)
+    sep.setStyleSheet("color: #444444; margin: 0px;")
+    return sep
+
+
+def _stepper_widget(current_step):
+    """Retorna un QWidget con el indicador de pasos 1-2-3."""
+    w = QtWidgets.QWidget()
+    layout = QtWidgets.QHBoxLayout(w)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(0)
+
+    steps = ["1. Analizar", "2. Prep Media", "3. Importar"]
+    for i, label in enumerate(steps):
+        step_num = i + 1
+        done = step_num < current_step
+        active = step_num == current_step
+
+        lbl = QtWidgets.QLabel(("✓ " if done else "") + label)
+        if active:
+            lbl.setStyleSheet(
+                "color: #3a7a55; font-weight: bold; padding: 4px 10px;"
+            )
+        elif done:
+            lbl.setStyleSheet("color: #666666; padding: 4px 10px;")
+        else:
+            lbl.setStyleSheet("color: #555555; padding: 4px 10px;")
+        layout.addWidget(lbl)
+
+        if i < len(steps) - 1:
+            arrow = QtWidgets.QLabel("→")
+            arrow.setStyleSheet("color: #444444; padding: 4px 0px;")
+            layout.addWidget(arrow)
+
+    layout.addStretch()
+    return w
+
+
+# ══════════════════════════════════════════════════════════════════
+#  Dialogo principal
+# ══════════════════════════════════════════════════════════════════
+
+class ImportShotDialog(QtWidgets.QDialog):
+
+    PHASE_MEDIA   = 2
+    PHASE_PREP    = 2.5   # sub-vista de Prep Media
+    PHASE_IMPORT  = 3
+
+    def __init__(self, shot_root, shot_name, seq, insert_frame, frames_to_push,
+                 input_items, publish_items, parent=None):
+        super(ImportShotDialog, self).__init__(parent)
+        self.shot_root      = shot_root
+        self.shot_name      = shot_name
+        self.seq            = seq
+        self.insert_frame   = insert_frame
+        self.frames_to_push = frames_to_push
+        self.input_items    = input_items    # list de dicts de _scan_input_folder
+        self.publish_items  = publish_items  # list de dicts de _scan_publish_folders
+
+        self._phase = self.PHASE_MEDIA
+        self._track_overrides = {}   # row_id → track_name (ediciones del usuario)
+        self._create_v000_tasks = set()  # tasks marcadas para crear v000
+
+        self.setWindowTitle("Import Shot — %s" % shot_name)
+        self.setObjectName("LGA_ImportShotDialog")
+        self.setModal(True)
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
+        self.setMinimumWidth(820)
+        self.setMinimumHeight(500)
+        self.setStyleSheet(_DIALOG_STYLE)
+
+        self._root_layout = QtWidgets.QVBoxLayout(self)
+        self._root_layout.setSpacing(8)
+
+        # Header fijo
+        self._build_header()
+        self._root_layout.addWidget(_separator())
+
+        # Area de contenido (intercambiable)
+        self._content_area = QtWidgets.QStackedWidget()
+        self._root_layout.addWidget(self._content_area, 1)
+
+        # Construir las tres paginas
+        self._page_media  = self._build_page_media()
+        self._page_prep   = self._build_page_prep()
+        self._page_import = self._build_page_import()
+
+        self._content_area.addWidget(self._page_media)
+        self._content_area.addWidget(self._page_prep)
+        self._content_area.addWidget(self._page_import)
+
+        self._show_phase(self.PHASE_MEDIA)
+
+    # ── header ───────────────────────────────────────────────────
+
+    def _build_header(self):
+        row = QtWidgets.QHBoxLayout()
+        shot_lbl = QtWidgets.QLabel(
+            "<span style='color:#6AB5CA;'>%s</span> / "
+            "<span style='color:#B56AB5;'>%s</span>"
+            % (self._seq_name(), self.shot_name)
+        )
+        shot_lbl.setTextFormat(QtCore.Qt.RichText)
+        shot_lbl.setStyleSheet(
+            "color:#CCCCCC; font-size:14px; font-weight:bold; padding:4px 5px 0 5px;"
+        )
+        row.addWidget(shot_lbl, 0, QtCore.Qt.AlignLeft)
+        row.addStretch()
+        title = QtWidgets.QLabel("Import Shot")
+        title.setStyleSheet(
+            "color:#CCCCCC; font-size:14px; font-weight:bold; padding:4px 5px 0 5px;"
+        )
+        row.addWidget(title, 0, QtCore.Qt.AlignRight)
+        self._root_layout.addLayout(row)
+
+    def _seq_name(self):
+        try:
+            return self.seq.name()
+        except Exception:
+            return ""
+
+    # ── stepper ──────────────────────────────────────────────────
+
+    def _show_phase(self, phase):
+        self._phase = phase
+        step = 1 if phase < 2 else (2 if phase < 3 else 3)
+        # Reemplazar el stepper en el layout si existe
+        if hasattr(self, "_stepper_widget_ref"):
+            self._root_layout.removeWidget(self._stepper_widget_ref)
+            self._stepper_widget_ref.deleteLater()
+        sw = _stepper_widget(step)
+        self._stepper_widget_ref = sw
+        # Insertar justo despues del header (index 1, antes del separador)
+        self._root_layout.insertWidget(1, sw)
+
+        if phase == self.PHASE_MEDIA:
+            self._content_area.setCurrentWidget(self._page_media)
+        elif phase == self.PHASE_PREP:
+            self._content_area.setCurrentWidget(self._page_prep)
+        elif phase == self.PHASE_IMPORT:
+            self._content_area.setCurrentWidget(self._page_import)
+
+    # ══════════════════════════════════════════════════════════
+    #  PAGINA 2: tabla de media
+    # ══════════════════════════════════════════════════════════
+
+    def _build_page_media(self):
+        page = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(page)
+        layout.setSpacing(8)
+
+        layout.addWidget(_section_label("MEDIA ENCONTRADA"))
+
+        self._media_table = self._build_media_table()
+        layout.addWidget(self._media_table, 1)
+
+        # Fila de botones
+        btn_row = QtWidgets.QHBoxLayout()
+        self._prep_btn = QtWidgets.QPushButton("Prep Media")
+        self._prep_btn.setStyleSheet(_BTN_SECONDARY)
+        self._prep_btn.setToolTip(
+            "Renombrar y/o convertir los items seleccionados antes de importar"
+        )
+        self._prep_btn.clicked.connect(self._go_to_prep)
+        btn_row.addWidget(self._prep_btn)
+        btn_row.addStretch()
+        continue_btn = QtWidgets.QPushButton("Continuar →")
+        continue_btn.setStyleSheet(_BTN_PRIMARY)
+        continue_btn.clicked.connect(self._go_to_import_phase)
+        btn_row.addWidget(continue_btn)
+        layout.addLayout(btn_row)
+
+        self._update_prep_btn()
+        return page
+
+    def _build_media_table(self):
+        headers = ["", "Nombre", "Tipo", "Res", "FPS", "Compresión", "Frames", "Track"]
+        table = QtWidgets.QTableWidget()
+        table.setColumnCount(len(headers))
+        table.setHorizontalHeaderLabels(headers)
+        table.verticalHeader().setVisible(False)
+        table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
+        table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        table.setFocusPolicy(QtCore.Qt.NoFocus)
+        table.setShowGrid(False)
+        table.setAlternatingRowColors(False)
+        table.setStyleSheet(_TABLE_STYLE)
+        table.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
+
+        rows = self._build_table_rows()
+        self._table_rows = rows  # guardamos para referencias posteriores
+        table.setRowCount(len(rows))
+
+        self._checkboxes = {}
+        self._track_combos = {}
+
+        for i, row_data in enumerate(rows):
+            self._populate_media_row(table, i, row_data)
+
+        header = table.horizontalHeader()
+        header.setSectionResizeMode(0, QtWidgets.QHeaderView.Fixed)
+        table.setColumnWidth(0, 28)
+        header.setSectionResizeMode(1, QtWidgets.QHeaderView.Stretch)
+        for col in range(2, len(headers) - 1):
+            header.setSectionResizeMode(col, QtWidgets.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(len(headers) - 1, QtWidgets.QHeaderView.ResizeToContents)
+
+        return table
+
+    def _build_table_rows(self):
+        """Construye la lista de filas para la tabla de media."""
+        rows = []
+        # Input items
+        for item in self.input_items:
+            rows.append({"source": "input", "item": item})
+        # Publish items (solo los que tienen versiones)
+        for pub in self.publish_items:
+            if pub["has_versions"]:
+                rows.append({"source": "publish", "item": pub})
+        return rows
+
+    def _populate_media_row(self, table, row, row_data):
+        source = row_data["source"]
+        item   = row_data["item"]
+
+        is_input_exr = (source == "input" and item["kind"] == "exr_seq")
+        is_seqref    = (item.get("track") is None and
+                        "seqref" in item.get("name", "").lower())
+        is_latest    = item.get("is_latest", True)
+
+        # Col 0: checkbox
+        chk = QtWidgets.QCheckBox()
+        chk.setStyleSheet("color:#a7a7a7; padding:2px;")
+        # Solo EXR de input marcados por defecto (la version mas alta)
+        chk.setChecked(is_input_exr and is_latest)
+        chk.stateChanged.connect(self._update_prep_btn)
+        self._checkboxes[row] = chk
+        container = QtWidgets.QWidget()
+        cl = QtWidgets.QHBoxLayout(container)
+        cl.setContentsMargins(0, 0, 0, 0)
+        cl.setAlignment(QtCore.Qt.AlignCenter)
+        cl.addWidget(chk)
+        table.setCellWidget(row, 0, container)
+
+        # Col 1: nombre (con ★ si es latest de su grupo, con ⚠ si es seqref)
+        name = item.get("name") or item.get("version_name") or ""
+        if is_input_exr and is_latest and item["version_num"] > -1:
+            display_name = name + " ★"
+        elif is_seqref:
+            display_name = name + " ⚠"
+        else:
+            display_name = name
+        name_item = QtWidgets.QTableWidgetItem(display_name)
+        name_item.setForeground(
+            QtGui.QColor("#d9a441") if is_seqref else
+            QtGui.QColor("#CCCCCC") if (is_input_exr and is_latest) else
+            QtGui.QColor("#a7a7a7")
+        )
+        if is_seqref:
+            name_item.setToolTip("Se importará al bin. No se coloca en el timeline.")
+        table.setItem(row, 1, name_item)
+
+        # Col 2: tipo
+        kind_map = {"exr_seq": "EXR seq", "mov": "MOV/MXF", "other": "Archivo"}
+        if source == "publish":
+            kind_str = "EXR seq"
+        else:
+            kind_str = kind_map.get(item.get("kind", ""), "—")
+        table.setItem(row, 2, QtWidgets.QTableWidgetItem(kind_str))
+
+        # Col 3: resolución
+        w, h = item.get("width"), item.get("height")
+        res_str = ("%d×%d" % (w, h)) if (w and h) else "—"
+        table.setItem(row, 3, QtWidgets.QTableWidgetItem(res_str))
+
+        # Col 4: fps
+        fps = item.get("fps")
+        fps_str = ("%.3g" % fps) if fps else "—"
+        table.setItem(row, 4, QtWidgets.QTableWidgetItem(fps_str))
+
+        # Col 5: compresión
+        comp = item.get("compression") or "—"
+        table.setItem(row, 5, QtWidgets.QTableWidgetItem(comp))
+
+        # Col 6: frames
+        ff, lf = item.get("first_frame"), item.get("last_frame")
+        if ff is not None and lf is not None:
+            frames_str = "%d – %d" % (ff, lf)
+        else:
+            frames_str = "—"
+        table.setItem(row, 6, QtWidgets.QTableWidgetItem(frames_str))
+
+        # Col 7: track (combo editable para inputs, label para publish)
+        track = item.get("track")
+        if source == "input" and item.get("kind") in ("exr_seq", "mov"):
+            combo = self._build_track_combo(track, row)
+            table.setCellWidget(row, 7, combo)
+            self._track_combos[row] = combo
+        else:
+            track_str = track if track else "—"
+            if source == "publish":
+                track_str = item.get("track", "—")
+            lbl = QtWidgets.QLabel(track_str)
+            lbl.setStyleSheet("color:#888888; padding:2px 6px;")
+            table.setCellWidget(row, 7, lbl)
+
+        # Colorear fila de publish en gris mas oscuro
+        if source == "publish":
+            for col in range(1, 7):
+                it = table.item(row, col)
+                if it:
+                    it.setForeground(QtGui.QColor("#777777"))
+
+    def _build_track_combo(self, current_track, row_id):
+        track_options = [
+            "aPlate", "bPlate", "cPlate", "dPlate", "ePlate",
+            "fgPlate", "bgPlate", "EditRef", "EditRefClean",
+            "_comp_", "_roto_", "_cleanup_",
+        ]
+        combo = QtWidgets.QComboBox()
+        combo.setStyleSheet("""
+            QComboBox {
+                background-color: #2B2B2B;
+                border: 1px solid #444444;
+                color: #a7a7a7;
+                padding: 1px 4px;
+            }
+            QComboBox::drop-down { border: 0px; }
+            QComboBox QAbstractItemView {
+                background-color: #2B2B2B;
+                color: #a7a7a7;
+                selection-background-color: #3a3a3a;
+            }
+        """)
+        track_options_display = ["— sin track —"] + track_options
+        for opt in track_options_display:
+            combo.addItem(opt)
+        if current_track and current_track in track_options:
+            combo.setCurrentText(current_track)
+        elif not current_track:
+            combo.setCurrentIndex(0)
+        combo.currentTextChanged.connect(
+            lambda txt, rid=row_id: self._track_overrides.__setitem__(rid, txt)
+        )
+        return combo
+
+    def _get_track_for_row(self, row):
+        if row in self._track_combos:
+            txt = self._track_combos[row].currentText()
+            return None if txt == "— sin track —" else txt
+        return self._table_rows[row]["item"].get("track")
+
+    def _update_prep_btn(self):
+        any_checked = any(chk.isChecked() for chk in self._checkboxes.values())
+        self._prep_btn.setEnabled(any_checked)
+
+    def _go_to_prep(self):
+        self._show_phase(self.PHASE_PREP)
+
+    def _go_to_import_phase(self):
+        self._build_import_page_content()
+        self._show_phase(self.PHASE_IMPORT)
+
+    # ══════════════════════════════════════════════════════════
+    #  PAGINA 2.5: Prep Media
+    # ══════════════════════════════════════════════════════════
+
+    def _build_page_prep(self):
+        page = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(page)
+        layout.setSpacing(8)
+
+        layout.addWidget(_section_label("PREP MEDIA"))
+
+        # Items seleccionados (informativo)
+        self._prep_list_label = QtWidgets.QLabel("")
+        self._prep_list_label.setStyleSheet("color:#888888; padding:2px 0px;")
+        self._prep_list_label.setWordWrap(True)
+        layout.addWidget(self._prep_list_label)
+
+        layout.addWidget(_separator())
+
+        # Dos columnas: Rename | Convert
+        cols = QtWidgets.QHBoxLayout()
+        cols.setSpacing(16)
+
+        # ── Rename ──────────────────────────────────────────
+        rename_col = QtWidgets.QVBoxLayout()
+        rename_col.addWidget(_section_label("Renombrar"))
+
+        find_row = QtWidgets.QHBoxLayout()
+        find_row.addWidget(QtWidgets.QLabel("Buscar:"))
+        self._rename_find = QtWidgets.QLineEdit()
+        self._rename_find.setStyleSheet(
+            "background:#272727; border:1px solid #444; color:#cccccc; padding:3px 5px;"
+        )
+        self._rename_find.textChanged.connect(self._update_rename_preview)
+        find_row.addWidget(self._rename_find)
+        rename_col.addLayout(find_row)
+
+        repl_row = QtWidgets.QHBoxLayout()
+        repl_row.addWidget(QtWidgets.QLabel("Reemplazar:"))
+        self._rename_replace = QtWidgets.QLineEdit()
+        self._rename_replace.setStyleSheet(
+            "background:#272727; border:1px solid #444; color:#cccccc; padding:3px 5px;"
+        )
+        self._rename_replace.textChanged.connect(self._update_rename_preview)
+        repl_row.addWidget(self._rename_replace)
+        rename_col.addLayout(repl_row)
+
+        rename_col.addWidget(_section_label("Preview"))
+        self._rename_preview = QtWidgets.QTextEdit()
+        self._rename_preview.setReadOnly(True)
+        self._rename_preview.setMaximumHeight(120)
+        self._rename_preview.setStyleSheet(
+            "background:#272727; border:1px solid #333; color:#a7a7a7; padding:4px;"
+        )
+        rename_col.addWidget(self._rename_preview)
+        rename_col.addStretch()
+        cols.addLayout(rename_col, 1)
+
+        cols.addWidget(_separator("v"))
+
+        # ── Convert ─────────────────────────────────────────
+        convert_col = QtWidgets.QVBoxLayout()
+        convert_col.addWidget(_section_label("Convertir"))
+
+        self._convert_dwaa_chk = QtWidgets.QCheckBox("Convertir a DWAA")
+        self._convert_dwaa_chk.setStyleSheet("color:#a7a7a7; padding:2px;")
+        convert_col.addWidget(self._convert_dwaa_chk)
+
+        res_lbl = QtWidgets.QLabel("Resolución destino:")
+        res_lbl.setStyleSheet("color:#a7a7a7; margin-top:6px;")
+        convert_col.addWidget(res_lbl)
+
+        self._res_combo = QtWidgets.QComboBox()
+        self._res_combo.setStyleSheet("""
+            QComboBox {
+                background-color: #272727; border: 1px solid #444;
+                color: #a7a7a7; padding: 3px 6px;
+            }
+            QComboBox::drop-down { border: 0px; }
+            QComboBox QAbstractItemView {
+                background-color: #2B2B2B; color: #a7a7a7;
+                selection-background-color: #3a3a3a;
+            }
+        """)
+        for preset in ["Original", "2K — 2048×1152", "4K — 4096×2304", "Custom..."]:
+            self._res_combo.addItem(preset)
+        convert_col.addWidget(self._res_combo)
+
+        self._move_originals_chk = QtWidgets.QCheckBox("Mover originales a /Originals")
+        self._move_originals_chk.setChecked(True)
+        self._move_originals_chk.setStyleSheet("color:#a7a7a7; padding:2px; margin-top:8px;")
+        convert_col.addWidget(self._move_originals_chk)
+
+        self._delete_originals_chk = QtWidgets.QCheckBox("Borrar /Originals al terminar")
+        self._delete_originals_chk.setChecked(False)
+        self._delete_originals_chk.setStyleSheet("color:#a7a7a7; padding:2px;")
+        convert_col.addWidget(self._delete_originals_chk)
+
+        convert_col.addSpacing(12)
+        pending_note = QtWidgets.QLabel(
+            "⚠ La conversión real se habilitará\ncuando se integre la herramienta externa."
+        )
+        pending_note.setStyleSheet("color:#888888; font-style:italic;")
+        convert_col.addWidget(pending_note)
+        convert_col.addStretch()
+        cols.addLayout(convert_col, 1)
+
+        layout.addLayout(cols, 1)
+        layout.addWidget(_separator())
+
+        # Log panel (3 líneas)
+        log_row = QtWidgets.QHBoxLayout()
+        self._prep_log = QtWidgets.QPlainTextEdit()
+        self._prep_log.setReadOnly(True)
+        self._prep_log.setMaximumHeight(60)
+        self._prep_log.setStyleSheet(
+            "background:#1e1e1e; border:1px solid #333; color:#888888; padding:3px;"
+        )
+        log_row.addWidget(self._prep_log, 1)
+        self._log_expand_btn = QtWidgets.QPushButton("▲")
+        self._log_expand_btn.setFixedSize(24, 24)
+        self._log_expand_btn.setStyleSheet(
+            "background:#333; border:1px solid #555; color:#aaa; border-radius:3px;"
+        )
+        self._log_expand_btn.setToolTip("Expandir log")
+        self._log_expand_btn.clicked.connect(self._toggle_log)
+        self._log_expanded = False
+        log_row.addWidget(self._log_expand_btn, 0, QtCore.Qt.AlignBottom)
+        layout.addLayout(log_row)
+
+        # Botones
+        btn_row = QtWidgets.QHBoxLayout()
+        back_btn = QtWidgets.QPushButton("← Volver")
+        back_btn.setStyleSheet(_BTN_CANCEL)
+        back_btn.clicked.connect(lambda: self._show_phase(self.PHASE_MEDIA))
+        btn_row.addWidget(back_btn)
+        btn_row.addStretch()
+
+        self._exec_btn = QtWidgets.QPushButton("Ejecutar")
+        self._exec_btn.setStyleSheet(_BTN_PRIMARY)
+        self._exec_btn.clicked.connect(self._execute_prep)
+        btn_row.addWidget(self._exec_btn)
+        layout.addLayout(btn_row)
+
+        return page
+
+    def _update_rename_preview(self):
+        find = self._rename_find.text()
+        replace = self._rename_replace.text()
+        lines = []
+        for row, chk in self._checkboxes.items():
+            if not chk.isChecked():
+                continue
+            name = self._table_rows[row]["item"].get("name", "")
+            if find:
+                new_name = name.replace(find, replace)
+            else:
+                new_name = name
+            if new_name != name:
+                lines.append(
+                    '<span style="color:#888">%s</span>'
+                    ' → <span style="color:#cccccc">%s</span>' % (name, new_name)
+                )
+        self._rename_preview.setHtml("<br>".join(lines) if lines else
+                                     '<span style="color:#555">Sin cambios</span>')
+
+    def _toggle_log(self):
+        self._log_expanded = not self._log_expanded
+        if self._log_expanded:
+            self._prep_log.setMaximumHeight(16777215)
+            self._log_expand_btn.setText("▼")
+            self._log_expand_btn.setToolTip("Colapsar log")
+        else:
+            self._prep_log.setMaximumHeight(60)
+            self._log_expand_btn.setText("▲")
+            self._log_expand_btn.setToolTip("Expandir log")
+
+    def _execute_prep(self):
+        self._prep_log.appendPlainText(
+            "⚠ Conversión pendiente: integración con herramienta externa no disponible aún."
+        )
+
+    # ══════════════════════════════════════════════════════════
+    #  PAGINA 3: preview de placement
+    # ══════════════════════════════════════════════════════════
+
+    def _build_page_import(self):
+        page = QtWidgets.QWidget()
+        self._import_page_layout = QtWidgets.QVBoxLayout(page)
+        self._import_page_layout.setSpacing(8)
+        # El contenido se genera dinamicamente en _build_import_page_content()
+        return page
+
+    def _build_import_page_content(self):
+        layout = self._import_page_layout
+        # Limpiar contenido anterior si existe
+        while layout.count():
+            child = layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+
+        layout.addWidget(_section_label("PLACEMENT EN TIMELINE"))
+
+        # Informacion de insercion
+        info_lbl = QtWidgets.QLabel(
+            "Insertar en frame <b style='color:#CCCCCC'>%d</b>  |  "
+            "Empujar <b style='color:#CCCCCC'>%d</b> frames"
+            % (self.insert_frame, self.frames_to_push)
+        )
+        info_lbl.setTextFormat(QtCore.Qt.RichText)
+        info_lbl.setStyleSheet("color:#888888; padding:0 0 4px 0;")
+        layout.addWidget(info_lbl)
+
+        self._import_table = self._build_import_table()
+        layout.addWidget(self._import_table, 1)
+
+        layout.addWidget(_separator())
+
+        btn_row = QtWidgets.QHBoxLayout()
+        back_btn = QtWidgets.QPushButton("← Volver")
+        back_btn.setStyleSheet(_BTN_CANCEL)
+        back_btn.clicked.connect(lambda: self._show_phase(self.PHASE_MEDIA))
+        btn_row.addWidget(back_btn)
+        btn_row.addStretch()
+
+        self._import_btn = QtWidgets.QPushButton("✓ Importar")
+        self._import_btn.setStyleSheet(_BTN_PRIMARY)
+        self._import_btn.clicked.connect(self._do_import)
+        btn_row.addWidget(self._import_btn)
+        layout.addLayout(btn_row)
+
+    def _build_import_table(self):
+        headers = ["Track", "Clip", "Duración", "Origen", "v000"]
+        table = QtWidgets.QTableWidget()
+        table.setColumnCount(len(headers))
+        table.setHorizontalHeaderLabels(headers)
+        table.verticalHeader().setVisible(False)
+        table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
+        table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        table.setFocusPolicy(QtCore.Qt.NoFocus)
+        table.setShowGrid(False)
+        table.setStyleSheet(_TABLE_STYLE)
+
+        self._v000_checks = {}
+        placement_rows = self._build_placement_rows()
+        self._placement_rows = placement_rows
+        table.setRowCount(len(placement_rows))
+
+        for i, prow in enumerate(placement_rows):
+            self._populate_import_row(table, i, prow)
+
+        header = table.horizontalHeader()
+        header.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(1, QtWidgets.QHeaderView.Stretch)
+        header.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(4, QtWidgets.QHeaderView.Fixed)
+        table.setColumnWidth(4, 50)
+        return table
+
+    def _build_placement_rows(self):
+        rows = []
+
+        # Plates de _input (solo los que tienen track y son la version mas alta)
+        for row_idx, row_data in enumerate(self._table_rows):
+            if row_data["source"] != "input":
+                continue
+            item = row_data["item"]
+            if item["kind"] not in ("exr_seq", "mov"):
+                continue
+            if not item.get("is_latest", True):
+                continue
+            track = self._get_track_for_row(row_idx)
+            is_seqref = (track is None and "seqref" in item.get("name", "").lower())
+            fc = item.get("frame_count") or 0
+            rows.append({
+                "track": track,
+                "name": item.get("name", ""),
+                "frame_count": fc,
+                "first_file": item.get("first_file"),
+                "source": "_input",
+                "is_seqref": is_seqref,
+                "v000": False,
+                "kind": item["kind"],
+            })
+
+        # Publish items
+        for pub in self.publish_items:
+            if not pub["has_versions"] and pub["publish_exists"]:
+                # Sin versiones: ofrecer v000
+                rows.append({
+                    "track": pub["track"],
+                    "name": "— sin versiones —",
+                    "frame_count": 0,
+                    "first_file": None,
+                    "source": pub["folder_name"] + "/4_publish",
+                    "is_seqref": False,
+                    "v000": True,
+                    "kind": "exr_seq",
+                    "task": pub["task"],
+                })
+            elif pub["has_versions"]:
+                rows.append({
+                    "track": pub["track"],
+                    "name": pub.get("version_name", ""),
+                    "frame_count": pub.get("frame_count") or 0,
+                    "first_file": pub.get("first_file"),
+                    "source": pub["folder_name"] + "/4_publish",
+                    "is_seqref": False,
+                    "v000": False,
+                    "kind": "exr_seq",
+                })
+
+        return rows
+
+    def _populate_import_row(self, table, row, prow):
+        is_seqref = prow.get("is_seqref", False)
+        no_versions = (prow["name"] == "— sin versiones —")
+
+        # Track
+        track_str = prow["track"] if prow["track"] else "— solo bin —"
+        track_item = QtWidgets.QTableWidgetItem(track_str)
+        track_item.setForeground(
+            QtGui.QColor("#d9a441") if is_seqref else QtGui.QColor("#a7a7a7")
+        )
+        table.setItem(row, 0, track_item)
+
+        # Nombre
+        disp_name = (prow["name"] + " ⚠") if is_seqref else prow["name"]
+        name_item = QtWidgets.QTableWidgetItem(disp_name)
+        name_item.setForeground(
+            QtGui.QColor("#d9a441") if is_seqref else
+            QtGui.QColor("#777777") if no_versions else
+            QtGui.QColor("#CCCCCC")
+        )
+        if is_seqref:
+            name_item.setToolTip("Solo se importará al bin, no al timeline.")
+        table.setItem(row, 1, name_item)
+
+        # Duración
+        fc = prow["frame_count"]
+        dur_str = ("%d frames" % fc) if fc else "—"
+        table.setItem(row, 2, QtWidgets.QTableWidgetItem(dur_str))
+
+        # Origen
+        table.setItem(row, 3, QtWidgets.QTableWidgetItem(prow["source"]))
+
+        # v000 checkbox
+        if prow.get("v000"):
+            chk = QtWidgets.QCheckBox()
+            chk.setChecked(True)
+            chk.setStyleSheet("padding:2px;")
+            chk.setToolTip("Crear v000 para esta task")
+            self._v000_checks[row] = chk
+            container = QtWidgets.QWidget()
+            cl = QtWidgets.QHBoxLayout(container)
+            cl.setContentsMargins(0, 0, 0, 0)
+            cl.setAlignment(QtCore.Qt.AlignCenter)
+            cl.addWidget(chk)
+            table.setCellWidget(row, 4, container)
+        else:
+            table.setItem(row, 4, QtWidgets.QTableWidgetItem(""))
+
+    # ══════════════════════════════════════════════════════════
+    #  Importación final
+    # ══════════════════════════════════════════════════════════
+
+    def _longest_input_plate_frames(self):
+        best = 0
+        for prow in self._placement_rows:
+            if prow["source"] == "_input" and not prow["is_seqref"]:
+                best = max(best, prow.get("frame_count") or 0)
+        return best
+
+    def _do_import(self):
+        self._import_btn.setEnabled(False)
+        project = self.seq.project()
+        if not project:
+            projects = hiero.core.projects()
+            project = projects[-1] if projects else None
+        if not project:
+            self._show_error("No se encontró proyecto activo.")
+            self._import_btn.setEnabled(True)
+            return
+
+        shot_duration = self._longest_input_plate_frames()
+        if shot_duration == 0:
+            self._show_error("No se encontraron plates con duración válida.")
+            self._import_btn.setEnabled(True)
+            return
+
+        bin_path = _bin_path_for_shot(self.shot_root, self.shot_name)
+        target_bin = _find_or_create_bin(project, bin_path)
+
+        with project.beginUndo("Import Shot: %s" % self.shot_name):
+            # 1. Push de clips existentes
+            if self.frames_to_push > 0:
+                _push_clips_right(self.seq, self.insert_frame, shot_duration)
+                _log("Pushed clips from frame %d by %d" % (self.insert_frame, shot_duration))
+
+            # 2. Importar y colocar cada item
+            placed_clips = []
+            errors = []
+
+            for prow in self._placement_rows:
+                if prow["is_seqref"]:
+                    # Solo importar al bin si no existe ya
+                    if prow["first_file"] and not self._seqref_in_bin(target_bin, prow["first_file"]):
+                        _import_clip_to_bin(target_bin, prow["first_file"], prow["name"])
+                    continue
+
+                if prow.get("v000") or not prow["first_file"] or not prow["track"]:
+                    continue
+
+                clip, bin_item, err = _import_clip_to_bin(
+                    target_bin, prow["first_file"], self.shot_name
+                )
+                if err:
+                    errors.append("Bin import error (%s): %s" % (prow["name"], err))
+                    continue
+
+                track_item, err2 = _place_clip_in_timeline(
+                    self.seq, clip, prow["track"],
+                    self.insert_frame, prow["frame_count"], self.shot_name
+                )
+                if err2:
+                    errors.append("Timeline error (%s → %s): %s" % (
+                        prow["name"], prow["track"], err2))
+                else:
+                    placed_clips.append(track_item)
+                    _log("Placed %s in %s at frame %d" % (
+                        prow["name"], prow["track"], self.insert_frame))
+
+            # 3. Stretch BurnIn
+            new_end = self.insert_frame + shot_duration
+            _stretch_burnin(self.seq, new_end)
+
+        # 4. Set Shot Name (llamada al script externo)
+        if placed_clips:
+            self._run_set_shot_name()
+
+        # 5. Create v000 para tasks marcadas
+        v000_tasks = [
+            self._placement_rows[r].get("task")
+            for r, chk in self._v000_checks.items()
+            if chk.isChecked() and self._placement_rows[r].get("task")
+        ]
+        if v000_tasks:
+            self._run_create_v000()
+
+        if errors:
+            msg = "Importación completada con errores:\n\n" + "\n".join(errors)
+            QtWidgets.QMessageBox.warning(self, "Import Shot", msg)
+        else:
+            QtWidgets.QMessageBox.information(
+                self, "Import Shot",
+                "Shot '%s' importado correctamente." % self.shot_name
+            )
+        self.accept()
+
+    def _seqref_in_bin(self, target_bin, file_path):
+        norm = file_path.replace("\\", "/")
+        for item in target_bin.items():
+            if not isinstance(item, hiero.core.BinItem):
+                continue
+            try:
+                fi = item.activeItem().mediaSource().fileinfos()
+                if fi and fi[0].filename().replace("\\", "/") == norm:
+                    return True
+            except Exception:
+                pass
+        return False
+
+    def _run_set_shot_name(self):
+        try:
+            from LGA_NKS_Edit_Panel_py import LGA_NKS_SetShotName  # noqa: F401
+        except Exception:
+            pass
+
+    def _run_create_v000(self):
+        try:
+            from LGA_NKS_Edit_Panel_py import LGA_NKS_CreateV000  # noqa: F401
+        except Exception:
+            pass
+
+    def _show_error(self, msg):
+        QtWidgets.QMessageBox.critical(self, "Import Shot — Error", msg)
+
+
+# ══════════════════════════════════════════════════════════════════
+#  Entry point
+# ══════════════════════════════════════════════════════════════════
 
 def main():
-    pass
+    _log("=== LGA_import_shots start ===")
+
+    seq = hiero.ui.activeSequence()
+    if not seq:
+        QtWidgets.QMessageBox.warning(
+            None, "Import Shot", "No hay sequence activa."
+        )
+        return
+
+    # Seleccionar carpeta
+    shot_root = QtWidgets.QFileDialog.getExistingDirectory(
+        None,
+        "Seleccionar carpeta del shot",
+        "",
+        QtWidgets.QFileDialog.ShowDirsOnly,
+    )
+    if not shot_root:
+        _log("Cancelled — no folder selected")
+        return
+
+    shot_root = shot_root.replace("\\", "/")
+    shot_name = _get_shot_name_from_folder(shot_root)
+    _log("Shot root: %s  shot_name: %s" % (shot_root, shot_name))
+
+    # Verificar si ya existe
+    if _shot_exists_in_timeline(seq, shot_name, shot_root):
+        QtWidgets.QMessageBox.critical(
+            None,
+            "Import Shot",
+            "El shot '%s' ya existe en el timeline.\n\n"
+            "No se puede importar un shot duplicado." % shot_name,
+        )
+        _log("Aborted — shot already exists: %s" % shot_name)
+        return
+
+    # Analizar carpeta
+    _log("Scanning _input...")
+    input_items = _scan_input_folder(shot_root)
+    _log("Found %d input items" % len(input_items))
+
+    _log("Scanning publish folders...")
+    publish_items = _scan_publish_folders(shot_root)
+    _log("Found %d publish entries" % len(publish_items))
+
+    # Calcular duracion del plate mas largo para posicionamiento
+    max_frames = max(
+        (it["frame_count"] for it in input_items
+         if it["kind"] == "exr_seq" and it.get("is_latest")),
+        default=0
+    )
+    if max_frames == 0:
+        max_frames = 100  # fallback si no hay EXR todavia
+
+    insert_frame, frames_to_push = _find_insert_frame(seq, shot_name, max_frames)
+    _log("Insert frame: %d  push: %d  duration: %d" % (
+        insert_frame, frames_to_push, max_frames))
+
+    # Abrir dialogo
+    parent = hiero.ui.mainWindow() if hasattr(hiero.ui, "mainWindow") else None
+    dlg = ImportShotDialog(
+        shot_root, shot_name, seq,
+        insert_frame, frames_to_push,
+        input_items, publish_items,
+        parent=parent,
+    )
+    dlg.exec_()
 
 
 main()
