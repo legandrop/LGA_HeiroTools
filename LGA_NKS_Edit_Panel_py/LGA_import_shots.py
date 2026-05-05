@@ -796,7 +796,6 @@ def _separator(orientation="h"):
 
 class GradientTextLabel(QtWidgets.QLabel):
     """QLabel que pinta su texto con un gradiente lineal limitado al ancho del texto."""
-    _DEBUG_LOGGED = False
 
     def __init__(self, text, colors, bg_color="#313131", parent=None):
         super().__init__(text, parent)
@@ -831,22 +830,6 @@ class GradientTextLabel(QtWidgets.QLabel):
         painter.setPen(pen)
         painter.drawText(text_rect, QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter, text)
         painter.end()
-
-        # Log unico (primer paint) para debug
-        if not GradientTextLabel._DEBUG_LOGGED:
-            GradientTextLabel._DEBUG_LOGGED = True
-            try:
-                debug_print(
-                    "GradientText paint: widget=%dx%d text='%s' "
-                    "text_w=%d text_h=%d text_rect=(%d,%d,%d,%d) "
-                    "gradient_x=(%d -> %d)" % (
-                        self.width(), self.height(), text,
-                        text_w, text_h, x0, y0, text_w, text_h,
-                        x0, x0 + text_w
-                    )
-                )
-            except Exception:
-                pass
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1135,7 +1118,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         table.setSpan(row_i, 1, 1, ncols - 1)
         if label == "PUBLISH":
             lbl = GradientTextLabel(
-                "  " + label, ["#27c8c3", "#2abf7e", "#3381e0"]
+                "  " + label, ["#3381e0", "#2abf7e", "#27c8c3"]
             )
             lbl.setContentsMargins(8, 3, 8, 3)
             font = lbl.font()
