@@ -299,14 +299,33 @@ Basado en `LGA_NKS_CreateV000.py`:
 
 ---
 
+## Herramientas externas (LGA_NKS_Shared)
+
+Las siguientes tools binarias estan disponibles en `LGA_NKS_Shared/` y se referencian
+siempre con rutas **relativas a SHARED_DIR** para que funcionen en cualquier maquina
+donde se distribuya la repo.
+
+| Tool | Ruta relativa | Plataforma | Uso |
+|------|---------------|------------|-----|
+| oiiotool | `OIIO_Win/oiiotool.exe` | Windows | Lectura de metadata EXR (res, compresion) |
+| ffprobe | `FFmpeg_Win/bin/ffprobe.exe` | Windows | Lectura de metadata MOV/MXF (res, fps, codec) |
+
+> **Mac/Linux pendiente:** las rutas para macOS y Linux aun no estan implementadas.
+> Cuando se agreguen las carpetas `OIIO_Mac/` y `FFmpeg_Mac/` en Shared, hay que
+> agregar la rama `elif _OS == "Darwin":` en la seccion de constantes del script.
+
+### Metadata leida
+
+| Columna | EXR (oiiotool) | MOV/MXF (ffprobe) |
+|---------|---------------|-------------------|
+| Res | `W x H` de la primera linea de `--info -v` | `width` / `height` del video stream |
+| FPS | `—` (no aplica para secuencias) | `r_frame_rate` del video stream |
+| Compresion | `compression:` de la salida verbose | `codec_name` del video stream |
+
+---
+
 ## Pendiente de implementacion
 
-- **Res / FPS / Compresion en tabla:** actualmente muestran `—`. La lectura confiable
-  requiere herramientas externas:
-  - EXR → `oiiotool --info` (ya disponible en `LGA_NKS_Shared/OIIO_Win/oiiotool.exe`)
-  - MOV → `ffprobe` (parte de ffmpeg)
-  Ambas herramientas estaran disponibles al integrar la conversion tool de Lega.
-  Hasta entonces las columnas quedan en `—`.
 - **Prep Media — Convert:** logica real de conversion (pendiente herramienta externa)
 - **Prep Media — Presets:** guardado de presets de rename y resolucion en `.ini`
 - **SetShotName:** llamada correcta al script externo post-importacion
@@ -320,10 +339,12 @@ Basado en `LGA_NKS_CreateV000.py`:
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `main()`, `ImportShotDialog`, `_scan_input_folder()`, `_scan_publish_folders()`, `_find_insert_frame()`, `_push_clips_right()`, `_stretch_burnin()`, `_shot_exists_in_timeline()`, `_import_clip_to_bin()`, `_place_clip_in_timeline()`, `_find_or_create_bin()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `main()`, `ImportShotDialog`, `_scan_input_folder()`, `_scan_publish_folders()`, `_read_exr_metadata()`, `_read_mov_metadata()`, `_find_insert_frame()`, `_push_clips_right()`, `_stretch_burnin()`, `_shot_exists_in_timeline()`, `_import_clip_to_bin()`, `_place_clip_in_timeline()`, `_find_or_create_bin()` |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_CreateV000.py` | Referencia de UI, bin import, timeline placement, colorize path |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_SetShotName.py` | Renombrado de clips post-importacion |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_OrganizeProject.py` | Estructura de bins `F <grupo>/<shot>` |
 | `LGA_NKS_Shared/LGA_NKS_Flow_NamingUtils.py` | `clean_base_name()`, `extract_shot_code()` |
 | `LGA_NKS_Shared/LGA_QtAdapter_HieroTools.py` | Qt adapter (PyQt5/PySide2) |
+| `LGA_NKS_Shared/OIIO_Win/oiiotool.exe` | Lectura metadata EXR (Windows). Llamado con `--info -v` |
+| `LGA_NKS_Shared/FFmpeg_Win/bin/ffprobe.exe` | Lectura metadata MOV/MXF (Windows). Salida JSON |
 | `docs/LGA_import_shots_PLAN.md` | Plan de desarrollo, decisiones de diseno, preguntas resueltas |

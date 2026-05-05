@@ -14,8 +14,11 @@ ____________________________________________________________________
 import os
 import re
 import sys
+import json
 import logging
+import platform
 import queue
+import subprocess
 import time
 from pathlib import Path
 from logging.handlers import QueueHandler, QueueListener
@@ -30,6 +33,19 @@ if str(SHARED_DIR) not in sys.path:
     sys.path.insert(0, str(SHARED_DIR))
 if str(STARTUP_DIR) not in sys.path:
     sys.path.insert(0, str(STARTUP_DIR))
+
+# ── herramientas externas (rutas relativas a SHARED_DIR) ──────────
+# Windows: OIIO_Win/oiiotool.exe y FFmpeg_Win/bin/ffprobe.exe
+# macOS/Linux: pendiente de implementar rutas para esas plataformas
+_OS = platform.system()
+if _OS == "Windows":
+    _OIIOTOOL = SHARED_DIR / "OIIO_Win" / "oiiotool.exe"
+    _FFPROBE   = SHARED_DIR / "FFmpeg_Win" / "bin" / "ffprobe.exe"
+    _SUBPROCESS_EXTRA = {"creationflags": subprocess.CREATE_NO_WINDOW}
+else:
+    _OIIOTOOL = None
+    _FFPROBE   = None
+    _SUBPROCESS_EXTRA = {}
 
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 from LGA_NKS_Flow_NamingUtils import clean_base_name, extract_shot_code
@@ -190,39 +206,60 @@ def _scan_exr_sequence(folder_path):
 
 
 def _read_exr_metadata(exr_path):
-    """Lee resolucion, fps y compresion de un EXR via OpenEXR o hiero.core.Clip."""
-    w, h, fps, comp = None, None, None, None
+    """Resolucion y compresion de un frame EXR via oiiotool --info -v."""
+    w, h, comp = None, None, None
+    if not (_OIIOTOOL and _OIIOTOOL.exists()):
+        return w, h, None, comp
     try:
-        clip = hiero.core.Clip(exr_path)
-        ms = clip.mediaSource()
-        md = ms.metadata()
-
-        def _get(*keys):
-            for k in keys:
-                try:
-                    v = md.get(k)
-                    if v:
-                        return v
-                except Exception:
-                    pass
-            return None
-
-        w_raw = _get("foundry.source.width", "exr/displayWindow/width", "input/width")
-        h_raw = _get("foundry.source.height", "exr/displayWindow/height", "input/height")
-        if w_raw:
-            w = int(float(w_raw))
-        if h_raw:
-            h = int(float(h_raw))
-        fps_raw = _get("foundry.source.framerate", "exr/framesPerSecond", "framerate")
-        if fps_raw:
-            try:
-                fps = float(fps_raw)
-            except Exception:
-                pass
-        comp = _get("exr/compression", "compression")
+        r = subprocess.run(
+            [str(_OIIOTOOL), "--info", "-v", str(exr_path)],
+            capture_output=True, text=True, timeout=10,
+            **_SUBPROCESS_EXTRA,
+        )
+        out = r.stdout + r.stderr
+        # "path/to/file.exr:  1920 x 1080, 3 channel, half openexr"
+        m = re.search(r"(\d+)\s*x\s*(\d+)", out)
+        if m:
+            w, h = int(m.group(1)), int(m.group(2))
+        # '    compression: "zip"'  o  '    compression: dwaa'
+        m = re.search(r'compression[:\s]+"?([A-Za-z0-9_]+)"?', out, re.IGNORECASE)
+        if m:
+            comp = m.group(1)
     except Exception:
         pass
-    return w, h, fps, comp
+    return w, h, None, comp  # fps siempre None para secuencias EXR
+
+
+def _read_mov_metadata(mov_path):
+    """Resolucion, fps y codec de un MOV/MXF via ffprobe (JSON)."""
+    w, h, fps, codec = None, None, None, None
+    if not (_FFPROBE and _FFPROBE.exists()):
+        return w, h, fps, codec
+    try:
+        r = subprocess.run(
+            [str(_FFPROBE), "-v", "quiet", "-print_format", "json",
+             "-show_streams", str(mov_path)],
+            capture_output=True, text=True, timeout=15,
+            **_SUBPROCESS_EXTRA,
+        )
+        data = json.loads(r.stdout)
+        for stream in data.get("streams", []):
+            if stream.get("codec_type") == "video":
+                w     = stream.get("width")
+                h     = stream.get("height")
+                codec = stream.get("codec_name")
+                rfr   = stream.get("r_frame_rate", "")
+                if "/" in rfr:
+                    num, den = rfr.split("/")
+                    try:
+                        fps = float(num) / float(den)
+                    except Exception:
+                        pass
+                break
+    except Exception:
+        pass
+    # codec se almacena en el campo "compression" del item
+    return w, h, fps, codec
 
 
 def _scan_input_folder(shot_root):
@@ -299,6 +336,7 @@ def _scan_input_folder(shot_root):
                 track = "EditRef"
             else:
                 track = "?"           # desconocido, usuario decide
+            mw, mh, mfps, mcodec = _read_mov_metadata(str(f))
             items.append({
                 "name": f.stem,
                 "path": str(f),
@@ -308,7 +346,7 @@ def _scan_input_folder(shot_root):
                 "last_frame": None,
                 "frame_count": None,
                 "first_file": str(f),
-                "width": None, "height": None, "fps": None, "compression": None,
+                "width": mw, "height": mh, "fps": mfps, "compression": mcodec,
                 "is_latest": True,
                 "version_num": _version_number(f.stem),
             })
@@ -992,7 +1030,7 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         # Col 4: fps
         fps = item.get("fps")
-        fps_str = ("%.3g" % fps) if fps else "—"
+        fps_str = ("%.5g" % fps) if fps else "—"
         table.setItem(row, 4, QtWidgets.QTableWidgetItem(fps_str))
 
         # Col 5: compresión
