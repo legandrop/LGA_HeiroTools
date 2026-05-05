@@ -1,10 +1,11 @@
 """
 ____________________________________________________________________
 
-  LGA_EditToolsPanel v3.00 | Lega
+  LGA_EditToolsPanel v3.01 | Lega
 
   Tools panel for Hiero / Nuke Studio
 
+  v3.01: Nuevo boton de import shot
   v3.00: Reconnect colapsado en un solo botón con submenu flotante (T>N, N>T, Win>Mac)
   v2.99: Create v000
   v2.98: Agregado sistema de scroll, logging a archivo y gap vertical
@@ -307,9 +308,10 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
             ("Default | Clip", self.default_clip, "#434c41", None, "Cambia el color transform a default en los clips seleccionados"),
             ("Compositing Log | Clip", self.set_compositing_log, "#434c41", None, "Cambia el color transform a compositing_log en los clips seleccionados"),
             ("Fix Colorspaces", self.fix_colorspaces, "#434c41", None, "Detecta y corrige clips con colorspace rec709 o gamma2.2"),
-            ("New Video Track", self.create_new_track, "#3a2a4d", None, "Crea un nuevo track de video encima del track seleccionado"),
+            ("Import shot", self.import_shot, "#2a4d3a", None, "Importa shots al proyecto"),
             ("Set Shot Name", self.set_shot_name, "#2a4d3a", None, "Establece el nombre del shot basándose en la ruta del archivo"),
             ("Create v000", self.create_v000, "#2a4d3a", None, "Abre el validador para preparar una secuencia negra v000 del shot activo"),
+            ("New Video Track", self.create_new_track, "#3a2a4d", None, "Crea un nuevo track de video encima del track seleccionado"),
             ("Extend &Edit", self.extend_edit_to_playhead, "#453434", "Alt+E", "Alt+E\nExtiende el punto de salida del clip hasta el playhead (cambiando su velocidad)"),
             ("Trim &In", self.trim_in, "#453434", "Alt+[", "Alt+[\nTrimea el IN del clip a la posicion del playhead"),
             ("Trim &Out", self.trim_out, "#453434", "Alt+]", "Alt+]\nTrimea el OUT del clip a la posicion del playhead"),
@@ -653,6 +655,22 @@ class ReconnectMediaWidget(QtWidgets.QWidget):
             debug_print_b(f"Error durante la ejecución de Fix Colorspaces: {e}")
             import traceback
 
+            debug_print_b(traceback.format_exc())
+
+    ###### Import shot
+    def import_shot(self):
+        """Ejecuta el script LGA_import_shots.py para importar shots al proyecto."""
+        debug_print_b("\n>>> Ejecutando Import shot script...")
+
+        try:
+            result = self.execute_external_script("LGA_import_shots.py")
+            if result:
+                debug_print_b(">>> Import shot script completado")
+            else:
+                debug_print_b(">>> Error al ejecutar Import shot script")
+        except Exception as e:
+            debug_print_b(f"Error durante la ejecución de Import shot: {e}")
+            import traceback
             debug_print_b(traceback.format_exc())
 
     def create_new_track(self):
