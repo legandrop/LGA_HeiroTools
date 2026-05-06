@@ -337,15 +337,40 @@ def compute_preview(rows: list[dict], settings: dict, stage_colors: dict[int, st
                 blocked = True
                 folder_warning = "Mismatch carpeta/secuencia"
 
+        target_folder_name = row.get("folder_name", "")
+        folder_original_html = "<span style='color:#a7a7a7;'>%s</span>" % _html_escape(row.get("folder_name", ""))
+        folder_renamed_html = folder_original_html
+        if row.get("is_sequence"):
+            ren_info = _seq_info_from_hash_name(renamed)
+            if ren_info and ren_info.get("prefix"):
+                target_folder_name = ren_info["prefix"]
+            else:
+                target_folder_name = row.get("seq_prefix", row.get("folder_name", ""))
+
+            orig_folder_colors = {}
+            ren_folder_colors = {}
+            prefix_len = len(row.get("seq_prefix", ""))
+            for i in range(prefix_len):
+                if i in orig_colors:
+                    orig_folder_colors[i] = orig_colors[i]
+            ren_prefix_len = len(target_folder_name)
+            for i in range(ren_prefix_len):
+                if i in ren_colors:
+                    ren_folder_colors[i] = ren_colors[i]
+            folder_original_html = _colorize(row.get("folder_name", ""), orig_folder_colors)
+            folder_renamed_html = _colorize(target_folder_name, ren_folder_colors)
+
         preview.append({
             **row,
             "renamed_name": renamed,
             "has_changes": changed_any and (renamed != original),
             "original_html": _colorize(original, orig_colors),
             "renamed_html": _colorize(renamed, ren_colors),
+            "folder_original_html": folder_original_html,
+            "folder_renamed_html": folder_renamed_html,
             "blocked": blocked,
             "status": folder_warning or ("Pendiente" if changed_any else "Sin cambios"),
-            "target_folder_name": renamed[:-4] if row.get("is_sequence") and renamed.lower().endswith(".exr") else row.get("folder_name", ""),
+            "target_folder_name": target_folder_name,
         })
 
     _mark_collisions(preview)
@@ -472,45 +497,96 @@ def _prepare_test_rows(rows_to_apply: list[dict], test_folder_name: str):
     return prepared
 
 
-def execute_ops(rows_to_apply: list[dict], test_mode: bool = False, test_folder_name: str = "renamned"):
+def execute_ops(rows_to_apply: list[dict], test_mode: bool = False, test_folder_name: str = "renamned", log_fn=None):
+    def _log(*parts):
+        if log_fn:
+            try:
+                log_fn(*parts)
+            except Exception:
+                pass
+
+    _log("=== Rename execute_ops ===")
+    _log("rows_to_apply:", len(rows_to_apply), "test_mode:", test_mode, "test_folder:", test_folder_name)
     effective_rows = rows_to_apply
     if test_mode:
+        _log("Preparing test rows...")
         effective_rows = _prepare_test_rows(rows_to_apply, test_folder_name)
+        _log("Prepared test rows:", len(effective_rows))
 
     ops = []
     for row in effective_rows:
         ops.extend(build_row_ops(row))
+    _log("Total ops generated:", len(ops))
     if not ops:
+        _log("No ops to execute.")
         return {"applied": 0, "errors": []}
 
-    ordered = sorted(
-        ops,
-        key=lambda o: (0 if Path(o.src).is_file() else 1, -len(Path(o.src).parts))
+    file_ops = []
+    dir_ops = []
+    for op in ops:
+        src_path = Path(op.src)
+        if src_path.exists() and src_path.is_dir():
+            dir_ops.append(op)
+        elif src_path.suffix.lower() == "":
+            if src_path.exists() and src_path.is_dir():
+                dir_ops.append(op)
+            else:
+                file_ops.append(op)
+        else:
+            file_ops.append(op)
+
+    ordered_files = sorted(
+        file_ops,
+        key=lambda o: -len(Path(o.src).parts)
+    )
+    ordered_dirs = sorted(
+        dir_ops,
+        key=lambda o: -len(Path(o.src).parts)
     )
     tmp_ops = []
     errors = []
     try:
-        for op in ordered:
+        _log("Phase 1 (file -> tmp). file_ops:", len(ordered_files))
+        for op in ordered_files:
             src = Path(op.src)
             if not src.exists():
+                _log("SKIP missing src:", str(src))
                 continue
             tmp_name = src.with_name("%s.__rename_tmp_%s__" % (src.name, uuid.uuid4().hex[:8]))
+            _log("TMP:", str(src), "->", str(tmp_name))
             src.rename(tmp_name)
             tmp_ops.append((tmp_name, Path(op.dst)))
 
         applied = 0
+        _log("Phase 2 (tmp -> final). tmp_ops:", len(tmp_ops))
         for tmp_src, final_dst in tmp_ops:
             final_dst.parent.mkdir(parents=True, exist_ok=True)
+            _log("FINAL:", str(tmp_src), "->", str(final_dst))
             tmp_src.rename(final_dst)
             applied += 1
+
+        _log("Phase 3 (dir rename). dir_ops:", len(ordered_dirs))
+        for op in ordered_dirs:
+            src = Path(op.src)
+            dst = Path(op.dst)
+            if not src.exists():
+                _log("SKIP missing dir src:", str(src))
+                continue
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            _log("DIR:", str(src), "->", str(dst))
+            src.rename(dst)
+            applied += 1
+        _log("Applied ops:", applied)
         return {"applied": applied, "errors": errors}
     except Exception as exc:
+        _log("ERROR execute_ops:", exc)
         errors.append(str(exc))
         for tmp_src, final_dst in reversed(tmp_ops):
             try:
                 if tmp_src.exists():
                     if not final_dst.exists():
                         orig_guess = Path(str(tmp_src).split(".__rename_tmp_")[0])
+                        _log("ROLLBACK:", str(tmp_src), "->", str(orig_guess))
                         tmp_src.rename(orig_guess)
             except Exception:
                 pass

@@ -1867,7 +1867,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_table = QtWidgets.QTableWidget()
         self._rename_table.setColumnCount(8)
         self._rename_table.setHorizontalHeaderLabels(
-            ["", "", "Original", "→", "Renamed", "Folder Orig", "Folder Renamed", "Estado"]
+            ["", "", "Original", "→", "Renamed", "Folder Original", "Folder Renamed", "Estado"]
         )
         self._rename_table.verticalHeader().setVisible(False)
         self._rename_table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
@@ -2130,13 +2130,8 @@ class ImportShotDialog(QtWidgets.QDialog):
             self._rename_table.setItem(i, 3, arrow)
             self._rename_table.setCellWidget(i, 4, _cell_html_label(it.get("renamed_html", "")))
 
-            folder_orig_item = QtWidgets.QTableWidgetItem(it.get("folder_name", ""))
-            folder_orig_item.setForeground(QtGui.QColor(fg))
-            self._rename_table.setItem(i, 5, folder_orig_item)
-
-            folder_new_item = QtWidgets.QTableWidgetItem(it.get("target_folder_name", it.get("folder_name", "")))
-            folder_new_item.setForeground(QtGui.QColor(fg))
-            self._rename_table.setItem(i, 6, folder_new_item)
+            self._rename_table.setCellWidget(i, 5, _cell_html_label(it.get("folder_original_html", "")))
+            self._rename_table.setCellWidget(i, 6, _cell_html_label(it.get("folder_renamed_html", "")))
 
             st_color = _CLR_STATUS_PENDING
             st = it.get("status", "Pendiente")
@@ -2188,7 +2183,12 @@ class ImportShotDialog(QtWidgets.QDialog):
                 "Rename_Test_mode está activo.\n"
                 "Se creará la carpeta 'renamned' en paralelo y se renombrará SOLO sobre la copia.",
             )
-        result = rename_mod.execute_ops(to_apply, test_mode=Rename_Test_mode, test_folder_name="renamned")
+        result = rename_mod.execute_ops(
+            to_apply,
+            test_mode=Rename_Test_mode,
+            test_folder_name="renamned",
+            log_fn=debug_print,
+        )
         if result.get("errors"):
             QtWidgets.QMessageBox.warning(
                 self,
