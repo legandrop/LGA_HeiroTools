@@ -252,7 +252,8 @@ Los tres botones operan sobre los items que tienen el checkbox marcado.
 | Boton | Color | Habilitado cuando | Accion |
 |-------|-------|-------------------|--------|
 | Rename | secundario `#3a3a3a` | hay al menos 1 item marcado | abre sub-vista de renombrado |
-| Transcode EXR | secundario `#3a3a3a` | hay al menos 1 EXR seq de input marcado | abre sub-vista de conversion |
+| Transcode Plates | secundario `#3a3a3a` | hay al menos 1 EXR seq de input marcado | abre sub-vista de conversion |
+| Create Tasks | secundario `#3a3a3a` | hay al menos 1 item marcado | **PENDIENTE** — abrirá `LGA_import_shots_createtasks.py`; hoy muestra un placeholder |
 | Import | primario `#2a4d3a` | hay al menos 1 item marcado | ejecuta import (ver logica abajo) |
 
 ### Logica de Import (comportamiento previsto)
@@ -702,6 +703,10 @@ donde se distribuya la repo.
 - **Sub-vista Rename:** implementacion real del find/replace con preview (hoy es stub)
 - **Convert — Transcode de MOV:** plates MOV aparecen en la tabla con checkbox deshabilitado
   y estado "No soportado". Implementar cuando haya herramienta de transcode MOV disponible.
+- **Create Tasks:** el botón existe en la pantalla principal pero abre un placeholder.
+  El archivo `LGA_import_shots_createtasks.py` es una copia de `LGA_NKS_CreateV000.py`
+  que sirve como base. Pendiente: adaptar la lógica de CreateV000 al contexto de este
+  import (multi-shot, sin Hiero sequence object propio, etc.).
 - **SetShotName:** llamada correcta al script externo post-importacion
 - **CreateV000:** trigger correcto para tasks sin versiones
 - **Modularizacion:** extraer helpers a `LGA_import_shots_scan.py`,
@@ -716,6 +721,7 @@ donde se distribuya la repo.
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `main()`, `ImportShotDialog`, `_show_page()`, `_build_page_media()`, `_build_page_convert()`, `_update_convert_page()`, `_on_res_preset_changed()`, `_on_keep_ar_changed()`, `_update_match_dim_visibility()`, `_get_representative_res()`, `_on_custom_w_changed()`, `_on_custom_h_changed()`, `_current_target_res()`, `_target_compression()`, `_refresh_convert_destinos()`, `_update_res_combo_labels()`, `_on_dwaa_chk_changed()`, `_on_deana_chk_changed()`, `_apply_deana_if_active()`, `_load_settings_to_ui()`, `_save_all_settings()`, `_rebuild_res_combo()`, `_on_delete_preset()`, `_on_save_preset_clicked()`, `_run_transcode()`, `_start_next_sequence()`, `_on_sequence_started()`, `_poll_transcode_progress()`, `_on_sequence_done()`, `_on_worker_batch_done()`, `_finalize_transcode()`, `_on_transcode_error()`, `_fmt_bd()`, `_fmt_par()`, `_ar_str()`, `_read_exr_metadata()`, `_read_mov_metadata()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_transcode.py` | `TranscodeWorkerSignals` (señales: `log_message`, `sequence_started(row_i, dst_dir, total_frames)`, `sequence_done`, `all_done`, `error`), `TranscodeWorker`, `build_manifest_for_sequence(channels, pixel_aspect_ratio)`, `check_existing_outputs()`, `delete_existing_outputs()`, `show_overwrite_warning()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_settings.py` | `get_settings_path()`, `load_all_settings()`, `save_all_settings()`, `load_res_presets()`, `save_res_presets()`, `preset_to_tuple()`, `show_save_preset_dialog()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots_createtasks.py` | Copia de `LGA_NKS_CreateV000.py`. Base para la futura ventana "Create Tasks". **Pendiente de adaptación.** |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_CreateV000.py` | Referencia de UI, bin import, timeline placement, colorize path, patrón de settings persistentes |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_SetShotName.py` | Renombrado de clips post-importacion |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_OrganizeProject.py` | Estructura de bins `F <grupo>/<shot>` |

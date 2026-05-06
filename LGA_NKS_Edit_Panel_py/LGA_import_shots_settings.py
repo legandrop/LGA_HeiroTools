@@ -47,9 +47,9 @@ DEFAULTS_ORIG = {
     "delete": "false",
 }
 
-# Presets built-in (primera vez que se abre la herramienta)
+# Presets built-in (primera vez que se abre la herramienta).
+# "original" y "timeline" son hardcoded en la UI y NO se guardan en el INI.
 DEFAULT_PRESETS = [
-    {"name": "Original",         "special": "original"},
     {"name": "2K — 2048×1152",  "w": 2048, "h": 1152},
     {"name": "UHD — 3840×2160", "w": 3840, "h": 2160},
     {"name": "4K — 4096×2304",  "w": 4096, "h": 2304},
@@ -159,6 +159,10 @@ def load_res_presets():
         presets.append(d)
         i += 1
 
+    # Filtrar entradas especiales hardcoded que puedan venir de INIs más viejos
+    presets = [p for p in presets
+               if p.get("special") not in ("original", "custom", "timeline")]
+
     if not presets:
         presets = [dict(pr) for pr in DEFAULT_PRESETS]
         save_res_presets(presets)
@@ -203,94 +207,89 @@ def preset_to_tuple(p):
 def show_save_preset_dialog(w, h, parent=None):
     """Abre un diálogo para nombrar un preset de resolución.
 
+    Estilo idéntico al de show_overwrite_warning (fondo #2B2B2B, FramelessWindowHint).
+
     Returns:
         str — nombre introducido por el usuario.
         None — el usuario canceló.
     """
     from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtCore
 
-    _STYLE = """
-        QDialog {
-            background-color: #1e1e2e;
-            border: 1px solid #444;
-        }
-        QLabel {
-            color: #cccccc;
-            font-size: 12px;
-        }
-        QLabel#title_lbl {
-            font-size: 13px;
-            font-weight: bold;
-            color: #e8c97a;
-        }
-        QLabel#res_lbl {
-            color: #888888;
-            font-size: 11px;
-        }
-        QLineEdit {
-            background-color: #2a2a3a;
-            border: 1px solid #555;
-            color: #cccccc;
-            padding: 4px 6px;
-            font-size: 12px;
-            border-radius: 3px;
-        }
-        QLineEdit:focus { border: 1px solid #7070b0; }
-        QPushButton {
-            background-color: #2a2a3a;
-            border: 1px solid #555;
-            color: #cccccc;
-            padding: 5px 14px;
-            font-size: 12px;
-            border-radius: 3px;
-            min-width: 80px;
-        }
-        QPushButton:hover { background-color: #3a3a4a; }
-        QPushButton#btn_save {
-            background-color: #443a91;
-            border: 1px solid #5040aa;
-            color: #e0e0e0;
-        }
-        QPushButton#btn_save:hover  { background-color: #5448a8; }
-        QPushButton#btn_save:disabled { background-color: #2a2a4a; color: #666; }
-    """
+    _BTN_SECONDARY = (
+        "QPushButton { background-color:#3a3a3a; border:1px solid #555555;"
+        " color:#CCCCCC; padding:7px 18px; border-radius:3px; }"
+        "QPushButton:hover { background-color:#4a4a4a; }"
+    )
+    _BTN_PRIMARY_DIS = (
+        "QPushButton { background-color:#443a91; border:1px solid #5a4faa;"
+        " color:#CCCCCC; padding:7px 18px; border-radius:3px; font-weight:bold; }"
+        "QPushButton:hover { background-color:#774dcb; }"
+        "QPushButton:disabled { background-color:#2a2a4a; color:#666; border-color:#444; }"
+    )
+    _LINE_STYLE = (
+        "QLineEdit { background-color:#222233; border:1px solid #555555;"
+        " color:#cccccc; padding:5px 8px; border-radius:3px; }"
+        "QLineEdit:focus { border:1px solid #7070b0; }"
+    )
 
     dlg = QtWidgets.QDialog(parent)
-    dlg.setWindowTitle("Guardar preset de resolución")
-    dlg.setModal(True)
-    dlg.setFixedWidth(340)
-    dlg.setStyleSheet(_STYLE)
+    dlg.setWindowTitle("Guardar preset")
+    dlg.setMinimumWidth(380)
+    dlg.setWindowFlags(QtCore.Qt.Dialog | QtCore.Qt.FramelessWindowHint)
+    dlg.setStyleSheet(
+        "QDialog { background-color:#2B2B2B; border:1px solid #555555; }"
+        "QLabel  { color:#a7a7a7; }"
+    )
     dlg.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
 
-    vbox = QtWidgets.QVBoxLayout(dlg)
-    vbox.setContentsMargins(20, 16, 20, 16)
-    vbox.setSpacing(10)
+    layout = QtWidgets.QVBoxLayout(dlg)
+    layout.setContentsMargins(24, 20, 24, 20)
+    layout.setSpacing(10)
 
-    title = QtWidgets.QLabel("Guardar preset de resolución")
-    title.setObjectName("title_lbl")
-    vbox.addWidget(title)
+    # Encabezado
+    header_row = QtWidgets.QHBoxLayout()
+    icon_lbl  = QtWidgets.QLabel("💾")
+    icon_lbl.setStyleSheet("font-size:18px;")
+    title_lbl = QtWidgets.QLabel("Guardar preset de resolución")
+    title_lbl.setStyleSheet("color:#d9a441; font-size:13px; font-weight:bold;")
+    header_row.addWidget(icon_lbl)
+    header_row.addSpacing(8)
+    header_row.addWidget(title_lbl)
+    header_row.addStretch()
+    layout.addLayout(header_row)
+
+    sep = QtWidgets.QFrame()
+    sep.setFrameShape(QtWidgets.QFrame.HLine)
+    sep.setStyleSheet("background:#444444;")
+    sep.setFixedHeight(1)
+    layout.addWidget(sep)
 
     res_lbl = QtWidgets.QLabel("%d × %d" % (w, h))
-    res_lbl.setObjectName("res_lbl")
-    vbox.addWidget(res_lbl)
+    res_lbl.setStyleSheet("color:#cccccc; font-size:12px; font-weight:bold; margin-top:4px;")
+    layout.addWidget(res_lbl)
 
-    vbox.addSpacing(4)
-    vbox.addWidget(QtWidgets.QLabel("Nombre:"))
+    name_prompt = QtWidgets.QLabel("Nombre del preset:")
+    name_prompt.setStyleSheet("color:#a7a7a7; font-size:11px;")
+    layout.addWidget(name_prompt)
 
     line = QtWidgets.QLineEdit()
     line.setPlaceholderText("Ej: DI 2K")
-    vbox.addWidget(line)
+    line.setStyleSheet(_LINE_STYLE)
+    layout.addWidget(line)
 
-    vbox.addSpacing(4)
+    layout.addSpacing(8)
+
     btn_row = QtWidgets.QHBoxLayout()
     btn_row.addStretch()
     btn_cancel = QtWidgets.QPushButton("Cancelar")
     btn_save   = QtWidgets.QPushButton("Guardar")
-    btn_save.setObjectName("btn_save")
+    btn_cancel.setStyleSheet(_BTN_SECONDARY)
+    btn_save.setStyleSheet(_BTN_PRIMARY_DIS)
     btn_save.setEnabled(False)
     btn_row.addWidget(btn_cancel)
+    btn_row.addSpacing(8)
     btn_row.addWidget(btn_save)
-    vbox.addLayout(btn_row)
+    layout.addLayout(btn_row)
 
     line.textChanged.connect(lambda t: btn_save.setEnabled(bool(t.strip())))
 

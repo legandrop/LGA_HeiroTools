@@ -1052,9 +1052,10 @@ _PRESET_TRASH_W = 26
 class _ResPresetListView(QtWidgets.QListView):
     """QListView usado como popup del combo de resoluciones.
 
-    Intercepta clicks sobre el ícono de papelera (zona derecha del ítem)
-    sin seleccionar el ítem ni cerrar el popup.
-    También trackea la fila hover para el efecto del ícono.
+    El QComboBoxPrivateContainer instala un eventFilter en el listview mismo, lo que
+    intercepta los MouseButtonRelease antes de que lleguen a nuestro override de
+    mouseReleaseEvent. Por eso instalamos nuestro filtro en el viewport(), que NO
+    está filtrado por el container.
     """
 
     def __init__(self, on_delete_cb, parent=None):
@@ -1063,9 +1064,23 @@ class _ResPresetListView(QtWidgets.QListView):
         self._hovered_trash_row = -1
         self.setMouseTracking(True)
 
+    def showEvent(self, event):
+        """Instalamos el filtro en el viewport cuando el popup se muestra."""
+        super(_ResPresetListView, self).showEvent(event)
+        vp = self.viewport()
+        if vp:
+            vp.setMouseTracking(True)
+            vp.installEventFilter(self)
+
+    def hideEvent(self, event):
+        """Limpiamos el hover al cerrar el popup."""
+        super(_ResPresetListView, self).hideEvent(event)
+        self._hovered_trash_row = -1
+
     @staticmethod
     def _is_deletable(text):
-        return text.strip() not in ("Original", "Custom...")
+        t = text.strip()
+        return t not in ("Original", "Timeline", "Custom...")
 
     def _in_trash_zone(self, row, pos):
         m = self.model()
@@ -1074,40 +1089,47 @@ class _ResPresetListView(QtWidgets.QListView):
         vrect = self.visualRect(m.index(row, 0))
         return pos.x() >= vrect.right() - _PRESET_TRASH_W
 
-    def mouseMoveEvent(self, event):
-        super(_ResPresetListView, self).mouseMoveEvent(event)
-        idx = self.indexAt(event.pos())
+    def _update_hover(self, pos):
+        m = self.model()
+        if not m:
+            return
+        idx = self.indexAt(pos)
         row = idx.row() if idx.isValid() else -1
         new_hover = -1
-        if row >= 0 and self._is_deletable((self.model().data(self.model().index(row, 0)) or "")):
-            if self._in_trash_zone(row, event.pos()):
+        if row >= 0:
+            text = m.data(m.index(row, 0)) or ""
+            if self._is_deletable(text) and self._in_trash_zone(row, pos):
                 new_hover = row
         if new_hover != self._hovered_trash_row:
             old = self._hovered_trash_row
             self._hovered_trash_row = new_hover
-            m = self.model()
-            if m:
-                for r in (old, new_hover):
-                    if r >= 0:
-                        self.update(self.visualRect(m.index(r, 0)))
+            for r in (old, new_hover):
+                if r >= 0:
+                    self.update(self.visualRect(m.index(r, 0)))
 
-    def leaveEvent(self, event):
-        super(_ResPresetListView, self).leaveEvent(event)
-        old = self._hovered_trash_row
-        self._hovered_trash_row = -1
-        m = self.model()
-        if m and old >= 0:
-            self.update(self.visualRect(m.index(old, 0)))
-
-    def mouseReleaseEvent(self, event):
-        idx = self.indexAt(event.pos())
-        row = idx.row() if idx.isValid() else -1
-        if row >= 0:
-            text = (self.model().data(self.model().index(row, 0)) or "")
-            if self._is_deletable(text) and self._in_trash_zone(row, event.pos()):
-                self._on_delete(row)
-                return  # no propagar → no seleccionar ítem ni cerrar popup
-        super(_ResPresetListView, self).mouseReleaseEvent(event)
+    def eventFilter(self, obj, event):
+        vp = self.viewport()
+        if obj is vp:
+            etype = event.type()
+            if etype == QtCore.QEvent.MouseMove:
+                self._update_hover(event.pos())
+            elif etype == QtCore.QEvent.Leave:
+                old = self._hovered_trash_row
+                self._hovered_trash_row = -1
+                m = self.model()
+                if m and old >= 0:
+                    self.update(self.visualRect(m.index(old, 0)))
+            elif etype == QtCore.QEvent.MouseButtonRelease:
+                m = self.model()
+                if m:
+                    idx = self.indexAt(event.pos())
+                    row = idx.row() if idx.isValid() else -1
+                    if row >= 0:
+                        text = m.data(m.index(row, 0)) or ""
+                        if self._is_deletable(text) and self._in_trash_zone(row, event.pos()):
+                            self._on_delete(row)
+                            return True  # consumir → no seleccionar ni cerrar popup
+        return super(_ResPresetListView, self).eventFilter(obj, event)
 
 
 class _ResPresetDelegate(QtWidgets.QStyledItemDelegate):
@@ -1124,7 +1146,8 @@ class _ResPresetDelegate(QtWidgets.QStyledItemDelegate):
 
     @staticmethod
     def _is_deletable(text):
-        return text.strip() not in ("Original", "Custom...")
+        t = text.strip()
+        return t not in ("Original", "Timeline", "Custom...")
 
     def paint(self, painter, option, index):
         painter.save()
@@ -1201,11 +1224,19 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._custom_ar_updating = False   # evita recursión al actualizar spinboxes
         self._custom_master = "w"          # "w" | "h" — última dimensión editada
 
-        # Cargar settings persistentes ANTES de construir la UI
-        self._imp_settings      = settings_mod.load_all_settings()
-        self._res_presets_raw   = settings_mod.load_res_presets()
-        self._res_presets       = [settings_mod.preset_to_tuple(p)
-                                   for p in self._res_presets_raw]
+        # Resolución del timeline (para el preset "Timeline" hardcoded)
+        try:
+            fmt = self.seq.format()
+            self._tl_w, self._tl_h = int(fmt.width()), int(fmt.height())
+        except Exception:
+            self._tl_w, self._tl_h = None, None
+
+        # Cargar settings persistentes ANTES de construir la UI.
+        # _res_presets_raw = solo los presets del INI (sin Original/Timeline/Custom...).
+        # _res_presets     = lista completa con hardcoded head+tail añadidos.
+        self._imp_settings    = settings_mod.load_all_settings()
+        self._res_presets_raw = settings_mod.load_res_presets()
+        self._res_presets     = self._build_full_presets()
 
         self.setWindowTitle("Import Shot — %s" % shot_name)
         self.setObjectName("LGA_ImportShotDialog")
@@ -1266,11 +1297,29 @@ class ImportShotDialog(QtWidgets.QDialog):
 
     def _show_page(self, page):
         if page == self.PAGE_MEDIA:
+            if getattr(self, "_transcode_happened", False):
+                self._transcode_happened = False
+                self._refresh_media_page()
             self._content_area.setCurrentWidget(self._page_media)
         elif page == self.PAGE_RENAME:
             self._content_area.setCurrentWidget(self._page_rename)
         elif page == self.PAGE_CONVERT:
             self._content_area.setCurrentWidget(self._page_convert)
+
+    def _refresh_media_page(self):
+        """Re-escanea el shot y reconstruye la tabla de media."""
+        self.input_items   = _scan_input_folder(self.shot_root)
+        self.publish_items = _scan_publish_folders(self.shot_root)
+
+        layout = self._page_media.layout()
+        # El widget de tabla está en la posición 1 del layout (después del section label)
+        old_item = layout.takeAt(1)
+        if old_item and old_item.widget():
+            old_item.widget().deleteLater()
+
+        self._media_table = self._build_media_table()
+        layout.insertWidget(1, self._media_table, 1)
+        self._update_action_btns()
 
     # ══════════════════════════════════════════════════════════
     #  PAGINA PRINCIPAL: tabla de media
@@ -1324,6 +1373,16 @@ class ImportShotDialog(QtWidgets.QDialog):
         )
         self._convert_btn.clicked.connect(self._go_to_convert)
         btn_row.addWidget(self._convert_btn)
+
+        btn_row.addSpacing(6)
+
+        self._createtasks_btn = QtWidgets.QPushButton("Create Tasks")
+        self._createtasks_btn.setStyleSheet(_BTN_SECONDARY)
+        self._createtasks_btn.setToolTip(
+            "Crear tareas para los shots seleccionados (pendiente de implementación)"
+        )
+        self._createtasks_btn.clicked.connect(self._go_to_create_tasks)
+        btn_row.addWidget(self._createtasks_btn)
 
         btn_row.addSpacing(6)
 
@@ -1689,6 +1748,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         )
         self._rename_btn.setEnabled(any_checked)
         self._convert_btn.setEnabled(has_plate_checked)
+        self._createtasks_btn.setEnabled(any_checked)
         self._import_btn.setEnabled(any_checked)
 
     # ── selección rápida ─────────────────────────────────────────
@@ -1712,6 +1772,15 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _go_to_convert(self):
         self._update_convert_page()
         self._show_page(self.PAGE_CONVERT)
+
+    def _go_to_create_tasks(self):
+        """Abre la ventana de Create Tasks. PENDIENTE de implementación completa."""
+        QtWidgets.QMessageBox.information(
+            self,
+            "Create Tasks",
+            "La ventana de Create Tasks está pendiente de implementación.\n\n"
+            "El helper LGA_import_shots_createtasks.py ya existe como base.",
+        )
 
     # ══════════════════════════════════════════════════════════
     #  PAGINA: Rename (stub)
@@ -1950,7 +2019,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._res_combo.setView(_res_list)
         _res_list.setItemDelegate(_ResPresetDelegate(_res_list, _pix_trash, _pix_hover))
         for label, preset in self._res_presets:
-            if preset and preset != "custom":
+            if preset and preset not in ("custom", "timeline"):
                 tw, th = preset
                 ar = _ar_str(tw, th)
                 display = ("%s  [%s]" % (label, ar)) if ar else label
@@ -2182,6 +2251,7 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _on_res_preset_changed(self, idx):
         preset = self._res_presets[idx][1] if 0 <= idx < len(self._res_presets) else None
         self._custom_res_widget.setVisible(preset == "custom")
+        self._save_preset_btn.setVisible(preset == "custom")
         self._update_match_dim_visibility()
         self._refresh_convert_destinos()
 
@@ -2192,8 +2262,8 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _update_match_dim_visibility(self):
         """Muestra 'Dimensión que manda' solo cuando PAR activo y preset NO es Custom."""
         idx = self._res_combo.currentIndex()
-        is_custom = (0 <= idx < len(self._res_presets)
-                     and self._res_presets[idx][1] == "custom")
+        preset_val = self._res_presets[idx][1] if 0 <= idx < len(self._res_presets) else None
+        is_custom = (preset_val == "custom")
         self._match_dim_widget.setVisible(
             self._convert_keep_ar.isChecked() and not is_custom
         )
@@ -2213,7 +2283,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._custom_master = "w"
         idx = self._res_combo.currentIndex()
         is_custom = (0 <= idx < len(self._res_presets)
-                     and self._res_presets[idx][1] == "custom")
+                     and self._res_presets[idx][1] == "custom")  # noqa: E501
         if is_custom and self._convert_keep_ar.isChecked():
             src_w, src_h = self._get_representative_res()
             if src_w and src_h:
@@ -2230,7 +2300,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._custom_master = "h"
         idx = self._res_combo.currentIndex()
         is_custom = (0 <= idx < len(self._res_presets)
-                     and self._res_presets[idx][1] == "custom")
+                     and self._res_presets[idx][1] == "custom")  # noqa: E501
         if is_custom and self._convert_keep_ar.isChecked():
             src_w, src_h = self._get_representative_res()
             if src_w and src_h:
@@ -2253,6 +2323,16 @@ class ImportShotDialog(QtWidgets.QDialog):
         preset = self._res_presets[idx][1] if 0 <= idx < len(self._res_presets) else None
         if preset is None:
             return src_w, src_h          # Original
+        if preset == "timeline":
+            tw = self._tl_w or src_w
+            th = self._tl_h or src_h
+            if self._convert_keep_ar.isChecked() and src_w and src_h:
+                match_width = self._convert_match_dim.currentText().startswith("Match target width")
+                if match_width:
+                    th = int(round(tw * src_h / float(src_w)))
+                else:
+                    tw = int(round(th * src_w / float(src_h)))
+            return tw, th
         if preset == "custom":
             if self._convert_keep_ar.isChecked() and src_w and src_h:
                 # La dimensión master determina; la otra se calcula por ítem
@@ -2278,19 +2358,31 @@ class ImportShotDialog(QtWidgets.QDialog):
         """Actualiza los items del combo con la resolución final real y AR."""
         src_w, src_h = self._get_representative_res()
         for i, (label, preset) in enumerate(self._res_presets):
-            if preset is None or preset == "custom":
+            if preset is None:
                 # "Original": mostrar AR del source si está disponible
-                if preset is None and src_w and src_h:
+                if src_w and src_h:
                     ar = _ar_str(src_w, src_h)
                     self._res_combo.setItemText(
                         i, ("%s  [%s]" % (label, ar)) if ar else label)
                 else:
                     self._res_combo.setItemText(i, label)
                 continue
+            if preset == "custom":
+                self._res_combo.setItemText(i, label)
+                continue
+            if preset == "timeline":
+                tl_w = self._tl_w or src_w
+                tl_h = self._tl_h or src_h
+                if tl_w and tl_h:
+                    ar = _ar_str(tl_w, tl_h)
+                    self._res_combo.setItemText(
+                        i, ("Timeline  [%s]" % ar) if ar else "Timeline")
+                else:
+                    self._res_combo.setItemText(i, "Timeline")
+                continue
             tw, th = preset
             preset_ar = _ar_str(tw, th)
             if not src_w or not src_h:
-                # Sin source: solo mostramos AR nativo del preset
                 base = ("%s  [%s]" % (label, preset_ar)) if preset_ar else label
                 self._res_combo.setItemText(i, base)
                 continue
@@ -2317,6 +2409,25 @@ class ImportShotDialog(QtWidgets.QDialog):
         """Muestra u oculta el selector de PAR de desanamorfizado."""
         self._deana_par_widget.setVisible(state == QtCore.Qt.Checked)
         self._refresh_convert_destinos()
+
+    # ── Presets helpers ────────────────────────────────────────────────────────
+
+    _N_HEAD = 2   # entradas hardcoded al inicio: Original + Timeline
+    _N_TAIL = 1   # entradas hardcoded al final:  Custom...
+
+    def _build_full_presets(self):
+        """Construye la lista completa de presets (head hardcoded + INI + tail hardcoded)."""
+        tl_lbl = "Timeline"
+        if self._tl_w and self._tl_h:
+            ar = _ar_str(self._tl_w, self._tl_h)
+            tl_lbl = ("Timeline  [%s]" % ar) if ar else "Timeline"
+        head = [
+            ("Original", None),
+            (tl_lbl, "timeline"),
+        ]
+        mid  = [settings_mod.preset_to_tuple(p) for p in self._res_presets_raw]
+        tail = [("Custom...", "custom")]
+        return head + mid + tail
 
     # ── Settings persistentes ──────────────────────────────────────────────────
 
@@ -2398,15 +2509,15 @@ class ImportShotDialog(QtWidgets.QDialog):
     # ── Presets de resolución dinámicos ────────────────────────────────────────
 
     def _rebuild_res_combo(self, select_idx=None):
-        """Reconstruye el combo desde self._res_presets_raw."""
-        self._res_presets = [settings_mod.preset_to_tuple(p) for p in self._res_presets_raw]
+        """Reconstruye el combo desde _res_presets_raw (INI) + hardcoded head/tail."""
+        self._res_presets = self._build_full_presets()
 
         prev_idx = self._res_combo.currentIndex() if select_idx is None else select_idx
 
         self._res_combo.blockSignals(True)
         self._res_combo.clear()
         for label, preset in self._res_presets:
-            if preset and preset != "custom":
+            if preset and preset not in ("custom", "timeline"):
                 tw, th = preset
                 ar = _ar_str(tw, th)
                 display = ("%s  [%s]" % (label, ar)) if ar else label
@@ -2422,22 +2533,26 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._update_res_combo_labels()
 
     def _on_delete_preset(self, row):
-        """Elimina el preset en la posición row del INI y reconstruye el combo."""
-        if row < 0 or row >= len(self._res_presets_raw):
+        """Elimina el preset en la posición row del combo (y del INI)."""
+        n_head = self._N_HEAD
+        n_tail = self._N_TAIL
+        n_total = len(self._res_presets)
+
+        # Proteger hardcoded head (Original, Timeline) y tail (Custom...)
+        if row < n_head or row >= n_total - n_tail:
             return
-        p = self._res_presets_raw[row]
-        if "special" in p:
-            return  # No se pueden borrar "Original" ni "Custom..."
+
+        ini_row = row - n_head  # índice en _res_presets_raw
 
         cur_idx = self._res_combo.currentIndex()
         if cur_idx == row:
-            new_idx = max(0, row - 1)
+            new_idx = max(0, row - 1)  # seleccionar el de arriba
         elif cur_idx > row:
             new_idx = cur_idx - 1
         else:
             new_idx = cur_idx
 
-        del self._res_presets_raw[row]
+        del self._res_presets_raw[ini_row]
         settings_mod.save_res_presets(self._res_presets_raw)
         self._rebuild_res_combo(select_idx=new_idx)
         self._save_all_settings()
@@ -2450,11 +2565,13 @@ class ImportShotDialog(QtWidgets.QDialog):
         if not name:
             return
 
-        # Insertar antes de "Custom..." (último elemento)
-        insert_pos = len(self._res_presets_raw) - 1
-        self._res_presets_raw.insert(insert_pos, {"name": name, "w": w, "h": h})
+        # Insertar al final de los presets INI (antes de Custom... hardcoded)
+        ini_insert = len(self._res_presets_raw)
+        self._res_presets_raw.append({"name": name, "w": w, "h": h})
         settings_mod.save_res_presets(self._res_presets_raw)
-        self._rebuild_res_combo(select_idx=insert_pos)
+        # El índice en el combo = offset head + posición INI
+        combo_idx = self._N_HEAD + ini_insert
+        self._rebuild_res_combo(select_idx=combo_idx)
         self._save_all_settings()
 
     def _apply_deana_if_active(self, tw, th):
@@ -2944,6 +3061,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._on_transcode_log(summary)
         self._start_transcode_btn.setEnabled(True)
         self._go_back_btn.setEnabled(True)
+        self._transcode_happened = True  # para triggerar refresh al volver a PAGE_MEDIA
         debug_print("Transcode all_done — %d/%d OK" % (ok_count, total))
 
     def _on_transcode_error(self, msg):
