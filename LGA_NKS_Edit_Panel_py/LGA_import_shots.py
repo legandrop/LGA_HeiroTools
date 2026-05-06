@@ -791,15 +791,15 @@ QPushButton:hover { background-color: #666666; }
 
 _BTN_PRIMARY = """
 QPushButton {
-    background-color: #2a4d3a;
-    border: 1px solid #3a7a55;
+    background-color: #443a91;
+    border: 1px solid #5a4faa;
     color: #CCCCCC;
     padding: 7px 18px;
     border-radius: 3px;
     font-weight: bold;
 }
-QPushButton:hover { background-color: #3a6b50; }
-QPushButton:disabled { background-color: #1e3328; color: #666666; border-color: #2a4d3a; }
+QPushButton:hover { background-color: #774dcb; }
+QPushButton:disabled { background-color: #2a2540; color: #666666; border-color: #443a91; }
 """
 
 _BTN_SECONDARY = """
@@ -1056,10 +1056,10 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         btn_row.addSpacing(6)
 
-        self._convert_btn = QtWidgets.QPushButton("Transcode EXR")
+        self._convert_btn = QtWidgets.QPushButton("Transcode Plates")
         self._convert_btn.setStyleSheet(_BTN_SECONDARY)
         self._convert_btn.setToolTip(
-            "Convertir EXR sequences seleccionadas (DWAA, resolución, etc.)"
+            "Transcodear los plates seleccionados (DWAA, resolución, etc.)"
         )
         self._convert_btn.clicked.connect(self._go_to_convert)
         btn_row.addWidget(self._convert_btn)
@@ -1250,7 +1250,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         # Col 1: checkbox
         chk = QtWidgets.QCheckBox()
         chk.setStyleSheet("color:#a7a7a7; padding:2px;")
-        chk.setChecked(is_input_exr and is_latest)
+        chk.setChecked(True)
         chk.stateChanged.connect(self._update_action_btns)
         self._checkboxes[row_i] = chk
         container = QtWidgets.QWidget()
@@ -1379,14 +1379,13 @@ class ImportShotDialog(QtWidgets.QDialog):
 
     def _update_action_btns(self):
         any_checked = any(chk.isChecked() for chk in self._checkboxes.values())
-        has_exr_checked = any(
+        has_plate_checked = any(
             chk.isChecked()
-            and self._table_rows[row]["source"] == "input"
-            and self._table_rows[row]["item"].get("kind") == "exr_seq"
+            and self._table_rows[row].get("section") == "plates"
             for row, chk in self._checkboxes.items()
         )
         self._rename_btn.setEnabled(any_checked)
-        self._convert_btn.setEnabled(has_exr_checked)
+        self._convert_btn.setEnabled(has_plate_checked)
         self._import_btn.setEnabled(any_checked)
 
     # ── selección rápida ─────────────────────────────────────────
@@ -1434,13 +1433,14 @@ class ImportShotDialog(QtWidgets.QDialog):
         layout.addWidget(_separator())
 
         btn_row = QtWidgets.QHBoxLayout()
-        cancel_btn = QtWidgets.QPushButton("← Cancelar")
-        cancel_btn.setStyleSheet(_BTN_CANCEL)
+        btn_row.addStretch()
+        cancel_btn = QtWidgets.QPushButton("← Go Back")
+        cancel_btn.setStyleSheet(_BTN_SECONDARY)
         cancel_btn.clicked.connect(lambda: self._show_page(self.PAGE_MEDIA))
         btn_row.addWidget(cancel_btn)
-        btn_row.addStretch()
+        btn_row.addSpacing(6)
         rename_btn = QtWidgets.QPushButton("Rename")
-        rename_btn.setStyleSheet(_BTN_SECONDARY)
+        rename_btn.setStyleSheet(_BTN_PRIMARY)
         rename_btn.setEnabled(False)
         rename_btn.setToolTip("Pendiente de implementación")
         btn_row.addWidget(rename_btn)
@@ -1449,7 +1449,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         return page
 
     # ══════════════════════════════════════════════════════════
-    #  PAGINA: EXR Convert (stub)
+    #  PAGINA: Transcode Plates
     # ══════════════════════════════════════════════════════════
 
     # Presets de resolución: label → (W, H) o None (original)
@@ -1482,20 +1482,15 @@ class ImportShotDialog(QtWidgets.QDialog):
         layout = QtWidgets.QVBoxLayout(page)
         layout.setSpacing(8)
 
-        layout.addWidget(_section_label("EXR CONVERT"))
+        layout.addWidget(_section_label("TRANSCODE PLATES"))
 
-        # Advertencias por MOVs seleccionados
-        self._convert_warnings_lbl = QtWidgets.QLabel("")
-        self._convert_warnings_lbl.setStyleSheet("color:#d9a441; padding:2px 0px;")
-        self._convert_warnings_lbl.setWordWrap(True)
-        self._convert_warnings_lbl.hide()
-        layout.addWidget(self._convert_warnings_lbl)
-
-        # Tabla de EXRs a convertir
+        # Tabla de plates a transcodear
+        # col 0: barra color (10px)  col 1: checkbox (28px)
+        # col 2: Nombre  col 3: Origen  col 4: →  col 5: Destino  col 6: Tamaño  col 7: Estado
         self._convert_table = QtWidgets.QTableWidget()
-        self._convert_table.setColumnCount(7)
+        self._convert_table.setColumnCount(8)
         self._convert_table.setHorizontalHeaderLabels(
-            ["", "Nombre", "Origen", "→", "Destino", "Tamaño", "Estado"]
+            ["", "", "Nombre", "Origen", "→", "Destino", "Tamaño", "Estado"]
         )
         self._convert_table.verticalHeader().setVisible(False)
         self._convert_table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
@@ -1509,9 +1504,12 @@ class ImportShotDialog(QtWidgets.QDialog):
         hdr.setMinimumSectionSize(1)
         hdr.setSectionResizeMode(0, QtWidgets.QHeaderView.Fixed)
         self._convert_table.setColumnWidth(0, 10)
-        hdr.setSectionResizeMode(1, QtWidgets.QHeaderView.Stretch)
-        for c in (2, 3, 4, 5, 6):
+        hdr.setSectionResizeMode(1, QtWidgets.QHeaderView.Fixed)
+        self._convert_table.setColumnWidth(1, 28)
+        hdr.setSectionResizeMode(2, QtWidgets.QHeaderView.Stretch)
+        for c in (3, 4, 5, 6, 7):
             hdr.setSectionResizeMode(c, QtWidgets.QHeaderView.ResizeToContents)
+        self._convert_checkboxes = {}
         layout.addWidget(self._convert_table)
 
         layout.addWidget(_separator())
@@ -1536,7 +1534,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         dwaa_lbl.setStyleSheet("color:#a7a7a7;")
         dwaa_row.addWidget(dwaa_lbl)
         self._convert_dwaa_level = QtWidgets.QSpinBox()
-        self._convert_dwaa_level.setRange(0, 500)
+        self._convert_dwaa_level.setRange(30, 60)
         self._convert_dwaa_level.setValue(45)
         self._convert_dwaa_level.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
         self._convert_dwaa_level.setAlignment(QtCore.Qt.AlignCenter)
@@ -1555,18 +1553,18 @@ class ImportShotDialog(QtWidgets.QDialog):
         """)
         dwaa_row.addWidget(self._convert_dwaa_level)
         self._convert_dwaa_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
-        self._convert_dwaa_slider.setRange(0, 500)
+        self._convert_dwaa_slider.setRange(30, 60)
         self._convert_dwaa_slider.setValue(45)
         self._convert_dwaa_slider.setFixedWidth(120)
         self._convert_dwaa_slider.setStyleSheet("""
             QSlider::groove:horizontal {
-                height: 4px; background:#333; border-radius:2px;
+                height: 2px; background:#333; border-radius:1px;
             }
             QSlider::handle:horizontal {
-                background:#888; width:12px; margin:-5px 0; border-radius:6px;
+                background:#888; width:10px; margin:-4px 0; border-radius:5px;
             }
             QSlider::handle:horizontal:hover { background:#aaa; }
-            QSlider::sub-page:horizontal { background:#5a5a5a; border-radius:2px; }
+            QSlider::sub-page:horizontal { background:#5a5a5a; border-radius:1px; }
         """)
         self._convert_dwaa_slider.valueChanged.connect(self._convert_dwaa_level.setValue)
         self._convert_dwaa_level.valueChanged.connect(self._convert_dwaa_slider.setValue)
@@ -1754,11 +1752,12 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         # Botones
         btn_row = QtWidgets.QHBoxLayout()
+        btn_row.addStretch()
         back_btn = QtWidgets.QPushButton("← Go Back")
-        back_btn.setStyleSheet(_BTN_CANCEL)
+        back_btn.setStyleSheet(_BTN_SECONDARY)
         back_btn.clicked.connect(lambda: self._show_page(self.PAGE_MEDIA))
         btn_row.addWidget(back_btn)
-        btn_row.addStretch()
+        btn_row.addSpacing(6)
         self._start_transcode_btn = QtWidgets.QPushButton("Start Transcode")
         self._start_transcode_btn.setStyleSheet(_BTN_PRIMARY)
         self._start_transcode_btn.setEnabled(False)
@@ -1811,10 +1810,12 @@ class ImportShotDialog(QtWidgets.QDialog):
         return "%dch" % ch if isinstance(ch, int) else "—"
 
     def _refresh_convert_destinos(self):
-        """Recalcula la columna 'Destino' de la tabla en vivo."""
+        """Recalcula la columna 'Destino' de la tabla en vivo (solo EXR, no MOVs)."""
         if not hasattr(self, "_convert_table") or not hasattr(self, "_convert_rows"):
             return
         for row_i, item in enumerate(self._convert_rows):
+            if item.get("kind") == "mov":
+                continue
             sw, sh = item.get("width"), item.get("height")
             tw, th = self._current_target_res(sw, sh)
             if (self._convert_no_upscale.isChecked() and sw and sh and tw and th
@@ -1825,106 +1826,120 @@ class ImportShotDialog(QtWidgets.QDialog):
             bd   = self._target_bitdepth(item.get("bitdepth"))
             ch   = self._target_channels(item.get("channels"))
             destino = "%s · %s · %s · %s" % (res_str, bd or "—", self._ch_str(ch), comp)
-            cell = self._convert_table.item(row_i, 4)
+            cell = self._convert_table.item(row_i, 5)
             if cell:
                 cell.setText(destino)
 
     def _update_convert_page(self):
-        # Recolectar items chequeados
-        exr_items = []
-        mov_names = []
+        # Recolectar plates chequeados (todos los items de la sección PLATES,
+        # independientemente del formato; MOVs entran pero estarán deshabilitados)
+        plate_items = []
         for row, chk in self._checkboxes.items():
             if not chk.isChecked():
                 continue
             row_data = self._table_rows[row]
-            item = row_data["item"]
-            name = item.get("name", "")
-            if row_data["source"] == "input" and item.get("kind") == "exr_seq":
-                exr_items.append(item)
-            elif row_data["source"] == "input" and item.get("kind") == "mov":
-                mov_names.append(name)
-
-        # Avisos por MOVs
-        if mov_names:
-            warnings = "\n".join(
-                "⚠  %s no será convertido (solo EXR sequences)" % n for n in mov_names
-            )
-            self._convert_warnings_lbl.setText(warnings)
-            self._convert_warnings_lbl.show()
-        else:
-            self._convert_warnings_lbl.hide()
+            if row_data.get("section") == "plates":
+                plate_items.append(row_data["item"])
 
         # Poblar tabla
-        self._convert_rows = exr_items
-        self._convert_table.setRowCount(len(exr_items))
+        self._convert_rows = plate_items
+        self._convert_table.setRowCount(len(plate_items))
 
+        self._convert_checkboxes = {}
         total_size = 0
         total_frames = 0
-        for i, it in enumerate(exr_items):
+        for i, it in enumerate(plate_items):
+            is_mov = it.get("kind") == "mov"
+            dim_color = "#555555" if is_mov else "#888888"
+            name_color = "#666666" if is_mov else "#cccccc"
+
             # Col 0: barra de color (plates)
             bar = QtWidgets.QTableWidgetItem()
-            bar.setBackground(QtGui.QColor(_CLR_PLATES))
+            bar.setBackground(QtGui.QColor(_CLR_PLATES if not is_mov else "#444444"))
             bar.setFlags(QtCore.Qt.NoItemFlags)
             self._convert_table.setItem(i, 0, bar)
 
-            # Col 1: Nombre
-            name_item = QtWidgets.QTableWidgetItem(it.get("name", ""))
-            name_item.setForeground(QtGui.QColor("#cccccc"))
-            self._convert_table.setItem(i, 1, name_item)
+            # Col 1: checkbox (deshabilitado para MOVs)
+            chk = QtWidgets.QCheckBox()
+            chk.setStyleSheet("color:#a7a7a7; padding:2px;")
+            if is_mov:
+                chk.setChecked(False)
+                chk.setEnabled(False)
+                chk.setToolTip("Transcode de MOV pendiente de implementación")
+            else:
+                chk.setChecked(True)
+            self._convert_checkboxes[i] = chk
+            chk_container = QtWidgets.QWidget()
+            cl = QtWidgets.QHBoxLayout(chk_container)
+            cl.setContentsMargins(0, 0, 0, 0)
+            cl.setAlignment(QtCore.Qt.AlignCenter)
+            cl.addWidget(chk)
+            self._convert_table.setCellWidget(i, 1, chk_container)
 
-            # Col 2: Origen "WxH · bd · Nch · comp · #f"
+            # Col 2: Nombre
+            name_item = QtWidgets.QTableWidgetItem(it.get("name", ""))
+            name_item.setForeground(QtGui.QColor(name_color))
+            if is_mov:
+                name_item.setToolTip("Transcode de MOV pendiente de implementación")
+            self._convert_table.setItem(i, 2, name_item)
+
+            # Col 3: Origen "WxH · bd · Nch · comp · #f"
             sw, sh = it.get("width"), it.get("height")
             sc = it.get("compression") or "—"
             sbd = it.get("bitdepth") or "—"
             sch = it.get("channels")
             fc = it.get("frame_count") or 0
-            total_frames += fc
+            if not is_mov:
+                total_frames += fc
             origen = "%s · %s · %s · %s · %df" % (
                 ("%d×%d" % (sw, sh)) if (sw and sh) else "—",
                 sbd, self._ch_str(sch), sc, fc,
             )
             o_item = QtWidgets.QTableWidgetItem(origen)
-            o_item.setForeground(QtGui.QColor("#888888"))
-            self._convert_table.setItem(i, 2, o_item)
+            o_item.setForeground(QtGui.QColor(dim_color))
+            self._convert_table.setItem(i, 3, o_item)
 
-            # Col 3: flecha
+            # Col 4: flecha
             arrow = QtWidgets.QTableWidgetItem("→")
-            arrow.setForeground(QtGui.QColor("#666666"))
+            arrow.setForeground(QtGui.QColor("#444444" if is_mov else "#666666"))
             arrow.setTextAlignment(QtCore.Qt.AlignCenter)
-            self._convert_table.setItem(i, 3, arrow)
+            self._convert_table.setItem(i, 4, arrow)
 
-            # Col 4: Destino (placeholder, se llena en _refresh_convert_destinos)
-            d_item = QtWidgets.QTableWidgetItem("")
-            d_item.setForeground(QtGui.QColor("#a7a7a7"))
-            self._convert_table.setItem(i, 4, d_item)
+            # Col 5: Destino (placeholder, se llena en _refresh_convert_destinos)
+            d_item = QtWidgets.QTableWidgetItem("" if not is_mov else "—")
+            d_item.setForeground(QtGui.QColor("#555555" if is_mov else "#a7a7a7"))
+            self._convert_table.setItem(i, 5, d_item)
 
-            # Col 5: Tamaño actual
+            # Col 6: Tamaño actual
             size_b = _folder_size_bytes(it.get("path", ""))
-            total_size += size_b
+            if not is_mov:
+                total_size += size_b
             s_item = QtWidgets.QTableWidgetItem(_format_bytes(size_b))
-            s_item.setForeground(QtGui.QColor("#888888"))
+            s_item.setForeground(QtGui.QColor(dim_color))
             s_item.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-            self._convert_table.setItem(i, 5, s_item)
+            self._convert_table.setItem(i, 6, s_item)
 
-            # Col 6: Estado
-            st_item = QtWidgets.QTableWidgetItem("Pendiente")
-            st_item.setForeground(QtGui.QColor("#888888"))
-            self._convert_table.setItem(i, 6, st_item)
+            # Col 7: Estado
+            st_item = QtWidgets.QTableWidgetItem(
+                "No soportado" if is_mov else "Pendiente"
+            )
+            st_item.setForeground(QtGui.QColor("#555555" if is_mov else "#888888"))
+            self._convert_table.setItem(i, 7, st_item)
 
         self._refresh_convert_destinos()
 
         # Resumen
-        if exr_items:
+        if plate_items:
             self._convert_summary_lbl.setText(
-                "%d secuencia%s · %d frames · %s en disco" % (
-                    len(exr_items), "" if len(exr_items) == 1 else "s",
+                "%d plate%s · %d frames · %s en disco" % (
+                    len(plate_items), "" if len(plate_items) == 1 else "s",
                     total_frames, _format_bytes(total_size),
                 )
             )
             self._start_transcode_btn.setEnabled(False)  # mantener disabled hasta implementar
             self._start_transcode_btn.setToolTip("Pendiente de implementación")
         else:
-            self._convert_summary_lbl.setText("No hay EXR sequences seleccionadas.")
+            self._convert_summary_lbl.setText("No hay plates seleccionados.")
             self._start_transcode_btn.setEnabled(False)
 
     def _toggle_convert_log(self):

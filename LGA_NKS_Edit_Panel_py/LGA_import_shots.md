@@ -1,6 +1,13 @@
 > **Regla de documentacion**: este archivo describe el estado actual del codigo. No es un historial de cambios, changelog ni bitacora temporal.
 > **Regla de documentacion**: este archivo debe incluir una seccion de referencias tecnicas con rutas completas a los archivos mas importantes relacionados, y para cada archivo nombrar las funciones, clases o metodos clave vinculados a este tema.
 
+> ⚠ **PENDIENTE CRITICO — Transcode de MOV no implementado**: la pagina
+> "Transcode Plates" acepta plates en cualquier formato (EXR o MOV), pero el
+> motor de transcode (`_run_transcode`) solo procesa EXR sequences via OIIO.
+> Los plates MOV aparecen en la tabla con checkbox deshabilitado y estado
+> "No soportado". Implementar cuando se complete la primera version funcional
+> del transcode EXR.
+
 # LGA_import_shots
 
 Herramienta para importar un shot completo al timeline de Hiero/Nuke Studio.
