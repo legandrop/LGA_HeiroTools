@@ -227,6 +227,13 @@ def _detect_track_from_name(name):
     return None
 
 
+def _is_plate_track(track_name):
+    """True si el nombre de track corresponde a un plate."""
+    if not track_name:
+        return False
+    return str(track_name).strip().lower().endswith("plate")
+
+
 def _version_number(name):
     """Extrae numero de version de un nombre (v01, v001, v002). Retorna -1 si no hay."""
     m = re.search(r"[_\-]v(\d+)", name, re.IGNORECASE)
@@ -464,6 +471,9 @@ def _scan_input_folder(shot_root):
                 track = "EditRefClean"
             elif "editref" in stem_lower:
                 track = "EditRef"
+            elif "plate" in stem_lower:
+                # Si el nombre contiene "plate", se distribuye como plate.
+                track = _detect_track_from_name(f.stem) or "aPlate"
             else:
                 track = "?"           # desconocido, usuario decide
             mw, mh, mfps, mcodec, mnb = _read_mov_metadata(str(f))
@@ -1084,7 +1094,9 @@ class _ResPresetListView(QtWidgets.QListView):
     @staticmethod
     def _is_deletable(text):
         t = text.strip()
-        return t not in ("Original", "Custom...") and not t.startswith("Timeline")
+        return (not t.startswith("Original")
+                and t != "Custom..."
+                and not t.startswith("Timeline"))
 
     def _in_trash_zone(self, row, pos):
         m = self.model()
@@ -1152,7 +1164,9 @@ class _ResPresetDelegate(QtWidgets.QStyledItemDelegate):
     @staticmethod
     def _is_deletable(text):
         t = text.strip()
-        return t not in ("Original", "Custom...") and not t.startswith("Timeline")
+        return (not t.startswith("Original")
+                and t != "Custom..."
+                and not t.startswith("Timeline"))
 
     def paint(self, painter, option, index):
         painter.save()
@@ -1514,8 +1528,10 @@ class ImportShotDialog(QtWidgets.QDialog):
                 rows.append({"type": "data", "source": "publish", "item": p,
                              "section": "publish"})
 
-        # PLATES — EXR sequences de _input (ya vienen ordenadas del scan)
-        plates = [i for i in self.input_items if i["kind"] == "exr_seq"]
+        # PLATES — EXR sequences + MOVs detectados como plates
+        plates = [i for i in self.input_items
+                  if i["kind"] == "exr_seq"
+                  or (i["kind"] == "mov" and _is_plate_track(i.get("track")))]
         if plates:
             rows.append({"type": "section_header", "label": "PLATES", "color": _CLR_PLATES, "text_color": "#6fc9d9"})
             for item in plates:
@@ -1533,7 +1549,8 @@ class ImportShotDialog(QtWidgets.QDialog):
             return 3
 
         refs = sorted(
-            [i for i in self.input_items if i["kind"] == "mov"],
+            [i for i in self.input_items
+             if i["kind"] == "mov" and not _is_plate_track(i.get("track"))],
             key=_ref_sort_key
         )
         if refs:
@@ -2398,8 +2415,10 @@ class ImportShotDialog(QtWidgets.QDialog):
                 tl_h = self._tl_h or src_h
                 if tl_w and tl_h:
                     ar = _ar_str(tl_w, tl_h)
+                    res_part = "%d×%d" % (tl_w, tl_h)
                     self._res_combo.setItemText(
-                        i, ("Timeline  [%s]" % ar) if ar else "Timeline")
+                        i, ("Timeline  %s  [%s]" % (res_part, ar))
+                        if ar else ("Timeline  %s" % res_part))
                 else:
                     self._res_combo.setItemText(i, "Timeline")
                 continue

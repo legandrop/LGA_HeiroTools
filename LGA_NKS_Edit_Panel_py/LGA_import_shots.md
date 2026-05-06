@@ -175,7 +175,7 @@ Cada fila tiene una barra de color de 4 px en el borde izquierdo que indica su t
 | roto (publish) | `#2abf7e` verde |
 | cleanup (publish) | `#27c8c3` cyan |
 | dmp (publish) | `#e08033` naranja |
-| plates (input EXR) | `#42616d` azul petróleo |
+| plates (input EXR/MOV plate) | `#42616d` azul petróleo |
 | references (editref/seqref) | `#aa9e54` dorado |
 
 Los mismos colores se usan en los titulos de las secciones.
@@ -185,6 +185,7 @@ Los mismos colores se usan en los titulos de las secciones.
 | Carpeta | Contenido | Seccion | Track destino |
 |---------|-----------|---------|---------------|
 | `{shot}/_input/*/` | Subcarpetas con EXR sequences | PLATES | `aPlate`, `bPlate`, etc. |
+| `{shot}/_input/` | `.mov`/`.mxf` con keyword `plate` | PLATES | `aPlate`..`ePlate`/`fgPlate`/`bgPlate` (según nombre; fallback `aPlate`) |
 | `{shot}/_input/` | `.mov`/`.mxf` con keyword `editref` | REFERENCES | `EditRef` |
 | `{shot}/_input/` | `.mov`/`.mxf` con keyword `seqref` | REFERENCES | *(solo bin)* |
 | `{shot}/{Task}/4_publish/` | **Todas** las versiones EXR | PUBLISH | `_{task}_` |
@@ -231,7 +232,7 @@ Los mismos colores se usan en los titulos de las secciones.
 | `dplate` | `dPlate` |
 
 Fallback: EXR sin coincidencia se asignan alfabeticamente (`aPlate`, `bPlate`...).
-MOV/MXF sin coincidencia → `EditRef`.
+MOV/MXF con `plate` en el nombre se distribuyen en PLATES. MOV/MXF sin coincidencia quedan con track `?` para decisión manual.
 
 ### Botones de seleccion rapida
 
@@ -361,7 +362,7 @@ El bit depth y channels se leen via `oiiotool --info -v` parseando la linea
 
 | Control | Default | Notas |
 |---------|---------|-------|
-| Destino (`QComboBox`) | `Original` | Presets cargados desde INI. Secciones `[AR]` en dorado. Ícono 🗑 a la derecha solo en presets borrables (excluye `Original`, `Timeline ...` y `Custom...`); click en ícono borra el preset del INI. Presets por defecto: `Original`, `Timeline  WxH  [AR]` (resolución del timeline activo), `2K — 2048×1152 [16:9]`, `UHD — 3840×2160 [16:9]`, `4K — 4096×2304 [16:9]`, `Custom...`. Con source disponible: muestra `→ WxH [AR_real]` calculado según PAR y match_dim |
+| Destino (`QComboBox`) | `Original` | Presets cargados desde INI. Secciones `[AR]` en dorado. Ícono 🗑 a la derecha solo en presets borrables (excluye siempre `Original`, `Timeline ...` y `Custom...`, incluso cuando `Original` muestra AR). Click en ícono borra el preset del INI. Presets por defecto: `Original`, `Timeline  WxH  [AR]` (resolución del timeline activo), `2K — 2048×1152 [16:9]`, `UHD — 3840×2160 [16:9]`, `4K — 4096×2304 [16:9]`, `Custom...`. Con source disponible: muestra `→ WxH [AR_real]` calculado según PAR y match_dim |
 | Custom W × H + `[Save preset]` | `2048 × 1152` | Solo visible si preset = `Custom...`. Spinboxes de 88 px de ancho (suficiente para mostrar 4 dígitos completos). El botón "Save preset" usa estilo `_BTN_SMALL` (igual que los botones de selección rápida). Abre un diálogo para nombrar y guardar el preset al INI. |
 | ☑ Preserve aspect ratio | on | **Comportamiento según preset:** |
 | | | — **Presets fijos** (2K/UHD/4K): muestra "Dimensión que manda" (match width/height) |
