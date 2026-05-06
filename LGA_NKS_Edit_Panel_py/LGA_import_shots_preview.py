@@ -6,6 +6,7 @@ Expone:
   build_import_preview_data  — construye la estructura de datos del preview timeline
   classify_track_type        — clasifica un nombre de track en plate/editref/comp/other
   mix_colors                 — mezcla dos colores hex por interpolación lineal
+  set_debug_print            — inyecta la función debug_print del módulo principal
 """
 
 from __future__ import annotations
@@ -17,6 +18,26 @@ try:
     _HIERO_AVAILABLE = True
 except ImportError:
     _HIERO_AVAILABLE = False
+
+
+# ── logging inyectable ────────────────────────────────────────────────────────
+
+# Se reemplaza desde el módulo principal con set_debug_print()
+_debug_print = None
+
+
+def set_debug_print(fn):
+    """Inyecta la función debug_print del módulo principal."""
+    global _debug_print
+    _debug_print = fn
+
+
+def _log(*args, level="info"):
+    if _debug_print is not None:
+        try:
+            _debug_print(*args, level=level)
+        except Exception:
+            pass
 
 
 # ── utilidad de color ─────────────────────────────────────────────────────────
@@ -66,13 +87,6 @@ def classify_track_type(track_name: str) -> str:
     return "other"
 
 
-_BURNIN_NAMES = {"burnin", "burn in", "burn_in"}
-
-
-def _is_burnin(track_name: str) -> bool:
-    return str(track_name).strip().lower() in _BURNIN_NAMES
-
-
 # ── helpers de búsqueda en track ─────────────────────────────────────────────
 
 def _find_adjacent_clips(track, insert_frame: int):
@@ -80,8 +94,15 @@ def _find_adjacent_clips(track, insert_frame: int):
     Dado un track de Hiero y un frame de inserción, devuelve el clip
     inmediatamente anterior y el inmediatamente posterior.
 
+    Maneja tres casos:
+      - Clip que termina antes de insert_frame  → candidato "before"
+      - Clip que empieza en o después           → candidato "after"
+      - Clip que cruza insert_frame (tl_in < insert_frame <= tl_out)
+        → se trata como "before" con tl_out efectivo = insert_frame - 1
+
     Retorna:
-        (before, after)  — cada uno es dict|None con keys: name, tl_in, tl_out, duration
+        (before, after)  — cada uno es dict|None con keys:
+                           name, tl_in, tl_out, duration
     """
     before = None
     after  = None
@@ -98,17 +119,40 @@ def _find_adjacent_clips(track, insert_frame: int):
         except Exception:
             continue
 
-        duration = tl_out - tl_in + 1
-
-        # Clip que termina antes del punto de inserción → candidato "before"
         if tl_out < insert_frame:
+            # Clip enteramente antes del punto de inserción
+            duration = tl_out - tl_in + 1
             if before is None or tl_out > before["tl_out"]:
-                before = {"name": name, "tl_in": tl_in, "tl_out": tl_out, "duration": duration}
+                before = {
+                    "name": name, "tl_in": tl_in, "tl_out": tl_out,
+                    "duration": duration,
+                }
 
-        # Clip que empieza en o después del punto de inserción → candidato "after"
         elif tl_in >= insert_frame:
+            # Clip enteramente después del punto de inserción
+            duration = tl_out - tl_in + 1
             if after is None or tl_in < after["tl_in"]:
-                after = {"name": name, "tl_in": tl_in, "tl_out": tl_out, "duration": duration}
+                after = {
+                    "name": name, "tl_in": tl_in, "tl_out": tl_out,
+                    "duration": duration,
+                }
+
+        else:
+            # Clip que cruza insert_frame (tl_in < insert_frame <= tl_out)
+            # Caso típico: clip largo de _comp_ que abarca todo el timeline.
+            # Se trata como "before" usando el rango visible antes del insert.
+            effective_tl_out = insert_frame - 1
+            effective_dur    = effective_tl_out - tl_in + 1
+            _log(
+                "_find_adjacent_clips: clip '%s' cruza insert_frame=%d "
+                "(tl_in=%d, tl_out=%d) → se trata como before con dur=%d"
+                % (name, insert_frame, tl_in, tl_out, effective_dur)
+            )
+            if before is None or effective_tl_out > before.get("tl_out", -1):
+                before = {
+                    "name": name, "tl_in": tl_in, "tl_out": effective_tl_out,
+                    "duration": effective_dur,
+                }
 
     return before, after
 
@@ -150,14 +194,15 @@ def build_import_preview_data(
         }
 
     Reglas de inclusión de tracks:
-    - Se incluyen TODOS los tracks del timeline excepto los de burn-in.
-    - El orden respeta el orden de videoTracks() del timeline (de arriba a abajo).
+    - Se incluyen TODOS los tracks del timeline sin excepción.
+    - El orden es de arriba hacia abajo como se ve en el timeline (reversed de videoTracks()).
     - Los tracks asignados a ítems nuevos que no existen en el timeline
       se añaden al final de la lista.
     """
     tracks_result = []
 
     if not _HIERO_AVAILABLE or seq is None:
+        _log("build_import_preview_data: Hiero no disponible o seq es None", level="warning")
         return {
             "tracks": tracks_result,
             "unassigned": list(unassigned_items),
@@ -167,8 +212,16 @@ def build_import_preview_data(
         # Hiero devuelve los tracks de abajo hacia arriba;
         # reversed() los da de arriba hacia abajo como se ven en el timeline.
         video_tracks = list(reversed(list(seq.videoTracks())))
-    except Exception:
+    except Exception as exc:
+        _log("build_import_preview_data: error obteniendo videoTracks: %s" % exc, level="error")
         video_tracks = []
+
+    _log(
+        "build_import_preview_data: seq='%s', insert_frame=%d, "
+        "tracks_en_timeline=%d, tracks_con_items=%d, unassigned=%d"
+        % (seq.name(), insert_frame, len(video_tracks),
+           len(items_by_track), len(unassigned_items))
+    )
 
     seen_track_names = set()
 
@@ -178,14 +231,21 @@ def build_import_preview_data(
         except Exception:
             continue
 
-        if _is_burnin(tname):
-            continue
-
         seen_track_names.add(tname)
         before, after = _find_adjacent_clips(track, insert_frame)
         new_items     = items_by_track.get(tname, [])
 
-        # Se incluyen TODOS los tracks del timeline (no se filtra por contenido vacío)
+        _log(
+            "  track='%s' | before=%s | new_items=%d | after=%s"
+            % (
+                tname,
+                ("'%s' %df" % (before["name"], before["duration"])) if before else "None",
+                len(new_items),
+                ("'%s' %df" % (after["name"], after["duration"])) if after else "None",
+            )
+        )
+
+        # Se incluyen TODOS los tracks del timeline
         tracks_result.append({
             "track_name": tname,
             "track_type": classify_track_type(tname),
@@ -198,6 +258,7 @@ def build_import_preview_data(
     for tname, items in items_by_track.items():
         if tname in seen_track_names:
             continue
+        _log("  track='%s' no existe en timeline → se añade al final" % tname)
         tracks_result.append({
             "track_name": tname,
             "track_type": classify_track_type(tname),
