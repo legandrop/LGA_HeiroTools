@@ -1396,16 +1396,6 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         btn_row.addSpacing(6)
 
-        self._createtasks_btn = QtWidgets.QPushButton("Create Tasks")
-        self._createtasks_btn.setStyleSheet(_BTN_SECONDARY)
-        self._createtasks_btn.setToolTip(
-            "Crear tareas para los shots seleccionados (pendiente de implementación)"
-        )
-        self._createtasks_btn.clicked.connect(self._go_to_create_tasks)
-        btn_row.addWidget(self._createtasks_btn)
-
-        btn_row.addSpacing(6)
-
         self._import_btn = QtWidgets.QPushButton("Import")
         self._import_btn.setStyleSheet(_BTN_PRIMARY)
         self._import_btn.setToolTip("Importar los items seleccionados al timeline")
@@ -1793,7 +1783,6 @@ class ImportShotDialog(QtWidgets.QDialog):
         )
         self._rename_btn.setEnabled(any_checked)
         self._convert_btn.setEnabled(has_plate_checked)
-        self._createtasks_btn.setEnabled(any_checked)
         self._import_btn.setEnabled(any_checked)
 
     # ── selección rápida ─────────────────────────────────────────
@@ -1817,15 +1806,6 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _go_to_convert(self):
         self._update_convert_page()
         self._show_page(self.PAGE_CONVERT)
-
-    def _go_to_create_tasks(self):
-        """Abre la ventana de Create Tasks. PENDIENTE de implementación completa."""
-        QtWidgets.QMessageBox.information(
-            self,
-            "Create Tasks",
-            "La ventana de Create Tasks está pendiente de implementación.\n\n"
-            "El helper LGA_import_shots_createtasks.py ya existe como base.",
-        )
 
     # ══════════════════════════════════════════════════════════
     #  PAGINA: Rename (stub)
@@ -2414,11 +2394,24 @@ class ImportShotDialog(QtWidgets.QDialog):
                 tl_w = self._tl_w or src_w
                 tl_h = self._tl_h or src_h
                 if tl_w and tl_h:
-                    ar = _ar_str(tl_w, tl_h)
-                    res_part = "%d×%d" % (tl_w, tl_h)
-                    self._res_combo.setItemText(
-                        i, ("Timeline  %s  [%s]" % (res_part, ar))
-                        if ar else ("Timeline  %s" % res_part))
+                    base_ar = _ar_str(tl_w, tl_h)
+                    base_res = "Timeline  %d×%d" % (tl_w, tl_h)
+                    base = ("%s  [%s]" % (base_res, base_ar)) if base_ar else base_res
+                    if src_w and src_h:
+                        tw, th = tl_w, tl_h
+                        if self._convert_keep_ar.isChecked():
+                            match_width = self._convert_match_dim.currentText().startswith("Match target width")
+                            if match_width:
+                                th = int(round(tw * src_h / float(src_w)))
+                            else:
+                                tw = int(round(th * src_w / float(src_h)))
+                        tw, th = self._apply_deana_if_active(tw, th)
+                        comp_ar = _ar_str(tw, th)
+                        ar_part = ("  [%s]" % comp_ar) if comp_ar else ""
+                        self._res_combo.setItemText(
+                            i, "%s  →  %d×%d%s" % (base, tw, th, ar_part))
+                    else:
+                        self._res_combo.setItemText(i, base)
                 else:
                     self._res_combo.setItemText(i, "Timeline")
                 continue
@@ -2595,6 +2588,8 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         del self._res_presets_raw[ini_row]
         settings_mod.save_res_presets(self._res_presets_raw)
+        # Cerrar popup para que Qt recalcule el alto del desplegable sin filas vacías.
+        self._res_combo.hidePopup()
         self._rebuild_res_combo(select_idx=new_idx)
         self._save_all_settings()
 
