@@ -1996,7 +1996,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         hdr.setSectionResizeMode(6, QtWidgets.QHeaderView.Interactive)
         self._rename_table.setColumnWidth(6, 210)
         hdr.setSectionResizeMode(7, QtWidgets.QHeaderView.Interactive)
-        self._rename_table.setColumnWidth(7, 220)
+        self._rename_table.setColumnWidth(7, 175)
         hdr.setStretchLastSection(False)
         self._rename_table.cellClicked.connect(self._on_rename_row_clicked)
         self._rename_table.cellDoubleClicked.connect(self._on_rename_row_double_clicked)
