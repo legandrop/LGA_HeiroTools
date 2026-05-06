@@ -76,6 +76,12 @@ if _RENAME_HELPER in sys.modules:
     del sys.modules[_RENAME_HELPER]
 rename_mod = importlib.import_module(_RENAME_HELPER)
 
+_PREVIEW_HELPER = "LGA_NKS_Edit_Panel_py.LGA_import_shots_preview"
+if _PREVIEW_HELPER in sys.modules:
+    del sys.modules[_PREVIEW_HELPER]
+preview_mod = importlib.import_module(_PREVIEW_HELPER)
+build_import_preview_data = preview_mod.build_import_preview_data
+
 # ── flags ──────────────────────────────────────────────────────────
 # Si True, el transcode escribe a {seq_path}/test_transcode/ y los
 # checkboxes "Mover originales" / "Borrar /Originals" quedan inertes.
@@ -802,6 +808,86 @@ def _place_clip_in_timeline(seq, clip, track_name, tl_in, frame_count, shot_name
         return None, str(e)
 
 
+def _find_or_create_shot_bin(seq, shot_name):
+    """
+    Busca o crea el bin correcto para el shot:  F <Secuencia>/<ShotName>
+
+    Sigue la misma estructura que LGA_NKS_OrganizeProject.py.
+    Retorna el bin destino (hiero.core.Bin), o None si no se puede resolver.
+    """
+    try:
+        project = hiero.core.projects()[0]
+    except Exception:
+        return None
+
+    clips_bin = project.clipsBin()
+
+    # Encontrar o crear sub-bin de secuencia: "F <seq_name>"
+    try:
+        seq_name = seq.name()
+    except Exception:
+        seq_name = ""
+    seq_bin_name = "F %s" % seq_name if seq_name else "Shots"
+
+    seq_bin = None
+    for item in clips_bin.items():
+        try:
+            if hasattr(item, "name") and item.name() == seq_bin_name:
+                seq_bin = item
+                break
+        except Exception:
+            pass
+
+    if seq_bin is None:
+        seq_bin = hiero.core.Bin(seq_bin_name)
+        clips_bin.addItem(seq_bin)
+
+    # Encontrar o crear sub-bin de shot: "<ShotName>"
+    shot_bin = None
+    for item in seq_bin.items():
+        try:
+            if hasattr(item, "name") and item.name() == shot_name:
+                shot_bin = item
+                break
+        except Exception:
+            pass
+
+    if shot_bin is None:
+        shot_bin = hiero.core.Bin(shot_name)
+        seq_bin.addItem(shot_bin)
+
+    return shot_bin
+
+
+def _import_item_to_bin(item: dict, target_bin):
+    """
+    Importa un ítem (EXR seq o MOV) como hiero.core.Clip y lo agrega al bin.
+
+    Retorna (clip, error_str).  error_str es None si OK.
+    """
+    kind = item.get("kind")
+    path = item.get("path", "")
+
+    try:
+        if kind == "exr_seq":
+            first = item.get("first_file", "")
+            if not first:
+                return None, "Sin first_file para EXR seq: %s" % path
+            clip = hiero.core.Clip(str(first))
+        elif kind == "mov":
+            clip = hiero.core.Clip(str(path))
+        else:
+            return None, "Tipo de ítem no soportado: %s" % kind
+
+        if target_bin is not None:
+            bin_item = hiero.core.BinItem(clip)
+            target_bin.addItem(bin_item)
+
+        return clip, None
+    except Exception as exc:
+        return None, str(exc)
+
+
 # ══════════════════════════════════════════════════════════════════
 #  Helpers UI
 # ══════════════════════════════════════════════════════════════════
@@ -1241,6 +1327,7 @@ class ImportShotDialog(QtWidgets.QDialog):
     PAGE_MEDIA   = "media"
     PAGE_RENAME  = "rename"
     PAGE_CONVERT = "convert"
+    PAGE_IMPORT  = "import"
 
     def __init__(self, shot_root, shot_name, seq, insert_frame, frames_to_push,
                  input_items, publish_items, parent=None):
@@ -1295,10 +1382,12 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._page_media   = self._build_page_media()
         self._page_rename  = self._build_page_rename()
         self._page_convert = self._build_page_convert()
+        self._page_import  = self._build_page_import()
 
         self._content_area.addWidget(self._page_media)
         self._content_area.addWidget(self._page_rename)
         self._content_area.addWidget(self._page_convert)
+        self._content_area.addWidget(self._page_import)
 
         self._show_page(self.PAGE_MEDIA)
 
@@ -1346,6 +1435,9 @@ class ImportShotDialog(QtWidgets.QDialog):
             self._content_area.setCurrentWidget(self._page_rename)
         elif page == self.PAGE_CONVERT:
             self._content_area.setCurrentWidget(self._page_convert)
+        elif page == self.PAGE_IMPORT:
+            self._update_import_page()
+            self._content_area.setCurrentWidget(self._page_import)
 
     def _refresh_media_page(self):
         """Re-escanea el shot y reconstruye la tabla de media."""
@@ -1421,7 +1513,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._import_btn = QtWidgets.QPushButton("Import")
         self._import_btn.setStyleSheet(_BTN_PRIMARY)
         self._import_btn.setToolTip("Importar los items seleccionados al timeline")
-        self._import_btn.clicked.connect(self.accept)
+        self._import_btn.clicked.connect(self._go_to_import)
         btn_row.addWidget(self._import_btn)
 
         layout.addLayout(btn_row)
@@ -1829,6 +1921,9 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _go_to_convert(self):
         self._update_convert_page()
         self._show_page(self.PAGE_CONVERT)
+
+    def _go_to_import(self):
+        self._show_page(self.PAGE_IMPORT)
 
     # ══════════════════════════════════════════════════════════
     #  PAGINA: Rename
@@ -2934,6 +3029,365 @@ class ImportShotDialog(QtWidgets.QDialog):
             getattr(_w, _sig).connect(self._save_all_settings)
 
         return page
+
+    # ══════════════════════════════════════════════════════════════
+    #  PÁGINA: Import Preview
+    # ══════════════════════════════════════════════════════════════
+
+    # Colores para los chips de clips en la tabla timeline
+    _CLR_CHIP_BEFORE = "#2e2e2e"
+    _CLR_CHIP_BEFORE_BORDER = "#444444"
+    _CLR_CHIP_BEFORE_TEXT = "#888888"
+    _CLR_CHIP_NEW = "#2e2547"
+    _CLR_CHIP_NEW_BORDER = "#5a4faa"
+    _CLR_CHIP_NEW_TEXT = "#cccccc"
+    _CLR_CHIP_EMPTY = "transparent"
+
+    def _build_page_import(self):
+        page = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(page)
+        layout.setSpacing(8)
+
+        # Fila de título
+        title_row = QtWidgets.QHBoxLayout()
+        title_row.addWidget(_section_label("IMPORT PREVIEW"))
+        title_row.addStretch()
+        layout.addLayout(title_row)
+
+        # Tabla timeline
+        # col 0: barra de color (4px)
+        # col 1: track name (130px)
+        # col 2: clip anterior
+        # col 3: clip(s) nuevos
+        # col 4: clip siguiente
+        self._import_table = QtWidgets.QTableWidget()
+        self._import_table.setColumnCount(5)
+        self._import_table.setHorizontalHeaderLabels(
+            ["", "Track", "Anterior", "  Nuevo  ", "Siguiente"]
+        )
+        self._import_table.verticalHeader().setVisible(False)
+        self._import_table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
+        self._import_table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self._import_table.setFocusPolicy(QtCore.Qt.NoFocus)
+        self._import_table.setShowGrid(False)
+        self._import_table.setAlternatingRowColors(False)
+        self._import_table.setStyleSheet(_TABLE_STYLE + """
+            QHeaderView::section:nth-child(4) {
+                color: #9080cc;
+            }
+        """)
+        self._import_table.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding
+        )
+
+        hdr = self._import_table.horizontalHeader()
+        hdr.setMinimumSectionSize(1)
+        hdr.setSectionResizeMode(0, QtWidgets.QHeaderView.Fixed)
+        self._import_table.setColumnWidth(0, 10)
+        hdr.setSectionResizeMode(1, QtWidgets.QHeaderView.Fixed)
+        self._import_table.setColumnWidth(1, 130)
+        hdr.setSectionResizeMode(2, QtWidgets.QHeaderView.Stretch)
+        hdr.setSectionResizeMode(3, QtWidgets.QHeaderView.Stretch)
+        hdr.setSectionResizeMode(4, QtWidgets.QHeaderView.Stretch)
+
+        layout.addWidget(self._import_table, 1)
+
+        layout.addWidget(_separator())
+        layout.addSpacing(_BTN_ROW_TOP_SPACING)
+
+        # Fila de botones
+        btn_row = QtWidgets.QHBoxLayout()
+        btn_row.addStretch()
+
+        self._import_back_btn = QtWidgets.QPushButton("← Go Back")
+        self._import_back_btn.setStyleSheet(_BTN_SECONDARY)
+        self._import_back_btn.clicked.connect(lambda: self._show_page(self.PAGE_MEDIA))
+        btn_row.addWidget(self._import_back_btn)
+
+        btn_row.addSpacing(6)
+
+        self._import_now_btn = QtWidgets.QPushButton("Import Now")
+        self._import_now_btn.setStyleSheet(_BTN_PRIMARY)
+        self._import_now_btn.setToolTip("Importar al bin y colocar en el timeline")
+        self._import_now_btn.clicked.connect(self._do_import)
+        btn_row.addWidget(self._import_now_btn)
+
+        layout.addLayout(btn_row)
+
+        return page
+
+    def _track_bar_color(self, track_type: str) -> str:
+        """Devuelve el color de la barra izquierda según el tipo de track."""
+        return {
+            "plate":   _CLR_PLATES,
+            "editref": _CLR_REFS,
+            "comp":    _CLR_COMP,
+            "roto":    _CLR_ROTO,
+            "cleanup": _CLR_CLEANUP,
+        }.get(track_type, "#555555")
+
+    def _make_clip_chip(self, text: str, is_new: bool = False, empty: bool = False) -> QtWidgets.QWidget:
+        """Construye el widget 'chip' estilo bloque de timeline para una celda."""
+        container = QtWidgets.QWidget()
+        cl = QtWidgets.QHBoxLayout(container)
+        cl.setContentsMargins(4, 3, 4, 3)
+        cl.setSpacing(0)
+
+        if empty or not text:
+            container.setStyleSheet("background: transparent;")
+            return container
+
+        lbl = QtWidgets.QLabel()
+        lbl.setText(text)
+        lbl.setTextFormat(QtCore.Qt.PlainText)
+
+        if is_new:
+            lbl.setStyleSheet(
+                "background: %s; border: 1px solid %s; color: %s; "
+                "font-weight: bold; padding: 4px 10px; border-radius: 3px;"
+                % (self._CLR_CHIP_NEW, self._CLR_CHIP_NEW_BORDER, self._CLR_CHIP_NEW_TEXT)
+            )
+        else:
+            lbl.setStyleSheet(
+                "background: %s; border: 1px solid %s; color: %s; "
+                "padding: 4px 10px; border-radius: 3px;"
+                % (self._CLR_CHIP_BEFORE, self._CLR_CHIP_BEFORE_BORDER, self._CLR_CHIP_BEFORE_TEXT)
+            )
+
+        # Elipsis si el texto es muy largo
+        fm = lbl.fontMetrics()
+        lbl.setMinimumWidth(40)
+
+        cl.addWidget(lbl)
+        cl.addStretch()
+        container.setStyleSheet("background: transparent;")
+        return container
+
+    def _update_import_page(self):
+        """Recopila ítems chequeados, llama a build_import_preview_data y puebla la tabla."""
+        # 1. Recopilar items chequeados y su track
+        items_by_track = {}
+        unassigned = []
+        for row, chk in self._checkboxes.items():
+            if not chk.isChecked():
+                continue
+            row_data = self._table_rows[row]
+            if row_data.get("type") == "section_header":
+                continue
+            track = self._get_track_for_row(row)
+            item = row_data.get("item", {})
+            if not item:
+                continue
+            if track:
+                items_by_track.setdefault(track, []).append(item)
+            else:
+                unassigned.append(item)
+
+        # 2. Construir datos del preview
+        data = build_import_preview_data(
+            self.seq,
+            self.shot_name,
+            self.insert_frame,
+            items_by_track,
+            unassigned,
+        )
+
+        # 3. Poblar la tabla
+        self._populate_import_table(data)
+
+        # Habilitar Import Now solo si hay ítems asignados a tracks
+        has_assigned = bool(items_by_track)
+        self._import_now_btn.setEnabled(has_assigned)
+        if not has_assigned:
+            self._import_now_btn.setToolTip("No hay ítems con track asignado para importar")
+        else:
+            self._import_now_btn.setToolTip("Importar al bin y colocar en el timeline")
+
+    def _populate_import_table(self, data: dict):
+        """Puebla self._import_table con los datos del preview."""
+        table = self._import_table
+        table.clearContents()
+
+        tracks = data.get("tracks", [])
+        unassigned = data.get("unassigned", [])
+
+        # Calcular filas totales:
+        # una por track + separador "SIN TRACK" si hay unassigned + una por ítem unassigned
+        n_rows = len(tracks)
+        if unassigned:
+            n_rows += 1 + len(unassigned)  # header + items
+
+        table.setRowCount(n_rows)
+        row_h = 36
+
+        row_i = 0
+        for tdata in tracks:
+            tname   = tdata["track_name"]
+            ttype   = tdata["track_type"]
+            before  = tdata.get("before_clip")
+            new_items = tdata.get("new_items", [])
+            after   = tdata.get("after_clip")
+
+            bar_color = self._track_bar_color(ttype)
+
+            # Col 0: barra de color
+            bar = QtWidgets.QTableWidgetItem()
+            bar.setBackground(QtGui.QColor(bar_color))
+            bar.setFlags(QtCore.Qt.NoItemFlags)
+            table.setItem(row_i, 0, bar)
+
+            # Col 1: track name (alineado a la derecha, dimmed)
+            name_lbl = QtWidgets.QLabel("  " + tname)
+            name_lbl.setAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft)
+            name_lbl.setStyleSheet(
+                "color: #888888; font-size: 11px; padding: 0px 4px; background: transparent;"
+            )
+            table.setCellWidget(row_i, 1, name_lbl)
+
+            # Col 2: clip anterior
+            before_text = before["name"] if before else ""
+            table.setCellWidget(row_i, 2, self._make_clip_chip(before_text, is_new=False, empty=not before_text))
+
+            # Col 3: clip(s) nuevos
+            if new_items:
+                # Mostrar el nombre del primer ítem (generalmente hay uno por track)
+                new_name = new_items[0].get("name", "")
+                if len(new_items) > 1:
+                    new_name = "%s (+%d)" % (new_name, len(new_items) - 1)
+                table.setCellWidget(row_i, 3, self._make_clip_chip(new_name, is_new=True))
+            else:
+                # Track existente sin ítem nuevo, mostrar símbolo de posición
+                gap_lbl = QtWidgets.QLabel()
+                gap_lbl.setStyleSheet("background: transparent;")
+                table.setCellWidget(row_i, 3, gap_lbl)
+
+            # Col 4: clip siguiente
+            after_text = after["name"] if after else ""
+            table.setCellWidget(row_i, 4, self._make_clip_chip(after_text, is_new=False, empty=not after_text))
+
+            table.setRowHeight(row_i, row_h)
+            row_i += 1
+
+        # Sección de ítems sin track asignado
+        if unassigned:
+            # Encabezado de sección
+            ncols = table.columnCount()
+
+            bar_item = QtWidgets.QTableWidgetItem()
+            bar_item.setBackground(QtGui.QColor("#555555"))
+            bar_item.setFlags(QtCore.Qt.NoItemFlags)
+            table.setItem(row_i, 0, bar_item)
+
+            table.setSpan(row_i, 1, 1, ncols - 1)
+            hdr_lbl = QtWidgets.QLabel("  SIN TRACK ASIGNADO")
+            hdr_lbl.setStyleSheet(
+                "color: #888888; font-weight: bold; font-size: 11px; "
+                "padding: 3px 8px; background: #313131; letter-spacing: 1px;"
+            )
+            table.setCellWidget(row_i, 1, hdr_lbl)
+            table.setRowHeight(row_i, 24)
+            row_i += 1
+
+            for item in unassigned:
+                iname = item.get("name", "—")
+
+                bar2 = QtWidgets.QTableWidgetItem()
+                bar2.setBackground(QtGui.QColor("#555555"))
+                bar2.setFlags(QtCore.Qt.NoItemFlags)
+                table.setItem(row_i, 0, bar2)
+
+                table.setSpan(row_i, 1, 1, ncols - 1)
+                item_lbl = QtWidgets.QLabel("    ● " + iname)
+                item_lbl.setStyleSheet(
+                    "color: #888888; padding: 3px 8px; background: transparent;"
+                )
+                table.setCellWidget(row_i, 1, item_lbl)
+                table.setRowHeight(row_i, 28)
+                row_i += 1
+
+    # ── Importación real ─────────────────────────────────────────
+
+    def _do_import(self):
+        """
+        Ejecuta la importación de los ítems chequeados al bin y al timeline.
+
+        Flujo por ítem:
+          1. Crear hiero.core.Clip desde el primer frame real de la secuencia.
+          2. Agregar al bin correcto (F <Secuencia>/<ShotName>).
+          3. Colocar en el track destino vía _place_clip_in_timeline().
+        """
+        errors = []
+
+        items_by_track = {}
+        for row, chk in self._checkboxes.items():
+            if not chk.isChecked():
+                continue
+            row_data = self._table_rows[row]
+            if row_data.get("type") == "section_header":
+                continue
+            track = self._get_track_for_row(row)
+            item  = row_data.get("item", {})
+            if not item or not track:
+                continue
+            items_by_track.setdefault(track, []).append(item)
+
+        if not items_by_track:
+            debug_print("_do_import: no hay items con track asignado", level="warning")
+            return
+
+        # Localizar el bin destino: F <Secuencia>/<ShotName>
+        target_bin = _find_or_create_shot_bin(self.seq, self.shot_name)
+
+        project = None
+        try:
+            project = hiero.core.projects()[0]
+        except Exception:
+            pass
+
+        if project:
+            project.beginUndo("Import Shot: %s" % self.shot_name)
+
+        try:
+            placed = 0
+            for track_name, items in items_by_track.items():
+                for item in items:
+                    clip, err = _import_item_to_bin(item, target_bin)
+                    if err:
+                        errors.append("Import bin: %s — %s" % (item.get("name", "?"), err))
+                        debug_print("_do_import bin error:", err, level="warning")
+                        continue
+
+                    frame_count = item.get("frame_count") or (
+                        clip.duration() if clip else 0
+                    )
+                    ti, err2 = _place_clip_in_timeline(
+                        self.seq, clip, track_name,
+                        self.insert_frame, frame_count, self.shot_name,
+                    )
+                    if err2:
+                        errors.append("Timeline: %s — %s" % (item.get("name", "?"), err2))
+                        debug_print("_do_import timeline error:", err2, level="warning")
+                    else:
+                        placed += 1
+                        debug_print(
+                            "_do_import placed:", item.get("name", "?"),
+                            "track:", track_name, "frame:", self.insert_frame,
+                        )
+        finally:
+            if project:
+                project.endUndo()
+
+        if errors:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Import — errores parciales",
+                "Se completó con %d ítem(s) colocados.\n\nErrores:\n%s"
+                % (placed, "\n".join(errors)),
+            )
+        else:
+            debug_print("_do_import: %d ítems importados correctamente" % placed)
+
+        self.accept()
 
     def _on_res_preset_changed(self, idx):
         preset = self._res_presets[idx][1] if 0 <= idx < len(self._res_presets) else None

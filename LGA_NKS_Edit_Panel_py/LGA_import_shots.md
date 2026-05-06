@@ -36,10 +36,18 @@ sin depender del playhead.
 | `LGA_import_shots_settings.py` | Persistencia de settings e INI de presets de resolución. `load_all_settings`, `save_all_settings`, `load_res_presets`, `save_res_presets`, `preset_to_tuple`, `show_save_preset_dialog` | **implementado** |
 | `LGA_import_shots_rename.py` | Lógica de preview/validación/ejecución para Rename. `build_selected_rows`, `compute_preview`, `build_row_ops`, `execute_ops` | **implementado** |
 | `LGA_import_shots_rename_settings.py` | Persistencia INI dedicada de Rename. `load_settings`, `save_settings`, `get_settings_path` | **implementado** |
+| `LGA_import_shots_preview.py` | Lógica de datos del Import Preview. `build_import_preview_data`, `classify_track_type`, `_find_adjacent_clips` | **implementado** |
 | `LGA_import_shots_scan.py` | Helpers de escaneo de carpetas y metadata | pendiente |
 | `LGA_import_shots_timeline.py` | Helpers de timeline (push, stretch, posicionamiento) | pendiente |
 | `LGA_import_shots_bin.py` | Helpers de bin (find/create, import) | pendiente |
 | `LGA_import_shots_ui.py` | Estilos CSS, widgets helpers, separadores | pendiente |
+
+### Documentación de secciones
+
+| Sección | MD de referencia |
+|---------|-----------------|
+| Import Preview (PAGE_IMPORT) | [`LGA_import_shots_preview.md`](LGA_import_shots_preview.md) |
+| Rename (PAGE_RENAME) | [`LGA_import_shots_rename.md`](LGA_import_shots_rename.md) |
 
 ---
 
