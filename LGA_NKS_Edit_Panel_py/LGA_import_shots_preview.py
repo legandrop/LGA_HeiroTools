@@ -164,7 +164,9 @@ def build_import_preview_data(
         }
 
     try:
-        video_tracks = list(seq.videoTracks())
+        # Hiero devuelve los tracks de abajo hacia arriba;
+        # reversed() los da de arriba hacia abajo como se ven en el timeline.
+        video_tracks = list(reversed(list(seq.videoTracks())))
     except Exception:
         video_tracks = []
 
