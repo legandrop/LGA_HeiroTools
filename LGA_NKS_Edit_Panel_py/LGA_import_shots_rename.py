@@ -221,6 +221,10 @@ def build_selected_rows(selected_items: list[dict]) -> list[dict]:
                 seq_info["delim"],
                 "#" * seq_info["padding"],
             )
+            # Mínimo de dígitos requeridos para representar el frame más alto sin perder ceros
+            # significativos. Ej: frame 98776 → 5; frame 1230 → 4.
+            _last = item.get("last_frame")
+            _min_d = max(len(str(int(_last))) if _last is not None else 1, 1)
             rows.append({
                 "source": source,
                 "item": item,
@@ -232,6 +236,7 @@ def build_selected_rows(selected_items: list[dict]) -> list[dict]:
                 "seq_delim": seq_info["delim"],
                 "seq_padding": seq_info["padding"],
                 "original_name": original_name,
+                "min_digits_needed": _min_d,
             })
             continue
 
@@ -259,10 +264,10 @@ def compute_preview(rows: list[dict], settings: dict, stage_colors: dict[int, st
     if delimiter_char not in ("_", "."):
         delimiter_char = "_"
     try:
-        digits = int(padding.get("digits", 4))
+        user_digits = int(padding.get("digits", 4))
     except Exception:
-        digits = 4
-    digits = max(1, min(digits, 12))
+        user_digits = 4
+    user_digits = max(1, min(user_digits, 12))
 
     preview = []
     for row in rows:
@@ -272,6 +277,7 @@ def compute_preview(rows: list[dict], settings: dict, stage_colors: dict[int, st
         cur_tags = [set() for _ in cur]
         orig_stage_marks = {1: set(), 2: set(), 3: set(), 4: set()}
         changed_any = False
+        effective_digits = None
 
         cur, cur_map, cur_tags, marks, changed = _apply_search_replace_stage(
             cur,
@@ -304,8 +310,12 @@ def compute_preview(rows: list[dict], settings: dict, stage_colors: dict[int, st
             orig_stage_marks[3].update(marks)
             changed_any = changed_any or changed
 
+            # Dígitos efectivos: nunca menor al mínimo necesario para el frame más alto
+            seq_min_digits = row.get("min_digits_needed", 1)
+            effective_digits = max(user_digits, seq_min_digits)
+
             cur, cur_map, cur_tags, marks, changed = _apply_padding_stage(
-                cur, cur_map, cur_tags, digits, stage_id=4
+                cur, cur_map, cur_tags, effective_digits, stage_id=4
             )
             orig_stage_marks[4].update(marks)
             changed_any = changed_any or changed
@@ -371,6 +381,8 @@ def compute_preview(rows: list[dict], settings: dict, stage_colors: dict[int, st
             "blocked": blocked,
             "status": folder_warning or ("Pendiente" if changed_any else "Sin cambios"),
             "target_folder_name": target_folder_name,
+            "effective_digits": effective_digits if row.get("is_sequence") else None,
+            "user_digits": user_digits if row.get("is_sequence") else None,
         })
 
     _mark_collisions(preview)

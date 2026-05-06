@@ -1947,6 +1947,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             st_html = _dash
         self._rename_table.setCellWidget(row_i, 7, _cell_html_label(st_html))
         self._update_rename_btn_state()
+        self._update_rename_summary()
 
     def _build_page_rename(self):
         page = QtWidgets.QWidget()
@@ -2032,7 +2033,13 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_sr1_replace.setStyleSheet(line_style)
         self._rename_sr1_case = QtWidgets.QCheckBox("Case Sensitive")
         self._rename_sr1_case.setStyleSheet("color:#a7a7a7; padding:2px;")
+        _sr1_swap = QtWidgets.QPushButton("⇄")
+        _sr1_swap.setStyleSheet(_BTN_SMALL)
+        _sr1_swap.setFixedWidth(28)
+        _sr1_swap.setToolTip("Intercambiar Search y Replace")
+        _sr1_swap.clicked.connect(lambda: self._swap_sr(self._rename_sr1_search, self._rename_sr1_replace))
         sr1_row.addWidget(self._rename_sr1_search, 1)
+        sr1_row.addWidget(_sr1_swap, 0)
         sr1_row.addWidget(self._rename_sr1_replace, 1)
         sr1_row.addWidget(self._rename_sr1_case, 0)
         col_left.addLayout(sr1_row)
@@ -2049,7 +2056,13 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_sr2_replace.setStyleSheet(line_style)
         self._rename_sr2_case = QtWidgets.QCheckBox("Case Sensitive")
         self._rename_sr2_case.setStyleSheet("color:#a7a7a7; padding:2px;")
+        _sr2_swap = QtWidgets.QPushButton("⇄")
+        _sr2_swap.setStyleSheet(_BTN_SMALL)
+        _sr2_swap.setFixedWidth(28)
+        _sr2_swap.setToolTip("Intercambiar Search y Replace")
+        _sr2_swap.clicked.connect(lambda: self._swap_sr(self._rename_sr2_search, self._rename_sr2_replace))
         sr2_row.addWidget(self._rename_sr2_search, 1)
+        sr2_row.addWidget(_sr2_swap, 0)
         sr2_row.addWidget(self._rename_sr2_replace, 1)
         sr2_row.addWidget(self._rename_sr2_case, 0)
         col_left.addLayout(sr2_row)
@@ -2177,6 +2190,11 @@ class ImportShotDialog(QtWidgets.QDialog):
             },
         }
 
+    def _swap_sr(self, search_edit, replace_edit):
+        a, b = search_edit.text(), replace_edit.text()
+        search_edit.setText(b)
+        replace_edit.setText(a)
+
     def _on_rename_settings_changed(self, *_):
         self._rename_settings = self._collect_rename_settings_from_ui()
         rename_settings_mod.save_settings(self._rename_settings)
@@ -2199,6 +2217,16 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _refresh_rename_preview(self):
         if not hasattr(self, "_rename_table"):
             return
+
+        # Guardar estados de checkboxes actuales por item_path para preservarlos
+        saved_chk_states = {}
+        _old_display = getattr(self, "_rename_display_rows", [])
+        _old_chk = getattr(self, "_rename_checkboxes", {})
+        for _i, _chk in _old_chk.items():
+            if _i < len(_old_display) and _old_display[_i].get("type") == "data":
+                _pr = _old_display[_i]["preview_row"]
+                saved_chk_states[_pr.get("item_path", "")] = _chk.isChecked()
+
         colors = {
             1: _CLR_AR,
             2: _CLR_PAR,
@@ -2212,7 +2240,6 @@ class ImportShotDialog(QtWidgets.QDialog):
         )
 
         # Construir display_rows: secciones intercaladas igual que la tabla principal
-        # (label, bar_color, text_color) — text_color igual que tabla principal
         _SECTION_META = {
             "publish": ("PUBLISH",    "#777777",  "#777777"),
             "plates":  ("PLATES",     _CLR_PLATES, "#6fc9d9"),
@@ -2244,8 +2271,6 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_table.clearSpans()
         self._rename_table.setRowCount(len(display_rows))
         self._rename_checkboxes = {}
-        blocked_n = 0
-        checked_ok = 0
 
         for i, dr in enumerate(display_rows):
             if dr["type"] == "section_header":
@@ -2255,7 +2280,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             it = dr["preview_row"]
             blocked = it.get("blocked", False)
 
-            # Barra de color según sección/tarea
+            # Barra de color según sección/tarea (nunca gris por blocked)
             src = it.get("source", "")
             if src == "publish":
                 task = (it.get("item") or {}).get("task", "")
@@ -2264,15 +2289,23 @@ class ImportShotDialog(QtWidgets.QDialog):
                 bar_color = _CLR_REFS
             else:
                 bar_color = _CLR_PLATES
-            # Fix 4: barra siempre del color de sección, nunca gris por blocked
             bar = QtWidgets.QTableWidgetItem()
             bar.setBackground(QtGui.QColor(bar_color))
             bar.setFlags(QtCore.Qt.NoItemFlags)
             self._rename_table.setItem(i, 0, bar)
 
+            # Estado inicial del checkbox: preservar si hay estado guardado, sino default
+            item_path = it.get("item_path", "")
+            if blocked:
+                initial_checked = False
+            elif item_path in saved_chk_states:
+                initial_checked = saved_chk_states[item_path]
+            else:
+                initial_checked = True
+
             chk = QtWidgets.QCheckBox()
             chk.setStyleSheet("color:#a7a7a7; padding:2px;")
-            chk.setChecked(not blocked)
+            chk.setChecked(initial_checked)  # antes de conectar la señal
             chk.setEnabled(not blocked)
             chk.stateChanged.connect(lambda _state, ri=i: self._on_rename_chk_changed(ri))
             self._rename_checkboxes[i] = chk
@@ -2285,8 +2318,13 @@ class ImportShotDialog(QtWidgets.QDialog):
 
             _dash = "<span style='color:#444444;'>—</span>"
             _plain = "<span style='color:#a7a7a7;'>%s</span>"
-            # Col 2 (original): colores solo si no bloqueado (checkbox activo por defecto)
-            orig_disp = it.get("original_html", "") if not blocked else (_plain % _rn_escape(it.get("original_name", "")))
+            # Col 2 (original): colores solo si checkbox activo; plano si no
+            if blocked:
+                orig_disp = _plain % _rn_escape(it.get("original_name", ""))
+            elif initial_checked:
+                orig_disp = it.get("original_html", "")
+            else:
+                orig_disp = _plain % _rn_escape(it.get("original_name", ""))
             self._rename_table.setCellWidget(i, 2, _cell_html_label(orig_disp))
             arrow = QtWidgets.QTableWidgetItem("➜")
             arrow.setForeground(QtGui.QColor("#444444" if blocked else "#666666"))
@@ -2294,15 +2332,13 @@ class ImportShotDialog(QtWidgets.QDialog):
             self._rename_table.setItem(i, 3, arrow)
 
             if blocked:
-                # Bloqueado: sin colores en original, "—" en renamed, estado de error
                 self._rename_table.setCellWidget(i, 4, _cell_html_label(_dash))
                 self._rename_table.setCellWidget(i, 5, _cell_html_label(
                     _plain % _rn_escape(it.get("folder_name", ""))))
                 self._rename_table.setCellWidget(i, 6, _cell_html_label(_dash))
                 st_html = "<span style='color:%s;'>%s</span>" % (
                     _CLR_STATUS_UPSCALE, it.get("status", "Bloqueado"))
-            else:
-                # No bloqueado: checkbox activo por defecto ➜ preview completo con colores
+            elif initial_checked:
                 self._rename_table.setCellWidget(
                     i, 4, _cell_html_label(it.get("renamed_html", "")))
                 self._rename_table.setCellWidget(i, 5, _cell_html_label(it.get("folder_original_html", "")))
@@ -2313,19 +2349,39 @@ class ImportShotDialog(QtWidgets.QDialog):
                 if not it.get("has_changes"):
                     st_color = "#888888"
                 st_html = "<span style='color:%s;'>%s</span>" % (st_color, st)
+            else:
+                # Unchecked (estado guardado)
+                self._rename_table.setCellWidget(i, 4, _cell_html_label(_dash))
+                self._rename_table.setCellWidget(i, 5, _cell_html_label(
+                    _plain % _rn_escape(it.get("folder_name", ""))))
+                self._rename_table.setCellWidget(i, 6, _cell_html_label(_dash))
+                st_html = _dash
             self._rename_table.setCellWidget(i, 7, _cell_html_label(st_html))
 
-            if blocked:
-                blocked_n += 1
-            elif chk.isChecked() and it.get("has_changes"):
-                checked_ok += 1
-
-        self._rename_summary_lbl.setText(
-            "%d items · %d listos para rename · %d bloqueados" % (
-                len(self._rename_preview_rows), checked_ok, blocked_n
-            )
-        )
+        self._update_rename_summary()
         self._update_rename_btn_state()
+
+    def _update_rename_summary(self):
+        """Recalcula y actualiza el label de resumen de la tabla de rename."""
+        blocked_n = 0
+        checked_ok = 0
+        display_rows = getattr(self, "_rename_display_rows", [])
+        for i, dr in enumerate(display_rows):
+            if dr.get("type") != "data":
+                continue
+            it = dr["preview_row"]
+            if it.get("blocked"):
+                blocked_n += 1
+            else:
+                chk = self._rename_checkboxes.get(i)
+                if chk and chk.isChecked() and it.get("has_changes"):
+                    checked_ok += 1
+        if hasattr(self, "_rename_summary_lbl"):
+            self._rename_summary_lbl.setText(
+                "%d items · %d listos para rename · %d bloqueados" % (
+                    len(getattr(self, "_rename_preview_rows", [])), checked_ok, blocked_n
+                )
+            )
 
     def _update_rename_btn_state(self):
         ready = False

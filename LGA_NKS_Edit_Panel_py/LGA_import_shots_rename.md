@@ -105,10 +105,10 @@ La cantidad de `#` refleja el padding real en origen y el calculado en destino.
 
 El preview aplica estas etapas en orden:
 
-1. Search/Replace 1 (`case_sensitive` opcional)
-2. Search/Replace 2 (`case_sensitive` opcional)
+1. Search/Replace 1 (`case_sensitive` opcional) — botón ⇄ intercambia Search y Replace
+2. Search/Replace 2 (`case_sensitive` opcional) — botón ⇄ intercambia Search y Replace
 3. Delimiter antes del frame (`_` o `.`)
-4. Padding de frames (spinbox)
+4. Padding de frames (spinbox) — respeta el mínimo de dígitos necesario por secuencia
 
 Cada etapa tiene color propio, reutilizando la paleta ya existente de transcode:
 
@@ -116,6 +116,46 @@ Cada etapa tiene color propio, reutilizando la paleta ya existente de transcode:
 - etapa 2: `_CLR_PAR` (rosa)
 - etapa 3: `_CLR_COMP_DWAA` (verde)
 - etapa 4: `_CLR_STATUS_PENDING` (cyan)
+
+## Botón ⇄ (Swap Search / Replace)
+
+Cada sección SR1 y SR2 tiene un botón pequeño `⇄` entre el campo Search y el Replace.
+Al pulsarlo, intercambia el texto de ambos campos (método `_swap_sr(search_edit, replace_edit)`).
+El swap dispara `textChanged` en ambos campos, por lo que el preview se actualiza
+automáticamente igual que si el usuario hubiera editado manualmente.
+
+## Preservación de checkboxes en refresh
+
+Cada vez que `_refresh_rename_preview()` reconstruye la tabla (al cambiar cualquier setting),
+se preserva el estado de cada checkbox usando `item_path` como clave de identidad.
+El estado inicial del checkbox en la nueva tabla se toma del estado guardado; si el item es
+nuevo (no tenía estado previo), se usa el default (`True` para no bloqueados, `False` para
+bloqueados).
+
+## Dígitos mínimos por secuencia (Step 4)
+
+El spinbox de "Frame Digits" fija el padding solicitado por el usuario (`user_digits`), pero
+`compute_preview` aplica un `effective_digits` por secuencia:
+
+```
+effective_digits = max(user_digits, min_digits_needed)
+min_digits_needed = len(str(last_frame))   # frame más alto de la secuencia
+```
+
+Ejemplos:
+
+| Secuencia | Frame máx | min_digits | user_digits | effective | Cambio de padding |
+|-----------|-----------|------------|-------------|-----------|-------------------|
+| seq_####  | 9999      | 4          | 3           | 4         | NO (4 == 4)       |
+| seq_####  | 9999      | 4          | 5           | 5         | SÍ (4 → 5)        |
+| seq_####### | 98776  | 5          | 3           | 5         | SÍ (7 → 5)        |
+| seq_####### | 98776  | 5          | 5           | 5         | SÍ (7 → 5)        |
+| seq_####### | 98776  | 5          | 7           | 7         | NO (7 == 7)       |
+
+- Si `effective_digits == original_padding` → Stage 4 no genera cambio; sin color en la tabla.
+- El preview muestra `#####` (effective_digits hashes), no los user_digits solicitados.
+- `min_digits_needed` se calcula en `build_selected_rows()` a partir de `item["last_frame"]`.
+- El preview row almacena `"effective_digits"` y `"user_digits"` para referencia futura.
 
 ## Reglas de bloqueo
 
