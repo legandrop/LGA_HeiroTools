@@ -2,17 +2,15 @@
 
 Tool para convertir frames EXR, principalmente a DWAA, con soporte de resize y conversion OCIO.
 
-El script esta pensado para ser llamado desde Hiero/Nuke Studio con un manifest JSON por job. Las tools binarias compartidas se resuelven desde `LGA_NKS_Shared`, como carpeta hermana de los paneles.
+El script esta pensado para ser llamado desde Hiero/Nuke Studio con un manifest JSON por job. El script vive dentro de `LGA_NKS_Shared` y resuelve las tools binarias como subcarpetas relativas a esa misma carpeta.
 
 ## Estructura
 
 ```text
 Startup/
-  LGA_NKS_Edit_Panel_py/
-    LGA_EXR_Convert/
-      LGA_EXR_Convert.py
-      LGA_EXR_Convert.MD
   LGA_NKS_Shared/
+    LGA_EXR_Convert.py
+    LGA_EXR_Convert.MD
     OpenEXR_Win/
       exrmetrics.exe
       *.dll
@@ -142,4 +140,4 @@ Los benchmarks validaron metadata con `iinfo -v`.
 - Las tools Windows compartidas viven en `LGA_NKS_Shared`: `OpenEXR_Win` y `OIIO_Win`.
 - `config.ocio` puede estar dentro de `LGA_NKS_Shared/OCIO/configs` o venir desde una ruta externa del proyecto.
 - En manifest, los paths relativos de frames son relativos al manifest; el path relativo de `ocio.config` es relativo a `LGA_NKS_Shared`.
-- Para copiar a otra repo, copiar `LGA_NKS_Edit_Panel_py/LGA_EXR_Convert` junto con las tools necesarias de `LGA_NKS_Shared`.
+- Para copiar a otra repo o maquina, copiar `LGA_EXR_Convert.py`, `LGA_EXR_Convert.MD`, `OpenEXR_Win`, `OIIO_Win` y, si aplica, `OCIO`.

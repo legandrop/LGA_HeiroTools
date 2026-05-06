@@ -16,8 +16,7 @@ from typing import Any
 
 
 BASE_DIR = Path(__file__).resolve().parent
-STARTUP_DIR = BASE_DIR.parent.parent
-SHARED_DIR = STARTUP_DIR / "LGA_NKS_Shared"
+SHARED_DIR = BASE_DIR
 OPENEXR_DIR = SHARED_DIR / "OpenEXR_Win"
 OIIO_DIR = SHARED_DIR / "OIIO_Win"
 EXRMETRICS = OPENEXR_DIR / "exrmetrics.exe"
