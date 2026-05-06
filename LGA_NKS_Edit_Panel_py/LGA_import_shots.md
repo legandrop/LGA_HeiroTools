@@ -275,10 +275,90 @@ Conversion de EXR sequences para los items marcados.
 - Solo opera sobre `exr_seq`. Los MOVs marcados se listan con un aviso
   `"<nombre>.mov no sera convertido"` y se excluyen del proceso.
 - Si no hay ningun EXR marcado (solo MOVs u otros), el boton no hace nada.
-- **Opciones previstas:** codec DWAA, selector de resolucion con presets, manejo de Originals.
-- **Log panel:** 3 lineas visibles, expandible con boton ▲/▼.
 
-> **Estado actual:** pendiente de integracion con la herramienta externa de conversion.
+### Layout
+
+```
+┌─ EXR CONVERT ─────────────────────────────────────────┐
+│  [⚠ avisos por MOVs excluidos]                        │
+├───────────────────────────────────────────────────────┤
+│  TABLA DE EXRs A CONVERTIR                            │
+├───────────────────────────────────────────────────────┤
+│  Codec / Calidad     │  Resolucion                    │
+│  (col izquierda)     │  (col derecha)                 │
+├───────────────────────────────────────────────────────┤
+│  Manejo de originales                                 │
+├───────────────────────────────────────────────────────┤
+│  RESUMEN  (totales en disco)                          │
+├───────────────────────────────────────────────────────┤
+│  LOG (3 lineas, expandible ▲/▼)                       │
+├───────────────────────────────────────────────────────┤
+│  [← Go Back]                  [Start Transcode]       │
+└───────────────────────────────────────────────────────┘
+```
+
+### Tabla de EXRs a convertir
+
+| Col | Contenido | Notas |
+|-----|-----------|-------|
+| (barra) | Color `#42616d` (plates) | 4 px, sin header |
+| Nombre | Nombre de la secuencia | `#cccccc` |
+| Origen | `WxH · compresion · #f` | leido del scan, ej: `2048×1152 · zip · 480f` |
+| → | Flecha separadora | centrada, `#666` |
+| Destino | `WxH · compresion` resultantes | recalculado en vivo segun opciones |
+| Tamaño | Tamaño actual en disco | escaneado al abrir la pagina (`_folder_size_bytes`) |
+| Estado | `Pendiente` | placeholder hasta integrar transcoder |
+
+La columna Destino se recalcula en vivo cuando cambian:
+DWAA on/off, preset de resolucion, custom W×H, "no upscale".
+
+### Opciones — Codec / Calidad (columna izquierda)
+
+| Control | Default | Notas |
+|---------|---------|-------|
+| ☑ Convertir a DWAA | on | Si off, mantiene compresion original |
+| DWAA level (`QSpinBox`) | `45` | Rango `0–500` |
+| Bit depth (`QComboBox`) | `Mantener original` | `half (16-bit)` / `float (32-bit)` |
+| Channels (`QComboBox`) | `Mantener` | `RGB` / `RGBA` (para tirar canales extra) |
+
+### Opciones — Resolucion (columna derecha)
+
+| Control | Default | Notas |
+|---------|---------|-------|
+| Destino (`QComboBox`) | `Original` | Presets: `Original`, `2K — 2048×1152`, `UHD — 3840×2160`, `4K — 4096×2304`, `Custom...` |
+| Custom W × H | `2048 × 1152` | Solo visible si preset = `Custom...` |
+| ☑ Mantener aspect ratio | on | Solo en modo Custom; calcula H desde W |
+| Filtro resampling | `lanczos3` | `cubic`, `box` (solo aplica si hay resize) |
+| ☑ Aplicar solo si origen es mayor | on | Evita upscale accidental |
+
+### Opciones — Manejo de originales (fila inferior)
+
+| Control | Default |
+|---------|---------|
+| ☑ Mover originales a `/Originals` | on |
+| ☑ Borrar `/Originals` al terminar | off |
+
+### Resumen
+
+Una linea de texto sobre el log con totales (sin estimaciones):
+
+```
+3 secuencias · 1842 frames · 14.21 GB en disco
+```
+
+### Botones inferiores
+
+| Boton | Estilo | Habilitado | Accion |
+|-------|--------|------------|--------|
+| ← Go Back | `_BTN_CANCEL` | siempre | vuelve a `PAGE_MEDIA` (preserva opciones) |
+| Start Transcode | `_BTN_PRIMARY` | nunca (stub) | placeholder hasta integrar el transcoder |
+
+### Log panel
+
+3 lineas visibles, expandible con boton ▲/▼ a `setMaximumHeight(16777215)`.
+
+> **Estado actual:** UI completa. La conversion real se habilitara cuando se
+> integre la herramienta externa (oiiotool / nuke render).
 
 ---
 
@@ -438,7 +518,7 @@ donde se distribuya la repo.
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `main()`, `ImportShotDialog`, `_show_page()`, `_build_page_media()`, `_build_media_table()`, `_build_table_rows()`, `_populate_section_header_row()`, `_populate_data_row()`, `_select_all()`, `_clear_selection()`, `_select_section()`, `_update_action_btns()`, `_build_page_rename()`, `_build_page_convert()`, `_update_convert_page()`, `_scan_input_folder()`, `_scan_publish_folders()`, `_read_exr_metadata()`, `_read_mov_metadata()`, `_find_insert_frame()`, `_push_clips_right()`, `_stretch_burnin()`, `_shot_exists_in_timeline()`, `_import_clip_to_bin()`, `_place_clip_in_timeline()`, `_find_or_create_bin()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `main()`, `ImportShotDialog`, `_show_page()`, `_build_page_media()`, `_build_media_table()`, `_build_table_rows()`, `_populate_section_header_row()`, `_populate_data_row()`, `_select_all()`, `_clear_selection()`, `_select_section()`, `_update_action_btns()`, `_build_page_rename()`, `_build_page_convert()`, `_update_convert_page()`, `_on_res_preset_changed()`, `_current_target_res()`, `_target_compression()`, `_refresh_convert_destinos()`, `_toggle_convert_log()`, `_scan_input_folder()`, `_scan_publish_folders()`, `_read_exr_metadata()`, `_read_mov_metadata()`, `_folder_size_bytes()`, `_format_bytes()`, `_find_insert_frame()`, `_push_clips_right()`, `_stretch_burnin()`, `_shot_exists_in_timeline()`, `_import_clip_to_bin()`, `_place_clip_in_timeline()`, `_find_or_create_bin()` |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_CreateV000.py` | Referencia de UI, bin import, timeline placement, colorize path |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_SetShotName.py` | Renombrado de clips post-importacion |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_OrganizeProject.py` | Estructura de bins `F <grupo>/<shot>` |

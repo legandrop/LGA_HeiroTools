@@ -199,6 +199,33 @@ def _version_number(name):
     return int(m.group(1)) if m else -1
 
 
+def _folder_size_bytes(folder_path):
+    """Suma el tamaño en bytes de los archivos directos de una carpeta (no recursivo)."""
+    total = 0
+    try:
+        for f in os.listdir(folder_path):
+            p = os.path.join(folder_path, f)
+            if os.path.isfile(p):
+                try:
+                    total += os.path.getsize(p)
+                except Exception:
+                    pass
+    except Exception:
+        return 0
+    return total
+
+
+def _format_bytes(n):
+    """Formatea bytes a string legible (KB/MB/GB)."""
+    if not n:
+        return "—"
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if n < 1024.0:
+            return ("%.0f %s" % (n, unit)) if unit in ("B", "KB") else ("%.2f %s" % (n, unit))
+        n /= 1024.0
+    return "%.2f PB" % n
+
+
 def _scan_exr_sequence(folder_path):
     """Escanea una carpeta y retorna (first_frame, last_frame, count, first_file_path)."""
     try:
@@ -1380,6 +1407,41 @@ class ImportShotDialog(QtWidgets.QDialog):
     #  PAGINA: EXR Convert (stub)
     # ══════════════════════════════════════════════════════════
 
+    # Presets de resolución: label → (W, H) o None (original)
+    _RES_PRESETS = [
+        ("Original",            None),
+        ("2K — 2048×1152",      (2048, 1152)),
+        ("UHD — 3840×2160",     (3840, 2160)),
+        ("4K — 4096×2304",      (4096, 2304)),
+        ("Custom...",           "custom"),
+    ]
+
+    _COMBO_STYLE = """
+        QComboBox {
+            background-color: #272727; border: 1px solid #444;
+            color: #a7a7a7; padding: 3px 6px;
+        }
+        QComboBox::drop-down { border: 0px; width: 14px; }
+        QComboBox::down-arrow {
+            image: none;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 5px solid #666666;
+            width: 0px; height: 0px;
+        }
+        QComboBox QAbstractItemView {
+            background-color: #2B2B2B; color: #a7a7a7;
+            selection-background-color: #3a3a3a;
+        }
+    """
+
+    _SPIN_STYLE = """
+        QSpinBox, QDoubleSpinBox {
+            background-color: #272727; border: 1px solid #444;
+            color: #a7a7a7; padding: 2px 4px;
+        }
+    """
+
     def _build_page_convert(self):
         page = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(page)
@@ -1394,50 +1456,173 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._convert_warnings_lbl.hide()
         layout.addWidget(self._convert_warnings_lbl)
 
-        # Lista de EXRs a convertir
-        self._convert_items_lbl = QtWidgets.QLabel("")
-        self._convert_items_lbl.setStyleSheet("color:#888888; padding:2px 0px;")
-        self._convert_items_lbl.setWordWrap(True)
-        layout.addWidget(self._convert_items_lbl)
+        # Tabla de EXRs a convertir
+        self._convert_table = QtWidgets.QTableWidget()
+        self._convert_table.setColumnCount(7)
+        self._convert_table.setHorizontalHeaderLabels(
+            ["", "Nombre", "Origen", "→", "Destino", "Tamaño", "Estado"]
+        )
+        self._convert_table.verticalHeader().setVisible(False)
+        self._convert_table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
+        self._convert_table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self._convert_table.setFocusPolicy(QtCore.Qt.NoFocus)
+        self._convert_table.setShowGrid(False)
+        self._convert_table.setStyleSheet(_TABLE_STYLE)
+        self._convert_table.setMinimumHeight(120)
+        self._convert_table.setMaximumHeight(220)
+        hdr = self._convert_table.horizontalHeader()
+        hdr.setMinimumSectionSize(1)
+        hdr.setSectionResizeMode(0, QtWidgets.QHeaderView.Fixed)
+        self._convert_table.setColumnWidth(0, 10)
+        hdr.setSectionResizeMode(1, QtWidgets.QHeaderView.Stretch)
+        for c in (2, 3, 4, 5, 6):
+            hdr.setSectionResizeMode(c, QtWidgets.QHeaderView.ResizeToContents)
+        layout.addWidget(self._convert_table)
 
         layout.addWidget(_separator())
 
-        # Opciones de conversión
+        # ── Opciones en 2 columnas ─────────────────────────────────
+        opts_row = QtWidgets.QHBoxLayout()
+        opts_row.setSpacing(20)
+
+        # Columna izquierda — Codec / Calidad
+        col_codec = QtWidgets.QVBoxLayout()
+        col_codec.setSpacing(6)
+        col_codec.addWidget(_section_label("Codec / Calidad"))
+
         self._convert_dwaa_chk = QtWidgets.QCheckBox("Convertir a DWAA")
         self._convert_dwaa_chk.setChecked(True)
         self._convert_dwaa_chk.setStyleSheet("color:#a7a7a7; padding:2px;")
-        layout.addWidget(self._convert_dwaa_chk)
+        self._convert_dwaa_chk.stateChanged.connect(self._refresh_convert_destinos)
+        col_codec.addWidget(self._convert_dwaa_chk)
 
-        res_lbl = QtWidgets.QLabel("Resolución destino:")
-        res_lbl.setStyleSheet("color:#a7a7a7; margin-top:6px;")
-        layout.addWidget(res_lbl)
+        dwaa_row = QtWidgets.QHBoxLayout()
+        dwaa_lbl = QtWidgets.QLabel("DWAA level:")
+        dwaa_lbl.setStyleSheet("color:#a7a7a7;")
+        dwaa_row.addWidget(dwaa_lbl)
+        self._convert_dwaa_level = QtWidgets.QSpinBox()
+        self._convert_dwaa_level.setRange(0, 500)
+        self._convert_dwaa_level.setValue(45)
+        self._convert_dwaa_level.setStyleSheet(self._SPIN_STYLE)
+        self._convert_dwaa_level.setFixedWidth(70)
+        dwaa_row.addWidget(self._convert_dwaa_level)
+        dwaa_row.addStretch()
+        col_codec.addLayout(dwaa_row)
 
+        bd_row = QtWidgets.QHBoxLayout()
+        bd_lbl = QtWidgets.QLabel("Bit depth:")
+        bd_lbl.setStyleSheet("color:#a7a7a7;")
+        bd_row.addWidget(bd_lbl)
+        self._convert_bitdepth = QtWidgets.QComboBox()
+        self._convert_bitdepth.setStyleSheet(self._COMBO_STYLE)
+        for opt in ("Mantener original", "half (16-bit)", "float (32-bit)"):
+            self._convert_bitdepth.addItem(opt)
+        self._convert_bitdepth.setFixedWidth(170)
+        bd_row.addWidget(self._convert_bitdepth)
+        bd_row.addStretch()
+        col_codec.addLayout(bd_row)
+
+        ch_row = QtWidgets.QHBoxLayout()
+        ch_lbl = QtWidgets.QLabel("Channels:")
+        ch_lbl.setStyleSheet("color:#a7a7a7;")
+        ch_row.addWidget(ch_lbl)
+        self._convert_channels = QtWidgets.QComboBox()
+        self._convert_channels.setStyleSheet(self._COMBO_STYLE)
+        for opt in ("Mantener", "RGB", "RGBA"):
+            self._convert_channels.addItem(opt)
+        self._convert_channels.setFixedWidth(170)
+        ch_row.addWidget(self._convert_channels)
+        ch_row.addStretch()
+        col_codec.addLayout(ch_row)
+
+        col_codec.addStretch()
+        opts_row.addLayout(col_codec, 1)
+
+        # Separador vertical
+        opts_row.addWidget(_separator("v"))
+
+        # Columna derecha — Resolución
+        col_res = QtWidgets.QVBoxLayout()
+        col_res.setSpacing(6)
+        col_res.addWidget(_section_label("Resolución"))
+
+        res_row = QtWidgets.QHBoxLayout()
+        res_lbl = QtWidgets.QLabel("Destino:")
+        res_lbl.setStyleSheet("color:#a7a7a7;")
+        res_row.addWidget(res_lbl)
         self._res_combo = QtWidgets.QComboBox()
-        self._res_combo.setStyleSheet("""
-            QComboBox {
-                background-color: #272727; border: 1px solid #444;
-                color: #a7a7a7; padding: 3px 6px;
-            }
-            QComboBox::drop-down { border: 0px; width: 14px; }
-            QComboBox::down-arrow {
-                image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 5px solid #666666;
-                width: 0px; height: 0px;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #2B2B2B; color: #a7a7a7;
-                selection-background-color: #3a3a3a;
-            }
-        """)
-        for preset in ["Original", "2K — 2048×1152", "4K — 4096×2304", "Custom..."]:
-            self._res_combo.addItem(preset)
-        layout.addWidget(self._res_combo)
+        self._res_combo.setStyleSheet(self._COMBO_STYLE)
+        for label, _ in self._RES_PRESETS:
+            self._res_combo.addItem(label)
+        self._res_combo.currentIndexChanged.connect(self._on_res_preset_changed)
+        self._res_combo.setMinimumWidth(180)
+        res_row.addWidget(self._res_combo)
+        res_row.addStretch()
+        col_res.addLayout(res_row)
 
+        # Custom W × H (oculto salvo Custom)
+        self._custom_res_widget = QtWidgets.QWidget()
+        cr_row = QtWidgets.QHBoxLayout(self._custom_res_widget)
+        cr_row.setContentsMargins(0, 0, 0, 0)
+        self._convert_custom_w = QtWidgets.QSpinBox()
+        self._convert_custom_w.setRange(1, 16384)
+        self._convert_custom_w.setValue(2048)
+        self._convert_custom_w.setStyleSheet(self._SPIN_STYLE)
+        self._convert_custom_w.setFixedWidth(80)
+        self._convert_custom_h = QtWidgets.QSpinBox()
+        self._convert_custom_h.setRange(1, 16384)
+        self._convert_custom_h.setValue(1152)
+        self._convert_custom_h.setStyleSheet(self._SPIN_STYLE)
+        self._convert_custom_h.setFixedWidth(80)
+        x_lbl = QtWidgets.QLabel("×")
+        x_lbl.setStyleSheet("color:#a7a7a7;")
+        cr_row.addWidget(self._convert_custom_w)
+        cr_row.addWidget(x_lbl)
+        cr_row.addWidget(self._convert_custom_h)
+        self._convert_keep_ar = QtWidgets.QCheckBox("Mantener aspect ratio")
+        self._convert_keep_ar.setChecked(True)
+        self._convert_keep_ar.setStyleSheet("color:#a7a7a7; padding:2px;")
+        cr_row.addWidget(self._convert_keep_ar)
+        cr_row.addStretch()
+        self._custom_res_widget.hide()
+        col_res.addWidget(self._custom_res_widget)
+        self._convert_custom_w.valueChanged.connect(self._refresh_convert_destinos)
+        self._convert_custom_h.valueChanged.connect(self._refresh_convert_destinos)
+
+        flt_row = QtWidgets.QHBoxLayout()
+        flt_lbl = QtWidgets.QLabel("Filtro resampling:")
+        flt_lbl.setStyleSheet("color:#a7a7a7;")
+        flt_row.addWidget(flt_lbl)
+        self._convert_filter = QtWidgets.QComboBox()
+        self._convert_filter.setStyleSheet(self._COMBO_STYLE)
+        for opt in ("lanczos3", "cubic", "box"):
+            self._convert_filter.addItem(opt)
+        self._convert_filter.setFixedWidth(150)
+        flt_row.addWidget(self._convert_filter)
+        flt_row.addStretch()
+        col_res.addLayout(flt_row)
+
+        self._convert_no_upscale = QtWidgets.QCheckBox(
+            "Aplicar solo si la resolución origen es mayor"
+        )
+        self._convert_no_upscale.setChecked(True)
+        self._convert_no_upscale.setStyleSheet("color:#a7a7a7; padding:2px;")
+        self._convert_no_upscale.stateChanged.connect(self._refresh_convert_destinos)
+        col_res.addWidget(self._convert_no_upscale)
+
+        col_res.addStretch()
+        opts_row.addLayout(col_res, 1)
+
+        layout.addLayout(opts_row)
+
+        layout.addWidget(_separator())
+
+        # Manejo de originales
+        orig_lbl = _section_label("Manejo de originales")
+        layout.addWidget(orig_lbl)
         self._move_originals_chk = QtWidgets.QCheckBox("Mover originales a /Originals")
         self._move_originals_chk.setChecked(True)
-        self._move_originals_chk.setStyleSheet("color:#a7a7a7; padding:2px; margin-top:8px;")
+        self._move_originals_chk.setStyleSheet("color:#a7a7a7; padding:2px;")
         layout.addWidget(self._move_originals_chk)
 
         self._delete_originals_chk = QtWidgets.QCheckBox("Borrar /Originals al terminar")
@@ -1445,11 +1630,13 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._delete_originals_chk.setStyleSheet("color:#a7a7a7; padding:2px;")
         layout.addWidget(self._delete_originals_chk)
 
-        pending_note = QtWidgets.QLabel(
-            "⚠  La conversión real se habilitará cuando se integre la herramienta externa."
+        # Resumen (totales sin estimaciones)
+        layout.addWidget(_separator())
+        self._convert_summary_lbl = QtWidgets.QLabel("")
+        self._convert_summary_lbl.setStyleSheet(
+            "color:#cccccc; padding:4px 0px; font-weight:bold;"
         )
-        pending_note.setStyleSheet("color:#888888; font-style:italic; margin-top:12px;")
-        layout.addWidget(pending_note)
+        layout.addWidget(self._convert_summary_lbl)
 
         layout.addStretch()
 
@@ -1476,22 +1663,62 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         # Botones
         btn_row = QtWidgets.QHBoxLayout()
-        cancel_btn = QtWidgets.QPushButton("← Cancelar")
-        cancel_btn.setStyleSheet(_BTN_CANCEL)
-        cancel_btn.clicked.connect(lambda: self._show_page(self.PAGE_MEDIA))
-        btn_row.addWidget(cancel_btn)
+        back_btn = QtWidgets.QPushButton("← Go Back")
+        back_btn.setStyleSheet(_BTN_CANCEL)
+        back_btn.clicked.connect(lambda: self._show_page(self.PAGE_MEDIA))
+        btn_row.addWidget(back_btn)
         btn_row.addStretch()
-        convert_btn = QtWidgets.QPushButton("Convertir")
-        convert_btn.setStyleSheet(_BTN_SECONDARY)
-        convert_btn.setEnabled(False)
-        convert_btn.setToolTip("Pendiente de implementación")
-        btn_row.addWidget(convert_btn)
+        self._start_transcode_btn = QtWidgets.QPushButton("Start Transcode")
+        self._start_transcode_btn.setStyleSheet(_BTN_PRIMARY)
+        self._start_transcode_btn.setEnabled(False)
+        self._start_transcode_btn.setToolTip("Pendiente de implementación")
+        btn_row.addWidget(self._start_transcode_btn)
         layout.addLayout(btn_row)
 
         return page
 
+    def _on_res_preset_changed(self, idx):
+        preset = self._RES_PRESETS[idx][1] if 0 <= idx < len(self._RES_PRESETS) else None
+        self._custom_res_widget.setVisible(preset == "custom")
+        self._refresh_convert_destinos()
+
+    def _current_target_res(self, src_w, src_h):
+        """Devuelve (w, h) destino segun preset actual, o (src_w, src_h) si Original."""
+        idx = self._res_combo.currentIndex()
+        preset = self._RES_PRESETS[idx][1] if 0 <= idx < len(self._RES_PRESETS) else None
+        if preset is None:
+            return src_w, src_h
+        if preset == "custom":
+            tw = self._convert_custom_w.value()
+            th = self._convert_custom_h.value()
+            if self._convert_keep_ar.isChecked() and src_w and src_h:
+                th = int(round(tw * (src_h / float(src_w))))
+            return tw, th
+        return preset  # tuple (w, h)
+
+    def _target_compression(self, src_comp):
+        return "dwaa" if self._convert_dwaa_chk.isChecked() else (src_comp or "—")
+
+    def _refresh_convert_destinos(self):
+        """Recalcula la columna 'Destino' de la tabla en vivo."""
+        if not hasattr(self, "_convert_table") or not hasattr(self, "_convert_rows"):
+            return
+        for row_i, item in enumerate(self._convert_rows):
+            sw, sh = item.get("width"), item.get("height")
+            tw, th = self._current_target_res(sw, sh)
+            if (self._convert_no_upscale.isChecked() and sw and sh and tw and th
+                    and (tw > sw or th > sh)):
+                tw, th = sw, sh
+            res_str = ("%d×%d" % (tw, th)) if (tw and th) else "—"
+            comp = self._target_compression(item.get("compression"))
+            destino = "%s · %s" % (res_str, comp)
+            cell = self._convert_table.item(row_i, 4)
+            if cell:
+                cell.setText(destino)
+
     def _update_convert_page(self):
-        exr_names = []
+        # Recolectar items chequeados
+        exr_items = []
         mov_names = []
         for row, chk in self._checkboxes.items():
             if not chk.isChecked():
@@ -1500,10 +1727,11 @@ class ImportShotDialog(QtWidgets.QDialog):
             item = row_data["item"]
             name = item.get("name", "")
             if row_data["source"] == "input" and item.get("kind") == "exr_seq":
-                exr_names.append(name)
+                exr_items.append(item)
             elif row_data["source"] == "input" and item.get("kind") == "mov":
                 mov_names.append(name)
 
+        # Avisos por MOVs
         if mov_names:
             warnings = "\n".join(
                 "⚠  %s no será convertido (solo EXR sequences)" % n for n in mov_names
@@ -1513,12 +1741,76 @@ class ImportShotDialog(QtWidgets.QDialog):
         else:
             self._convert_warnings_lbl.hide()
 
-        if exr_names:
-            self._convert_items_lbl.setText(
-                "EXR sequences a convertir:\n" + "\n".join("  •  " + n for n in exr_names)
+        # Poblar tabla
+        self._convert_rows = exr_items
+        self._convert_table.setRowCount(len(exr_items))
+
+        total_size = 0
+        total_frames = 0
+        for i, it in enumerate(exr_items):
+            # Col 0: barra de color (plates)
+            bar = QtWidgets.QTableWidgetItem()
+            bar.setBackground(QtGui.QColor(_CLR_PLATES))
+            bar.setFlags(QtCore.Qt.NoItemFlags)
+            self._convert_table.setItem(i, 0, bar)
+
+            # Col 1: Nombre
+            name_item = QtWidgets.QTableWidgetItem(it.get("name", ""))
+            name_item.setForeground(QtGui.QColor("#cccccc"))
+            self._convert_table.setItem(i, 1, name_item)
+
+            # Col 2: Origen "WxH · comp · #f"
+            sw, sh = it.get("width"), it.get("height")
+            sc = it.get("compression") or "—"
+            fc = it.get("frame_count") or 0
+            total_frames += fc
+            origen = "%s · %s · %df" % (
+                ("%d×%d" % (sw, sh)) if (sw and sh) else "—",
+                sc, fc,
             )
+            o_item = QtWidgets.QTableWidgetItem(origen)
+            o_item.setForeground(QtGui.QColor("#888888"))
+            self._convert_table.setItem(i, 2, o_item)
+
+            # Col 3: flecha
+            arrow = QtWidgets.QTableWidgetItem("→")
+            arrow.setForeground(QtGui.QColor("#666666"))
+            arrow.setTextAlignment(QtCore.Qt.AlignCenter)
+            self._convert_table.setItem(i, 3, arrow)
+
+            # Col 4: Destino (placeholder, se llena en _refresh_convert_destinos)
+            d_item = QtWidgets.QTableWidgetItem("")
+            d_item.setForeground(QtGui.QColor("#a7a7a7"))
+            self._convert_table.setItem(i, 4, d_item)
+
+            # Col 5: Tamaño actual
+            size_b = _folder_size_bytes(it.get("path", ""))
+            total_size += size_b
+            s_item = QtWidgets.QTableWidgetItem(_format_bytes(size_b))
+            s_item.setForeground(QtGui.QColor("#888888"))
+            s_item.setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+            self._convert_table.setItem(i, 5, s_item)
+
+            # Col 6: Estado
+            st_item = QtWidgets.QTableWidgetItem("Pendiente")
+            st_item.setForeground(QtGui.QColor("#888888"))
+            self._convert_table.setItem(i, 6, st_item)
+
+        self._refresh_convert_destinos()
+
+        # Resumen
+        if exr_items:
+            self._convert_summary_lbl.setText(
+                "%d secuencia%s · %d frames · %s en disco" % (
+                    len(exr_items), "" if len(exr_items) == 1 else "s",
+                    total_frames, _format_bytes(total_size),
+                )
+            )
+            self._start_transcode_btn.setEnabled(False)  # mantener disabled hasta implementar
+            self._start_transcode_btn.setToolTip("Pendiente de implementación")
         else:
-            self._convert_items_lbl.setText("No hay EXR sequences seleccionadas.")
+            self._convert_summary_lbl.setText("No hay EXR sequences seleccionadas.")
+            self._start_transcode_btn.setEnabled(False)
 
     def _toggle_convert_log(self):
         self._log_expanded = not self._log_expanded
