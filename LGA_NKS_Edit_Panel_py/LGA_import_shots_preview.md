@@ -162,9 +162,12 @@ La página principal (Media) aplica la regla de **un solo clip por track** en do
 
 ### Clips que cruzan el insert_frame
 
-`_find_adjacent_clips` ahora maneja el caso de clips que **abarcan** el punto de inserción (`tl_in < insert_frame <= tl_out`). Este patrón es típico del track `_comp_`, que suele tener un clip largo que cubre todo el timeline. En ese caso:
-- El clip se trata como "before" con `tl_out_efectivo = insert_frame - 1`.
-- La duración efectiva es la porción visible antes del insert.
+`_find_adjacent_clips` maneja el caso de clips que **abarcan** el punto de inserción (`tl_in < insert_frame <= tl_out`). Este patrón es típico del track `_comp_`, que suele tener un clip largo que cubre todo el timeline. En ese caso el clip contribuye a **ambos buckets**:
+
+- **before**: porción `tl_in .. insert_frame - 1`, duración = `insert_frame - tl_in`
+- **after**: porción `insert_frame .. tl_out`, duración = `tl_out - insert_frame + 1`
+
+Esto es correcto porque visualmente el mismo clip pertenece al shot anterior (la mitad izquierda) y al shot siguiente (la mitad derecha). Ambas porciones se muestran en sus respectivas columnas de la tabla.
 
 ## Deduplicación de versiones
 

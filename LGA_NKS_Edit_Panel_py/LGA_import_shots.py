@@ -3223,23 +3223,20 @@ class ImportShotDialog(QtWidgets.QDialog):
         """
         Devuelve un QLabel estilizado como bloque de clip de timeline.
         El label tiene SizePolicy Expanding para responder a stretch en QHBoxLayout.
+
+        Todos los chips usan el mismo color de fondo / borde derivado del track color.
+        Los clips "new" (a importar) llevan texto en bold; los de contexto en normal.
         """
         _BASE = "#1a1a1a"
-        if is_new:
-            bg     = mix_colors(color, _BASE, 0.38)
-            border = color
-            clr    = mix_colors(color, "#ffffff", 0.55)
-            weight = "bold"
-        else:
-            bg     = mix_colors(color, _BASE, 0.10)
-            border = mix_colors(color, _BASE, 0.45)
-            clr    = mix_colors(color, "#ffffff", 0.50)
-            weight = "normal"
+        bg     = mix_colors(color, _BASE, 0.35)
+        border = color
+        clr    = mix_colors(color, "#ffffff", 0.75)
+        weight = "bold" if is_new else "normal"
 
         if duration_text:
             lbl = QtWidgets.QLabel()
             lbl.setTextFormat(QtCore.Qt.RichText)
-            dim_clr = mix_colors(color, "#ffffff", 0.30)
+            dim_clr = mix_colors(color, "#ffffff", 0.50)
             lbl.setText(
                 "%s  <span style='color:%s; font-weight:normal; font-size:10px;'>%s</span>"
                 % (text, dim_clr, duration_text)

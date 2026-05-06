@@ -98,7 +98,9 @@ def _find_adjacent_clips(track, insert_frame: int):
       - Clip que termina antes de insert_frame  → candidato "before"
       - Clip que empieza en o después           → candidato "after"
       - Clip que cruza insert_frame (tl_in < insert_frame <= tl_out)
-        → se trata como "before" con tl_out efectivo = insert_frame - 1
+        → contribuye a AMBOS buckets:
+            before: porción tl_in .. insert_frame-1
+            after:  porción insert_frame .. tl_out  (la mitad derecha del mismo clip)
 
     Retorna:
         (before, after)  — cada uno es dict|None con keys:
@@ -107,6 +109,7 @@ def _find_adjacent_clips(track, insert_frame: int):
     before = None
     after  = None
 
+    all_items = []
     for item in track.items():
         if not _HIERO_AVAILABLE:
             break
@@ -116,44 +119,83 @@ def _find_adjacent_clips(track, insert_frame: int):
             tl_in  = int(item.timelineIn())
             tl_out = int(item.timelineOut())
             name   = item.name()
-        except Exception:
+        except Exception as exc:
+            _log("_find_adjacent_clips: excepción leyendo item → %s" % exc)
             continue
 
+        all_items.append((name, tl_in, tl_out))
+        _log(
+            "_find_adjacent_clips: examinando clip '%s' TL %d-%d "
+            "(dur=%d) vs insert_frame=%d"
+            % (name, tl_in, tl_out, tl_out - tl_in + 1, insert_frame)
+        )
+
         if tl_out < insert_frame:
-            # Clip enteramente antes del punto de inserción
+            # ── Clip enteramente antes ────────────────────────────────────
             duration = tl_out - tl_in + 1
             if before is None or tl_out > before["tl_out"]:
+                _log(
+                    "_find_adjacent_clips: → before candidate '%s' dur=%d"
+                    % (name, duration)
+                )
                 before = {
                     "name": name, "tl_in": tl_in, "tl_out": tl_out,
                     "duration": duration,
                 }
 
         elif tl_in >= insert_frame:
-            # Clip enteramente después del punto de inserción
+            # ── Clip enteramente después ──────────────────────────────────
             duration = tl_out - tl_in + 1
             if after is None or tl_in < after["tl_in"]:
+                _log(
+                    "_find_adjacent_clips: → after candidate '%s' dur=%d"
+                    % (name, duration)
+                )
                 after = {
                     "name": name, "tl_in": tl_in, "tl_out": tl_out,
                     "duration": duration,
                 }
 
         else:
-            # Clip que cruza insert_frame (tl_in < insert_frame <= tl_out)
-            # Caso típico: clip largo de _comp_ que abarca todo el timeline.
-            # Se trata como "before" usando el rango visible antes del insert.
-            effective_tl_out = insert_frame - 1
-            effective_dur    = effective_tl_out - tl_in + 1
+            # ── Clip que CRUZA insert_frame ───────────────────────────────
+            # Porción izquierda → before
+            eff_tl_out = insert_frame - 1
+            eff_dur    = eff_tl_out - tl_in + 1
+            # Porción derecha → after
+            aft_tl_in  = insert_frame
+            aft_dur    = tl_out - insert_frame + 1
+
             _log(
-                "_find_adjacent_clips: clip '%s' cruza insert_frame=%d "
-                "(tl_in=%d, tl_out=%d) → se trata como before con dur=%d"
-                % (name, insert_frame, tl_in, tl_out, effective_dur)
+                "_find_adjacent_clips: clip '%s' CRUZA insert_frame=%d "
+                "(tl_in=%d, tl_out=%d) → "
+                "before: %d-%d (dur=%d) | after: %d-%d (dur=%d)"
+                % (name, insert_frame,
+                   tl_in, tl_out,
+                   tl_in, eff_tl_out, eff_dur,
+                   aft_tl_in, tl_out, aft_dur)
             )
-            if before is None or effective_tl_out > before.get("tl_out", -1):
+
+            if before is None or eff_tl_out > before.get("tl_out", -1):
                 before = {
-                    "name": name, "tl_in": tl_in, "tl_out": effective_tl_out,
-                    "duration": effective_dur,
+                    "name": name, "tl_in": tl_in, "tl_out": eff_tl_out,
+                    "duration": eff_dur,
                 }
 
+            # La porción DESPUÉS también es candidato after
+            if after is None or aft_tl_in < after.get("tl_in", 999999):
+                after = {
+                    "name": name, "tl_in": aft_tl_in, "tl_out": tl_out,
+                    "duration": aft_dur,
+                }
+
+    _log(
+        "_find_adjacent_clips: track items=%d → before=%s | after=%s"
+        % (
+            len(all_items),
+            ("'%s' %df" % (before["name"], before["duration"])) if before else "None",
+            ("'%s' %df" % (after["name"],  after["duration"]))  if after  else "None",
+        )
+    )
     return before, after
 
 
