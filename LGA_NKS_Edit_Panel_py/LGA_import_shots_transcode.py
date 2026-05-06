@@ -68,6 +68,8 @@ def build_manifest_for_sequence(
     dwa_level: int,
     resize_filter: str,
     overwrite: bool = True,
+    channels: str = "all",
+    pixel_aspect_ratio: float | None = None,
 ) -> dict:
     """
     Construye el manifest dict para LGA_EXR_Convert.py para una sola secuencia EXR.
@@ -76,14 +78,16 @@ def build_manifest_for_sequence(
     Si tw/th coinciden con las dimensiones originales del item, resize queda null.
 
     Args:
-        item:           dict del item de _convert_rows (necesita 'width', 'height')
-        src_dir:        directorio con los EXR fuente
-        dst_dir:        directorio destino para los EXR convertidos
-        tw, th:         resolución destino (None → no resize)
-        compression:    "dwaa", "zip", etc.
-        dwa_level:      nivel de compresión DWA (e.g. 45)
-        resize_filter:  "lanczos3", "cubic", "box"
-        overwrite:      si True, sobreescribe archivos existentes en dst
+        item:                dict del item de _convert_rows (necesita 'width', 'height')
+        src_dir:             directorio con los EXR fuente
+        dst_dir:             directorio destino para los EXR convertidos
+        tw, th:              resolución destino (None → no resize)
+        compression:         "dwaa", "zip", etc.
+        dwa_level:           nivel de compresión DWA (e.g. 45)
+        resize_filter:       "lanczos3", "cubic", "box"
+        overwrite:           si True, sobreescribe archivos existentes en dst
+        channels:            "all" conserva todos; "rgb" descarta alpha y canales extra
+        pixel_aspect_ratio:  si no None, escribe la metadata PixelAspectRatio en el output
 
     Returns:
         manifest dict listo para json.dumps()
@@ -106,14 +110,18 @@ def build_manifest_for_sequence(
     if tw and th and sw and sh and (tw != sw or th != sh):
         resize = {"width": tw, "height": th, "filter": resize_filter}
 
-    return {
+    manifest: dict = {
         "compression": compression,
         "dwa_level":   dwa_level,
         "resize":      resize,
         "workers":     6,
         "overwrite":   overwrite,
+        "channels":    channels,
         "tasks":       tasks,
     }
+    if pixel_aspect_ratio is not None:
+        manifest["pixel_aspect_ratio"] = pixel_aspect_ratio
+    return manifest
 
 
 # ── Pre-transcode helpers (file-system + UI) ──────────────────────────────────
@@ -402,15 +410,19 @@ class TranscodeWorker(QRunnable):
                 dst_dir = item_path
 
             # ── 2. Construir manifest ─────────────────────────────────
-            compression   = self.global_opts.get("compression", "dwaa")
-            dwa_level     = int(self.global_opts.get("dwa_level", 45))
-            resize_filter = self.global_opts.get("resize_filter", "lanczos3")
-            workers       = int(self.global_opts.get("workers", 6))
+            compression        = self.global_opts.get("compression", "dwaa")
+            dwa_level          = int(self.global_opts.get("dwa_level", 45))
+            resize_filter      = self.global_opts.get("resize_filter", "lanczos3")
+            workers            = int(self.global_opts.get("workers", 6))
+            channels           = self.global_opts.get("channels", "all")
+            pixel_aspect_ratio = self.global_opts.get("pixel_aspect_ratio", None)
 
             manifest = build_manifest_for_sequence(
                 item, src_dir, dst_dir, tw, th,
                 compression, dwa_level, resize_filter,
                 overwrite=True,
+                channels=channels,
+                pixel_aspect_ratio=pixel_aspect_ratio,
             )
             manifest["workers"] = workers
 

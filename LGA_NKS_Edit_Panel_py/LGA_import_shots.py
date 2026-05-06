@@ -172,6 +172,7 @@ _TASK_ORDER = {"comp": 0, "roto": 1, "cleanup": 2, "dmp": 3}
 # Derivados de la paleta PATH_LEVEL_COLORS pero desaturados ~40 %
 # para no competir con el texto base #a7a7a7.
 _CLR_AR            = "#a89060"   # aspect ratio          — dorado suave
+_CLR_PAR           = "#c4787a"   # pixel aspect ratio    — rosa muted
 _CLR_FRAMES        = "#b09040"   # cantidad de frames    — ámbar cálido
 _CLR_COMP_ZIP      = "#a06060"   # compresión zip/piz    — rojo suave
 _CLR_COMP_DWAA     = "#6a9960"   # compresión dwaa/dwab  — verde suave
@@ -278,11 +279,11 @@ def _scan_exr_sequence(folder_path):
 
 
 def _read_exr_metadata(exr_path):
-    """Resolucion, compresion, bit depth y channels de un frame EXR via oiiotool --info -v."""
-    w, h, fps, comp, bitdepth, channels = None, None, None, None, None, None
+    """Resolucion, compresion, bit depth, channels y PAR de un frame EXR via oiiotool --info -v."""
+    w, h, fps, comp, bitdepth, channels, par = None, None, None, None, None, None, None
     if not (_OIIOTOOL and _OIIOTOOL.exists()):
         debug_print("_read_exr_metadata: oiiotool no disponible", level="warning")
-        return w, h, fps, comp, bitdepth, channels
+        return w, h, fps, comp, bitdepth, channels, par
     try:
         r = subprocess.run(
             [str(_OIIOTOOL), "--info", "-v", str(exr_path)],
@@ -324,11 +325,18 @@ def _read_exr_metadata(exr_path):
         m = re.search(r'compression[:\s]+"?([A-Za-z0-9_]+)"?', out, re.IGNORECASE)
         if m:
             comp = m.group(1)
-        debug_print("EXR meta: %sx%s fps=%s comp=%s bd=%s ch=%s" % (
-            w, h, fps, comp, bitdepth, channels))
+        # '    PixelAspectRatio: 1'  o  '    PixelAspectRatio: 2'
+        m = re.search(r'[Pp]ixel[Aa]spect[Rr]atio[:\s]+"?([\d.]+)"?', out)
+        if m:
+            try:
+                par = float(m.group(1))
+            except Exception:
+                pass
+        debug_print("EXR meta: %sx%s fps=%s comp=%s bd=%s ch=%s par=%s" % (
+            w, h, fps, comp, bitdepth, channels, par))
     except Exception as e:
         debug_print("_read_exr_metadata error: %s" % e, level="error")
-    return w, h, fps, comp, bitdepth, channels
+    return w, h, fps, comp, bitdepth, channels, par
 
 
 def _read_mov_metadata(mov_path):
@@ -426,11 +434,11 @@ def _scan_input_folder(shot_root):
             entry["is_latest"] = (entry["version_num"] == max_ver)
             entry["has_multiple_versions"] = has_multiple_versions
             # Leer metadata solo del primer archivo
-            w, h, fps, comp, bd, ch = (None, None, None, None, None, None)
+            w, h, fps, comp, bd, ch, par = (None,) * 7
             if entry["first_file"]:
-                w, h, fps, comp, bd, ch = _read_exr_metadata(entry["first_file"])
+                w, h, fps, comp, bd, ch, par = _read_exr_metadata(entry["first_file"])
             entry.update({"width": w, "height": h, "fps": fps, "compression": comp,
-                          "bitdepth": bd, "channels": ch})
+                          "bitdepth": bd, "channels": ch, "pixel_aspect_ratio": par})
             items.append(entry)
 
     # 2. Archivos sueltos en _input/
@@ -527,9 +535,9 @@ def _scan_publish_folders(shot_root):
 
         for vd in version_dirs:
             first_f, last_f, count, first_file = _scan_exr_sequence(str(vd))
-            w, h, fps, comp, bd, ch = (None, None, None, None, None, None)
+            w, h, fps, comp, bd, ch, par = (None,) * 7
             if first_file:
-                w, h, fps, comp, bd, ch = _read_exr_metadata(first_file)
+                w, h, fps, comp, bd, ch, par = _read_exr_metadata(first_file)
             ver_num = _version_number(vd.name)
             results.append({
                 "task": task, "folder_name": folder_name, "track": track,
@@ -540,7 +548,7 @@ def _scan_publish_folders(shot_root):
                 "first_file": first_file,
                 "first_frame": first_f, "last_frame": last_f, "frame_count": count,
                 "width": w, "height": h, "fps": fps, "compression": comp,
-                "bitdepth": bd, "channels": ch,
+                "bitdepth": bd, "channels": ch, "pixel_aspect_ratio": par,
                 "path": str(vd),
             })
 
@@ -1029,6 +1037,48 @@ def _ar_str(w, h):
 
 
 # ══════════════════════════════════════════════════════════════════
+#  Delegate para combo de resolución (AR en dorado)
+# ══════════════════════════════════════════════════════════════════
+
+class _ResArDelegate(QtWidgets.QStyledItemDelegate):
+    """Pinta items del combo de resolución con las secciones [AR] en color dorado."""
+
+    _CLR_TEXT = "#a7a7a7"
+    _CLR_AR   = "#a89060"
+
+    def paint(self, painter, option, index):
+        painter.save()
+        bg = (QtGui.QColor("#353535")
+              if (option.state & QtWidgets.QStyle.State_Selected)
+              else QtGui.QColor("#2B2B2B"))
+        painter.fillRect(option.rect, bg)
+
+        text = index.data() or ""
+        # Dividir en segmentos: normal vs [entre corchetes]
+        segments = re.split(r'(\[[^\]]*\])', text)
+
+        fm   = painter.fontMetrics()
+        rect = option.rect.adjusted(6, 0, -4, 0)
+        x    = rect.x()
+
+        for seg in segments:
+            if not seg:
+                continue
+            is_ar = seg.startswith("[")
+            painter.setPen(QtGui.QColor(self._CLR_AR if is_ar else self._CLR_TEXT))
+            w = fm.horizontalAdvance(seg)
+            painter.drawText(x, rect.top(), w, rect.height(),
+                             QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft, seg)
+            x += w
+
+        painter.restore()
+
+    def sizeHint(self, option, index):
+        sh = super(_ResArDelegate, self).sizeHint(option, index)
+        return sh.expandedTo(QtCore.QSize(0, 22))
+
+
+# ══════════════════════════════════════════════════════════════════
 #  Dialogo principal
 # ══════════════════════════════════════════════════════════════════
 
@@ -1060,7 +1110,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self.setObjectName("LGA_ImportShotDialog")
         self.setModal(True)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-        self.setMinimumWidth(1170)
+        self.setMinimumWidth(1260)
         self.setMinimumHeight(650)
         self.setStyleSheet(_DIALOG_STYLE)
 
@@ -1689,9 +1739,9 @@ class ImportShotDialog(QtWidgets.QDialog):
         hdr.setSectionResizeMode(1, QtWidgets.QHeaderView.Fixed)
         self._convert_table.setColumnWidth(1, 28)
         hdr.setSectionResizeMode(2, QtWidgets.QHeaderView.Stretch)
-        # Origen (col 3) — mínimo 280px para "2048×1152 (2.39:1) · half · RGB · zip · 480f - 20.0s"
+        # Origen (col 3) — 360px para "4096×2160 (2.39:1) (2) · 16b · RGB · dwaa · 480f - 20.0s"
         hdr.setSectionResizeMode(3, QtWidgets.QHeaderView.Interactive)
-        self._convert_table.setColumnWidth(3, 280)
+        self._convert_table.setColumnWidth(3, 360)
         # Flecha (col 4)
         hdr.setSectionResizeMode(4, QtWidgets.QHeaderView.ResizeToContents)
         # Destino (col 5) — mínimo 320px para "2048×858 (2.39:1) · half · RGB · dwaa"
@@ -1801,7 +1851,9 @@ class ImportShotDialog(QtWidgets.QDialog):
         res_row.addWidget(res_lbl)
         self._res_combo = _ArrowComboBox()
         self._res_combo.setStyleSheet(self._COMBO_STYLE)
-        self._res_combo.setView(QtWidgets.QListView())
+        _res_list = QtWidgets.QListView()
+        self._res_combo.setView(_res_list)
+        _res_list.setItemDelegate(_ResArDelegate(_res_list))
         for label, preset in self._RES_PRESETS:
             if preset and preset != "custom":
                 tw, th = preset
@@ -1865,6 +1917,33 @@ class ImportShotDialog(QtWidgets.QDialog):
         md_row.addWidget(self._convert_match_dim)
         md_row.addStretch()
         col_res.addWidget(self._match_dim_widget)
+
+        # Desanamorfizar (bake desqueeze)
+        self._convert_deana_chk = QtWidgets.QCheckBox("Desanamorfizar (Pixel Aspect Ratio)")
+        self._convert_deana_chk.setChecked(False)
+        self._convert_deana_chk.setStyleSheet("color:#a7a7a7; padding:2px;")
+        self._convert_deana_chk.stateChanged.connect(self._on_deana_chk_changed)
+        col_res.addWidget(self._convert_deana_chk)
+
+        self._deana_par_widget = QtWidgets.QWidget()
+        deana_row = QtWidgets.QHBoxLayout(self._deana_par_widget)
+        deana_row.setContentsMargins(16, 0, 0, 0)
+        deana_lbl = QtWidgets.QLabel("PAR fuente:")
+        deana_lbl.setStyleSheet("color:#a7a7a7;")
+        deana_row.addWidget(deana_lbl)
+        self._convert_deana_par = _ArrowComboBox()
+        self._convert_deana_par.setStyleSheet(self._COMBO_STYLE)
+        self._convert_deana_par.setView(QtWidgets.QListView())
+        for opt in ("1.3", "1.5", "1.8", "2.0"):
+            self._convert_deana_par.addItem(opt)
+        self._convert_deana_par.setFixedWidth(80)
+        self._convert_deana_par.currentIndexChanged.connect(
+            lambda *_: self._refresh_convert_destinos()
+        )
+        deana_row.addWidget(self._convert_deana_par)
+        deana_row.addStretch()
+        self._deana_par_widget.hide()
+        col_res.addWidget(self._deana_par_widget)
 
         flt_row = QtWidgets.QHBoxLayout()
         flt_lbl = QtWidgets.QLabel("Filtro resampling:")
@@ -2094,6 +2173,7 @@ class ImportShotDialog(QtWidgets.QDialog):
                     th = int(round(tw * src_h / float(src_w)))
                 else:
                     tw = int(round(th * src_w / float(src_h)))
+            tw, th = self._apply_deana_if_active(tw, th)
             computed_ar = _ar_str(tw, th)
             base = ("%s  [%s]" % (label, preset_ar)) if preset_ar else label
             ar_part = ("  [%s]" % computed_ar) if computed_ar else ""
@@ -2104,6 +2184,20 @@ class ImportShotDialog(QtWidgets.QDialog):
         """Muestra u oculta el control de DWAA level según el estado del checkbox."""
         self._dwaa_level_widget.setVisible(state == QtCore.Qt.Checked)
         self._refresh_convert_destinos()
+
+    def _on_deana_chk_changed(self, state):
+        """Muestra u oculta el selector de PAR de desanamorfizado."""
+        self._deana_par_widget.setVisible(state == QtCore.Qt.Checked)
+        self._refresh_convert_destinos()
+
+    def _apply_deana_if_active(self, tw, th):
+        """Multiplica el ancho por el PAR elegido si desanamorfizar está activo."""
+        if (hasattr(self, "_convert_deana_chk")
+                and self._convert_deana_chk.isChecked()
+                and tw):
+            par = float(self._convert_deana_par.currentText())
+            tw  = int(round(tw * par))
+        return tw, th
 
     def _target_compression(self, src_comp):
         return "dwaa" if self._convert_dwaa_chk.isChecked() else (src_comp or "—")
@@ -2132,6 +2226,14 @@ class ImportShotDialog(QtWidgets.QDialog):
         if bd == "half":   return "16b"
         if bd == "float":  return "32b"
         return bd or "—"
+
+    @staticmethod
+    def _fmt_par(par):
+        """Formatea PAR numérico para display: 1.0→'1', 2.0→'2', 1.33→'1.33'."""
+        if par is None:
+            return None
+        v = float(par)
+        return ("%d" % int(v)) if v == int(v) else ("%.4g" % v)
 
     def _refresh_convert_destinos(self):
         """Recalcula columnas 'Destino' y 'Estado' y las labels del combo (EXR solamente).
@@ -2170,6 +2272,9 @@ class ImportShotDialog(QtWidgets.QDialog):
             if is_upscale_blocked:
                 tw, th = sw, sh  # se mantiene el original
 
+            # Aplicar desanamorfizado DESPUÉS del check de upscale
+            tw, th = self._apply_deana_if_active(tw, th)
+
             # ── Columna 5: Destino ────────────────────────────────────────
             dest_fg = "#555555" if is_upscale_blocked else "#a7a7a7"
             comp = self._target_compression(item.get("compression"))
@@ -2186,11 +2291,18 @@ class ImportShotDialog(QtWidgets.QDialog):
                     res_h = "<span style='color:%s;'>%d×%d</span>" % (dest_fg, tw, th)
             else:
                 res_h = "<span style='color:%s;'>—</span>" % dest_fg
+            # PAR destino: 1 si desanamorfizando, PAR fuente si no
+            if hasattr(self, "_convert_deana_chk") and self._convert_deana_chk.isChecked():
+                tpar_fmt = "1"
+            else:
+                tpar_fmt = self._fmt_par(item.get("pixel_aspect_ratio"))
+            par_clr = "#5a3a3a" if is_upscale_blocked else _CLR_PAR
+            tpar_h = (" <span style='color:%s;'>(%s)</span>" % (par_clr, tpar_fmt)) if tpar_fmt else ""
             comp_clr = dest_fg if is_upscale_blocked else _comp_color(comp)
             bd_h   = "<span style='color:%s;'>%s</span>" % (dest_fg, bd or "—")
             ch_h   = "<span style='color:%s;'>%s</span>" % (dest_fg, self._ch_str(ch))
             comp_h = "<span style='color:%s;'>%s</span>" % (comp_clr, comp)
-            dest_html = "%s · %s · %s · %s" % (res_h, bd_h, ch_h, comp_h)
+            dest_html = "%s%s · %s · %s · %s" % (res_h, tpar_h, bd_h, ch_h, comp_h)
             self._convert_table.setCellWidget(row_i, 5, _cell_html_label(dest_html))
 
             # ── Columna 7: Estado ─────────────────────────────────────────
@@ -2278,6 +2390,10 @@ class ImportShotDialog(QtWidgets.QDialog):
                     res_h = "<span style='color:%s;'>%d×%d</span>" % (dim_color, sw, sh)
             else:
                 res_h = "<span style='color:%s;'>—</span>" % dim_color
+            # PAR en rosa (solo si está disponible)
+            spar = self._fmt_par(it.get("pixel_aspect_ratio"))
+            par_clr = "#555555" if is_mov else _CLR_PAR
+            par_h = (" <span style='color:%s;'>(%s)</span>" % (par_clr, spar)) if spar else ""
             # compresión coloreada
             sc_clr = _comp_color(sc, greyed=is_mov)
             sc_h = "<span style='color:%s;'>%s</span>" % (sc_clr, sc)
@@ -2287,7 +2403,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             fc_h = "<span style='color:%s;'>%df%s</span>" % (fc_clr, fc, secs_txt)
             bd_h = "<span style='color:%s;'>%s</span>" % (dim_color, sbd)
             ch_h = "<span style='color:%s;'>%s</span>" % (dim_color, self._ch_str(sch))
-            origen_html = "%s · %s · %s · %s · %s" % (res_h, bd_h, ch_h, sc_h, fc_h)
+            origen_html = "%s%s · %s · %s · %s · %s" % (res_h, par_h, bd_h, ch_h, sc_h, fc_h)
             self._convert_table.setCellWidget(i, 3, _cell_html_label(origen_html))
 
             # Col 4: flecha
@@ -2383,6 +2499,8 @@ class ImportShotDialog(QtWidgets.QDialog):
             if self._convert_no_upscale.isChecked() and sw and sh and tw and th:
                 if tw > sw or th > sh:
                     tw, th = sw, sh
+            # Aplicar desanamorfizado DESPUÉS del check de upscale
+            tw, th = self._apply_deana_if_active(tw, th)
             job_sequences.append((row_i, item, tw, th))
 
         if not job_sequences:
@@ -2396,11 +2514,16 @@ class ImportShotDialog(QtWidgets.QDialog):
             "move_originals":   self._move_originals_chk.isChecked(),
             "delete_originals": self._delete_originals_chk.isChecked(),
         }
+        _deana_active = (hasattr(self, "_convert_deana_chk")
+                         and self._convert_deana_chk.isChecked())
         self._transcode_global_opts = {
-            "compression":   self._target_compression(None),
-            "dwa_level":     self._convert_dwaa_level.value(),
-            "resize_filter": self._convert_filter.currentText(),
-            "workers":       6,
+            "compression":        self._target_compression(None),
+            "dwa_level":          self._convert_dwaa_level.value(),
+            "resize_filter":      self._convert_filter.currentText(),
+            "workers":            6,
+            "channels":           ("rgb" if self._convert_channels.currentText() == "Reducir a RGB"
+                                   else "all"),
+            "pixel_aspect_ratio": 1.0 if _deana_active else None,
         }
 
         # Deshabilitar botones mientras hay trabajo en curso
