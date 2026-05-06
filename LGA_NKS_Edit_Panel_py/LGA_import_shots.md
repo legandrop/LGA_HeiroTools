@@ -1,12 +1,15 @@
 > **Regla de documentacion**: este archivo describe el estado actual del codigo. No es un historial de cambios, changelog ni bitacora temporal.
 > **Regla de documentacion**: este archivo debe incluir una seccion de referencias tecnicas con rutas completas a los archivos mas importantes relacionados, y para cada archivo nombrar las funciones, clases o metodos clave vinculados a este tema.
 
-> ⚠ **PENDIENTE CRITICO — Transcode de MOV no implementado**: la pagina
+> ⚠ **PENDIENTE — Transcode de MOV no implementado**: la pagina
 > "Transcode Plates" acepta plates en cualquier formato (EXR o MOV), pero el
-> motor de transcode (`_run_transcode`) solo procesa EXR sequences via OIIO.
+> motor de transcode (`TranscodeWorker`) solo procesa EXR sequences via `LGA_EXR_Convert.py`.
 > Los plates MOV aparecen en la tabla con checkbox deshabilitado y estado
-> "No soportado". Implementar cuando se complete la primera version funcional
-> del transcode EXR.
+> "No soportado". Implementar cuando haya herramienta de transcode MOV disponible.
+>
+> ℹ **Channels y bit depth ignorados**: las opciones de la UI `Channels (RGBA→RGB)` y
+> `Bit depth (half/float)` estan presentes pero no se pasan al manifest. Ver seccion
+> "Pendiente de implementacion" para detalles.
 
 # LGA_import_shots
 
@@ -31,12 +34,13 @@ sin depender del playhead.
 
 ### Modulos auxiliares (a extraer a medida que el script crece)
 
-| Archivo | Contenido previsto |
-|---------|-------------------|
-| `LGA_import_shots_scan.py` | Helpers de escaneo de carpetas y metadata |
-| `LGA_import_shots_timeline.py` | Helpers de timeline (push, stretch, posicionamiento) |
-| `LGA_import_shots_bin.py` | Helpers de bin (find/create, import) |
-| `LGA_import_shots_ui.py` | Estilos CSS, widgets helpers, separadores |
+| Archivo | Contenido previsto | Estado |
+|---------|-------------------|--------|
+| `LGA_import_shots_transcode.py` | `TranscodeWorkerSignals`, `TranscodeWorker`, `build_manifest_for_sequence` | **implementado** |
+| `LGA_import_shots_scan.py` | Helpers de escaneo de carpetas y metadata | pendiente |
+| `LGA_import_shots_timeline.py` | Helpers de timeline (push, stretch, posicionamiento) | pendiente |
+| `LGA_import_shots_bin.py` | Helpers de bin (find/create, import) | pendiente |
+| `LGA_import_shots_ui.py` | Estilos CSS, widgets helpers, separadores | pendiente |
 
 ---
 
@@ -404,15 +408,15 @@ Una linea de texto sobre el log con totales (sin estimaciones):
 
 | Boton | Estilo | Habilitado | Accion |
 |-------|--------|------------|--------|
-| ← Go Back | `_BTN_CANCEL` | siempre | vuelve a `PAGE_MEDIA` (preserva opciones) |
-| Start Transcode | `_BTN_PRIMARY` | nunca (stub) | placeholder hasta integrar el transcoder |
+| ← Go Back | `_BTN_SECONDARY` | siempre (deshabilitado durante transcode activo) | vuelve a `PAGE_MEDIA` (preserva opciones) |
+| Start Transcode | `_BTN_PRIMARY` | cuando hay ≥1 EXR chequeado | llama a `_run_transcode()` → lanza `TranscodeWorker` via `QThreadPool` |
 
 ### Log panel
 
 3 lineas visibles, expandible con boton ▲/▼ a `setMaximumHeight(16777215)`.
 
-> **Estado actual:** UI completa. La conversion real se habilitara cuando se
-> integre la herramienta externa (oiiotool / nuke render).
+> **Estado actual:** Implementado. El transcode corre via `LGA_EXR_Convert.py`
+> (manifest JSON + subprocess) en un `QRunnable` separado para no bloquear la UI.
 
 ---
 
@@ -570,7 +574,15 @@ donde se distribuya la repo.
 ## Pendiente de implementacion
 
 - **Sub-vista Rename:** implementacion real del find/replace con preview (hoy es stub)
-- **Sub-vista Convert:** logica real de conversion EXR (pendiente herramienta externa)
+- **Convert — Channels (RGBA→RGB):** opcion presente en UI (`_convert_channels` combo) pero
+  ignorada al construir el manifest. Requiere agregar `--channels` a `LGA_EXR_Convert.py`
+  y pasarlo como `--ch R,G,B` a oiiotool. Mientras tanto el manifest siempre usa todos
+  los canales del origen.
+- **Convert — Bit depth (half/float):** opcion presente en UI (`_convert_bitdepth` combo)
+  pero ignorada al construir el manifest. Requiere agregar `--bit-depth half/float` a
+  `LGA_EXR_Convert.py` y pasarlo como `--type half/float` a oiiotool.
+- **Convert — Transcode de MOV:** plates MOV aparecen en la tabla con checkbox deshabilitado
+  y estado "No soportado". Implementar cuando haya herramienta de transcode MOV disponible.
 - **Convert — Presets:** guardado de presets de resolucion en `.ini`
 - **SetShotName:** llamada correcta al script externo post-importacion
 - **CreateV000:** trigger correcto para tasks sin versiones
@@ -583,12 +595,15 @@ donde se distribuya la repo.
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `main()`, `ImportShotDialog`, `_show_page()`, `_build_page_media()`, `_build_media_table()`, `_build_table_rows()`, `_populate_section_header_row()`, `_populate_data_row()`, `_select_all()`, `_clear_selection()`, `_select_section()`, `_update_action_btns()`, `_build_page_rename()`, `_build_page_convert()`, `_update_convert_page()`, `_on_res_preset_changed()`, `_on_keep_ar_changed()`, `_update_match_dim_visibility()`, `_get_representative_res()`, `_on_custom_w_changed()`, `_on_custom_h_changed()`, `_current_target_res()`, `_target_compression()`, `_refresh_convert_destinos()`, `_update_res_combo_labels()`, `_toggle_convert_log()`, `_cell_html_label()`, `_comp_color()`, `_ar_str()`, `_scan_input_folder()`, `_scan_publish_folders()`, `_read_exr_metadata()`, `_read_mov_metadata()`, `_folder_size_bytes()`, `_format_bytes()`, `_find_insert_frame()`, `_push_clips_right()`, `_stretch_burnin()`, `_shot_exists_in_timeline()`, `_import_clip_to_bin()`, `_place_clip_in_timeline()`, `_find_or_create_bin()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `main()`, `ImportShotDialog`, `_show_page()`, `_build_page_media()`, `_build_media_table()`, `_build_table_rows()`, `_populate_section_header_row()`, `_populate_data_row()`, `_select_all()`, `_clear_selection()`, `_select_section()`, `_update_action_btns()`, `_build_page_rename()`, `_build_page_convert()`, `_update_convert_page()`, `_on_res_preset_changed()`, `_on_keep_ar_changed()`, `_update_match_dim_visibility()`, `_get_representative_res()`, `_on_custom_w_changed()`, `_on_custom_h_changed()`, `_current_target_res()`, `_target_compression()`, `_refresh_convert_destinos()`, `_update_res_combo_labels()`, `_toggle_convert_log()`, `_update_transcode_btn_state()`, `_run_transcode()`, `_on_transcode_log()`, `_on_sequence_started()`, `_on_sequence_done()`, `_on_transcode_all_done()`, `_on_transcode_error()`, `_cell_html_label()`, `_comp_color()`, `_ar_str()`, `_scan_input_folder()`, `_scan_publish_folders()`, `_read_exr_metadata()`, `_read_mov_metadata()`, `_folder_size_bytes()`, `_format_bytes()`, `_find_insert_frame()`, `_push_clips_right()`, `_stretch_burnin()`, `_shot_exists_in_timeline()`, `_import_clip_to_bin()`, `_place_clip_in_timeline()`, `_find_or_create_bin()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots_transcode.py` | `TranscodeWorkerSignals`, `TranscodeWorker`, `build_manifest_for_sequence` |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_CreateV000.py` | Referencia de UI, bin import, timeline placement, colorize path |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_SetShotName.py` | Renombrado de clips post-importacion |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_OrganizeProject.py` | Estructura de bins `F <grupo>/<shot>` |
+| `LGA_NKS_Shared/LGA_EXR_Convert.py` | Motor de transcode EXR. Llamado via subprocess con `--manifest` JSON. Soporta DWAA, resize, OCIO, workers paralelos. |
 | `LGA_NKS_Shared/LGA_NKS_Flow_NamingUtils.py` | `clean_base_name()`, `extract_shot_code()` |
 | `LGA_NKS_Shared/LGA_QtAdapter_HieroTools.py` | Qt adapter (PyQt5/PySide2) |
 | `LGA_NKS_Shared/OIIO_Win/oiiotool.exe` | Lectura metadata EXR (Windows). Llamado con `--info -v` |
+| `LGA_NKS_Shared/OIIO_Win/bin/python/python.exe` | Python bundled usado por `TranscodeWorker` para invocar `LGA_EXR_Convert.py` |
 | `LGA_NKS_Shared/FFmpeg_Win/bin/ffprobe.exe` | Lectura metadata MOV/MXF (Windows). Salida JSON |
 | `docs/LGA_import_shots_PLAN.md` | Plan de desarrollo, decisiones de diseno, preguntas resueltas |

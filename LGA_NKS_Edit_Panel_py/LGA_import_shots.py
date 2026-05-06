@@ -49,6 +49,7 @@ else:
 
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 from LGA_NKS_Flow_NamingUtils import clean_base_name, extract_shot_code
+from LGA_NKS_Edit_Panel_py.LGA_import_shots_transcode import TranscodeWorker
 
 # ── flags ──────────────────────────────────────────────────────────
 # Si True, el transcode escribe a {seq_path}/test_transcode/ y los
@@ -1241,6 +1242,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             chk = self._convert_checkboxes[row]
             if chk.isEnabled():
                 chk.setChecked(not chk.isChecked())
+        self._update_transcode_btn_state()
 
     def _build_table_rows(self):
         """
@@ -1960,15 +1962,16 @@ class ImportShotDialog(QtWidgets.QDialog):
         # Botones
         btn_row = QtWidgets.QHBoxLayout()
         btn_row.addStretch()
-        back_btn = QtWidgets.QPushButton("← Go Back")
-        back_btn.setStyleSheet(_BTN_SECONDARY)
-        back_btn.clicked.connect(lambda: self._show_page(self.PAGE_MEDIA))
-        btn_row.addWidget(back_btn)
+        self._go_back_btn = QtWidgets.QPushButton("← Go Back")
+        self._go_back_btn.setStyleSheet(_BTN_SECONDARY)
+        self._go_back_btn.clicked.connect(lambda: self._show_page(self.PAGE_MEDIA))
+        btn_row.addWidget(self._go_back_btn)
         btn_row.addSpacing(6)
         self._start_transcode_btn = QtWidgets.QPushButton("Start Transcode")
         self._start_transcode_btn.setStyleSheet(_BTN_PRIMARY)
         self._start_transcode_btn.setEnabled(False)
-        self._start_transcode_btn.setToolTip("Pendiente de implementación")
+        self._start_transcode_btn.setToolTip("Selecciona al menos un EXR")
+        self._start_transcode_btn.clicked.connect(self._run_transcode)
         btn_row.addWidget(self._start_transcode_btn)
         layout.addLayout(btn_row)
 
@@ -2225,6 +2228,7 @@ class ImportShotDialog(QtWidgets.QDialog):
                 chk.setToolTip("Transcode de MOV pendiente de implementación")
             else:
                 chk.setChecked(True)
+            chk.stateChanged.connect(lambda *_: self._update_transcode_btn_state())
             self._convert_checkboxes[i] = chk
             chk_container = QtWidgets.QWidget()
             cl = QtWidgets.QHBoxLayout(chk_container)
@@ -2312,11 +2316,10 @@ class ImportShotDialog(QtWidgets.QDialog):
                     total_frames, _format_bytes(total_size),
                 )
             )
-            self._start_transcode_btn.setEnabled(False)  # mantener disabled hasta implementar
-            self._start_transcode_btn.setToolTip("Pendiente de implementación")
         else:
             self._convert_summary_lbl.setText("No hay plates seleccionados.")
-            self._start_transcode_btn.setEnabled(False)
+
+        self._update_transcode_btn_state()
 
     def _toggle_convert_log(self):
         self._log_expanded = not self._log_expanded
@@ -2328,6 +2331,117 @@ class ImportShotDialog(QtWidgets.QDialog):
             self._convert_log.setMaximumHeight(60)
             self._log_expand_btn.setText("▲")
             self._log_expand_btn.setToolTip("Expandir log")
+
+    # ══════════════════════════════════════════════════════════
+    #  Transcode — estado del botón y ejecución
+    # ══════════════════════════════════════════════════════════
+
+    def _update_transcode_btn_state(self):
+        """Habilita Start Transcode si hay al menos un EXR habilitado y chequeado."""
+        if not hasattr(self, "_convert_checkboxes") or not hasattr(self, "_start_transcode_btn"):
+            return
+        has_exr = any(
+            chk.isChecked() and chk.isEnabled()
+            for chk in self._convert_checkboxes.values()
+        )
+        self._start_transcode_btn.setEnabled(has_exr)
+        self._start_transcode_btn.setToolTip(
+            "" if has_exr else "Selecciona al menos un EXR"
+        )
+
+    def _run_transcode(self):
+        """Handler del botón Start Transcode. Construye el job y lanza el worker."""
+        if not hasattr(self, "_convert_checkboxes") or not hasattr(self, "_convert_rows"):
+            return
+
+        # Recolectar secuencias EXR con checkbox activo
+        job_sequences = []
+        for row_i, chk in self._convert_checkboxes.items():
+            if not chk.isChecked() or not chk.isEnabled():
+                continue
+            item = self._convert_rows[row_i]
+            tw, th = self._current_target_res(item.get("width"), item.get("height"))
+            # Aplicar lógica no-upscale: si el destino es mayor que el origen, usar original
+            sw, sh = item.get("width"), item.get("height")
+            if self._convert_no_upscale.isChecked() and sw and sh and tw and th:
+                if tw > sw or th > sh:
+                    tw, th = sw, sh
+            job_sequences.append((row_i, item, tw, th))
+
+        if not job_sequences:
+            return
+
+        # Deshabilitar botones durante el proceso
+        self._start_transcode_btn.setEnabled(False)
+        self._go_back_btn.setEnabled(False)
+        self._convert_log.clear()
+
+        global_opts = {
+            "compression":   self._target_compression(None),
+            "dwa_level":     self._convert_dwaa_level.value(),
+            "resize_filter": self._convert_filter.currentText(),
+            "workers":       6,
+        }
+
+        worker = TranscodeWorker(
+            job_sequences,
+            global_opts,
+            test_mode        = Transcode_TEST_Mode,
+            move_originals   = self._move_originals_chk.isChecked(),
+            delete_originals = self._delete_originals_chk.isChecked(),
+            shared_dir       = str(SHARED_DIR),
+        )
+        worker.signals.log_message.connect(self._on_transcode_log)
+        worker.signals.sequence_started.connect(self._on_sequence_started)
+        worker.signals.sequence_done.connect(self._on_sequence_done)
+        worker.signals.all_done.connect(self._on_transcode_all_done)
+        worker.signals.error.connect(self._on_transcode_error)
+
+        QtCore.QThreadPool.globalInstance().start(worker)
+        debug_print("TranscodeWorker iniciado — %d secuencias" % len(job_sequences))
+
+    # ── Handlers de señales del worker ─────────────────────────
+
+    def _on_transcode_log(self, msg):
+        """Agrega una línea al panel de log de transcode."""
+        self._convert_log.appendPlainText(msg)
+
+    def _on_sequence_started(self, row_i):
+        """Actualiza el Estado de la fila a 'Convirtiendo...' (ámbar)."""
+        if row_i < self._convert_table.rowCount():
+            html = "<span style='color:#d9a441;'>Convirtiendo...</span>"
+            self._convert_table.setCellWidget(row_i, 7, _cell_html_label(html))
+
+    def _on_sequence_done(self, row_i, ok, stats):
+        """Actualiza el Estado de la fila a '✓ Listo' o '✗ Error'."""
+        if row_i < self._convert_table.rowCount():
+            if ok:
+                html = "<span style='color:%s;'>✓ Listo</span>" % _CLR_STATUS_DONE
+            else:
+                html = "<span style='color:%s;'>✗ Error</span>" % _CLR_STATUS_ERROR
+            self._convert_table.setCellWidget(row_i, 7, _cell_html_label(html))
+
+    def _on_transcode_all_done(self, results):
+        """Re-habilita los botones y muestra el resumen final."""
+        total    = len(results)
+        ok_count = sum(1 for r in results if r.get("ok"))
+        if ok_count == total:
+            summary = "✓ Transcode completo: %d/%d OK" % (ok_count, total)
+        else:
+            summary = "⚠ Transcode: %d/%d OK, %d con errores" % (
+                ok_count, total, total - ok_count
+            )
+        self._on_transcode_log(summary)
+        self._start_transcode_btn.setEnabled(True)
+        self._go_back_btn.setEnabled(True)
+        debug_print("Transcode all_done — %d/%d OK" % (ok_count, total))
+
+    def _on_transcode_error(self, msg):
+        """Muestra error fatal y re-habilita los botones."""
+        self._on_transcode_log("ERROR FATAL: " + msg)
+        self._start_transcode_btn.setEnabled(True)
+        self._go_back_btn.setEnabled(True)
+        debug_print("Transcode error fatal: %s" % msg, level="error")
 
     # ══════════════════════════════════════════════════════════
     #  Helpers
