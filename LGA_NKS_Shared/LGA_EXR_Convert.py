@@ -33,6 +33,7 @@ class ConvertOptions:
     ocio_src: str | None = None
     ocio_dst: str | None = None
     pixel_aspect_ratio: float | None = None
+    channels: str = "all"
     workers: int = 6
     exrmetrics_threads: int = 6
     engine: str = "auto"
@@ -126,6 +127,7 @@ def load_manifest(path: Path, cli: argparse.Namespace) -> tuple[list[FrameTask],
             if cli.pixel_aspect_ratio is not None
             else data.get("pixel_aspect_ratio")
         ),
+        channels=cli.channels or data.get("channels", "all"),
         workers=cli.workers or int(data.get("workers", 6)),
         exrmetrics_threads=cli.exrmetrics_threads or int(data.get("exrmetrics_threads", 6)),
         engine=cli.engine or data.get("engine", "auto"),
@@ -150,6 +152,7 @@ def tasks_from_cli(cli: argparse.Namespace) -> tuple[list[FrameTask], ConvertOpt
         ocio_src=cli.ocio_src,
         ocio_dst=cli.ocio_dst,
         pixel_aspect_ratio=cli.pixel_aspect_ratio,
+        channels=cli.channels or "all",
         workers=cli.workers or 6,
         exrmetrics_threads=cli.exrmetrics_threads or 6,
         engine=cli.engine or "auto",
@@ -162,14 +165,25 @@ def tasks_from_cli(cli: argparse.Namespace) -> tuple[list[FrameTask], ConvertOpt
 def select_engine(options: ConvertOptions) -> str:
     if options.engine != "auto":
         return options.engine
-    if options.resize or options.ocio_config or options.ocio_src or options.ocio_dst or options.pixel_aspect_ratio:
+    if options.resize or options.ocio_config or options.ocio_src or options.ocio_dst or options.pixel_aspect_ratio or options.channels != "all":
         return "oiiotool"
     if options.compression.lower() == "dwaa":
         return "exrmetrics"
     return "oiiotool"
 
 
-def validate_tools(engine: str) -> None:
+def validate_tools(engine: str, options: ConvertOptions) -> None:
+    if options.channels not in {"all", "rgb"}:
+        raise ValueError("channels must be 'all' or 'rgb'")
+    if engine == "exrmetrics" and (
+        options.resize
+        or options.ocio_config
+        or options.ocio_src
+        or options.ocio_dst
+        or options.pixel_aspect_ratio
+        or options.channels != "all"
+    ):
+        raise ValueError("exrmetrics only supports pure recompress with channels='all'")
     if engine == "exrmetrics" and not EXRMETRICS.exists():
         raise FileNotFoundError(f"Missing exrmetrics: {EXRMETRICS}")
     if engine == "oiiotool" and not OIIOTOOL.exists():
@@ -204,6 +218,9 @@ def build_oiiotool_command(task: FrameTask, options: ConvertOptions) -> tuple[li
         args.extend(["--colorconfig", options.ocio_config])
 
     args.append(str(task.src))
+
+    if options.channels == "rgb":
+        args.extend(["--ch", "R,G,B"])
 
     if options.resize:
         resize = options.resize
@@ -285,7 +302,7 @@ def frame_result(
 
 def run_tasks(tasks: list[FrameTask], options: ConvertOptions) -> dict[str, Any]:
     engine = select_engine(options)
-    validate_tools(engine)
+    validate_tools(engine, options)
     started = time.perf_counter()
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=options.workers) as executor:
@@ -313,6 +330,7 @@ def run_tasks(tasks: list[FrameTask], options: ConvertOptions) -> dict[str, Any]
             "ocio_src": options.ocio_src,
             "ocio_dst": options.ocio_dst,
             "pixel_aspect_ratio": options.pixel_aspect_ratio,
+            "channels": options.channels,
             "exrmetrics_threads": options.exrmetrics_threads,
             "overwrite": options.overwrite,
             "dry_run": options.dry_run,
@@ -334,6 +352,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--ocio-src", help="Source colorspace for --colorconvert.")
     parser.add_argument("--ocio-dst", help="Destination colorspace for --colorconvert.")
     parser.add_argument("--pixel-aspect-ratio", type=float, help="Set output EXR PixelAspectRatio metadata.")
+    parser.add_argument("--channels", choices=["all", "rgb"], help="Output channel policy. Default: all.")
     parser.add_argument("--workers", type=int, help="Parallel frame workers. Default: 6.")
     parser.add_argument("--exrmetrics-threads", type=int, help="Threads per exrmetrics process. Default: 6.")
     parser.add_argument("--engine", choices=["auto", "exrmetrics", "oiiotool"], help="Conversion backend.")

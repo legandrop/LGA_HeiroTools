@@ -40,6 +40,7 @@ Cada task debe tener el path de entrada y el path final de salida. Si tu herrami
   "dwa_level": 60,
   "workers": 6,
   "overwrite": true,
+  "channels": "all",
   "pixel_aspect_ratio": 1.0,
   "resize": {
     "width": 3840,
@@ -70,6 +71,13 @@ Si `src` o `dst` son relativos, se resuelven relativos a la carpeta donde esta e
 
 `pixel_aspect_ratio` es opcional. Si esta presente, escribe la metadata EXR `PixelAspectRatio` en el output.
 
+`channels` es opcional y acepta:
+
+- `"all"`: conserva los canales originales del EXR. Es el default.
+- `"rgb"`: conserva solo `R,G,B` y descarta el resto de canales.
+
+Cuando `channels` es `"rgb"`, el converter usa `oiiotool` con `--ch R,G,B`.
+
 ## Desanamorphic / Bake Desqueeze
 
 Para desanamorfizar un EXR anamorphic PAR 2, la UI debe calcular el ancho final y pedir `PixelAspectRatio = 1`.
@@ -89,6 +97,7 @@ Manifest:
   "dwa_level": 60,
   "workers": 6,
   "overwrite": true,
+  "channels": "rgb",
   "pixel_aspect_ratio": 1.0,
   "resize": {
     "width": 7680,
@@ -136,6 +145,7 @@ El modo default es `--engine auto`.
 - Con OCIO: usa `oiiotool`.
 - Con resize + OCIO: usa `oiiotool`.
 - Con cambio de `PixelAspectRatio`: usa `oiiotool`.
+- Con `channels: "rgb"`: usa `oiiotool`.
 
 Motivo: en los benchmarks, `exrmetrics` fue mas rapido para recompress puro EXR -> DWAA, pero no cubre resize ni OCIO. Para transformaciones de imagen, el camino final es `oiiotool` paralelo por frame.
 
@@ -151,6 +161,7 @@ Motivo: en los benchmarks, `exrmetrics` fue mas rapido para recompress puro EXR 
 - `--ocio-src`: colorspace de entrada.
 - `--ocio-dst`: colorspace de salida.
 - `--pixel-aspect-ratio`: escribe metadata EXR `PixelAspectRatio` en el output.
+- `--channels`: `all` conserva canales originales; `rgb` conserva solo `R,G,B`.
 - `--workers`: procesos/frames paralelos, default `6`.
 - `--exrmetrics-threads`: threads por proceso de `exrmetrics`, default `6`.
 - `--engine`: `auto`, `exrmetrics` u `oiiotool`.
@@ -174,7 +185,7 @@ Los benchmarks validaron metadata con `iinfo -v`.
 
 - `exrmetrics --convert` preservo metadata en recompress puro.
 - `oiiotool` se ejecuta con `--nosoftwareattrib` para evitar agregar historial de software.
-- Cambios esperados: compresion/DWA, dimensiones/ventanas cuando hay resize, y `PixelAspectRatio` si fue pedido.
+- Cambios esperados: compresion/DWA, dimensiones/ventanas cuando hay resize, `PixelAspectRatio` si fue pedido, y lista de canales si `channels` es `rgb`.
 
 ## Notas De Portabilidad
 
