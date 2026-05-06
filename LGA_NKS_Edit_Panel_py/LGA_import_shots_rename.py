@@ -405,7 +405,7 @@ def _mark_collisions(preview_rows: list[dict]):
             src_norm = os.path.normcase(os.path.normpath(op.src))
             if dst_norm == src_norm:
                 continue
-            if os.path.exists(op.dst) and dst_norm not in planned_src:
+            if os.path.exists(op.dst) and dst_norm not in planned_src and os.path.exists(op.src):
                 pr["blocked"] = True
                 pr["status"] = "Destino ya existe"
                 break

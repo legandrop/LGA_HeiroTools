@@ -61,23 +61,24 @@ cleanup=`#27c8c3`, dmp=`#e08033`. La barra nunca se grisea aunque la fila esté 
 
 Todas las columnas de contenido (2, 4, 5, 6, 7) son **resizables** por el usuario.
 
-### Comportamiento de cols 4, 6 y 7 según checkbox
+### Comportamiento de cols según checkbox
 
-| Condición | Renamed (4) | Folder Renamed (6) | Estado (7) |
-|-----------|-------------|-------------------|------------|
-| Activo, con cambios | preview coloreado | preview coloreado | `Pendiente` cian |
-| Activo, sin cambios | nombre igual | folder igual | `Sin cambios` gris |
-| Desactivado por usuario | `—` `#444444` | `—` `#444444` | `—` `#444444` |
-| Bloqueado (mismatch, conflicto) | `—` `#444444` | `—` `#444444` | warning rojo |
+Los colores de preview (original y renamed) solo se muestran para filas con checkbox activo.
+Filas bloqueadas (mismatch, conflicto) y filas desactivadas por el usuario muestran siempre
+texto plano `#a7a7a7`, sin ningún resaltado de cambio.
 
-Consistente con la tabla Transcode: checkbox off → `—` gris oscuro en lugar de vacío.
-La actualización es en vivo mediante `_on_rename_chk_changed(row_i)`.
+| Condición | Original (2) | Folder Orig (5) | Renamed (4) | Folder Renamed (6) | Estado (7) |
+|-----------|-------------|-----------------|-------------|-------------------|------------|
+| Activo, con cambios | coloreado | coloreado | preview coloreado | preview coloreado | `Pendiente` cian |
+| Activo, sin cambios | nombre igual | folder igual | nombre igual | folder igual | `Sin cambios` gris |
+| Desactivado por usuario | plano `#a7a7a7` | plano `#a7a7a7` | `—` `#444444` | `—` `#444444` | `—` `#444444` |
+| Bloqueado (mismatch, conflicto) | plano `#a7a7a7` | plano `#a7a7a7` | `—` `#444444` | `—` `#444444` | warning rojo |
 
 La **barra de color** (col 0) siempre usa el color de sección/tarea, independientemente de
 si la fila está bloqueada o desactivada.
 
-Esta actualización es en vivo (sin recalcular el preview completo) mediante
-`_on_rename_chk_changed(row_i)`.
+La actualización de cols 2, 4, 5, 6, 7 es en vivo (sin recalcular el preview completo)
+mediante `_on_rename_chk_changed(row_i)`.
 
 ### Estructura interna: display rows
 
@@ -118,14 +119,14 @@ Cada etapa tiene color propio, reutilizando la paleta ya existente de transcode:
 
 ## Reglas de bloqueo
 
-Una fila queda en gris y excluida del rename cuando:
+Una fila queda bloqueada y excluida del rename cuando:
 
-- Secuencia EXR: nombre de carpeta distinto del prefijo de secuencia.
-  - Ejemplo valido:
-    - carpeta: `TEST_013_030_aPlate_v01`
-    - secuencia: `TEST_013_030_aPlate_v01_1001.exr`
-- El destino colisiona con un path existente que no esta dentro del mismo batch.
-- Dos filas del batch apuntan al mismo destino final.
+- **Mismatch carpeta/secuencia**: en secuencias EXR el nombre de carpeta difiere del prefijo.
+  - Ejemplo válido: carpeta `TEST_013_030_aPlate_v01` + secuencia `TEST_013_030_aPlate_v01_####.exr`
+- **Conflicto de destino**: el destino ya existe en disco Y la fuente (`op.src`) también existe
+  (ambas condiciones necesarias; si la fuente ya no existe significa que el rename fue exitoso
+  y no hay conflicto real).
+- **Destino duplicado en batch**: dos filas del mismo batch apuntan al mismo destino final.
 
 ## Ejecucion segura
 
@@ -135,6 +136,24 @@ La ejecucion usa dos fases para minimizar conflictos:
 2. Renombra temporales a destinos finales.
 
 Incluye rollback basico si falla durante la segunda fase.
+
+## Refresh de la tabla tras rename exitoso
+
+Después de que `execute_ops` completa sin errores, `_run_rename` hace:
+
+1. **Actualiza `self._table_rows`**: recorre todas las filas de la tabla principal y actualiza
+   `item["path"]`, `item["name"]` e `item["first_file"]` para los ítems renombrados, usando
+   el mapping `old_path → new_path` construido antes de ejecutar.
+2. **`_update_rename_page()`**: reconstruye `_rename_selected_rows` desde los ítems actualizados
+   (ya sin rutas obsoletas que causarían falsos "Destino ya existe").
+3. **`_refresh_rename_preview()`**: reconstruye la tabla de rename con el estado actualizado.
+4. **Restaura checkboxes**: por cada checkbox de la tabla de rename que existía antes, si su
+   nuevo estado difiere del guardado, lo restaura llamando `chk.setChecked(was_checked)`, lo
+   que dispara `_on_rename_chk_changed` y actualiza las celdas visualmente.
+
+Los checkboxes de la **tabla principal** (`self._checkboxes`) no cambian.
+Cuando el usuario vuelve a PAGE_MEDIA, `_rename_happened = True` dispara `_refresh_media_page()`
+que re-escanea el disco y reconstruye la tabla principal con los nombres actualizados.
 
 ## Persistencia de settings
 

@@ -423,14 +423,14 @@ def _scan_input_folder(shot_root):
 
     items = []
 
-    # 1. Subcarpetas → secuencias EXR
+    # 1. Subcarpetas ➜ secuencias EXR
     try:
         subdirs = sorted(d for d in input_dir.iterdir() if d.is_dir())
     except Exception:
         subdirs = []
 
     # Agrupar por nombre base (sin version) para detectar la mas alta
-    plate_groups = {}  # base_key → [subdir, ...]
+    plate_groups = {}  # base_key ➜ [subdir, ...]
     for sd in subdirs:
         first_f, last_f, count, first_file = _scan_exr_sequence(str(sd))
         if count == 0:
@@ -896,6 +896,11 @@ def _section_label(text):
     return lbl
 
 
+def _rn_escape(text):
+    """Minimal HTML escape para nombres de archivo."""
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
 def _cell_html_label(html, bg="#272727"):
     """QLabel con HTML coloreado para usar como cellWidget en tablas.
     Transparente a eventos de mouse para que el cellClicked de la tabla
@@ -1157,7 +1162,7 @@ class _ResPresetListView(QtWidgets.QListView):
                         text = m.data(m.index(row, 0)) or ""
                         if self._is_deletable(text) and self._in_trash_zone(row, event.pos()):
                             self._on_delete(row)
-                            return True  # consumir → no seleccionar ni cerrar popup
+                            return True  # consumir ➜ no seleccionar ni cerrar popup
         return super(_ResPresetListView, self).eventFilter(obj, event)
 
 
@@ -1577,7 +1582,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         text_color = row_data.get("text_color", color)
         label = row_data["label"]
 
-        # Para PUBLISH, usar gradiente de colores (cleanup → roto → comp)
+        # Para PUBLISH, usar gradiente de colores (cleanup ➜ roto ➜ comp)
         if label == "PUBLISH":
             gradient = QtGui.QLinearGradient(0, 0, 0, 1)
             gradient.setCoordinateMode(QtGui.QGradient.ObjectBoundingMode)
@@ -1918,6 +1923,12 @@ class ImportShotDialog(QtWidgets.QDialog):
             return
         is_checked = chk.isChecked()
         _dash = "<span style='color:#444444;'>—</span>"
+        _plain = "<span style='color:#a7a7a7;'>%s</span>"
+        # Cols 2 y 5 (original): colores solo si checkbox activado
+        orig_disp = it.get("original_html", "") if is_checked else (_plain % _rn_escape(it.get("original_name", "")))
+        fold_orig_disp = it.get("folder_original_html", "") if is_checked else (_plain % _rn_escape(it.get("folder_name", "")))
+        self._rename_table.setCellWidget(row_i, 2, _cell_html_label(orig_disp))
+        self._rename_table.setCellWidget(row_i, 5, _cell_html_label(fold_orig_disp))
         self._rename_table.setCellWidget(
             row_i, 4,
             _cell_html_label(it.get("renamed_html", "") if is_checked else _dash)
@@ -1954,7 +1965,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_table = QtWidgets.QTableWidget()
         self._rename_table.setColumnCount(8)
         self._rename_table.setHorizontalHeaderLabels(
-            ["", "", "Original", "→", "Renamed", "Folder Original", "Folder Renamed", "Estado"]
+            ["", "", "Original", "➜", "Renamed", "Folder Original", "Folder Renamed", "Estado"]
         )
         _estado_hdr = self._rename_table.horizontalHeaderItem(7)
         if _estado_hdr:
@@ -2272,25 +2283,26 @@ class ImportShotDialog(QtWidgets.QDialog):
             cl.addWidget(chk)
             self._rename_table.setCellWidget(i, 1, cbox)
 
-            self._rename_table.setCellWidget(i, 2, _cell_html_label(it.get("original_html", "")))
-            arrow = QtWidgets.QTableWidgetItem("→")
+            _dash = "<span style='color:#444444;'>—</span>"
+            _plain = "<span style='color:#a7a7a7;'>%s</span>"
+            # Col 2 (original): colores solo si no bloqueado (checkbox activo por defecto)
+            orig_disp = it.get("original_html", "") if not blocked else (_plain % _rn_escape(it.get("original_name", "")))
+            self._rename_table.setCellWidget(i, 2, _cell_html_label(orig_disp))
+            arrow = QtWidgets.QTableWidgetItem("➜")
             arrow.setForeground(QtGui.QColor("#444444" if blocked else "#666666"))
             arrow.setTextAlignment(QtCore.Qt.AlignCenter)
             self._rename_table.setItem(i, 3, arrow)
 
-            # Fix 1: checkbox off → "—" gris (consistente con transcode)
-            # Fix 3: blocked siempre muestra el warning, nunca vacío
-            _dash = "<span style='color:#444444;'>—</span>"
             if blocked:
-                # Blocked: mostrar warning en Renamed/FolderRenamed y estado de error
+                # Bloqueado: sin colores en original, "—" en renamed, estado de error
                 self._rename_table.setCellWidget(i, 4, _cell_html_label(_dash))
-                self._rename_table.setCellWidget(i, 5, _cell_html_label(it.get("folder_original_html", "")))
+                self._rename_table.setCellWidget(i, 5, _cell_html_label(
+                    _plain % _rn_escape(it.get("folder_name", ""))))
                 self._rename_table.setCellWidget(i, 6, _cell_html_label(_dash))
                 st_html = "<span style='color:%s;'>%s</span>" % (
                     _CLR_STATUS_UPSCALE, it.get("status", "Bloqueado"))
             else:
-                # No bloqueado: checked=True → preview completo; checked=False → "—"
-                is_checked = True  # inicialmente activo
+                # No bloqueado: checkbox activo por defecto ➜ preview completo con colores
                 self._rename_table.setCellWidget(
                     i, 4, _cell_html_label(it.get("renamed_html", "")))
                 self._rename_table.setCellWidget(i, 5, _cell_html_label(it.get("folder_original_html", "")))
@@ -2343,6 +2355,32 @@ class ImportShotDialog(QtWidgets.QDialog):
                 if row.get("blocked") or not row.get("has_changes"):
                     continue
                 to_apply.append(row)
+
+        # Guardar estado de checkboxes ANTES de ejecutar para restaurarlos después
+        saved_chk = {
+            idx: chk.isChecked()
+            for idx, chk in self._rename_checkboxes.items()
+        }
+
+        # Construir mapping old_path → new_path para actualizar self._table_rows tras éxito
+        old_to_new = {}
+        for pr in to_apply:
+            old_path = pr.get("item_path") or pr.get("folder_path", "")
+            if pr.get("is_sequence"):
+                new_folder = str(Path(pr["folder_path"]).parent / pr["target_folder_name"])
+                old_to_new[os.path.normcase(os.path.normpath(old_path))] = {
+                    "new_path": new_folder,
+                    "new_name": pr["target_folder_name"],
+                    "is_sequence": True,
+                }
+            else:
+                new_file = str(Path(pr["item_path"]).with_name(pr["renamed_name"]))
+                old_to_new[os.path.normcase(os.path.normpath(old_path))] = {
+                    "new_path": new_file,
+                    "new_name": pr["renamed_name"],
+                    "is_sequence": False,
+                }
+
         if Rename_Test_mode:
             QtWidgets.QMessageBox.information(
                 self,
@@ -2366,14 +2404,48 @@ class ImportShotDialog(QtWidgets.QDialog):
         applied = int(result.get("applied", 0))
         if applied > 0:
             self._rename_happened = True
+
+            # Actualizar rutas en self._table_rows para reflejar los items renombrados
+            for row_data in self._table_rows:
+                if row_data.get("type") != "data":
+                    continue
+                item = row_data["item"]
+                item_path_norm = os.path.normcase(os.path.normpath(str(item.get("path", ""))))
+                if item_path_norm in old_to_new:
+                    mapping = old_to_new[item_path_norm]
+                    item["path"] = mapping["new_path"]
+                    item["name"] = mapping["new_name"]
+                    if mapping["is_sequence"]:
+                        try:
+                            new_folder_p = Path(mapping["new_path"])
+                            if new_folder_p.exists():
+                                exr_files = sorted(
+                                    f for f in new_folder_p.iterdir()
+                                    if f.is_file() and f.suffix.lower() == ".exr"
+                                )
+                                if exr_files:
+                                    item["first_file"] = str(exr_files[0])
+                        except Exception:
+                            pass
+                    else:
+                        item["first_file"] = mapping["new_path"]
+
             self._update_rename_page()
+
         self._refresh_rename_preview()
+
+        # Restaurar estados de checkboxes tal como estaban antes del rename
+        for idx, was_checked in saved_chk.items():
+            if idx in self._rename_checkboxes:
+                chk = self._rename_checkboxes[idx]
+                if chk.isEnabled() and chk.isChecked() != was_checked:
+                    chk.setChecked(was_checked)
 
     # ══════════════════════════════════════════════════════════
     #  PAGINA: Transcode Plates
     # ══════════════════════════════════════════════════════════
 
-    # Presets de resolución: label → (W, H) o None (original)
+    # Presets de resolución: label ➜ (W, H) o None (original)
     _COMBO_STYLE = (
         "QComboBox { background-color:#272727; border:1px solid #444; "
         "color:#a7a7a7; padding:3px 6px; }"
@@ -2429,11 +2501,11 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         # Tabla de plates a transcodear
         # col 0: barra color (10px)  col 1: checkbox (28px)
-        # col 2: Nombre  col 3: Origen  col 4: →  col 5: Destino  col 6: Tamaño  col 7: Estado
+        # col 2: Nombre  col 3: Origen  col 4: ➜  col 5: Destino  col 6: Tamaño  col 7: Estado
         self._convert_table = QtWidgets.QTableWidget()
         self._convert_table.setColumnCount(8)
         self._convert_table.setHorizontalHeaderLabels(
-            ["", "", "Nombre", "Origen", "→", "Destino", "Tamaño", "Estado"]
+            ["", "", "Nombre", "Origen", "➜", "Destino", "Tamaño", "Estado"]
         )
         self._convert_table.verticalHeader().setVisible(False)
         self._convert_table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
@@ -2933,7 +3005,7 @@ class ImportShotDialog(QtWidgets.QDialog):
                         comp_ar = _ar_str(tw, th)
                         ar_part = ("  [%s]" % comp_ar) if comp_ar else ""
                         self._res_combo.setItemText(
-                            i, "%s  →  %d×%d%s" % (base, tw, th, ar_part))
+                            i, "%s  ➜  %d×%d%s" % (base, tw, th, ar_part))
                     else:
                         self._res_combo.setItemText(i, base)
                 else:
@@ -2957,7 +3029,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             base = ("%s  [%s]" % (label, preset_ar)) if preset_ar else label
             ar_part = ("  [%s]" % computed_ar) if computed_ar else ""
             self._res_combo.setItemText(
-                i, "%s  →  %d×%d%s" % (base, tw, th, ar_part))
+                i, "%s  ➜  %d×%d%s" % (base, tw, th, ar_part))
 
     def _on_dwaa_chk_changed(self, state):
         """Muestra u oculta el control de DWAA level según el estado del checkbox."""
@@ -3166,14 +3238,14 @@ class ImportShotDialog(QtWidgets.QDialog):
 
     @staticmethod
     def _fmt_bd(bd):
-        """Convierte 'half'→'16b', 'float'→'32b'. Resto se muestra tal cual."""
+        """Convierte 'half'➜'16b', 'float'➜'32b'. Resto se muestra tal cual."""
         if bd == "half":   return "16b"
         if bd == "float":  return "32b"
         return bd or "—"
 
     @staticmethod
     def _fmt_par(par):
-        """Formatea PAR numérico para display: 1.0→'1', 2.0→'2', 1.33→'1.33'."""
+        """Formatea PAR numérico para display: 1.0➜'1', 2.0➜'2', 1.33➜'1.33'."""
         if par is None:
             return None
         v = float(par)
@@ -3351,7 +3423,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             self._convert_table.setCellWidget(i, 3, _cell_html_label(origen_html))
 
             # Col 4: flecha
-            arrow = QtWidgets.QTableWidgetItem("→")
+            arrow = QtWidgets.QTableWidgetItem("➜")
             arrow.setForeground(QtGui.QColor("#444444" if is_mov else "#666666"))
             arrow.setTextAlignment(QtCore.Qt.AlignCenter)
             self._convert_table.setItem(i, 4, arrow)
