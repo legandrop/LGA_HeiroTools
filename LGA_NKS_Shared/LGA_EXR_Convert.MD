@@ -40,6 +40,7 @@ Cada task debe tener el path de entrada y el path final de salida. Si tu herrami
   "dwa_level": 60,
   "workers": 6,
   "overwrite": true,
+  "pixel_aspect_ratio": 1.0,
   "resize": {
     "width": 3840,
     "height": 2160,
@@ -66,6 +67,45 @@ Cada task debe tener el path de entrada y el path final de salida. Si tu herrami
 `resize` y `ocio` pueden ser `null` o estar ausentes.
 
 Si `src` o `dst` son relativos, se resuelven relativos a la carpeta donde esta el manifest. Si `ocio.config` es relativo, se resuelve relativo a `LGA_NKS_Shared`.
+
+`pixel_aspect_ratio` es opcional. Si esta presente, escribe la metadata EXR `PixelAspectRatio` en el output.
+
+## Desanamorphic / Bake Desqueeze
+
+Para desanamorfizar un EXR anamorphic PAR 2, la UI debe calcular el ancho final y pedir `PixelAspectRatio = 1`.
+
+Ejemplo:
+
+```text
+input:  3840 x 2160, PAR 2
+output: 7680 x 2160, PAR 1
+```
+
+Manifest:
+
+```json
+{
+  "compression": "dwaa",
+  "dwa_level": 60,
+  "workers": 6,
+  "overwrite": true,
+  "pixel_aspect_ratio": 1.0,
+  "resize": {
+    "width": 7680,
+    "height": 2160,
+    "filter": "lanczos3"
+  },
+  "ocio": null,
+  "tasks": [
+    {
+      "src": "T:/in/plate_1001.exr",
+      "dst": "D:/out/plate_1001.exr"
+    }
+  ]
+}
+```
+
+No usar `--pixelaspect 2` de OIIO para bakear el desqueeze. Para bake desanamorphic se usa resize calculado por la UI y se escribe `PixelAspectRatio = 1`.
 
 ## Uso Manual
 
@@ -95,6 +135,7 @@ El modo default es `--engine auto`.
 - Con resize: usa `oiiotool`.
 - Con OCIO: usa `oiiotool`.
 - Con resize + OCIO: usa `oiiotool`.
+- Con cambio de `PixelAspectRatio`: usa `oiiotool`.
 
 Motivo: en los benchmarks, `exrmetrics` fue mas rapido para recompress puro EXR -> DWAA, pero no cubre resize ni OCIO. Para transformaciones de imagen, el camino final es `oiiotool` paralelo por frame.
 
@@ -109,6 +150,7 @@ Motivo: en los benchmarks, `exrmetrics` fue mas rapido para recompress puro EXR 
 - `--ocio-config`: ruta a `config.ocio`.
 - `--ocio-src`: colorspace de entrada.
 - `--ocio-dst`: colorspace de salida.
+- `--pixel-aspect-ratio`: escribe metadata EXR `PixelAspectRatio` en el output.
 - `--workers`: procesos/frames paralelos, default `6`.
 - `--exrmetrics-threads`: threads por proceso de `exrmetrics`, default `6`.
 - `--engine`: `auto`, `exrmetrics` u `oiiotool`.
@@ -132,7 +174,7 @@ Los benchmarks validaron metadata con `iinfo -v`.
 
 - `exrmetrics --convert` preservo metadata en recompress puro.
 - `oiiotool` se ejecuta con `--nosoftwareattrib` para evitar agregar historial de software.
-- Cambios esperados: compresion/DWA y dimensiones/ventanas cuando hay resize.
+- Cambios esperados: compresion/DWA, dimensiones/ventanas cuando hay resize, y `PixelAspectRatio` si fue pedido.
 
 ## Notas De Portabilidad
 

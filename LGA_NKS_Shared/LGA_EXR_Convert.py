@@ -32,6 +32,7 @@ class ConvertOptions:
     ocio_config: str | None = None
     ocio_src: str | None = None
     ocio_dst: str | None = None
+    pixel_aspect_ratio: float | None = None
     workers: int = 6
     exrmetrics_threads: int = 6
     engine: str = "auto"
@@ -120,6 +121,11 @@ def load_manifest(path: Path, cli: argparse.Namespace) -> tuple[list[FrameTask],
         ocio_config=resolve_relative_path(cli.ocio_config or ocio.get("config"), SHARED_DIR),
         ocio_src=cli.ocio_src or ocio.get("src_colorspace"),
         ocio_dst=cli.ocio_dst or ocio.get("dst_colorspace"),
+        pixel_aspect_ratio=(
+            cli.pixel_aspect_ratio
+            if cli.pixel_aspect_ratio is not None
+            else data.get("pixel_aspect_ratio")
+        ),
         workers=cli.workers or int(data.get("workers", 6)),
         exrmetrics_threads=cli.exrmetrics_threads or int(data.get("exrmetrics_threads", 6)),
         engine=cli.engine or data.get("engine", "auto"),
@@ -143,6 +149,7 @@ def tasks_from_cli(cli: argparse.Namespace) -> tuple[list[FrameTask], ConvertOpt
         ocio_config=resolve_relative_path(cli.ocio_config, SHARED_DIR),
         ocio_src=cli.ocio_src,
         ocio_dst=cli.ocio_dst,
+        pixel_aspect_ratio=cli.pixel_aspect_ratio,
         workers=cli.workers or 6,
         exrmetrics_threads=cli.exrmetrics_threads or 6,
         engine=cli.engine or "auto",
@@ -155,7 +162,7 @@ def tasks_from_cli(cli: argparse.Namespace) -> tuple[list[FrameTask], ConvertOpt
 def select_engine(options: ConvertOptions) -> str:
     if options.engine != "auto":
         return options.engine
-    if options.resize or options.ocio_config or options.ocio_src or options.ocio_dst:
+    if options.resize or options.ocio_config or options.ocio_src or options.ocio_dst or options.pixel_aspect_ratio:
         return "oiiotool"
     if options.compression.lower() == "dwaa":
         return "exrmetrics"
@@ -208,6 +215,9 @@ def build_oiiotool_command(task: FrameTask, options: ConvertOptions) -> tuple[li
         args.extend(["--colorconvert", options.ocio_src, options.ocio_dst])
     elif options.ocio_src or options.ocio_dst:
         raise ValueError("OCIO conversion requires both ocio src and ocio dst colorspaces")
+
+    if options.pixel_aspect_ratio is not None:
+        args.extend(["--attrib:type=float", "PixelAspectRatio", str(options.pixel_aspect_ratio)])
 
     args.extend(["--compression", compression, "--nosoftwareattrib", "-o", str(task.dst)])
     return args, tool_env(OIIOTOOL.parent)
@@ -302,6 +312,7 @@ def run_tasks(tasks: list[FrameTask], options: ConvertOptions) -> dict[str, Any]
             "ocio_config": options.ocio_config,
             "ocio_src": options.ocio_src,
             "ocio_dst": options.ocio_dst,
+            "pixel_aspect_ratio": options.pixel_aspect_ratio,
             "exrmetrics_threads": options.exrmetrics_threads,
             "overwrite": options.overwrite,
             "dry_run": options.dry_run,
@@ -322,6 +333,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--ocio-config", help="OCIO config.ocio path.")
     parser.add_argument("--ocio-src", help="Source colorspace for --colorconvert.")
     parser.add_argument("--ocio-dst", help="Destination colorspace for --colorconvert.")
+    parser.add_argument("--pixel-aspect-ratio", type=float, help="Set output EXR PixelAspectRatio metadata.")
     parser.add_argument("--workers", type=int, help="Parallel frame workers. Default: 6.")
     parser.add_argument("--exrmetrics-threads", type=int, help="Threads per exrmetrics process. Default: 6.")
     parser.add_argument("--engine", choices=["auto", "exrmetrics", "oiiotool"], help="Conversion backend.")
