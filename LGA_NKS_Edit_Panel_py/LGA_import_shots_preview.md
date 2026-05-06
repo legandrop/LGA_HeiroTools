@@ -43,11 +43,17 @@ La tabla NO usa el look estándar de las otras secciones (Rename, Transcode). Su
 |-----|-----------|-------|
 | 0 | Barra de color de track (4 px) | 10 px fijo |
 | 1 | Nombre del track | 130 px fijo |
-| 2 | Timeline unificado: anterior \| nuevo \| siguiente | stretch |
+| 2 | **Shot Anterior** — eje temporal del shot previo | stretch igual |
+| 3 | **Shot Nuevo** — eje temporal del shot importado | stretch igual |
+| 4 | **Shot Siguiente** — eje temporal del shot siguiente | stretch igual |
 
-La columna 2 es un único widget (`_build_timeline_row_widget`) con eje de tiempo
-compartido para las tres zonas. Los clips se ven adyacentes cuando son contiguos
-en el timeline, sin separadores visuales entre zonas.
+Cada columna representa un **shot completo** con su propio eje de tiempo independiente:
+
+- **Shot Anterior**: el rango temporal va desde el `tl_in` mínimo hasta el `tl_out` máximo de todos los before clips en el timeline. El clip más largo llena el 100 % de la columna. Clips más cortos o desplazados se posicionan con offset proporcional según su `tl_in` relativo al inicio del shot.
+- **Shot Nuevo**: todos los clips empiezan en TC 0 (sin offset). El clip con más frames llena el 100 %. Otros clips se escalan proporcionalmente.
+- **Shot Siguiente**: igual que Shot Anterior pero para los after clips.
+
+Entre columnas hay un separador visual de 2-4 px (padding de celdas).
 
 ### Aspecto de los chips
 
@@ -60,30 +66,48 @@ El color de TODOS los chips (anterior, nuevo, siguiente) se deriva del mismo col
 
 La función `mix_colors(hex_color, base="#1a1a1a", factor)` interpola linealmente entre `hex_color` (factor=1.0) y `base` (factor=0.0).
 
-### Timeline unificado y anchos proporcionales
+### Anchos proporcionales por columna (K = 1000)
 
-La columna de timeline (col 2) usa un único widget (`_build_timeline_row_widget`) con un eje de tiempo compartido. Esto evita separadores visuales artificiales entre zonas y permite que clips adyacentes aparezcan sin espacios.
+Cada columna usa `K = 1000` unidades de stretch. Los chips se construyen con `QHBoxLayout` usando `addWidget(label, chip_K)` y `addStretch(trail_K)`.
 
-**Referencia:** `ref_dur = max(max_new_clip_duration, frames_to_push, 1)`
-
-**K = 1000 unidades por zona, 3000 en total:**
+**Shot Anterior** (`_build_before_cell`):
 
 ```
-Zona 1 (antes):    [left_spacer] [before_chip] [before_gap]
-Zona 2 (nuevo):    [new_chip] [new_trail]
-Zona 3 (después):  [after_offset] [after_chip] [after_trail]
+shot_start = min(tl_in de todos los before clips)
+shot_dur   = max(tl_out) − shot_start + 1
+
+offset_K   = (clip.tl_in − shot_start) / shot_dur × K
+chip_K     = clip.duration / shot_dur × K
+trail_K    = K − offset_K − chip_K
+
+layout: [spacer(offset_K)] [chip(chip_K)] [spacer(trail_K)]
 ```
 
-- `before_chip_K = min(1, before_dur/ref_dur) × 1000`
-- `before_gap_K = min(1, (insert_frame − tl_out − 1) / ref_dur) × 1000`
-  → gap entre fin del clip anterior y el insert_frame
-- `new_chip_K = min(1, new_dur/ref_dur) × 1000`
-  → el clip de duración máxima ocupa todos los 1000 de la zona
-- `after_offset_K = min(1, (frames_to_push − new_dur) / ref_dur) × 1000`
-  → gap entre fin del nuevo clip (para este track) y inicio del siguiente
-- `after_chip_K = min(1, after_dur/ref_dur) × 1000`
+**Shot Nuevo** (`_build_new_cell`):
 
-Cuando dos clips son adyacentes en el timeline (gap=0), sus chips quedan visualmente pegados. Las duraciones se loguean con `debug_print` para cada fila.
+```
+shot_dur = max(frame_count de todos los clips nuevos)
+
+chip_K   = clip.frame_count / shot_dur × K   (sin offset)
+trail_K  = K − chip_K
+
+layout: [chip(chip_K)] [spacer(trail_K)]
+```
+
+**Shot Siguiente** (`_build_after_cell`):
+
+```
+shot_start = min(tl_in de todos los after clips)
+shot_dur   = max(tl_out) − shot_start + 1
+
+offset_K   = (clip.tl_in − shot_start) / shot_dur × K
+chip_K     = clip.duration / shot_dur × K
+trail_K    = K − offset_K − chip_K
+
+layout: [spacer(offset_K)] [chip(chip_K)] [spacer(trail_K)]
+```
+
+Las métricas (`before_shot_start`, `before_shot_dur`, etc.) se calculan **globalmente** en `_populate_import_table` antes de iterar los tracks, para que todos los clips se comparen contra el mismo eje temporal. Los cálculos se loguean con `debug_print` usando prefijos `[before_cell]`, `[new_cell]`, `[after_cell]`.
 
 ### Colores de barra de track
 
@@ -254,7 +278,7 @@ Orquesta la importación completa:
 | Archivo | Función / Clase |
 |---------|----------------|
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_preview.py` | `build_import_preview_data`, `classify_track_type`, `mix_colors`, `_find_adjacent_clips`, `set_debug_print`, `_log` |
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `ImportShotDialog._build_page_import`, `_update_import_page`, `_populate_import_table`, `_build_timeline_row_widget`, `_go_to_import`, `_do_import`, `_make_chip_label`, `_build_track_combo`, `_on_track_combo_changed`, `_inject_preview_logger`, `_track_bar_color`, `_item_section_color`, `_fmt_duration` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `ImportShotDialog._build_page_import`, `_update_import_page`, `_populate_import_table`, `_build_before_cell`, `_build_new_cell`, `_build_after_cell`, `_go_to_import`, `_do_import`, `_make_chip_label`, `_build_track_combo`, `_on_track_combo_changed`, `_inject_preview_logger`, `_track_bar_color`, `_item_section_color`, `_fmt_duration` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `_find_or_create_shot_bin`, `_import_item_to_bin`, `_place_clip_in_timeline` |
 
 ### Documentación relacionada
