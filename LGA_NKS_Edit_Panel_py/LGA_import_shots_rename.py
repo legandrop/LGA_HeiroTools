@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -42,7 +43,7 @@ def _colorize(text: str, colors_by_index: dict[int, str]) -> str:
             if cur:
                 raw = "".join(cur)
                 if cur_color:
-                    chunks.append("<span style='color:%s;'>%s</span>" % (cur_color, _html_escape(raw)))
+                    chunks.append("<span style='color:%s; font-weight:600;'>%s</span>" % (cur_color, _html_escape(raw)))
                 else:
                     chunks.append("<span style='color:#a7a7a7;'>%s</span>" % _html_escape(raw))
             cur = [ch]
@@ -52,7 +53,7 @@ def _colorize(text: str, colors_by_index: dict[int, str]) -> str:
     if cur:
         raw = "".join(cur)
         if cur_color:
-            chunks.append("<span style='color:%s;'>%s</span>" % (cur_color, _html_escape(raw)))
+            chunks.append("<span style='color:%s; font-weight:600;'>%s</span>" % (cur_color, _html_escape(raw)))
         else:
             chunks.append("<span style='color:#a7a7a7;'>%s</span>" % _html_escape(raw))
     return "".join(chunks)
@@ -437,9 +438,47 @@ def build_row_ops(preview_row: dict) -> list[RenameOp]:
     return ops
 
 
-def execute_ops(rows_to_apply: list[dict]):
-    ops = []
+def _prepare_test_rows(rows_to_apply: list[dict], test_folder_name: str):
+    prepared = []
     for row in rows_to_apply:
+        cloned = dict(row)
+        if row.get("is_sequence"):
+            src_folder = Path(row.get("folder_path", ""))
+            if not src_folder.exists():
+                continue
+            sandbox_root = src_folder.parent / test_folder_name
+            sandbox_root.mkdir(parents=True, exist_ok=True)
+            cloned_folder = sandbox_root / src_folder.name
+            if cloned_folder.exists():
+                shutil.rmtree(str(cloned_folder), ignore_errors=True)
+            shutil.copytree(str(src_folder), str(cloned_folder))
+            cloned["folder_path"] = str(cloned_folder)
+            cloned["item_path"] = str(cloned_folder)
+            cloned["folder_name"] = cloned_folder.name
+            prepared.append(cloned)
+            continue
+
+        src_file = Path(row.get("item_path", ""))
+        if not src_file.exists():
+            continue
+        sandbox_root = src_file.parent / test_folder_name
+        sandbox_root.mkdir(parents=True, exist_ok=True)
+        cloned_file = sandbox_root / src_file.name
+        shutil.copy2(str(src_file), str(cloned_file))
+        cloned["item_path"] = str(cloned_file)
+        cloned["folder_path"] = str(cloned_file.parent)
+        cloned["folder_name"] = cloned_file.parent.name
+        prepared.append(cloned)
+    return prepared
+
+
+def execute_ops(rows_to_apply: list[dict], test_mode: bool = False, test_folder_name: str = "renamned"):
+    effective_rows = rows_to_apply
+    if test_mode:
+        effective_rows = _prepare_test_rows(rows_to_apply, test_folder_name)
+
+    ops = []
+    for row in effective_rows:
         ops.extend(build_row_ops(row))
     if not ops:
         return {"applied": 0, "errors": []}

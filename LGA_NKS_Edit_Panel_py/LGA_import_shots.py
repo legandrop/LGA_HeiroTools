@@ -80,6 +80,8 @@ rename_mod = importlib.import_module(_RENAME_HELPER)
 # Si True, el transcode escribe a {seq_path}/test_transcode/ y los
 # checkboxes "Mover originales" / "Borrar /Originals" quedan inertes.
 Transcode_TEST_Mode = False
+# Si True, Rename trabaja sobre copia en carpeta "renamned" y no toca originales.
+Rename_Test_mode = True
 
 # ── logging ────────────────────────────────────────────────────────
 DEBUG = True
@@ -1863,9 +1865,9 @@ class ImportShotDialog(QtWidgets.QDialog):
         layout.addWidget(_section_label("RENOMBRAR"))
 
         self._rename_table = QtWidgets.QTableWidget()
-        self._rename_table.setColumnCount(7)
+        self._rename_table.setColumnCount(8)
         self._rename_table.setHorizontalHeaderLabels(
-            ["", "", "Original", "→", "Renamed", "Folder", "Estado"]
+            ["", "", "Original", "→", "Renamed", "Folder Orig", "Folder Renamed", "Estado"]
         )
         self._rename_table.verticalHeader().setVisible(False)
         self._rename_table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
@@ -1881,15 +1883,15 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_table.setColumnWidth(0, 10)
         hdr.setSectionResizeMode(1, QtWidgets.QHeaderView.Fixed)
         self._rename_table.setColumnWidth(1, 28)
-        hdr.setSectionResizeMode(2, QtWidgets.QHeaderView.Interactive)
-        self._rename_table.setColumnWidth(2, 300)
+        hdr.setSectionResizeMode(2, QtWidgets.QHeaderView.Stretch)
         hdr.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeToContents)
-        hdr.setSectionResizeMode(4, QtWidgets.QHeaderView.Interactive)
-        self._rename_table.setColumnWidth(4, 300)
+        hdr.setSectionResizeMode(4, QtWidgets.QHeaderView.Stretch)
         hdr.setSectionResizeMode(5, QtWidgets.QHeaderView.Interactive)
-        self._rename_table.setColumnWidth(5, 260)
+        self._rename_table.setColumnWidth(5, 210)
         hdr.setSectionResizeMode(6, QtWidgets.QHeaderView.Interactive)
-        self._rename_table.setColumnWidth(6, 180)
+        self._rename_table.setColumnWidth(6, 210)
+        hdr.setSectionResizeMode(7, QtWidgets.QHeaderView.Stretch)
+        hdr.setStretchLastSection(True)
         self._rename_table.cellClicked.connect(self._on_rename_row_clicked)
         self._rename_table.cellDoubleClicked.connect(self._on_rename_row_double_clicked)
         layout.addWidget(self._rename_table)
@@ -1940,10 +1942,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         sr2_layout.addWidget(self._rename_sr2_case, 0)
         layout.addWidget(sr2_box)
 
-        # Etapa 3/4
-        stage_row = QtWidgets.QHBoxLayout()
-        stage_row.setSpacing(20)
-
+        # Etapa 3
         delim_col = QtWidgets.QVBoxLayout()
         delim_col.addWidget(_section_label("Step 3 — Delimiter"))
         delim_row = QtWidgets.QHBoxLayout()
@@ -1958,10 +1957,9 @@ class ImportShotDialog(QtWidgets.QDialog):
         delim_row.addWidget(self._rename_delim_combo)
         delim_row.addStretch()
         delim_col.addLayout(delim_row)
-        stage_row.addLayout(delim_col, 1)
+        layout.addLayout(delim_col)
 
-        stage_row.addWidget(_separator("v"))
-
+        # Etapa 4 (debajo de la etapa 3)
         pad_col = QtWidgets.QVBoxLayout()
         pad_col.addWidget(_section_label("Step 4 — Frame Digits"))
         pad_row = QtWidgets.QHBoxLayout()
@@ -1976,9 +1974,14 @@ class ImportShotDialog(QtWidgets.QDialog):
         pad_row.addWidget(self._rename_digits_spin)
         pad_row.addStretch()
         pad_col.addLayout(pad_row)
-        stage_row.addLayout(pad_col, 1)
+        layout.addLayout(pad_col)
 
-        layout.addLayout(stage_row)
+        if Rename_Test_mode:
+            test_mode_lbl = QtWidgets.QLabel(
+                "WARNING: Rename_Test_mode activo. Se copia a carpeta 'renamned' y solo se renombra esa copia."
+            )
+            test_mode_lbl.setStyleSheet("color:#d9a441; padding:2px 6px;")
+            layout.addWidget(test_mode_lbl)
         layout.addStretch()
         layout.addWidget(_separator())
 
@@ -2083,8 +2086,8 @@ class ImportShotDialog(QtWidgets.QDialog):
         colors = {
             1: _CLR_AR,
             2: _CLR_PAR,
-            3: _CLR_COMP_DWAA,
-            4: _CLR_STATUS_PENDING,
+            3: _CLR_COMP,
+            4: _CLR_FRAMES,
         }
         self._rename_preview_rows = rename_mod.compute_preview(
             getattr(self, "_rename_selected_rows", []),
@@ -2127,12 +2130,13 @@ class ImportShotDialog(QtWidgets.QDialog):
             self._rename_table.setItem(i, 3, arrow)
             self._rename_table.setCellWidget(i, 4, _cell_html_label(it.get("renamed_html", "")))
 
-            folder_txt = it.get("folder_name", "")
-            if it.get("is_sequence"):
-                folder_txt = "%s → %s" % (it.get("folder_name", ""), it.get("target_folder_name", ""))
-            folder_item = QtWidgets.QTableWidgetItem(folder_txt)
-            folder_item.setForeground(QtGui.QColor(fg))
-            self._rename_table.setItem(i, 5, folder_item)
+            folder_orig_item = QtWidgets.QTableWidgetItem(it.get("folder_name", ""))
+            folder_orig_item.setForeground(QtGui.QColor(fg))
+            self._rename_table.setItem(i, 5, folder_orig_item)
+
+            folder_new_item = QtWidgets.QTableWidgetItem(it.get("target_folder_name", it.get("folder_name", "")))
+            folder_new_item.setForeground(QtGui.QColor(fg))
+            self._rename_table.setItem(i, 6, folder_new_item)
 
             st_color = _CLR_STATUS_PENDING
             st = it.get("status", "Pendiente")
@@ -2140,7 +2144,7 @@ class ImportShotDialog(QtWidgets.QDialog):
                 st_color = _CLR_STATUS_UPSCALE
             elif not it.get("has_changes"):
                 st_color = "#888888"
-            self._rename_table.setCellWidget(i, 6, _cell_html_label(
+            self._rename_table.setCellWidget(i, 7, _cell_html_label(
                 "<span style='color:%s;'>%s</span>" % (st_color, st)
             ))
 
@@ -2177,7 +2181,14 @@ class ImportShotDialog(QtWidgets.QDialog):
                 if row.get("blocked") or not row.get("has_changes"):
                     continue
                 to_apply.append(row)
-        result = rename_mod.execute_ops(to_apply)
+        if Rename_Test_mode:
+            QtWidgets.QMessageBox.information(
+                self,
+                "Rename Test Mode",
+                "Rename_Test_mode está activo.\n"
+                "Se creará la carpeta 'renamned' en paralelo y se renombrará SOLO sobre la copia.",
+            )
+        result = rename_mod.execute_ops(to_apply, test_mode=Rename_Test_mode, test_folder_name="renamned")
         if result.get("errors"):
             QtWidgets.QMessageBox.warning(
                 self,
