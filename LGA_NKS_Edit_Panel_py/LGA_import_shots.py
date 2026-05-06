@@ -3235,6 +3235,52 @@ class ImportShotDialog(QtWidgets.QDialog):
         except (TypeError, ValueError):
             return ""
 
+    @staticmethod
+    def _is_burnin_track(name: str) -> bool:
+        """True si el nombre del track es 'burnin' (normalizado, sin importar mayúsculas)."""
+        return name.strip().lower().replace(" ", "").replace("_", "") == "burnin"
+
+    @staticmethod
+    def _chip_color(clip_name: str, bar_color: str, track_type: str) -> str:
+        """
+        Devuelve el color del chip.
+
+        Regla v000: si el clip pertenece a un track comp/roto/cleanup y su nombre
+        contiene una versión v000, v00, v0000, etc., el color es #474747 (gris oscuro).
+        Esto indica que es una versión cero/base, aún no trabajada.
+        """
+        if track_type in ("comp", "roto", "cleanup"):
+            if re.search(r'[._]v0{2,}(?:\b|_|$)', clip_name, re.IGNORECASE):
+                return "#474747"
+        return bar_color
+
+    def _build_burnin_row(self) -> QtWidgets.QWidget:
+        """
+        Widget que ocupa las 3 columnas del track BurnIn.
+
+        Muestra 3 tiras horizontales delgadas (#c0c0c0) con mini-padding entre ellas,
+        que en total suman la misma altura que una fila normal de clips.
+        Representa gráficamente el burn-in gráfico que cubre todo el timeline.
+        Sin tooltips ni interacción.
+        """
+        COLOR = "#c0c0c0"
+        w  = QtWidgets.QWidget()
+        lo = QtWidgets.QVBoxLayout(w)
+        lo.setContentsMargins(4, 4, 4, 4)
+        lo.setSpacing(3)
+        w.setStyleSheet("background: transparent;")
+        for _ in range(3):
+            bar = QtWidgets.QWidget()
+            bar.setStyleSheet(
+                "background: %s; border-radius: 2px;" % COLOR
+            )
+            bar.setSizePolicy(
+                QtWidgets.QSizePolicy.Expanding,
+                QtWidgets.QSizePolicy.Expanding,
+            )
+            lo.addWidget(bar)
+        return w
+
     def _make_chip_label(
         self,
         text: str,
@@ -3289,6 +3335,7 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _build_before_cell(
         self, before_clip, bar_color: str,
         shot_start: int, shot_dur: int,
+        track_type: str = "other",
     ) -> QtWidgets.QWidget:
         """
         Celda de Shot Anterior.
@@ -3298,6 +3345,7 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         El clip más largo llena el 100 % de la celda.
         Clips más cortos o desplazados se posicionan con offset y ancho proporcionales.
+        El color del chip puede sobreescribirse para versiones v000 en tracks comp/roto/cleanup.
         """
         K  = 1000
         w  = QtWidgets.QWidget()
@@ -3308,7 +3356,9 @@ class ImportShotDialog(QtWidgets.QDialog):
         if before_clip is None:
             return w
 
+        clip_name     = before_clip["name"]
         clip_dur      = before_clip["duration"]
+        chip_color    = self._chip_color(clip_name, bar_color, track_type)
         offset_frames = max(0, before_clip["tl_in"] - shot_start)
         offset_K = int(min(1.0, offset_frames / shot_dur) * K)
         chip_K   = int(min(1.0, clip_dur      / shot_dur) * K)
@@ -3319,15 +3369,15 @@ class ImportShotDialog(QtWidgets.QDialog):
         trail_K = max(0, K - offset_K - chip_K)
 
         debug_print(
-            "[before_cell] '%s' dur=%d shot_dur=%d offset=%d "
+            "[before_cell] '%s' dur=%d shot_dur=%d offset=%d color=%s "
             "→ off_K=%d chip_K=%d trail_K=%d"
-            % (before_clip["name"], clip_dur, shot_dur, offset_frames,
+            % (clip_name, clip_dur, shot_dur, offset_frames, chip_color,
                offset_K, chip_K, trail_K)
         )
         if offset_K > 0:
             lo.addStretch(offset_K)
         lbl = self._make_chip_label(
-            before_clip["name"], bar_color, is_new=False,
+            clip_name, chip_color, is_new=False,
             frames=clip_dur, fps=self._fps,
         )
         lo.addWidget(lbl, chip_K)
@@ -3337,6 +3387,7 @@ class ImportShotDialog(QtWidgets.QDialog):
 
     def _build_new_cell(
         self, new_items: list, bar_color: str, shot_dur: int,
+        track_type: str = "other",
     ) -> QtWidgets.QWidget:
         """
         Celda de Shot Nuevo.
@@ -3345,6 +3396,7 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         Todos los clips empiezan en TC 0 (sin offset).
         El clip con más frames llena el 100 % de la celda.
+        El color del chip puede sobreescribirse para versiones v000.
         """
         K  = 1000
         w  = QtWidgets.QWidget()
@@ -3355,19 +3407,20 @@ class ImportShotDialog(QtWidgets.QDialog):
         if not new_items:
             return w
 
-        item0    = new_items[0]
-        clip_dur = item0.get("frame_count") or 0
-        new_name = item0.get("name") or item0.get("version_name") or ""
-        chip_K   = max(1, int(min(1.0, clip_dur / shot_dur) * K)) if clip_dur > 0 else 0
-        trail_K  = K - chip_K
+        item0      = new_items[0]
+        clip_dur   = item0.get("frame_count") or 0
+        new_name   = item0.get("name") or item0.get("version_name") or ""
+        chip_color = self._chip_color(new_name, bar_color, track_type)
+        chip_K     = max(1, int(min(1.0, clip_dur / shot_dur) * K)) if clip_dur > 0 else 0
+        trail_K    = K - chip_K
 
         debug_print(
-            "[new_cell] '%s' dur=%d shot_dur=%d → chip_K=%d trail_K=%d"
-            % (new_name, clip_dur, shot_dur, chip_K, trail_K)
+            "[new_cell] '%s' dur=%d shot_dur=%d color=%s → chip_K=%d trail_K=%d"
+            % (new_name, clip_dur, shot_dur, chip_color, chip_K, trail_K)
         )
         if chip_K > 0:
             lbl = self._make_chip_label(
-                new_name, bar_color, is_new=True,
+                new_name, chip_color, is_new=True,
                 frames=clip_dur, fps=self._fps,
             )
             lo.addWidget(lbl, chip_K)
@@ -3378,6 +3431,7 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _build_after_cell(
         self, after_clip, bar_color: str,
         shot_start: int, shot_dur: int,
+        track_type: str = "other",
     ) -> QtWidgets.QWidget:
         """
         Celda de Shot Siguiente.
@@ -3396,7 +3450,9 @@ class ImportShotDialog(QtWidgets.QDialog):
         if after_clip is None:
             return w
 
+        clip_name     = after_clip["name"]
         clip_dur      = after_clip["duration"]
+        chip_color    = self._chip_color(clip_name, bar_color, track_type)
         offset_frames = max(0, after_clip["tl_in"] - shot_start)
         offset_K = int(min(1.0, offset_frames / shot_dur) * K)
         chip_K   = int(min(1.0, clip_dur      / shot_dur) * K)
@@ -3407,15 +3463,15 @@ class ImportShotDialog(QtWidgets.QDialog):
         trail_K = max(0, K - offset_K - chip_K)
 
         debug_print(
-            "[after_cell] '%s' dur=%d shot_dur=%d offset=%d "
+            "[after_cell] '%s' dur=%d shot_dur=%d offset=%d color=%s "
             "→ off_K=%d chip_K=%d trail_K=%d"
-            % (after_clip["name"], clip_dur, shot_dur, offset_frames,
+            % (clip_name, clip_dur, shot_dur, offset_frames, chip_color,
                offset_K, chip_K, trail_K)
         )
         if offset_K > 0:
             lo.addStretch(offset_K)
         lbl = self._make_chip_label(
-            after_clip["name"], bar_color, is_new=False,
+            clip_name, chip_color, is_new=False,
             frames=clip_dur, fps=self._fps,
         )
         lo.addWidget(lbl, chip_K)
@@ -3575,19 +3631,30 @@ class ImportShotDialog(QtWidgets.QDialog):
             )
             table.setCellWidget(row_i, 1, name_lbl)
 
+            # ── BurnIn: representación gráfica especial ────────────────────
+            if self._is_burnin_track(tname):
+                table.setSpan(row_i, 2, 1, 3)
+                table.setCellWidget(row_i, 2, self._build_burnin_row())
+                table.setRowHeight(row_i, row_h)
+                row_i += 1
+                continue
+
             # Col 2: Shot Anterior
             table.setCellWidget(row_i, 2, self._build_before_cell(
                 before, bar_color, before_shot_start, before_shot_dur,
+                track_type=ttype,
             ))
 
             # Col 3: Shot Nuevo
             table.setCellWidget(row_i, 3, self._build_new_cell(
                 new_items, bar_color, new_shot_dur,
+                track_type=ttype,
             ))
 
             # Col 4: Shot Siguiente
             table.setCellWidget(row_i, 4, self._build_after_cell(
                 after, bar_color, after_shot_start, after_shot_dur,
+                track_type=ttype,
             ))
 
             table.setRowHeight(row_i, row_h)
@@ -3595,7 +3662,7 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         # ── Sección sin track asignado ────────────────────────────────────────
         if unassigned:
-            # Encabezado de sección (span cols 1-4)
+            # Encabezado de sección — span cols 1-4 completo
             bar_item = QtWidgets.QTableWidgetItem()
             bar_item.setBackground(QtGui.QColor("#555555"))
             bar_item.setFlags(QtCore.Qt.NoItemFlags)
@@ -3611,7 +3678,8 @@ class ImportShotDialog(QtWidgets.QDialog):
             table.setRowHeight(row_i, 24)
             row_i += 1
 
-            # Cada ítem sin track: chip proporcional coloreado (tooltip con duración)
+            # Cada ítem sin track: chip proporcional en columna "Shot Nuevo" (col 3)
+            # Cols 2 y 4 permanecen vacías (sin span).
             for item in unassigned:
                 icolor  = item.get("_color", "#555555")
                 iname   = item.get("name") or item.get("version_name") or "—"
@@ -3622,16 +3690,32 @@ class ImportShotDialog(QtWidgets.QDialog):
                 bar2.setFlags(QtCore.Qt.NoItemFlags)
                 table.setItem(row_i, 0, bar2)
 
-                table.setSpan(row_i, 1, 1, 4)
-                chip_container = QtWidgets.QWidget()
-                chip_layout    = QtWidgets.QHBoxLayout(chip_container)
-                chip_layout.setContentsMargins(6, 2, 6, 2)
-                chip_layout.setSpacing(0)
-                chip_container.setStyleSheet("background: transparent;")
+                # Col 1: nombre del ítem (misma estructura que las filas de track)
+                unassigned_lbl = QtWidgets.QLabel("  " + iname)
+                unassigned_lbl.setAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft)
+                unassigned_lbl.setStyleSheet(
+                    "color: %s; font-size: 10px; padding: 0px 4px; background: transparent;"
+                    % mix_colors(icolor, "#ffffff", 0.45)
+                )
+                table.setCellWidget(row_i, 1, unassigned_lbl)
 
+                # Cols 2 y 4: vacías (fondo transparente)
+                for empty_col in (2, 4):
+                    empty_w = QtWidgets.QWidget()
+                    empty_w.setStyleSheet("background: transparent;")
+                    table.setCellWidget(row_i, empty_col, empty_w)
+
+                # Col 3: chip en Shot Nuevo — proporcional a new_shot_dur
                 K       = 1000
                 chip_K  = max(1, int(min(1.0, dur_v / new_shot_dur) * K)) if dur_v > 0 else K
                 trail_K = max(0, K - chip_K)
+
+                chip_container = QtWidgets.QWidget()
+                chip_layout    = QtWidgets.QHBoxLayout(chip_container)
+                chip_layout.setContentsMargins(0, 2, 0, 2)
+                chip_layout.setSpacing(0)
+                chip_container.setStyleSheet("background: transparent;")
+
                 lbl = self._make_chip_label(
                     iname, color=icolor, is_new=False,
                     frames=dur_v, fps=self._fps,
@@ -3640,7 +3724,7 @@ class ImportShotDialog(QtWidgets.QDialog):
                 if trail_K > 0:
                     chip_layout.addStretch(trail_K)
 
-                table.setCellWidget(row_i, 1, chip_container)
+                table.setCellWidget(row_i, 3, chip_container)
                 table.setRowHeight(row_i, row_h)
                 row_i += 1
 
