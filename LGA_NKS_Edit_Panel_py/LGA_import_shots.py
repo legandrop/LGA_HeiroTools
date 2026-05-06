@@ -2370,6 +2370,114 @@ class ImportShotDialog(QtWidgets.QDialog):
             "" if has_exr else "Selecciona al menos un EXR"
         )
 
+    # ── Helpers pre-transcode ───────────────────────────────────────────────────
+
+    def _check_existing_outputs(self, item, test_mode, move_originals):
+        """Detecta si ya existen archivos de un transcode previo para la secuencia.
+
+        Returns:
+            (has_conflict: bool, description: str)
+        """
+        item_path = Path(item["path"])
+        if test_mode:
+            dst = item_path / "test_transcode"
+            if dst.exists():
+                count = sum(1 for _ in dst.glob("*.exr"))
+                if count > 0:
+                    return True, "test_transcode/ ya contiene %d archivos EXR" % count
+        elif move_originals:
+            orig = item_path / "Originals"
+            if orig.exists():
+                count = sum(1 for _ in orig.glob("*.exr"))
+                label = "%d EXR" % count if count else "carpeta vacía"
+                return True, "Originals/ ya existe (%s — transcode anterior)" % label
+        else:
+            tmp = item_path / "_tc_temp_src"
+            if tmp.exists():
+                return True, "_tc_temp_src/ existe (transcode anterior incompleto)"
+        return False, ""
+
+    def _show_overwrite_warning(self, seq_name, conflict_desc):
+        """Muestra un diálogo personalizado de advertencia cuando el destino ya tiene archivos.
+
+        Returns:
+            True  → el usuario confirma sobreescribir
+            False → el usuario cancela esta secuencia
+        """
+        dlg = QtWidgets.QDialog(self)
+        dlg.setWindowTitle("Archivos existentes")
+        dlg.setMinimumWidth(440)
+        dlg.setWindowFlags(
+            QtCore.Qt.Dialog | QtCore.Qt.FramelessWindowHint
+        )
+        dlg.setStyleSheet("""
+            QDialog {
+                background-color: #2B2B2B;
+                border: 1px solid #555555;
+            }
+            QLabel { color: #a7a7a7; }
+        """)
+
+        layout = QtWidgets.QVBoxLayout(dlg)
+        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(10)
+
+        # ── Header ──────────────────────────────────────────────
+        header_row = QtWidgets.QHBoxLayout()
+        icon_lbl = QtWidgets.QLabel("⚠")
+        icon_lbl.setStyleSheet("color: #d9a441; font-size: 20px;")
+        title_lbl = QtWidgets.QLabel("Archivos existentes")
+        title_lbl.setStyleSheet(
+            "color: #d9a441; font-size: 13px; font-weight: bold;"
+        )
+        header_row.addWidget(icon_lbl)
+        header_row.addSpacing(8)
+        header_row.addWidget(title_lbl)
+        header_row.addStretch()
+        layout.addLayout(header_row)
+
+        sep = QtWidgets.QFrame()
+        sep.setFrameShape(QtWidgets.QFrame.HLine)
+        sep.setStyleSheet("background: #444444;")
+        sep.setFixedHeight(1)
+        layout.addWidget(sep)
+
+        # ── Nombre de secuencia ──────────────────────────────────
+        name_lbl = QtWidgets.QLabel(seq_name)
+        name_lbl.setStyleSheet(
+            "color: #cccccc; font-size: 12px; font-weight: bold; margin-top: 4px;"
+        )
+        layout.addWidget(name_lbl)
+
+        desc_lbl = QtWidgets.QLabel(conflict_desc)
+        desc_lbl.setStyleSheet("color: #999999; font-size: 11px;")
+        layout.addWidget(desc_lbl)
+
+        q_lbl = QtWidgets.QLabel("¿Desea sobreescribir los archivos existentes?")
+        q_lbl.setStyleSheet("color: #a7a7a7; font-size: 11px; margin-top: 4px;")
+        layout.addWidget(q_lbl)
+
+        layout.addSpacing(8)
+
+        # ── Botones ──────────────────────────────────────────────
+        btn_row = QtWidgets.QHBoxLayout()
+        btn_row.addStretch()
+        cancel_btn    = QtWidgets.QPushButton("Cancelar")
+        overwrite_btn = QtWidgets.QPushButton("Sobreescribir")
+        cancel_btn.setStyleSheet(_BTN_SECONDARY)
+        overwrite_btn.setStyleSheet(_BTN_PRIMARY)
+        btn_row.addWidget(cancel_btn)
+        btn_row.addSpacing(8)
+        btn_row.addWidget(overwrite_btn)
+        layout.addLayout(btn_row)
+
+        result = [False]
+        cancel_btn.clicked.connect(dlg.reject)
+        overwrite_btn.clicked.connect(lambda: (result.__setitem__(0, True), dlg.accept()))
+
+        dlg.exec_()
+        return result[0]
+
     def _run_transcode(self):
         """Handler del botón Start Transcode. Construye el job y lanza el worker."""
         if not hasattr(self, "_convert_checkboxes") or not hasattr(self, "_convert_rows"):
@@ -2391,6 +2499,26 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         if not job_sequences:
             return
+
+        # ── Pre-check: archivos existentes en destino ────────────
+        test_mode_flag      = Transcode_TEST_Mode
+        move_originals_flag = self._move_originals_chk.isChecked()
+        confirmed_sequences = []
+        for row_i, item, tw, th in job_sequences:
+            has_conflict, conflict_desc = self._check_existing_outputs(
+                item, test_mode_flag, move_originals_flag
+            )
+            if has_conflict:
+                seq_name = item.get("name") or Path(item["path"]).name
+                proceed  = self._show_overwrite_warning(seq_name, conflict_desc)
+                if not proceed:
+                    continue
+            confirmed_sequences.append((row_i, item, tw, th))
+
+        if not confirmed_sequences:
+            return
+
+        job_sequences = confirmed_sequences
 
         # Deshabilitar botones durante el proceso
         self._start_transcode_btn.setEnabled(False)
@@ -2430,18 +2558,18 @@ class ImportShotDialog(QtWidgets.QDialog):
     # Estilo de la barra de progreso de transcode
     _PBAR_STYLE = """
         QProgressBar {
-            background-color: #1c2a30;
-            border: 1px solid #2e5060;
-            border-radius: 2px;
+            background-color: #393959;
+            border: none;
+            border-radius: 5px;
             text-align: center;
-            color: #5a9ab5;
+            color: #ffffff;
             font-size: 9px;
-            min-height: 14px;
+            min-height: 16px;
             max-height: 22px;
         }
         QProgressBar::chunk {
-            background-color: #2e5c70;
-            border-radius: 1px;
+            background-color: #443a91;
+            border-radius: 5px;
         }
     """
 
