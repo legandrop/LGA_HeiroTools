@@ -81,7 +81,7 @@ rename_mod = importlib.import_module(_RENAME_HELPER)
 # checkboxes "Mover originales" / "Borrar /Originals" quedan inertes.
 Transcode_TEST_Mode = False
 # Si True, Rename trabaja sobre copia en carpeta "renamned" y no toca originales.
-Rename_Test_mode = True
+Rename_Test_mode = False
 
 # ── logging ────────────────────────────────────────────────────────
 DEBUG = True
@@ -1869,6 +1869,7 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _populate_rename_section_header(self, row_i, row_data):
         ncols = self._rename_table.columnCount()
         color = row_data["color"]
+        text_color = row_data.get("text_color", color)
         label = row_data["label"]
 
         if label == "PUBLISH":
@@ -1899,7 +1900,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             lbl = QtWidgets.QLabel("  " + label)
             lbl.setStyleSheet(
                 "color: %s; font-weight: bold; font-size: 11px; "
-                "padding: 3px 8px; background: #313131; letter-spacing: 1px;" % color
+                "padding: 3px 8px; background: #313131; letter-spacing: 1px;" % text_color
             )
         self._rename_table.setCellWidget(row_i, 1, lbl)
         self._rename_table.setRowHeight(row_i, 24)
@@ -1916,25 +1917,23 @@ class ImportShotDialog(QtWidgets.QDialog):
         if chk is None:
             return
         is_checked = chk.isChecked()
+        _dash = "<span style='color:#444444;'>—</span>"
         self._rename_table.setCellWidget(
             row_i, 4,
-            _cell_html_label(it.get("renamed_html", "") if is_checked else "")
+            _cell_html_label(it.get("renamed_html", "") if is_checked else _dash)
         )
         self._rename_table.setCellWidget(
             row_i, 6,
-            _cell_html_label(it.get("folder_renamed_html", "") if is_checked else "")
+            _cell_html_label(it.get("folder_renamed_html", "") if is_checked else _dash)
         )
         if is_checked:
-            blocked = it.get("blocked", False)
             st_color = _CLR_STATUS_PENDING
             st = it.get("status", "Pendiente")
-            if blocked:
-                st_color = _CLR_STATUS_UPSCALE
-            elif not it.get("has_changes"):
+            if not it.get("has_changes"):
                 st_color = "#888888"
             st_html = "<span style='color:%s;'>%s</span>" % (st_color, st)
         else:
-            st_html = ""
+            st_html = _dash
         self._rename_table.setCellWidget(row_i, 7, _cell_html_label(st_html))
         self._update_rename_btn_state()
 
@@ -1943,13 +1942,23 @@ class ImportShotDialog(QtWidgets.QDialog):
         layout = QtWidgets.QVBoxLayout(page)
         layout.setSpacing(8)
 
-        layout.addWidget(_section_label("RENOMBRAR"))
+        _title_row = QtWidgets.QHBoxLayout()
+        _title_row.addWidget(_section_label("RENOMBRAR"))
+        if Rename_Test_mode:
+            _tm_lbl = QtWidgets.QLabel("  ⚠  TEST MODE")
+            _tm_lbl.setStyleSheet("color:#d9a441; font-weight:bold; padding:2px 6px;")
+            _title_row.addWidget(_tm_lbl)
+        _title_row.addStretch()
+        layout.addLayout(_title_row)
 
         self._rename_table = QtWidgets.QTableWidget()
         self._rename_table.setColumnCount(8)
         self._rename_table.setHorizontalHeaderLabels(
             ["", "", "Original", "→", "Renamed", "Folder Original", "Folder Renamed", "Estado"]
         )
+        _estado_hdr = self._rename_table.horizontalHeaderItem(7)
+        if _estado_hdr:
+            _estado_hdr.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
         self._rename_table.verticalHeader().setVisible(False)
         self._rename_table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
         self._rename_table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
@@ -1957,7 +1966,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_table.setShowGrid(False)
         self._rename_table.setStyleSheet(_TABLE_STYLE)
         self._rename_table.setMinimumHeight(120)
-        self._rename_table.setMaximumHeight(250)
+        self._rename_table.setMaximumHeight(330)
         hdr = self._rename_table.horizontalHeader()
         hdr.setMinimumSectionSize(1)
         hdr.setSectionResizeMode(0, QtWidgets.QHeaderView.Fixed)
@@ -1994,9 +2003,10 @@ class ImportShotDialog(QtWidgets.QDialog):
         )
 
         # Etapa 1
-        sr1_box = QtWidgets.QGroupBox("Step 1 — Search & Replace")
-        sr1_box.setStyleSheet("QGroupBox{color:#a7a7a7; border:1px solid #3a3a3a; margin-top:8px; padding-top:8px;}")
-        sr1_layout = QtWidgets.QHBoxLayout(sr1_box)
+        sr1_col = QtWidgets.QVBoxLayout()
+        sr1_col.setSpacing(4)
+        sr1_col.addWidget(_section_label("Step 1 — Search & Replace"))
+        sr1_row = QtWidgets.QHBoxLayout()
         self._rename_sr1_search = QtWidgets.QLineEdit()
         self._rename_sr1_search.setPlaceholderText("Search")
         self._rename_sr1_search.setStyleSheet(line_style)
@@ -2005,15 +2015,17 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_sr1_replace.setStyleSheet(line_style)
         self._rename_sr1_case = QtWidgets.QCheckBox("Case Sensitive")
         self._rename_sr1_case.setStyleSheet("color:#a7a7a7; padding:2px;")
-        sr1_layout.addWidget(self._rename_sr1_search, 1)
-        sr1_layout.addWidget(self._rename_sr1_replace, 1)
-        sr1_layout.addWidget(self._rename_sr1_case, 0)
-        layout.addWidget(sr1_box)
+        sr1_row.addWidget(self._rename_sr1_search, 1)
+        sr1_row.addWidget(self._rename_sr1_replace, 1)
+        sr1_row.addWidget(self._rename_sr1_case, 0)
+        sr1_col.addLayout(sr1_row)
+        layout.addLayout(sr1_col)
 
         # Etapa 2
-        sr2_box = QtWidgets.QGroupBox("Step 2 — Search & Replace")
-        sr2_box.setStyleSheet("QGroupBox{color:#a7a7a7; border:1px solid #3a3a3a; margin-top:8px; padding-top:8px;}")
-        sr2_layout = QtWidgets.QHBoxLayout(sr2_box)
+        sr2_col = QtWidgets.QVBoxLayout()
+        sr2_col.setSpacing(4)
+        sr2_col.addWidget(_section_label("Step 2 — Search & Replace"))
+        sr2_row = QtWidgets.QHBoxLayout()
         self._rename_sr2_search = QtWidgets.QLineEdit()
         self._rename_sr2_search.setPlaceholderText("Search")
         self._rename_sr2_search.setStyleSheet(line_style)
@@ -2022,10 +2034,11 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_sr2_replace.setStyleSheet(line_style)
         self._rename_sr2_case = QtWidgets.QCheckBox("Case Sensitive")
         self._rename_sr2_case.setStyleSheet("color:#a7a7a7; padding:2px;")
-        sr2_layout.addWidget(self._rename_sr2_search, 1)
-        sr2_layout.addWidget(self._rename_sr2_replace, 1)
-        sr2_layout.addWidget(self._rename_sr2_case, 0)
-        layout.addWidget(sr2_box)
+        sr2_row.addWidget(self._rename_sr2_search, 1)
+        sr2_row.addWidget(self._rename_sr2_replace, 1)
+        sr2_row.addWidget(self._rename_sr2_case, 0)
+        sr2_col.addLayout(sr2_row)
+        layout.addLayout(sr2_col)
 
         # Etapa 3
         delim_col = QtWidgets.QVBoxLayout()
@@ -2061,12 +2074,6 @@ class ImportShotDialog(QtWidgets.QDialog):
         pad_col.addLayout(pad_row)
         layout.addLayout(pad_col)
 
-        if Rename_Test_mode:
-            test_mode_lbl = QtWidgets.QLabel(
-                "WARNING: Rename_Test_mode activo. Se copia a carpeta 'renamned' y solo se renombra esa copia."
-            )
-            test_mode_lbl.setStyleSheet("color:#d9a441; padding:2px 6px;")
-            layout.addWidget(test_mode_lbl)
         layout.addStretch()
         layout.addWidget(_separator())
 
@@ -2182,10 +2189,11 @@ class ImportShotDialog(QtWidgets.QDialog):
         )
 
         # Construir display_rows: secciones intercaladas igual que la tabla principal
+        # (label, bar_color, text_color) — text_color igual que tabla principal
         _SECTION_META = {
-            "publish": ("PUBLISH",    "#777777"),
-            "plates":  ("PLATES",     _CLR_PLATES),
-            "refs":    ("REFERENCES", _CLR_REFS),
+            "publish": ("PUBLISH",    "#777777",  "#777777"),
+            "plates":  ("PLATES",     _CLR_PLATES, "#6fc9d9"),
+            "refs":    ("REFERENCES", _CLR_REFS,   _CLR_REFS),
         }
         _TASK_BAR_CLR = {
             "comp":    _CLR_COMP,
@@ -2199,11 +2207,12 @@ class ImportShotDialog(QtWidgets.QDialog):
             src = pr.get("source", "")
             if src not in seen_sections:
                 seen_sections.append(src)
-                label, color = _SECTION_META.get(src, (src.upper(), "#777777"))
+                label, color, text_color = _SECTION_META.get(src, (src.upper(), "#777777", "#777777"))
                 display_rows.append({
                     "type": "section_header",
                     "label": label,
                     "color": color,
+                    "text_color": text_color,
                     "source": src,
                 })
             display_rows.append({"type": "data", "preview_row": pr})
@@ -2232,8 +2241,9 @@ class ImportShotDialog(QtWidgets.QDialog):
                 bar_color = _CLR_REFS
             else:
                 bar_color = _CLR_PLATES
+            # Fix 4: barra siempre del color de sección, nunca gris por blocked
             bar = QtWidgets.QTableWidgetItem()
-            bar.setBackground(QtGui.QColor("#444444" if blocked else bar_color))
+            bar.setBackground(QtGui.QColor(bar_color))
             bar.setFlags(QtCore.Qt.NoItemFlags)
             self._rename_table.setItem(i, 0, bar)
 
@@ -2256,28 +2266,29 @@ class ImportShotDialog(QtWidgets.QDialog):
             arrow.setTextAlignment(QtCore.Qt.AlignCenter)
             self._rename_table.setItem(i, 3, arrow)
 
-            # Col 4 (Renamed), 6 (Folder Renamed) y 7 (Estado): dependen del checkbox
-            is_checked = not blocked
-            self._rename_table.setCellWidget(
-                i, 4,
-                _cell_html_label(it.get("renamed_html", "") if is_checked else "")
-            )
-            self._rename_table.setCellWidget(i, 5, _cell_html_label(it.get("folder_original_html", "")))
-            self._rename_table.setCellWidget(
-                i, 6,
-                _cell_html_label(it.get("folder_renamed_html", "") if is_checked else "")
-            )
-
-            if is_checked:
+            # Fix 1: checkbox off → "—" gris (consistente con transcode)
+            # Fix 3: blocked siempre muestra el warning, nunca vacío
+            _dash = "<span style='color:#444444;'>—</span>"
+            if blocked:
+                # Blocked: mostrar warning en Renamed/FolderRenamed y estado de error
+                self._rename_table.setCellWidget(i, 4, _cell_html_label(_dash))
+                self._rename_table.setCellWidget(i, 5, _cell_html_label(it.get("folder_original_html", "")))
+                self._rename_table.setCellWidget(i, 6, _cell_html_label(_dash))
+                st_html = "<span style='color:%s;'>%s</span>" % (
+                    _CLR_STATUS_UPSCALE, it.get("status", "Bloqueado"))
+            else:
+                # No bloqueado: checked=True → preview completo; checked=False → "—"
+                is_checked = True  # inicialmente activo
+                self._rename_table.setCellWidget(
+                    i, 4, _cell_html_label(it.get("renamed_html", "")))
+                self._rename_table.setCellWidget(i, 5, _cell_html_label(it.get("folder_original_html", "")))
+                self._rename_table.setCellWidget(
+                    i, 6, _cell_html_label(it.get("folder_renamed_html", "")))
                 st_color = _CLR_STATUS_PENDING
                 st = it.get("status", "Pendiente")
-                if blocked:
-                    st_color = _CLR_STATUS_UPSCALE
-                elif not it.get("has_changes"):
+                if not it.get("has_changes"):
                     st_color = "#888888"
                 st_html = "<span style='color:%s;'>%s</span>" % (st_color, st)
-            else:
-                st_html = ""
             self._rename_table.setCellWidget(i, 7, _cell_html_label(st_html))
 
             if blocked:

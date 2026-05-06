@@ -36,36 +36,45 @@ Permitir renombrado masivo con preview en vivo, de forma segura y modular.
 La tabla está organizada en **secciones** igual que la tabla principal, con el mismo sistema
 de cabeceras de color. Solo se muestran las secciones que tienen ítems en la selección activa:
 
-| Sección | Color | Condición |
-|---------|-------|-----------|
-| PUBLISH | gradiente comp→roto→cleanup | items de `source = "publish"` |
-| PLATES | `#42616d` azul petróleo | items de `source = "plates"` |
-| REFERENCES | `#aa9e54` dorado | items de `source = "refs"` |
+| Sección | Color barra | Texto header | Condición |
+|---------|-------------|--------------|-----------|
+| PUBLISH | gradiente comp→roto→cleanup | gradiente | items de `source = "publish"` |
+| PLATES | `#42616d` azul petróleo | `#6fc9d9` celeste (= tabla principal) | items de `source = "plates"` |
+| REFERENCES | `#aa9e54` dorado | `#aa9e54` dorado | items de `source = "refs"` |
 
 La barra de color de cada fila de dato usa el color de la tarea (para publish) o el color de
 sección (para plates/references). Para publish: comp=`#3381e0`, roto=`#2abf7e`,
-cleanup=`#27c8c3`, dmp=`#e08033`.
+cleanup=`#27c8c3`, dmp=`#e08033`. La barra nunca se grisea aunque la fila esté bloqueada.
 
 ### Columnas
 
-| Col | Header | Ancho inicial | Resize |
-|-----|--------|---------------|--------|
-| 0 | (barra color) | 10 px | Fixed |
-| 1 | (checkbox) | 28 px | Fixed |
-| 2 | `Original` | 300 px | Interactive |
-| 3 | `→` | 24 px | Fixed |
-| 4 | `Renamed` | 300 px | Interactive |
-| 5 | `Folder Original` | 210 px | Interactive |
-| 6 | `Folder Renamed` | 210 px | Interactive |
-| 7 | `Estado` | 220 px | Interactive |
+| Col | Header | Ancho inicial | Resize | Notas |
+|-----|--------|---------------|--------|-------|
+| 0 | (barra color) | 10 px | Fixed | |
+| 1 | (checkbox) | 28 px | Fixed | |
+| 2 | `Original` | 300 px | Interactive | |
+| 3 | `→` | 24 px | Fixed | |
+| 4 | `Renamed` | 300 px | Interactive | vacío/`—` si checkbox off |
+| 5 | `Folder Original` | 210 px | Interactive | |
+| 6 | `Folder Renamed` | 210 px | Interactive | vacío/`—` si checkbox off |
+| 7 | `Estado` | 220 px | Interactive | alineado a la izquierda |
 
 Todas las columnas de contenido (2, 4, 5, 6, 7) son **resizables** por el usuario.
 
 ### Comportamiento de cols 4, 6 y 7 según checkbox
 
-Cuando el checkbox de una fila está **desactivado** (no bloqueado, sino desmarcado por el
-usuario), las columnas `Renamed`, `Folder Renamed` y `Estado` se muestran **vacías**.
-Al volver a marcar el checkbox, se restauran los valores del preview.
+| Condición | Renamed (4) | Folder Renamed (6) | Estado (7) |
+|-----------|-------------|-------------------|------------|
+| Activo, con cambios | preview coloreado | preview coloreado | `Pendiente` cian |
+| Activo, sin cambios | nombre igual | folder igual | `Sin cambios` gris |
+| Desactivado por usuario | `—` `#444444` | `—` `#444444` | `—` `#444444` |
+| Bloqueado (mismatch, conflicto) | `—` `#444444` | `—` `#444444` | warning rojo |
+
+Consistente con la tabla Transcode: checkbox off → `—` gris oscuro en lugar de vacío.
+La actualización es en vivo mediante `_on_rename_chk_changed(row_i)`.
+
+La **barra de color** (col 0) siempre usa el color de sección/tarea, independientemente de
+si la fila está bloqueada o desactivada.
 
 Esta actualización es en vivo (sin recalcular el preview completo) mediante
 `_on_rename_chk_changed(row_i)`.
