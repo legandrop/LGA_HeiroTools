@@ -156,9 +156,25 @@ desaparecer o quedar invisibles si no se definen los sub-controles
 `::up-button`, `::down-button`, `::up-arrow` y `::down-arrow`.
 
 A diferencia de `QComboBox`, **el CSS triangle (border trick) SÍ funciona** en
-`QSpinBox` para renderear las flechas.
+`QSpinBox` para renderear las flechas según la documentación oficial — pero en
+la práctica su efectividad depende del build y plataforma de Qt.
 
-#### Solucion ganadora
+#### Opciones probadas
+
+| # | Estrategia | Resultado |
+|---|-----------|-----------|
+| 1 | CSS triangle, 18px buttons, `subcontrol-origin:border` | 🔲 pendiente validar |
+| 2 | CSS triangle, 22px buttons wider | 🔲 pendiente validar |
+| 3 | CSS triangle, `subcontrol-origin:padding` | 🔲 pendiente validar |
+| 4 | Arrows nativos del SO (sin `::up-arrow` custom) | 🔲 pendiente validar |
+| 5 | `NoButtons` (sin flechas, referencia) | — sin flechas por diseño |
+
+> **Estado actual (2026-05):** se agregó una sección de test colapsable en
+> `LGA_import_shots.py → _build_page_convert()` con las 5 variantes. Cuando el
+> usuario confirme cuál funciona, anotar el resultado aquí y actualizar
+> `_SPIN_STYLE` en el mismo archivo.
+
+#### Solucion tentativa (a confirmar)
 
 ```css
 QSpinBox {

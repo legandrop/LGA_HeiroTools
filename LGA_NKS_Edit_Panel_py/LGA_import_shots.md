@@ -203,16 +203,16 @@ Los mismos colores se usan en los titulos de las secciones.
 
 ### Columnas
 
-| Col | Contenido | Formato |
-|-----|-----------|---------|
+| Col | Contenido | Formato / color |
+|-----|-----------|-----------------|
 | (barra) | Color indicator | 4 px, sin header |
 | (checkbox) | Seleccion | 28 px, sin header |
 | Nombre | Nombre del clip/version | — |
 | Tipo | `EXR seq`, `MOV`, etc. | — |
-| Res | Resolucion | `2048×1152` |
+| Res | Resolucion + AR | `2048×1152` en gris, `(16:9)` en dorado `#a89060` (muted si row greyed out) |
 | FPS | Frames por segundo | `23.976` |
-| Compresion | Codec | `dwaa`, `H.264`, etc. |
-| Frames | Rango y duracion | `1001–1480  (480f)` |
+| Compresion | Codec | `dwaa` → verde `#6a9960`, `zip`/`piz` → rojo `#a06060`, resto → gris |
+| Frames | Rango y duracion | `1001–1480  (480f - 20.0s)` — count+secs en ámbar `#b09040` |
 | Track | Asignacion de track | dropdown editable para inputs, label para publish |
 
 ### Deteccion de track por nombre de carpeta (case-insensitive)
@@ -308,18 +308,22 @@ Conversion de EXR sequences para los items marcados.
 
 ### Tabla de EXRs a convertir
 
-| Col | Contenido | Notas |
-|-----|-----------|-------|
+| Col | Contenido | Formato / color |
+|-----|-----------|-----------------|
 | (barra) | Color `#42616d` (plates) | 4 px, sin header |
 | Nombre | Nombre de la secuencia | `#cccccc` |
-| Origen | `WxH · bitdepth · Nch · compresion · #f` | leido del scan, ej: `2048×1152 · half · 3ch · zip · 480f` |
+| Origen | `WxH (AR) · bitdepth · Nch · compresion · #f - Xs` | AR dorado `#a89060`, comp coloreada, count+secs ámbar `#b09040` |
 | → | Flecha separadora | centrada, `#666` |
-| Destino | `WxH · bitdepth · Nch · compresion` | recalculado en vivo segun opciones |
+| Destino | `WxH (AR) · bitdepth · Nch · compresion` | mismo coloring; griseado si upscale bloqueado |
 | Tamaño | Tamaño actual en disco | escaneado al abrir la pagina (`_folder_size_bytes`) |
-| Estado | `Pendiente` | placeholder hasta integrar transcoder |
+| Estado | `Pendiente` / `⚠ Upscale` | Pendiente = cian `#5a9ab5`; Upscale = rojo `#a06060` |
 
-La columna Destino se recalcula en vivo cuando cambian: DWAA on/off, DWAA level,
-bit depth, channels, preset de resolucion, custom W×H, "no upscale".
+La columna Destino y la columna Estado se recalculan en vivo cuando cambian:
+DWAA on/off, DWAA level, bit depth, channels, preset de resolucion, custom W×H, "no upscale".
+
+**Upscale bloqueado:** cuando el resize resultaría en upscale y "Aplicar solo si origen es mayor"
+está activo, la fila muestra `⚠ Upscale` en rojo y la columna Destino se grísea. No se modifica
+la lógica de cálculo; es solo comunicación visual al usuario.
 
 El bit depth y channels se leen via `oiiotool --info -v` parseando la linea
 `"WxH, N channel, half openexr"` y se guardan en cada item como `bitdepth` y
@@ -338,11 +342,29 @@ El bit depth y channels se leen via `oiiotool --info -v` parseando la linea
 
 | Control | Default | Notas |
 |---------|---------|-------|
-| Destino (`QComboBox`) | `Original` | Presets: `Original`, `2K — 2048×1152`, `UHD — 3840×2160`, `4K — 4096×2304`, `Custom...` |
+| Destino (`QComboBox`) | `Original` | Presets con AR: `Original [AR_src]`, `2K — 2048×1152 [16:9]`, `UHD — 3840×2160 [16:9]`, `4K — 4096×2304 [16:9]`, `Custom...`. Con source disponible: muestra `→ WxH [AR_real]` calculado según PAR y match_dim |
 | Custom W × H | `2048 × 1152` | Solo visible si preset = `Custom...` |
-| ☑ Mantener aspect ratio | on | Solo en modo Custom; calcula H desde W |
+| ☑ Preserve aspect ratio | on | **Comportamiento según preset:** |
+| | | — **Presets fijos** (2K/UHD/4K): muestra "Dimensión que manda" (match width/height) |
+| | | — **Custom:** oculta "Dimensión que manda"; vincula W↔H dinámicamente. La última dimensión editada es el "master"; la otra se recalcula por ítem según su AR de source |
+| Dimensión que manda | `Match target width` | Solo visible cuando PAR activo Y preset NO es Custom |
 | Filtro resampling | `lanczos3` | `cubic`, `box` (solo aplica si hay resize) |
-| ☑ Aplicar solo si origen es mayor | on | Evita upscale accidental |
+| ☑ Aplicar solo si origen es mayor | on | Evita upscale accidental; filas con upscale → Estado `⚠ Upscale` |
+
+#### Lógica Custom + Preserve AR
+
+```
+_custom_master: "w" | "h"  — última dimensión editada por el usuario
+_custom_ar_updating: bool  — flag para evitar recursión en valueChanged
+
+_on_custom_w_changed() → si PAR on: calcula H = W * src_h/src_w (primer EXR)
+_on_custom_h_changed() → si PAR on: calcula W = H * src_w/src_h (primer EXR)
+
+_current_target_res(src_w, src_h) con preset=custom y PAR on:
+    if _custom_master == "w": tw = spinner_w; th = round(tw * src_h/src_w)
+    if _custom_master == "h": th = spinner_h; tw = round(th * src_w/src_h)
+    → resultado diferente por ítem (cada plate mantiene su propio AR)
+```
 
 ### Opciones — Manejo de originales (fila inferior)
 
@@ -357,25 +379,22 @@ Cuando el flag global `Transcode_TEST_Mode = True` está activo:
 - El output del transcode (cuando se implemente) se escribirá en
   `{seq_path}/test_transcode/` en vez de reemplazar la secuencia original.
 
-### Tests de dropdown (temporal)
+### Test section — SpinBox arrow styles (temporal)
 
-Debajo de "Manejo de originales" hay 7 `QComboBox` con distintas estrategias
-de styling, para encontrar cuál renderea correctamente la flecha ▼ en el
-sistema actual (algunas muestran un cuadradito en vez de la flecha):
+Colapsable (toggle ▶ "TEST: SpinBox arrow styles"), visible solo para desarrollo.
+Objetivo: identificar qué estilo de flechas funciona en este build de Qt para
+los QSpinBox del panel Custom (actualmente las flechas no aparecen).
 
-| # | Estrategia | Implementación |
-|---|-----------|----------------|
-| 1 | CSS triangle (método actual) | `border-left/right transparent + border-top sólido` |
-| 2 | SVG inline data URI | `image: url("data:image/svg+xml;...")` con polígono |
-| 3 | Sin custom drop-down | Solo styling de `QComboBox`, deja Qt manejar la flecha |
-| 4 | `image: none` con área | Oculta arrow pero mantiene drop-down area |
-| 5 | Subclase `_ArrowComboBox` + `paintEvent` | Dibuja triángulo con `QPainter` |
-| 6 | Sin stylesheet | Default puro de Qt |
-| 7 | `setStyle("Fusion")` | Aplica estilo Fusion via `QStyleFactory` |
+| # | Estrategia | Detalle |
+|---|-----------|---------|
+| 1 | CSS triangle, 18px buttons | `border-left/right transparent + border-bottom/top sólido`, `subcontrol-origin:border` |
+| 2 | CSS triangle, 22px buttons | Igual pero botones más anchos y spinbox más ancho |
+| 3 | CSS triangle, `subcontrol-origin:padding` | Alternativa de posicionamiento |
+| 4 | Arrows nativos del SO | Solo custom background/color, sin `::up-arrow` personalizado |
+| 5 | `NoButtons` (referencia) | `setButtonSymbols(NoButtons)`, para comparar sin flechas |
 
-Una vez identificada la opción que funciona, se elimina el bloque de tests
-y se aplica el estilo elegido a todos los combos del diálogo (`_COMBO_STYLE`,
-`_COMBO_BASE`).
+Una vez identificada la opción ganadora, eliminar el bloque y aplicar el estilo
+a `_SPIN_STYLE` y a los spinboxes del panel Custom.
 
 ### Resumen
 
@@ -464,6 +483,17 @@ Se muestra con icono ⚠ en la tabla principal.
 ## Constantes relevantes
 
 ```python
+# Colores para anotaciones en tabla / dropdowns
+# Derivados de la paleta PATH_LEVEL_COLORS, desaturados ~40 %
+_CLR_AR            = "#a89060"   # aspect ratio          — dorado suave
+_CLR_FRAMES        = "#b09040"   # cantidad de frames    — ámbar cálido
+_CLR_COMP_ZIP      = "#a06060"   # compresión zip/piz    — rojo suave
+_CLR_COMP_DWAA     = "#6a9960"   # compresión dwaa/dwab  — verde suave
+_CLR_STATUS_PENDING  = "#5a9ab5" # estado Pendiente      — cian suave
+_CLR_STATUS_DONE     = "#6a9960" # estado Terminado      — verde suave
+_CLR_STATUS_ERROR    = "#a06060" # estado Error          — rojo suave
+_CLR_STATUS_UPSCALE  = "#a06060" # estado Upscale (bloq) — rojo suave
+
 BURNIN_TRACK_NAMES = {"burnin", "burn in", "burn_in"}
 
 PLATE_KEYWORDS = [
@@ -557,7 +587,7 @@ donde se distribuya la repo.
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `main()`, `ImportShotDialog`, `_show_page()`, `_build_page_media()`, `_build_media_table()`, `_build_table_rows()`, `_populate_section_header_row()`, `_populate_data_row()`, `_select_all()`, `_clear_selection()`, `_select_section()`, `_update_action_btns()`, `_build_page_rename()`, `_build_page_convert()`, `_update_convert_page()`, `_on_res_preset_changed()`, `_current_target_res()`, `_target_compression()`, `_refresh_convert_destinos()`, `_toggle_convert_log()`, `_scan_input_folder()`, `_scan_publish_folders()`, `_read_exr_metadata()`, `_read_mov_metadata()`, `_folder_size_bytes()`, `_format_bytes()`, `_find_insert_frame()`, `_push_clips_right()`, `_stretch_burnin()`, `_shot_exists_in_timeline()`, `_import_clip_to_bin()`, `_place_clip_in_timeline()`, `_find_or_create_bin()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `main()`, `ImportShotDialog`, `_show_page()`, `_build_page_media()`, `_build_media_table()`, `_build_table_rows()`, `_populate_section_header_row()`, `_populate_data_row()`, `_select_all()`, `_clear_selection()`, `_select_section()`, `_update_action_btns()`, `_build_page_rename()`, `_build_page_convert()`, `_update_convert_page()`, `_on_res_preset_changed()`, `_on_keep_ar_changed()`, `_update_match_dim_visibility()`, `_get_representative_res()`, `_on_custom_w_changed()`, `_on_custom_h_changed()`, `_current_target_res()`, `_target_compression()`, `_refresh_convert_destinos()`, `_update_res_combo_labels()`, `_toggle_convert_log()`, `_cell_html_label()`, `_comp_color()`, `_ar_str()`, `_scan_input_folder()`, `_scan_publish_folders()`, `_read_exr_metadata()`, `_read_mov_metadata()`, `_folder_size_bytes()`, `_format_bytes()`, `_find_insert_frame()`, `_push_clips_right()`, `_stretch_burnin()`, `_shot_exists_in_timeline()`, `_import_clip_to_bin()`, `_place_clip_in_timeline()`, `_find_or_create_bin()` |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_CreateV000.py` | Referencia de UI, bin import, timeline placement, colorize path |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_SetShotName.py` | Renombrado de clips post-importacion |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_OrganizeProject.py` | Estructura de bins `F <grupo>/<shot>` |

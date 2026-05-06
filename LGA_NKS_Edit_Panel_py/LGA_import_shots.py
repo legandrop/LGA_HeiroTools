@@ -157,6 +157,18 @@ _TASK_ROW_COLORS = {
 }
 _TASK_ORDER = {"comp": 0, "roto": 1, "cleanup": 2, "dmp": 3}
 
+# ── colores para anotaciones en tabla / dropdowns ─────────────────
+# Derivados de la paleta PATH_LEVEL_COLORS pero desaturados ~40 %
+# para no competir con el texto base #a7a7a7.
+_CLR_AR            = "#a89060"   # aspect ratio          — dorado suave
+_CLR_FRAMES        = "#b09040"   # cantidad de frames    — ámbar cálido
+_CLR_COMP_ZIP      = "#a06060"   # compresión zip/piz    — rojo suave
+_CLR_COMP_DWAA     = "#6a9960"   # compresión dwaa/dwab  — verde suave
+_CLR_STATUS_PENDING  = "#5a9ab5" # estado Pendiente      — cian suave
+_CLR_STATUS_DONE     = "#6a9960" # estado Terminado      — verde suave
+_CLR_STATUS_ERROR    = "#a06060" # estado Error          — rojo suave
+_CLR_STATUS_UPSCALE  = "#a06060" # estado Upscale (bloq) — rojo suave
+
 # ── constantes de track ────────────────────────────────────────────
 BURNIN_TRACK_NAMES = {"burnin", "burn in", "burn_in"}
 
@@ -834,6 +846,28 @@ def _section_label(text):
     return lbl
 
 
+def _cell_html_label(html, bg="#272727"):
+    """QLabel con HTML coloreado para usar como cellWidget en tablas.
+    Transparente a eventos de mouse para que el cellClicked de la tabla
+    siga funcionando correctamente."""
+    lbl = QtWidgets.QLabel()
+    lbl.setTextFormat(QtCore.Qt.RichText)
+    lbl.setText(html)
+    lbl.setStyleSheet("background:%s; padding:2px 6px;" % bg)
+    lbl.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, True)
+    return lbl
+
+
+def _comp_color(comp, greyed=False):
+    """Devuelve el color HTML para una compresión EXR dada."""
+    cl = (comp or "").lower()
+    if cl in ("dwaa", "dwab"):
+        return "#4a6e4a" if greyed else _CLR_COMP_DWAA
+    if cl in ("zip", "zips", "piz"):
+        return "#6e4a4a" if greyed else _CLR_COMP_ZIP
+    return "#666666" if greyed else "#888888"
+
+
 def _separator(orientation="h"):
     sep = QtWidgets.QFrame()
     sep.setFrameShape(
@@ -960,6 +994,10 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         self._track_overrides = {}
         self._create_v000_tasks = set()
+
+        # Custom resolution + Preserve AR
+        self._custom_ar_updating = False   # evita recursión al actualizar spinboxes
+        self._custom_master = "w"          # "w" | "h" — última dimensión editada
 
         self.setWindowTitle("Import Shot — %s" % shot_name)
         self.setObjectName("LGA_ImportShotDialog")
@@ -1312,42 +1350,63 @@ class ImportShotDialog(QtWidgets.QDialog):
         tipo_item.setForeground(QtGui.QColor("#888888"))
         table.setItem(row_i, 3, tipo_item)
 
-        # Col 4: Res
+        # Color base para esta fila (más apagado si no es la versión latest)
+        _dim = "#888888" if is_latest else "#666666"
+
+        # Col 4: Res — dimensiones en dim, AR en dorado suave
         w, h = item.get("width"), item.get("height")
         if w and h:
             ar = _ar_str(w, h)
-            res_str = "%d×%d (%s)" % (w, h, ar) if ar else "%d×%d" % (w, h)
+            if ar:
+                ar_clr = _CLR_AR if is_latest else "#786840"
+                res_html = ("<span style='color:%s;'>%d×%d</span>"
+                            " <span style='color:%s;'>(%s)</span>" % (_dim, w, h, ar_clr, ar))
+                table.setCellWidget(row_i, 4, _cell_html_label(res_html))
+            else:
+                ri = QtWidgets.QTableWidgetItem("%d×%d" % (w, h))
+                ri.setForeground(QtGui.QColor(_dim))
+                table.setItem(row_i, 4, ri)
         else:
-            res_str = "—"
-        res_item = QtWidgets.QTableWidgetItem(res_str)
-        res_item.setForeground(QtGui.QColor("#888888"))
-        table.setItem(row_i, 4, res_item)
+            ri = QtWidgets.QTableWidgetItem("—")
+            ri.setForeground(QtGui.QColor(_dim))
+            table.setItem(row_i, 4, ri)
 
         # Col 5: FPS
         fps = item.get("fps")
         fps_str = ("%.5g" % fps) if fps else "—"
         fps_item = QtWidgets.QTableWidgetItem(fps_str)
-        fps_item.setForeground(QtGui.QColor("#888888"))
+        fps_item.setForeground(QtGui.QColor(_dim))
         table.setItem(row_i, 5, fps_item)
 
-        # Col 6: Compresión
+        # Col 6: Compresión — coloreada según tipo (dwaa=verde, zip/piz=rojo)
         comp = item.get("compression") or "—"
-        comp_item = QtWidgets.QTableWidgetItem(comp)
-        comp_item.setForeground(QtGui.QColor("#888888"))
-        table.setItem(row_i, 6, comp_item)
+        cc = _comp_color(comp, greyed=not is_latest)
+        if cc != _dim:
+            comp_html = "<span style='color:%s;'>%s</span>" % (cc, comp)
+            table.setCellWidget(row_i, 6, _cell_html_label(comp_html))
+        else:
+            ci = QtWidgets.QTableWidgetItem(comp)
+            ci.setForeground(QtGui.QColor(cc))
+            table.setItem(row_i, 6, ci)
 
-        # Col 7: Frames  "1001–1480  (480f)"
+        # Col 7: Frames  "1001–1480  (480f - 20.0s)"
         ff = item.get("first_frame")
         lf = item.get("last_frame")
         fc = item.get("frame_count")
         if ff is not None and lf is not None:
             fc_val = fc if fc is not None else (lf - ff + 1)
-            frames_str = "%d–%d  (%df)" % (ff, lf, fc_val)
+            fps_val = item.get("fps")
+            secs_txt = (" - %.1fs" % (fc_val / float(fps_val))) if fps_val else ""
+            fc_clr = _CLR_FRAMES if is_latest else "#786830"
+            frames_html = (
+                "<span style='color:%s;'>%d–%d</span>"
+                "  (<span style='color:%s;'>%df%s</span>)" % (
+                    _dim, ff, lf, fc_clr, fc_val, secs_txt))
+            table.setCellWidget(row_i, 7, _cell_html_label(frames_html))
         else:
-            frames_str = "—"
-        frames_item = QtWidgets.QTableWidgetItem(frames_str)
-        frames_item.setForeground(QtGui.QColor("#888888"))
-        table.setItem(row_i, 7, frames_item)
+            fi = QtWidgets.QTableWidgetItem("—")
+            fi.setForeground(QtGui.QColor(_dim))
+            table.setItem(row_i, 7, fi)
 
         # Col 8: Track (dropdown editable para inputs, label para publish)
         track = item.get("track")
@@ -1683,10 +1742,16 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._res_combo = _ArrowComboBox()
         self._res_combo.setStyleSheet(self._COMBO_STYLE)
         self._res_combo.setView(QtWidgets.QListView())
-        for label, _ in self._RES_PRESETS:
-            self._res_combo.addItem(label)
+        for label, preset in self._RES_PRESETS:
+            if preset and preset != "custom":
+                tw, th = preset
+                ar = _ar_str(tw, th)
+                display = ("%s  [%s]" % (label, ar)) if ar else label
+            else:
+                display = label
+            self._res_combo.addItem(display)
         self._res_combo.currentIndexChanged.connect(self._on_res_preset_changed)
-        self._res_combo.setMinimumWidth(240)
+        self._res_combo.setMinimumWidth(260)
         res_row.addWidget(self._res_combo)
         res_row.addStretch()
         col_res.addLayout(res_row)
@@ -1713,8 +1778,8 @@ class ImportShotDialog(QtWidgets.QDialog):
         cr_row.addStretch()
         self._custom_res_widget.hide()
         col_res.addWidget(self._custom_res_widget)
-        self._convert_custom_w.valueChanged.connect(self._refresh_convert_destinos)
-        self._convert_custom_h.valueChanged.connect(self._refresh_convert_destinos)
+        self._convert_custom_w.valueChanged.connect(self._on_custom_w_changed)
+        self._convert_custom_h.valueChanged.connect(self._on_custom_h_changed)
 
         # Preserve aspect ratio — siempre visible
         self._convert_keep_ar = QtWidgets.QCheckBox("Preserve aspect ratio")
@@ -1808,6 +1873,144 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         layout.addStretch()
 
+        # ── Sección de test: QSpinBox styles ─────────────────────────────
+        # Objetivo: encontrar qué estilo de flechas funciona en este build de Qt.
+        # Indicar al desarrollador cuál opción funciona y borrar el resto.
+        self._spin_test_toggle = QtWidgets.QPushButton("▶ TEST: SpinBox arrow styles")
+        self._spin_test_toggle.setCheckable(True)
+        self._spin_test_toggle.setStyleSheet(
+            "QPushButton { background:#1e1e1e; border:1px solid #333; color:#666;"
+            " padding:3px 8px; text-align:left; font-size:11px; }"
+            "QPushButton:checked { color:#888; border-color:#444; }"
+        )
+        layout.addWidget(self._spin_test_toggle)
+
+        self._spin_test_frame = QtWidgets.QFrame()
+        self._spin_test_frame.setStyleSheet(
+            "QFrame { background:#1e1e1e; border:1px solid #333; }"
+        )
+        self._spin_test_frame.hide()
+        stf_layout = QtWidgets.QVBoxLayout(self._spin_test_frame)
+        stf_layout.setSpacing(8)
+        stf_layout.setContentsMargins(10, 8, 10, 8)
+
+        _lbl_note = QtWidgets.QLabel(
+            "Probá cada spinbox — anotá cuál muestra las flechas correctamente."
+        )
+        _lbl_note.setStyleSheet("color:#666; font-style:italic; font-size:11px;")
+        stf_layout.addWidget(_lbl_note)
+
+        # Opción 1 — CSS triangle (border trick) — igual que la doc (solución ganadora doc)
+        _SPIN_OPT1 = """
+            QSpinBox { background:#272727; border:1px solid #444; color:#a7a7a7;
+                       padding:2px 20px 2px 4px; }
+            QSpinBox::up-button   { subcontrol-origin:border; subcontrol-position:top right;
+                                    width:18px; border-left:1px solid #444; background:#2e2e2e; }
+            QSpinBox::up-button:hover { background:#3a3a3a; }
+            QSpinBox::up-arrow    { image:none;
+                                    border-left:4px solid transparent;
+                                    border-right:4px solid transparent;
+                                    border-bottom:4px solid #888;
+                                    width:0px; height:0px; }
+            QSpinBox::down-button { subcontrol-origin:border; subcontrol-position:bottom right;
+                                    width:18px; border-left:1px solid #444; background:#2e2e2e; }
+            QSpinBox::down-button:hover { background:#3a3a3a; }
+            QSpinBox::down-arrow  { image:none;
+                                    border-left:4px solid transparent;
+                                    border-right:4px solid transparent;
+                                    border-top:4px solid #888;
+                                    width:0px; height:0px; }
+        """
+        # Opción 2 — CSS triangle con botones más anchos (22px) y spinbox más ancho
+        _SPIN_OPT2 = """
+            QSpinBox { background:#272727; border:1px solid #444; color:#a7a7a7;
+                       padding:2px 24px 2px 4px; }
+            QSpinBox::up-button   { subcontrol-origin:border; subcontrol-position:top right;
+                                    width:22px; border-left:1px solid #444; background:#2e2e2e; }
+            QSpinBox::up-button:hover { background:#3a3a3a; }
+            QSpinBox::up-arrow    { image:none;
+                                    border-left:5px solid transparent;
+                                    border-right:5px solid transparent;
+                                    border-bottom:5px solid #888;
+                                    width:0px; height:0px; }
+            QSpinBox::down-button { subcontrol-origin:border; subcontrol-position:bottom right;
+                                    width:22px; border-left:1px solid #444; background:#2e2e2e; }
+            QSpinBox::down-button:hover { background:#3a3a3a; }
+            QSpinBox::down-arrow  { image:none;
+                                    border-left:5px solid transparent;
+                                    border-right:5px solid transparent;
+                                    border-top:5px solid #888;
+                                    width:0px; height:0px; }
+        """
+        # Opción 3 — subcontrol-origin: padding (alternativa de posicionamiento)
+        _SPIN_OPT3 = """
+            QSpinBox { background:#272727; border:1px solid #444; color:#a7a7a7;
+                       padding:2px 20px 2px 4px; }
+            QSpinBox::up-button   { subcontrol-origin:padding; subcontrol-position:top right;
+                                    width:18px; height:12px; background:#2e2e2e;
+                                    border-left:1px solid #444; }
+            QSpinBox::up-button:hover { background:#3a3a3a; }
+            QSpinBox::up-arrow    { image:none;
+                                    border-left:4px solid transparent;
+                                    border-right:4px solid transparent;
+                                    border-bottom:4px solid #888;
+                                    width:0px; height:0px; }
+            QSpinBox::down-button { subcontrol-origin:padding; subcontrol-position:bottom right;
+                                    width:18px; height:12px; background:#2e2e2e;
+                                    border-left:1px solid #444; }
+            QSpinBox::down-button:hover { background:#3a3a3a; }
+            QSpinBox::down-arrow  { image:none;
+                                    border-left:4px solid transparent;
+                                    border-right:4px solid transparent;
+                                    border-top:4px solid #888;
+                                    width:0px; height:0px; }
+        """
+        # Opción 4 — solo colores base, arrows nativos del SO (sin customizar ::up-arrow)
+        _SPIN_OPT4 = """
+            QSpinBox { background:#272727; border:1px solid #444; color:#a7a7a7;
+                       padding:2px 4px; }
+            QSpinBox::up-button   { subcontrol-origin:border; subcontrol-position:top right;
+                                    width:18px; background:#2e2e2e;
+                                    border-left:1px solid #444; }
+            QSpinBox::down-button { subcontrol-origin:border; subcontrol-position:bottom right;
+                                    width:18px; background:#2e2e2e;
+                                    border-left:1px solid #444; }
+        """
+        # Opción 5 — NoButtons (sin flechas, solo teclado / scroll) como referencia
+        _SPIN_OPT5 = """
+            QSpinBox { background:#272727; border:1px solid #444; color:#a7a7a7;
+                       padding:2px 4px; }
+            QSpinBox::up-button, QSpinBox::down-button { width:0px; }
+        """
+
+        _spin_variants = [
+            ("Opción 1 — CSS triangle, 18px buttons (doc solution)", _SPIN_OPT1, 100, True),
+            ("Opción 2 — CSS triangle, 22px buttons wider", _SPIN_OPT2, 110, True),
+            ("Opción 3 — CSS triangle, subcontrol-origin:padding", _SPIN_OPT3, 100, True),
+            ("Opción 4 — Arrows nativos del SO (sin custom ::up-arrow)", _SPIN_OPT4, 100, True),
+            ("Opción 5 — NoButtons (solo teclado/scroll, referencia)", _SPIN_OPT5, 80, False),
+        ]
+
+        for lbl_txt, style, w, has_btns in _spin_variants:
+            row_w = QtWidgets.QHBoxLayout()
+            row_lbl = QtWidgets.QLabel(lbl_txt)
+            row_lbl.setStyleSheet("color:#888; font-size:11px;")
+            row_lbl.setFixedWidth(340)
+            row_w.addWidget(row_lbl)
+            sp = QtWidgets.QSpinBox()
+            sp.setRange(1, 16384)
+            sp.setValue(2048)
+            sp.setFixedWidth(w)
+            sp.setStyleSheet(style)
+            if not has_btns:
+                sp.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
+            row_w.addWidget(sp)
+            row_w.addStretch()
+            stf_layout.addLayout(row_w)
+
+        layout.addWidget(self._spin_test_frame)
+        self._spin_test_toggle.toggled.connect(self._spin_test_frame.setVisible)
+
         # Log panel (3 líneas, expandible)
         layout.addWidget(_separator())
         log_row = QtWidgets.QHBoxLayout()
@@ -1849,24 +2052,87 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _on_res_preset_changed(self, idx):
         preset = self._RES_PRESETS[idx][1] if 0 <= idx < len(self._RES_PRESETS) else None
         self._custom_res_widget.setVisible(preset == "custom")
+        self._update_match_dim_visibility()
         self._refresh_convert_destinos()
 
     def _on_keep_ar_changed(self):
-        self._match_dim_widget.setVisible(self._convert_keep_ar.isChecked())
+        self._update_match_dim_visibility()
+        self._refresh_convert_destinos()
+
+    def _update_match_dim_visibility(self):
+        """Muestra 'Dimensión que manda' solo cuando PAR activo y preset NO es Custom."""
+        idx = self._res_combo.currentIndex()
+        is_custom = (0 <= idx < len(self._RES_PRESETS)
+                     and self._RES_PRESETS[idx][1] == "custom")
+        self._match_dim_widget.setVisible(
+            self._convert_keep_ar.isChecked() and not is_custom
+        )
+
+    def _get_representative_res(self):
+        """Devuelve (src_w, src_h) del primer EXR disponible, o (None, None)."""
+        if hasattr(self, "_convert_rows"):
+            for it in self._convert_rows:
+                if it.get("kind") != "mov" and it.get("width") and it.get("height"):
+                    return it["width"], it["height"]
+        return None, None
+
+    def _on_custom_w_changed(self):
+        """Cuando el usuario edita el width en Custom, actualiza height si PAR activo."""
+        if self._custom_ar_updating:
+            return
+        self._custom_master = "w"
+        idx = self._res_combo.currentIndex()
+        is_custom = (0 <= idx < len(self._RES_PRESETS)
+                     and self._RES_PRESETS[idx][1] == "custom")
+        if is_custom and self._convert_keep_ar.isChecked():
+            src_w, src_h = self._get_representative_res()
+            if src_w and src_h:
+                new_h = int(round(self._convert_custom_w.value() * src_h / float(src_w)))
+                self._custom_ar_updating = True
+                self._convert_custom_h.setValue(max(1, new_h))
+                self._custom_ar_updating = False
+        self._refresh_convert_destinos()
+
+    def _on_custom_h_changed(self):
+        """Cuando el usuario edita el height en Custom, actualiza width si PAR activo."""
+        if self._custom_ar_updating:
+            return
+        self._custom_master = "h"
+        idx = self._res_combo.currentIndex()
+        is_custom = (0 <= idx < len(self._RES_PRESETS)
+                     and self._RES_PRESETS[idx][1] == "custom")
+        if is_custom and self._convert_keep_ar.isChecked():
+            src_w, src_h = self._get_representative_res()
+            if src_w and src_h:
+                new_w = int(round(self._convert_custom_h.value() * src_w / float(src_h)))
+                self._custom_ar_updating = True
+                self._convert_custom_w.setValue(max(1, new_w))
+                self._custom_ar_updating = False
         self._refresh_convert_destinos()
 
     def _current_target_res(self, src_w, src_h):
         """Devuelve (tw, th) destino segun preset y opciones de aspect ratio.
 
-        Si Preserve AR está activo y el preset es fijo, se ajusta la dimensión
-        secundaria para no deformar la imagen.  Custom usa directamente los
-        spinboxes sin ningún ajuste de AR.
+        - Original:  devuelve dimensiones del origen (sin cambio).
+        - Preset fijo: si PAR activo, ajusta la dimensión secundaria.
+        - Custom:    si PAR activo, la dimensión "master" (última editada)
+                     se mantiene y la otra se recalcula por ítem usando el AR
+                     del source; si PAR desactivado, usa los spinboxes tal cual.
         """
         idx = self._res_combo.currentIndex()
         preset = self._RES_PRESETS[idx][1] if 0 <= idx < len(self._RES_PRESETS) else None
         if preset is None:
             return src_w, src_h          # Original
         if preset == "custom":
+            if self._convert_keep_ar.isChecked() and src_w and src_h:
+                # La dimensión master determina; la otra se calcula por ítem
+                if self._custom_master == "w":
+                    tw = self._convert_custom_w.value()
+                    th = int(round(tw * src_h / float(src_w)))
+                else:
+                    th = self._convert_custom_h.value()
+                    tw = int(round(th * src_w / float(src_h)))
+                return tw, th
             return self._convert_custom_w.value(), self._convert_custom_h.value()
         # preset fijo (w, h)
         tw, th = preset
@@ -1879,26 +2145,37 @@ class ImportShotDialog(QtWidgets.QDialog):
         return tw, th
 
     def _update_res_combo_labels(self):
-        """Actualiza los items del combo con la resolución final real entre paréntesis."""
-        # Buscar primer EXR disponible para calcular la resolución real
-        src_w = src_h = None
-        if hasattr(self, "_convert_rows"):
-            for it in self._convert_rows:
-                if it.get("kind") != "mov" and it.get("width") and it.get("height"):
-                    src_w, src_h = it.get("width"), it.get("height")
-                    break
+        """Actualiza los items del combo con la resolución final real y AR."""
+        src_w, src_h = self._get_representative_res()
         for i, (label, preset) in enumerate(self._RES_PRESETS):
-            if preset is None or preset == "custom" or not src_w or not src_h:
-                self._res_combo.setItemText(i, label)
+            if preset is None or preset == "custom":
+                # "Original": mostrar AR del source si está disponible
+                if preset is None and src_w and src_h:
+                    ar = _ar_str(src_w, src_h)
+                    self._res_combo.setItemText(
+                        i, ("%s  [%s]" % (label, ar)) if ar else label)
+                else:
+                    self._res_combo.setItemText(i, label)
                 continue
             tw, th = preset
+            preset_ar = _ar_str(tw, th)
+            if not src_w or not src_h:
+                # Sin source: solo mostramos AR nativo del preset
+                base = ("%s  [%s]" % (label, preset_ar)) if preset_ar else label
+                self._res_combo.setItemText(i, base)
+                continue
+            # Con source: calculamos resolución real según PAR y match_dim
             if self._convert_keep_ar.isChecked():
                 match_width = self._convert_match_dim.currentText().startswith("Match target width")
                 if match_width:
                     th = int(round(tw * src_h / float(src_w)))
                 else:
                     tw = int(round(th * src_w / float(src_h)))
-            self._res_combo.setItemText(i, "%s  (→ %d×%d)" % (label, tw, th))
+            computed_ar = _ar_str(tw, th)
+            base = ("%s  [%s]" % (label, preset_ar)) if preset_ar else label
+            ar_part = ("  [%s]" % computed_ar) if computed_ar else ""
+            self._res_combo.setItemText(
+                i, "%s  →  %d×%d%s" % (base, tw, th, ar_part))
 
     def _target_compression(self, src_comp):
         return "dwaa" if self._convert_dwaa_chk.isChecked() else (src_comp or "—")
@@ -1929,7 +2206,12 @@ class ImportShotDialog(QtWidgets.QDialog):
         return "—"
 
     def _refresh_convert_destinos(self):
-        """Recalcula la columna 'Destino' y las labels del combo (solo EXR, no MOVs)."""
+        """Recalcula columnas 'Destino' y 'Estado' y las labels del combo (EXR solamente).
+
+        Detecta automáticamente los casos de upscale bloqueado por 'no upscale':
+        - Destino: muestra la resolución final (griseado si upscale bloqueado)
+        - Estado:  'Pendiente' (cian) | '⚠ Upscale' (rojo, fila deshabilitada)
+        """
         if not hasattr(self, "_convert_table") or not hasattr(self, "_convert_rows"):
             return
         self._update_res_combo_labels()
@@ -1938,21 +2220,47 @@ class ImportShotDialog(QtWidgets.QDialog):
                 continue
             sw, sh = item.get("width"), item.get("height")
             tw, th = self._current_target_res(sw, sh)
-            if (self._convert_no_upscale.isChecked() and sw and sh and tw and th
-                    and (tw > sw or th > sh)):
-                tw, th = sw, sh
-            if tw and th:
-                ar = _ar_str(tw, th)
-                res_str = "%d×%d (%s)" % (tw, th, ar) if ar else "%d×%d" % (tw, th)
-            else:
-                res_str = "—"
+
+            # ¿El resize resultaría en upscale y está bloqueado?
+            is_upscale_blocked = (
+                self._convert_no_upscale.isChecked()
+                and sw and sh and tw and th
+                and (tw > sw or th > sh)
+            )
+            if is_upscale_blocked:
+                tw, th = sw, sh  # se mantiene el original
+
+            # ── Columna 5: Destino ────────────────────────────────────────
+            dest_fg = "#555555" if is_upscale_blocked else "#a7a7a7"
             comp = self._target_compression(item.get("compression"))
             bd   = self._target_bitdepth(item.get("bitdepth"))
             ch   = self._target_channels(item.get("channels"))
-            destino = "%s · %s · %s · %s" % (res_str, bd or "—", self._ch_str(ch), comp)
-            cell = self._convert_table.item(row_i, 5)
-            if cell:
-                cell.setText(destino)
+            if tw and th:
+                ar = _ar_str(tw, th)
+                ar_clr = "#5a4a30" if is_upscale_blocked else _CLR_AR
+                if ar:
+                    res_h = ("<span style='color:%s;'>%d×%d</span>"
+                             " <span style='color:%s;'>(%s)</span>" % (
+                                 dest_fg, tw, th, ar_clr, ar))
+                else:
+                    res_h = "<span style='color:%s;'>%d×%d</span>" % (dest_fg, tw, th)
+            else:
+                res_h = "<span style='color:%s;'>—</span>" % dest_fg
+            comp_clr = dest_fg if is_upscale_blocked else _comp_color(comp)
+            bd_h   = "<span style='color:%s;'>%s</span>" % (dest_fg, bd or "—")
+            ch_h   = "<span style='color:%s;'>%s</span>" % (dest_fg, self._ch_str(ch))
+            comp_h = "<span style='color:%s;'>%s</span>" % (comp_clr, comp)
+            dest_html = "%s · %s · %s · %s" % (res_h, bd_h, ch_h, comp_h)
+            self._convert_table.setCellWidget(row_i, 5, _cell_html_label(dest_html))
+
+            # ── Columna 7: Estado ─────────────────────────────────────────
+            if is_upscale_blocked:
+                st_html = ("<span style='color:%s;'>⚠ Upscale</span>"
+                           % _CLR_STATUS_UPSCALE)
+            else:
+                st_html = ("<span style='color:%s;'>Pendiente</span>"
+                           % _CLR_STATUS_PENDING)
+            self._convert_table.setCellWidget(row_i, 7, _cell_html_label(st_html))
 
     def _update_convert_page(self):
         # Recolectar plates chequeados (todos los items de la sección PLATES,
@@ -2007,25 +2315,38 @@ class ImportShotDialog(QtWidgets.QDialog):
                 name_item.setToolTip("Transcode de MOV pendiente de implementación")
             self._convert_table.setItem(i, 2, name_item)
 
-            # Col 3: Origen "WxH · bd · Nch · comp · #f"
+            # Col 3: Origen "WxH [AR] · bd · Nch · comp · #f - Xs"
             sw, sh = it.get("width"), it.get("height")
             sc = it.get("compression") or "—"
             sbd = it.get("bitdepth") or "—"
             sch = it.get("channels")
             fc = it.get("frame_count") or 0
+            fps_val = it.get("fps")
             if not is_mov:
                 total_frames += fc
+            # resolución con AR coloreado
             if sw and sh:
                 ar = _ar_str(sw, sh)
-                res_origen = "%d×%d (%s)" % (sw, sh, ar) if ar else "%d×%d" % (sw, sh)
+                ar_clr = "#555555" if is_mov else _CLR_AR
+                if ar:
+                    res_h = ("<span style='color:%s;'>%d×%d</span>"
+                             " <span style='color:%s;'>(%s)</span>" % (
+                                 dim_color, sw, sh, ar_clr, ar))
+                else:
+                    res_h = "<span style='color:%s;'>%d×%d</span>" % (dim_color, sw, sh)
             else:
-                res_origen = "—"
-            origen = "%s · %s · %s · %s · %df" % (
-                res_origen, sbd, self._ch_str(sch), sc, fc,
-            )
-            o_item = QtWidgets.QTableWidgetItem(origen)
-            o_item.setForeground(QtGui.QColor(dim_color))
-            self._convert_table.setItem(i, 3, o_item)
+                res_h = "<span style='color:%s;'>—</span>" % dim_color
+            # compresión coloreada
+            sc_clr = _comp_color(sc, greyed=is_mov)
+            sc_h = "<span style='color:%s;'>%s</span>" % (sc_clr, sc)
+            # frames con segundos coloreados
+            fc_clr = "#555555" if is_mov else _CLR_FRAMES
+            secs_txt = (" - %.1fs" % (fc / float(fps_val))) if fps_val and fc else ""
+            fc_h = "<span style='color:%s;'>%df%s</span>" % (fc_clr, fc, secs_txt)
+            bd_h = "<span style='color:%s;'>%s</span>" % (dim_color, sbd)
+            ch_h = "<span style='color:%s;'>%s</span>" % (dim_color, self._ch_str(sch))
+            origen_html = "%s · %s · %s · %s · %s" % (res_h, bd_h, ch_h, sc_h, fc_h)
+            self._convert_table.setCellWidget(i, 3, _cell_html_label(origen_html))
 
             # Col 4: flecha
             arrow = QtWidgets.QTableWidgetItem("→")
@@ -2033,10 +2354,12 @@ class ImportShotDialog(QtWidgets.QDialog):
             arrow.setTextAlignment(QtCore.Qt.AlignCenter)
             self._convert_table.setItem(i, 4, arrow)
 
-            # Col 5: Destino (placeholder, se llena en _refresh_convert_destinos)
-            d_item = QtWidgets.QTableWidgetItem("" if not is_mov else "—")
-            d_item.setForeground(QtGui.QColor("#555555" if is_mov else "#a7a7a7"))
-            self._convert_table.setItem(i, 5, d_item)
+            # Col 5: Destino — placeholder; se completa en _refresh_convert_destinos
+            if is_mov:
+                self._convert_table.setCellWidget(
+                    i, 5, _cell_html_label("<span style='color:#555555;'>—</span>"))
+            else:
+                self._convert_table.setItem(i, 5, QtWidgets.QTableWidgetItem(""))
 
             # Col 6: Tamaño actual
             size_b = _folder_size_bytes(it.get("path", ""))
@@ -2047,12 +2370,12 @@ class ImportShotDialog(QtWidgets.QDialog):
             s_item.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
             self._convert_table.setItem(i, 6, s_item)
 
-            # Col 7: Estado
-            st_item = QtWidgets.QTableWidgetItem(
-                "No soportado" if is_mov else "Pendiente"
-            )
-            st_item.setForeground(QtGui.QColor("#555555" if is_mov else "#888888"))
-            self._convert_table.setItem(i, 7, st_item)
+            # Col 7: Estado inicial (se reescribe en _refresh_convert_destinos para EXR)
+            if is_mov:
+                st_html = "<span style='color:#555555;'>No soportado</span>"
+            else:
+                st_html = "<span style='color:%s;'>Pendiente</span>" % _CLR_STATUS_PENDING
+            self._convert_table.setCellWidget(i, 7, _cell_html_label(st_html))
 
         self._refresh_convert_destinos()
 
