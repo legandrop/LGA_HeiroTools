@@ -61,6 +61,11 @@ check_existing_outputs  = _transcode_mod.check_existing_outputs
 delete_existing_outputs = _transcode_mod.delete_existing_outputs
 show_overwrite_warning  = _transcode_mod.show_overwrite_warning
 
+_SETTINGS_HELPER = "LGA_NKS_Edit_Panel_py.LGA_import_shots_settings"
+if _SETTINGS_HELPER in sys.modules:
+    del sys.modules[_SETTINGS_HELPER]
+settings_mod = importlib.import_module(_SETTINGS_HELPER)
+
 # ── flags ──────────────────────────────────────────────────────────
 # Si True, el transcode escribe a {seq_path}/test_transcode/ y los
 # checkboxes "Mover originales" / "Borrar /Originals" quedan inertes.
@@ -1040,11 +1045,86 @@ def _ar_str(w, h):
 #  Delegate para combo de resolución (AR en dorado)
 # ══════════════════════════════════════════════════════════════════
 
-class _ResArDelegate(QtWidgets.QStyledItemDelegate):
-    """Pinta items del combo de resolución con las secciones [AR] en color dorado."""
+# Ancho del área de click del ícono de papelera en el dropdown de presets
+_PRESET_TRASH_W = 26
+
+
+class _ResPresetListView(QtWidgets.QListView):
+    """QListView usado como popup del combo de resoluciones.
+
+    Intercepta clicks sobre el ícono de papelera (zona derecha del ítem)
+    sin seleccionar el ítem ni cerrar el popup.
+    También trackea la fila hover para el efecto del ícono.
+    """
+
+    def __init__(self, on_delete_cb, parent=None):
+        super(_ResPresetListView, self).__init__(parent)
+        self._on_delete = on_delete_cb
+        self._hovered_trash_row = -1
+        self.setMouseTracking(True)
+
+    @staticmethod
+    def _is_deletable(text):
+        return text.strip() not in ("Original", "Custom...")
+
+    def _in_trash_zone(self, row, pos):
+        m = self.model()
+        if not m:
+            return False
+        vrect = self.visualRect(m.index(row, 0))
+        return pos.x() >= vrect.right() - _PRESET_TRASH_W
+
+    def mouseMoveEvent(self, event):
+        super(_ResPresetListView, self).mouseMoveEvent(event)
+        idx = self.indexAt(event.pos())
+        row = idx.row() if idx.isValid() else -1
+        new_hover = -1
+        if row >= 0 and self._is_deletable((self.model().data(self.model().index(row, 0)) or "")):
+            if self._in_trash_zone(row, event.pos()):
+                new_hover = row
+        if new_hover != self._hovered_trash_row:
+            old = self._hovered_trash_row
+            self._hovered_trash_row = new_hover
+            m = self.model()
+            if m:
+                for r in (old, new_hover):
+                    if r >= 0:
+                        self.update(self.visualRect(m.index(r, 0)))
+
+    def leaveEvent(self, event):
+        super(_ResPresetListView, self).leaveEvent(event)
+        old = self._hovered_trash_row
+        self._hovered_trash_row = -1
+        m = self.model()
+        if m and old >= 0:
+            self.update(self.visualRect(m.index(old, 0)))
+
+    def mouseReleaseEvent(self, event):
+        idx = self.indexAt(event.pos())
+        row = idx.row() if idx.isValid() else -1
+        if row >= 0:
+            text = (self.model().data(self.model().index(row, 0)) or "")
+            if self._is_deletable(text) and self._in_trash_zone(row, event.pos()):
+                self._on_delete(row)
+                return  # no propagar → no seleccionar ítem ni cerrar popup
+        super(_ResPresetListView, self).mouseReleaseEvent(event)
+
+
+class _ResPresetDelegate(QtWidgets.QStyledItemDelegate):
+    """Pinta items del combo de resoluciones con [AR] en dorado y trash icon a la derecha."""
 
     _CLR_TEXT = "#a7a7a7"
     _CLR_AR   = "#a89060"
+
+    def __init__(self, list_view, pix_trash, pix_hover, parent=None):
+        super(_ResPresetDelegate, self).__init__(parent)
+        self._view      = list_view
+        self._pix_trash = pix_trash
+        self._pix_hover = pix_hover
+
+    @staticmethod
+    def _is_deletable(text):
+        return text.strip() not in ("Original", "Custom...")
 
     def paint(self, painter, option, index):
         painter.save()
@@ -1054,28 +1134,43 @@ class _ResArDelegate(QtWidgets.QStyledItemDelegate):
         painter.fillRect(option.rect, bg)
 
         text = index.data() or ""
-        # Dividir en segmentos: normal vs [entre corchetes]
-        segments = re.split(r'(\[[^\]]*\])', text)
+        deletable = self._is_deletable(text)
 
-        fm   = painter.fontMetrics()
-        rect = option.rect.adjusted(6, 0, -4, 0)
-        x    = rect.x()
+        # Área de texto: si deletable reservar espacio para el trash
+        text_rect = option.rect.adjusted(6, 0, -(_PRESET_TRASH_W + 4) if deletable else -4, 0)
+
+        segments = re.split(r'(\[[^\]]*\])', text)
+        fm = painter.fontMetrics()
+        x  = text_rect.x()
 
         for seg in segments:
             if not seg:
                 continue
             is_ar = seg.startswith("[")
             painter.setPen(QtGui.QColor(self._CLR_AR if is_ar else self._CLR_TEXT))
-            w = fm.horizontalAdvance(seg)
-            painter.drawText(x, rect.top(), w, rect.height(),
+            sw = fm.horizontalAdvance(seg)
+            painter.drawText(x, text_rect.top(), sw, text_rect.height(),
                              QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft, seg)
-            x += w
+            x += sw
+
+        if deletable:
+            hovered = (self._view._hovered_trash_row == index.row())
+            pix = (self._pix_hover if (hovered and self._pix_hover and not self._pix_hover.isNull())
+                   else self._pix_trash)
+            if pix and not pix.isNull():
+                icon_sz = 14
+                tx = option.rect.right() - _PRESET_TRASH_W + (_PRESET_TRASH_W - icon_sz) // 2
+                ty = option.rect.top() + (option.rect.height() - icon_sz) // 2
+                scaled = pix.scaled(icon_sz, icon_sz,
+                                    QtCore.Qt.KeepAspectRatio,
+                                    QtCore.Qt.SmoothTransformation)
+                painter.drawPixmap(tx, ty, scaled)
 
         painter.restore()
 
     def sizeHint(self, option, index):
-        sh = super(_ResArDelegate, self).sizeHint(option, index)
-        return sh.expandedTo(QtCore.QSize(0, 22))
+        sh = super(_ResPresetDelegate, self).sizeHint(option, index)
+        return sh.expandedTo(QtCore.QSize(0, 24))
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1106,11 +1201,17 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._custom_ar_updating = False   # evita recursión al actualizar spinboxes
         self._custom_master = "w"          # "w" | "h" — última dimensión editada
 
+        # Cargar settings persistentes ANTES de construir la UI
+        self._imp_settings      = settings_mod.load_all_settings()
+        self._res_presets_raw   = settings_mod.load_res_presets()
+        self._res_presets       = [settings_mod.preset_to_tuple(p)
+                                   for p in self._res_presets_raw]
+
         self.setWindowTitle("Import Shot — %s" % shot_name)
         self.setObjectName("LGA_ImportShotDialog")
         self.setModal(True)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-        self.setMinimumWidth(1260)
+        self.setMinimumWidth(1275)
         self.setMinimumHeight(650)
         self.setStyleSheet(_DIALOG_STYLE)
 
@@ -1655,14 +1756,6 @@ class ImportShotDialog(QtWidgets.QDialog):
     # ══════════════════════════════════════════════════════════
 
     # Presets de resolución: label → (W, H) o None (original)
-    _RES_PRESETS = [
-        ("Original",            None),
-        ("2K — 2048×1152",      (2048, 1152)),
-        ("UHD — 3840×2160",     (3840, 2160)),
-        ("4K — 4096×2304",      (4096, 2304)),
-        ("Custom...",           "custom"),
-    ]
-
     _COMBO_STYLE = (
         "QComboBox { background-color:#272727; border:1px solid #444; "
         "color:#a7a7a7; padding:3px 6px; }"
@@ -1741,7 +1834,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         hdr.setSectionResizeMode(2, QtWidgets.QHeaderView.Stretch)
         # Origen (col 3) — 360px para "4096×2160 (2.39:1) (2) · 16b · RGB · dwaa · 480f - 20.0s"
         hdr.setSectionResizeMode(3, QtWidgets.QHeaderView.Interactive)
-        self._convert_table.setColumnWidth(3, 360)
+        self._convert_table.setColumnWidth(3, 375)
         # Flecha (col 4)
         hdr.setSectionResizeMode(4, QtWidgets.QHeaderView.ResizeToContents)
         # Destino (col 5) — mínimo 320px para "2048×858 (2.39:1) · half · RGB · dwaa"
@@ -1851,10 +1944,12 @@ class ImportShotDialog(QtWidgets.QDialog):
         res_row.addWidget(res_lbl)
         self._res_combo = _ArrowComboBox()
         self._res_combo.setStyleSheet(self._COMBO_STYLE)
-        _res_list = QtWidgets.QListView()
+        _pix_trash = QtGui.QPixmap(str(SHARED_DIR / "icons" / "trash.svg"))
+        _pix_hover = QtGui.QPixmap(str(SHARED_DIR / "icons" / "trash_hover.svg"))
+        _res_list = _ResPresetListView(self._on_delete_preset)
         self._res_combo.setView(_res_list)
-        _res_list.setItemDelegate(_ResArDelegate(_res_list))
-        for label, preset in self._RES_PRESETS:
+        _res_list.setItemDelegate(_ResPresetDelegate(_res_list, _pix_trash, _pix_hover))
+        for label, preset in self._res_presets:
             if preset and preset != "custom":
                 tw, th = preset
                 ar = _ar_str(tw, th)
@@ -1884,9 +1979,20 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._convert_custom_h.setFixedWidth(72)
         x_lbl = QtWidgets.QLabel("×")
         x_lbl.setStyleSheet("color:#a7a7a7;")
+        self._save_preset_btn = QtWidgets.QPushButton("Save preset")
+        self._save_preset_btn.setStyleSheet(
+            "QPushButton { background:#2a2a3a; border:1px solid #555; color:#a7a7a7; "
+            "padding:3px 10px; border-radius:3px; font-size:11px; }"
+            "QPushButton:hover { background:#3a3a4a; color:#cccccc; }"
+        )
+        self._save_preset_btn.setFixedHeight(24)
+        self._save_preset_btn.setToolTip("Guardar esta resolución como preset")
+        self._save_preset_btn.clicked.connect(self._on_save_preset_clicked)
         cr_row.addWidget(self._convert_custom_w)
         cr_row.addWidget(x_lbl)
         cr_row.addWidget(self._convert_custom_h)
+        cr_row.addSpacing(8)
+        cr_row.addWidget(self._save_preset_btn)
         cr_row.addStretch()
         self._custom_res_widget.hide()
         col_res.addWidget(self._custom_res_widget)
@@ -2049,10 +2155,32 @@ class ImportShotDialog(QtWidgets.QDialog):
         btn_row.addWidget(self._start_transcode_btn)
         layout.addLayout(btn_row)
 
+        # Aplicar settings guardados (después de que todos los widgets existen)
+        self._load_settings_to_ui()
+
+        # Conectar auto-guardado DESPUÉS de cargar (para no disparar saves innecesarios)
+        for _w, _sig in [
+            (self._convert_dwaa_chk,     "stateChanged"),
+            (self._convert_dwaa_level,   "valueChanged"),
+            (self._convert_channels,     "currentIndexChanged"),
+            (self._convert_filter,       "currentIndexChanged"),
+            (self._res_combo,            "currentIndexChanged"),
+            (self._convert_custom_w,     "valueChanged"),
+            (self._convert_custom_h,     "valueChanged"),
+            (self._convert_keep_ar,      "stateChanged"),
+            (self._convert_match_dim,    "currentIndexChanged"),
+            (self._convert_no_upscale,   "stateChanged"),
+            (self._convert_deana_chk,    "stateChanged"),
+            (self._convert_deana_par,    "currentIndexChanged"),
+            (self._move_originals_chk,   "stateChanged"),
+            (self._delete_originals_chk, "stateChanged"),
+        ]:
+            getattr(_w, _sig).connect(self._save_all_settings)
+
         return page
 
     def _on_res_preset_changed(self, idx):
-        preset = self._RES_PRESETS[idx][1] if 0 <= idx < len(self._RES_PRESETS) else None
+        preset = self._res_presets[idx][1] if 0 <= idx < len(self._res_presets) else None
         self._custom_res_widget.setVisible(preset == "custom")
         self._update_match_dim_visibility()
         self._refresh_convert_destinos()
@@ -2064,8 +2192,8 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _update_match_dim_visibility(self):
         """Muestra 'Dimensión que manda' solo cuando PAR activo y preset NO es Custom."""
         idx = self._res_combo.currentIndex()
-        is_custom = (0 <= idx < len(self._RES_PRESETS)
-                     and self._RES_PRESETS[idx][1] == "custom")
+        is_custom = (0 <= idx < len(self._res_presets)
+                     and self._res_presets[idx][1] == "custom")
         self._match_dim_widget.setVisible(
             self._convert_keep_ar.isChecked() and not is_custom
         )
@@ -2084,8 +2212,8 @@ class ImportShotDialog(QtWidgets.QDialog):
             return
         self._custom_master = "w"
         idx = self._res_combo.currentIndex()
-        is_custom = (0 <= idx < len(self._RES_PRESETS)
-                     and self._RES_PRESETS[idx][1] == "custom")
+        is_custom = (0 <= idx < len(self._res_presets)
+                     and self._res_presets[idx][1] == "custom")
         if is_custom and self._convert_keep_ar.isChecked():
             src_w, src_h = self._get_representative_res()
             if src_w and src_h:
@@ -2101,8 +2229,8 @@ class ImportShotDialog(QtWidgets.QDialog):
             return
         self._custom_master = "h"
         idx = self._res_combo.currentIndex()
-        is_custom = (0 <= idx < len(self._RES_PRESETS)
-                     and self._RES_PRESETS[idx][1] == "custom")
+        is_custom = (0 <= idx < len(self._res_presets)
+                     and self._res_presets[idx][1] == "custom")
         if is_custom and self._convert_keep_ar.isChecked():
             src_w, src_h = self._get_representative_res()
             if src_w and src_h:
@@ -2122,7 +2250,7 @@ class ImportShotDialog(QtWidgets.QDialog):
                      del source; si PAR desactivado, usa los spinboxes tal cual.
         """
         idx = self._res_combo.currentIndex()
-        preset = self._RES_PRESETS[idx][1] if 0 <= idx < len(self._RES_PRESETS) else None
+        preset = self._res_presets[idx][1] if 0 <= idx < len(self._res_presets) else None
         if preset is None:
             return src_w, src_h          # Original
         if preset == "custom":
@@ -2149,7 +2277,7 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _update_res_combo_labels(self):
         """Actualiza los items del combo con la resolución final real y AR."""
         src_w, src_h = self._get_representative_res()
-        for i, (label, preset) in enumerate(self._RES_PRESETS):
+        for i, (label, preset) in enumerate(self._res_presets):
             if preset is None or preset == "custom":
                 # "Original": mostrar AR del source si está disponible
                 if preset is None and src_w and src_h:
@@ -2189,6 +2317,145 @@ class ImportShotDialog(QtWidgets.QDialog):
         """Muestra u oculta el selector de PAR de desanamorfizado."""
         self._deana_par_widget.setVisible(state == QtCore.Qt.Checked)
         self._refresh_convert_destinos()
+
+    # ── Settings persistentes ──────────────────────────────────────────────────
+
+    def _load_settings_to_ui(self):
+        """Aplica los settings cargados desde el INI a los widgets."""
+        s   = self._imp_settings
+        cod = s.get("codec", {})
+        res = s.get("res", {})
+        org = s.get("originals", {})
+
+        # Codec
+        self._convert_dwaa_chk.setChecked(cod.get("dwaa", "true").lower() == "true")
+        try:
+            self._convert_dwaa_level.setValue(int(cod.get("dwaa_level", "45")))
+        except ValueError:
+            pass
+        ch_val = cod.get("channels", "all")
+        self._convert_channels.setCurrentIndex(1 if ch_val == "rgb" else 0)
+        flt_idx = self._convert_filter.findText(cod.get("filter", "lanczos3"))
+        self._convert_filter.setCurrentIndex(max(0, flt_idx))
+
+        # Resolution
+        try:
+            pi = int(res.get("preset_index", "0"))
+            pi = max(0, min(pi, self._res_combo.count() - 1))
+            self._res_combo.setCurrentIndex(pi)
+        except ValueError:
+            pass
+        try:
+            self._convert_custom_w.setValue(int(res.get("custom_w", "2048")))
+        except ValueError:
+            pass
+        try:
+            self._convert_custom_h.setValue(int(res.get("custom_h", "1152")))
+        except ValueError:
+            pass
+        self._convert_keep_ar.setChecked(res.get("keep_ar", "true").lower() == "true")
+        try:
+            md_idx = int(res.get("match_dim", "0"))
+            self._convert_match_dim.setCurrentIndex(max(0, min(md_idx, 1)))
+        except ValueError:
+            pass
+        self._convert_no_upscale.setChecked(res.get("no_upscale", "true").lower() == "true")
+        self._convert_deana_chk.setChecked(res.get("deana", "false").lower() == "true")
+        dp_idx = self._convert_deana_par.findText(res.get("deana_par", "2.0"))
+        self._convert_deana_par.setCurrentIndex(max(0, dp_idx))
+
+        # Originals (solo si no estamos en test mode)
+        if not Transcode_TEST_Mode:
+            self._move_originals_chk.setChecked(org.get("move", "false").lower() == "true")
+            self._delete_originals_chk.setChecked(org.get("delete", "false").lower() == "true")
+
+    def _save_all_settings(self, *_):
+        """Guarda todos los settings al INI."""
+        settings_mod.save_all_settings({
+            "codec": {
+                "dwaa":       str(self._convert_dwaa_chk.isChecked()).lower(),
+                "dwaa_level": str(self._convert_dwaa_level.value()),
+                "channels":   ("rgb" if self._convert_channels.currentText() == "Reducir a RGB"
+                               else "all"),
+                "filter":     self._convert_filter.currentText(),
+            },
+            "res": {
+                "preset_index": str(self._res_combo.currentIndex()),
+                "custom_w":     str(self._convert_custom_w.value()),
+                "custom_h":     str(self._convert_custom_h.value()),
+                "keep_ar":      str(self._convert_keep_ar.isChecked()).lower(),
+                "match_dim":    str(self._convert_match_dim.currentIndex()),
+                "no_upscale":   str(self._convert_no_upscale.isChecked()).lower(),
+                "deana":        str(self._convert_deana_chk.isChecked()).lower(),
+                "deana_par":    self._convert_deana_par.currentText(),
+            },
+            "originals": {
+                "move":   str(self._move_originals_chk.isChecked()).lower(),
+                "delete": str(self._delete_originals_chk.isChecked()).lower(),
+            },
+        })
+
+    # ── Presets de resolución dinámicos ────────────────────────────────────────
+
+    def _rebuild_res_combo(self, select_idx=None):
+        """Reconstruye el combo desde self._res_presets_raw."""
+        self._res_presets = [settings_mod.preset_to_tuple(p) for p in self._res_presets_raw]
+
+        prev_idx = self._res_combo.currentIndex() if select_idx is None else select_idx
+
+        self._res_combo.blockSignals(True)
+        self._res_combo.clear()
+        for label, preset in self._res_presets:
+            if preset and preset != "custom":
+                tw, th = preset
+                ar = _ar_str(tw, th)
+                display = ("%s  [%s]" % (label, ar)) if ar else label
+            else:
+                display = label
+            self._res_combo.addItem(display)
+
+        valid_idx = max(0, min(prev_idx, self._res_combo.count() - 1))
+        self._res_combo.setCurrentIndex(valid_idx)
+        self._res_combo.blockSignals(False)
+
+        self._on_res_preset_changed(valid_idx)
+        self._update_res_combo_labels()
+
+    def _on_delete_preset(self, row):
+        """Elimina el preset en la posición row del INI y reconstruye el combo."""
+        if row < 0 or row >= len(self._res_presets_raw):
+            return
+        p = self._res_presets_raw[row]
+        if "special" in p:
+            return  # No se pueden borrar "Original" ni "Custom..."
+
+        cur_idx = self._res_combo.currentIndex()
+        if cur_idx == row:
+            new_idx = max(0, row - 1)
+        elif cur_idx > row:
+            new_idx = cur_idx - 1
+        else:
+            new_idx = cur_idx
+
+        del self._res_presets_raw[row]
+        settings_mod.save_res_presets(self._res_presets_raw)
+        self._rebuild_res_combo(select_idx=new_idx)
+        self._save_all_settings()
+
+    def _on_save_preset_clicked(self):
+        """Abre el diálogo de guardar preset y añade el nuevo a la lista."""
+        w = self._convert_custom_w.value()
+        h = self._convert_custom_h.value()
+        name = settings_mod.show_save_preset_dialog(w, h, parent=self)
+        if not name:
+            return
+
+        # Insertar antes de "Custom..." (último elemento)
+        insert_pos = len(self._res_presets_raw) - 1
+        self._res_presets_raw.insert(insert_pos, {"name": name, "w": w, "h": h})
+        settings_mod.save_res_presets(self._res_presets_raw)
+        self._rebuild_res_combo(select_idx=insert_pos)
+        self._save_all_settings()
 
     def _apply_deana_if_active(self, tw, th):
         """Multiplica el ancho por el PAR elegido si desanamorfizar está activo."""

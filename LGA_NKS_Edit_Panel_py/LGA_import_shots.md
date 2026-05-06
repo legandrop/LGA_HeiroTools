@@ -6,9 +6,6 @@
 > motor de transcode (`TranscodeWorker`) solo procesa EXR sequences via `LGA_EXR_Convert.py`.
 > Los plates MOV aparecen en la tabla con checkbox deshabilitado y estado
 > "No soportado". Implementar cuando haya herramienta de transcode MOV disponible.
->
-> ℹ **Channels ignorados**: la opcion `Channels (Reducir a RGB)` esta presente en la UI
-> pero no se pasa al manifest todavia. Ver seccion "Pendiente de implementacion".
 
 # LGA_import_shots
 
@@ -35,7 +32,8 @@ sin depender del playhead.
 
 | Archivo | Contenido previsto | Estado |
 |---------|-------------------|--------|
-| `LGA_import_shots_transcode.py` | `TranscodeWorkerSignals`, `TranscodeWorker`, `build_manifest_for_sequence` | **implementado** |
+| `LGA_import_shots_transcode.py` | `TranscodeWorkerSignals`, `TranscodeWorker`, `build_manifest_for_sequence`, `check_existing_outputs`, `delete_existing_outputs`, `show_overwrite_warning` | **implementado** |
+| `LGA_import_shots_settings.py` | Persistencia de settings e INI de presets de resolución. `load_all_settings`, `save_all_settings`, `load_res_presets`, `save_res_presets`, `preset_to_tuple`, `show_save_preset_dialog` | **implementado** |
 | `LGA_import_shots_scan.py` | Helpers de escaneo de carpetas y metadata | pendiente |
 | `LGA_import_shots_timeline.py` | Helpers de timeline (push, stretch, posicionamiento) | pendiente |
 | `LGA_import_shots_bin.py` | Helpers de bin (find/create, import) | pendiente |
@@ -315,9 +313,9 @@ Conversion de EXR sequences para los items marcados.
 |-----|-----------|-----------------|
 | (barra) | Color `#42616d` (plates) | 4 px, sin header |
 | Nombre | Nombre de la secuencia | `#cccccc` |
-| Origen | `WxH (AR) · bitdepth · Nch · compresion · #f - Xs` | AR dorado `#a89060`, comp coloreada, count+secs ámbar `#b09040` |
+| Origen | `WxH (AR) (PAR) · bitdepth · Nch · compresion · #f - Xs` | AR dorado `#a89060`, PAR rosa `#c4787a` entre paréntesis, comp coloreada, count+secs ámbar `#b09040`. Ancho: 375 px |
 | → | Flecha separadora | centrada, `#666` |
-| Destino | `WxH (AR) · bitdepth · Nch · compresion` | mismo coloring; `—` gris oscuro si checkbox off |
+| Destino | `WxH (AR) (PAR) · bitdepth · Nch · compresion` | mismo coloring; PAR destino = `(1)` si desanamorfizar activo, sino mismo PAR fuente; `—` gris oscuro si checkbox off |
 | Tamaño | Tamaño actual en disco | escaneado al abrir la pagina (`_folder_size_bytes`) |
 | Estado | `Pendiente` / `⚠ Upscale` / `—` / barra de progreso / `✓ Listo` / `✗ Error` | ancho fijo 130px. Ver detalle abajo. |
 
@@ -328,7 +326,7 @@ Conversion de EXR sequences para los items marcados.
 | `Pendiente` | EXR chequeado, listo para convertir | cian `#5a9ab5` |
 | `⚠ Upscale` | Resize bloqueado por "no upscale" | rojo `#a06060` |
 | `—` | Checkbox desactivado (fila no se convertirá) | gris oscuro `#444444` |
-| Barra de progreso | Convirtiendo — polling QTimer cada 300ms de archivos en dst | teal `#2e5c70`, texto `#5a9ab5` |
+| Barra de progreso | Convirtiendo — polling QTimer cada 300ms de archivos en dst | fondo vacío `#393959`, relleno `#443a91`, texto `#cccccc`, bordes redondeados |
 | `✓ Listo` | Conversión completada exitosamente | verde `#6a9960` |
 | `✗ Error` | Conversión fallida | rojo `#a06060` |
 
@@ -349,20 +347,52 @@ El bit depth y channels se leen via `oiiotool --info -v` parseando la linea
 |---------|---------|-------|
 | ☑ Convertir a DWAA | on | Si off, mantiene compresion original; oculta el control de nivel |
 | DWAA level (`QSpinBox` editable + `QSlider`) | `45` | Visible solo si DWAA activo. Rango `30–60`. Spin y slider two-way bound. |
-| Channels (`QComboBox`) | `Mantener` | `Reducir a RGB` para descartar canal alpha extra |
+| Channels (`QComboBox`) | `Mantener` | `Mantener` o `Reducir a RGB` (elimina canal alpha; pasa `channels: "rgb"` al manifest) |
+
+> Todos los valores de Codec / Calidad son **persistentes**: se guardan en el INI al cambiar
+> y se restauran en la próxima apertura de la herramienta.
 
 ### Opciones — Resolucion (columna derecha)
 
 | Control | Default | Notas |
 |---------|---------|-------|
-| Destino (`QComboBox`) | `Original` | Presets con AR: `Original [AR_src]`, `2K — 2048×1152 [16:9]`, `UHD — 3840×2160 [16:9]`, `4K — 4096×2304 [16:9]`, `Custom...`. Con source disponible: muestra `→ WxH [AR_real]` calculado según PAR y match_dim |
-| Custom W × H | `2048 × 1152` | Solo visible si preset = `Custom...` |
+| Destino (`QComboBox`) | `Original` | Presets cargados desde INI. Secciones `[AR]` en dorado. Ícono 🗑 a la derecha en presets borrables; click en ícono borra el preset del INI. Presets por defecto: `Original`, `2K — 2048×1152 [16:9]`, `UHD — 3840×2160 [16:9]`, `4K — 4096×2304 [16:9]`, `Custom...`. Con source disponible: muestra `→ WxH [AR_real]` calculado según PAR y match_dim |
+| Custom W × H + `[Save preset]` | `2048 × 1152` | Solo visible si preset = `Custom...`. El botón "Save preset" abre un diálogo para nombrar y guardar el preset al INI. |
 | ☑ Preserve aspect ratio | on | **Comportamiento según preset:** |
 | | | — **Presets fijos** (2K/UHD/4K): muestra "Dimensión que manda" (match width/height) |
 | | | — **Custom:** oculta "Dimensión que manda"; vincula W↔H dinámicamente. La última dimensión editada es el "master"; la otra se recalcula por ítem según su AR de source |
 | Dimensión que manda | `Match target width` | Solo visible cuando PAR activo Y preset NO es Custom |
+| ☑ Desanamorfizar (Pixel Aspect Ratio) | off | Si activo, aparece el selector de PAR fuente (`1.3`, `1.5`, `1.8`, `2.0`). El ancho destino = `src_w × PAR`. El `PixelAspectRatio` de salida se fuerza a `1.0` en el manifest. La columna Destino muestra PAR `(1)`. |
+| PAR fuente (`QComboBox`) | `2.0` | Visible solo si Desanamorfizar activo |
 | Filtro resampling | `lanczos3` | `cubic`, `box` (solo aplica si hay resize) |
 | ☑ Aplicar solo si origen es mayor | on | Evita upscale accidental; filas con upscale → Estado `⚠ Upscale` |
+
+> Todos los valores de Resolución son **persistentes**: se guardan en el INI al cambiar
+> y se restauran en la próxima apertura.
+
+#### Presets de resolución — formato INI
+
+Los presets se almacenan en secciones `[ResPreset_N]` del mismo INI (`ImportShots.ini`):
+
+```ini
+[ResPreset_0]
+name = Original
+special = original
+
+[ResPreset_1]
+name = 2K — 2048×1152
+w = 2048
+h = 1152
+
+[ResPreset_4]
+name = Custom...
+special = custom
+```
+
+- `special = original` → mantiene resolución fuente  
+- `special = custom` → muestra spinboxes  
+- `w` + `h` → preset fijo (permite trash icon y borrado)  
+- Los presets `original` y `custom` son invariables (sin trash icon)
 
 #### Lógica Custom + Preserve AR
 
@@ -385,6 +415,9 @@ _current_target_res(src_w, src_h) con preset=custom y PAR on:
 |---------|---------|
 | ☑ Mover originales a `/Originals` | on (off si `Transcode_TEST_Mode`) |
 | ☑ Borrar `/Originals` al terminar | off |
+
+> Los valores de Manejo de originales son **persistentes** (se guardan en el INI al cambiar),
+> excepto cuando `Transcode_TEST_Mode = True` (los checkboxes quedan bloqueados).
 
 Cuando el flag global `Transcode_TEST_Mode = True` está activo:
 - Aparece un aviso `🧪 TEST MODE` en la sección.
@@ -495,6 +528,7 @@ Se muestra con icono ⚠ en la tabla principal.
 # Colores para anotaciones en tabla / dropdowns
 # Derivados de la paleta PATH_LEVEL_COLORS, desaturados ~40 %
 _CLR_AR            = "#a89060"   # aspect ratio          — dorado suave
+_CLR_PAR           = "#c4787a"   # pixel aspect ratio    — rosa suave
 _CLR_FRAMES        = "#b09040"   # cantidad de frames    — ámbar cálido
 _CLR_COMP_ZIP      = "#a06060"   # compresión zip/piz    — rojo suave
 _CLR_COMP_DWAA     = "#6a9960"   # compresión dwaa/dwab  — verde suave
@@ -547,9 +581,92 @@ Basado en `LGA_NKS_CreateV000.py`:
 - Botones secundarios (Rename, Transcode EXR): `#3a3a3a` con borde `#555555`
 - Botones pequenos (seleccion): `#2e2e2e` con borde `#444444`, texto `#999999`
 - Boton cancelar/volver: `#555555` con borde `#666666`
-- Ancho minimo del dialogo: `820px`
+- Ancho minimo del dialogo: `1275px` (requiere espacio para la tabla de transcode con Origen 375 px + Destino amplio)
 - Titulos de seccion de tabla: color de la seccion sobre fondo `#313131`
 - Referencias (seqref en bin): texto color `#aa9e54`
+
+---
+
+## Settings persistentes
+
+Los settings de la sub-vista Convert se guardan en:
+
+| Sistema | Ruta |
+|---------|------|
+| Windows | `%APPDATA%\LGA\HieroTools\ImportShots.ini` |
+| macOS   | `~/Library/Application Support/LGA/HieroTools/ImportShots.ini` |
+| Fallback | `~/.config/LGA/HieroTools/ImportShots.ini` |
+
+El módulo `LGA_import_shots_settings.py` es el único responsable de leer y escribir este archivo.
+
+### Secciones del INI
+
+```ini
+[Codec]
+dwaa = true
+dwaa_level = 45
+channels = all          ; "all" | "rgb"
+filter = lanczos3
+
+[Resolution]
+preset_index = 0
+custom_w = 2048
+custom_h = 1152
+keep_ar = true
+match_dim = 0           ; 0 = "Match target width", 1 = "Match target height"
+no_upscale = true
+deana = false
+deana_par = 2.0
+
+[Originals]
+move = false
+delete = false
+
+[ResPreset_0]
+name = Original
+special = original
+
+[ResPreset_1]
+name = 2K — 2048×1152
+w = 2048
+h = 1152
+
+[ResPreset_2]
+name = UHD — 3840×2160
+w = 3840
+h = 2160
+
+[ResPreset_3]
+name = 4K — 4096×2304
+w = 4096
+h = 2304
+
+[ResPreset_4]
+name = Custom...
+special = custom
+```
+
+### Flujo de carga / guardado
+
+1. **Apertura de la herramienta:** `load_all_settings()` y `load_res_presets()` se llaman en
+   `ImportShotDialog.__init__` **antes** de construir la UI.
+2. **Construccion de la UI:** los widgets se crean con sus defaults internos, luego
+   `_load_settings_to_ui()` aplica los valores guardados (sin activar auto-save).
+3. **Auto-save:** al final de `_build_page_convert` se conecta `_save_all_settings` a
+   todas las señales `stateChanged` / `valueChanged` / `currentIndexChanged` de los
+   widgets de settings. Cualquier cambio del usuario dispara `save_all_settings()`.
+4. **Presets de resolución:** al borrar un preset (`_on_delete_preset`) o guardar uno nuevo
+   (`_on_save_preset_clicked`), se llama `save_res_presets()` y se reconstruye el combo
+   con `_rebuild_res_combo()`.
+
+### Iconos de la UI
+
+Los iconos SVG para el trash del dropdown de presets viven en:
+
+```
+LGA_NKS_Shared/icons/trash.svg        — estado normal
+LGA_NKS_Shared/icons/trash_hover.svg  — estado hover
+```
 
 ---
 
@@ -583,13 +700,8 @@ donde se distribuya la repo.
 ## Pendiente de implementacion
 
 - **Sub-vista Rename:** implementacion real del find/replace con preview (hoy es stub)
-- **Convert — Channels (Reducir a RGB):** opcion `Reducir a RGB` presente en UI
-  (`_convert_channels` combo) pero ignorada al construir el manifest. Requiere agregar
-  `--channels` a `LGA_EXR_Convert.py` y pasarlo como `--ch R,G,B` a oiiotool.
-  Mientras tanto el manifest usa todos los canales del origen.
 - **Convert — Transcode de MOV:** plates MOV aparecen en la tabla con checkbox deshabilitado
   y estado "No soportado". Implementar cuando haya herramienta de transcode MOV disponible.
-- **Convert — Presets:** guardado de presets de resolucion en `.ini`
 - **SetShotName:** llamada correcta al script externo post-importacion
 - **CreateV000:** trigger correcto para tasks sin versiones
 - **Modularizacion:** extraer helpers a `LGA_import_shots_scan.py`,
@@ -601,14 +713,17 @@ donde se distribuya la repo.
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `main()`, `ImportShotDialog`, `_show_page()`, `_build_page_media()`, `_build_media_table()`, `_build_table_rows()`, `_populate_section_header_row()`, `_populate_data_row()`, `_select_all()`, `_clear_selection()`, `_select_section()`, `_update_action_btns()`, `_build_page_rename()`, `_build_page_convert()`, `_update_convert_page()`, `_on_res_preset_changed()`, `_on_keep_ar_changed()`, `_update_match_dim_visibility()`, `_get_representative_res()`, `_on_custom_w_changed()`, `_on_custom_h_changed()`, `_current_target_res()`, `_target_compression()`, `_refresh_convert_destinos()`, `_update_res_combo_labels()`, `_toggle_convert_log()`, `_update_transcode_btn_state()`, `_run_transcode()`, `_on_transcode_log()`, `_on_sequence_started()`, `_poll_transcode_progress()`, `_on_sequence_done()`, `_on_transcode_all_done()`, `_on_transcode_error()`, `_cell_html_label()`, `_comp_color()`, `_ar_str()`, `_scan_input_folder()`, `_scan_publish_folders()`, `_read_exr_metadata()`, `_read_mov_metadata()`, `_folder_size_bytes()`, `_format_bytes()`, `_find_insert_frame()`, `_push_clips_right()`, `_stretch_burnin()`, `_shot_exists_in_timeline()`, `_import_clip_to_bin()`, `_place_clip_in_timeline()`, `_find_or_create_bin()` |
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots_transcode.py` | `TranscodeWorkerSignals` (señales: `log_message`, `sequence_started(row_i, dst_dir, total_frames)`, `sequence_done`, `all_done`, `error`), `TranscodeWorker`, `build_manifest_for_sequence` |
-| `LGA_NKS_Edit_Panel_py/LGA_NKS_CreateV000.py` | Referencia de UI, bin import, timeline placement, colorize path |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `main()`, `ImportShotDialog`, `_show_page()`, `_build_page_media()`, `_build_page_convert()`, `_update_convert_page()`, `_on_res_preset_changed()`, `_on_keep_ar_changed()`, `_update_match_dim_visibility()`, `_get_representative_res()`, `_on_custom_w_changed()`, `_on_custom_h_changed()`, `_current_target_res()`, `_target_compression()`, `_refresh_convert_destinos()`, `_update_res_combo_labels()`, `_on_dwaa_chk_changed()`, `_on_deana_chk_changed()`, `_apply_deana_if_active()`, `_load_settings_to_ui()`, `_save_all_settings()`, `_rebuild_res_combo()`, `_on_delete_preset()`, `_on_save_preset_clicked()`, `_run_transcode()`, `_start_next_sequence()`, `_on_sequence_started()`, `_poll_transcode_progress()`, `_on_sequence_done()`, `_on_worker_batch_done()`, `_finalize_transcode()`, `_on_transcode_error()`, `_fmt_bd()`, `_fmt_par()`, `_ar_str()`, `_read_exr_metadata()`, `_read_mov_metadata()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots_transcode.py` | `TranscodeWorkerSignals` (señales: `log_message`, `sequence_started(row_i, dst_dir, total_frames)`, `sequence_done`, `all_done`, `error`), `TranscodeWorker`, `build_manifest_for_sequence(channels, pixel_aspect_ratio)`, `check_existing_outputs()`, `delete_existing_outputs()`, `show_overwrite_warning()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots_settings.py` | `get_settings_path()`, `load_all_settings()`, `save_all_settings()`, `load_res_presets()`, `save_res_presets()`, `preset_to_tuple()`, `show_save_preset_dialog()` |
+| `LGA_NKS_Edit_Panel_py/LGA_NKS_CreateV000.py` | Referencia de UI, bin import, timeline placement, colorize path, patrón de settings persistentes |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_SetShotName.py` | Renombrado de clips post-importacion |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_OrganizeProject.py` | Estructura de bins `F <grupo>/<shot>` |
-| `LGA_NKS_Shared/LGA_EXR_Convert.py` | Motor de transcode EXR. Llamado via subprocess con `--manifest` JSON. Soporta DWAA, resize, OCIO, workers paralelos. |
+| `LGA_NKS_Shared/LGA_EXR_Convert.py` | Motor de transcode EXR. Llamado via subprocess con `--manifest` JSON. Soporta DWAA, resize, channels, pixel_aspect_ratio, OCIO, workers paralelos. |
 | `LGA_NKS_Shared/LGA_NKS_Flow_NamingUtils.py` | `clean_base_name()`, `extract_shot_code()` |
 | `LGA_NKS_Shared/LGA_QtAdapter_HieroTools.py` | Qt adapter (PyQt5/PySide2) |
+| `LGA_NKS_Shared/icons/trash.svg` | Ícono de papelera para borrar presets (estado normal) |
+| `LGA_NKS_Shared/icons/trash_hover.svg` | Ícono de papelera (estado hover) |
 | `LGA_NKS_Shared/OIIO_Win/oiiotool.exe` | Lectura metadata EXR (Windows). Llamado con `--info -v` |
 | `LGA_NKS_Shared/OIIO_Win/bin/python/python.exe` | Python bundled usado por `TranscodeWorker` para invocar `LGA_EXR_Convert.py` |
 | `LGA_NKS_Shared/FFmpeg_Win/bin/ffprobe.exe` | Lectura metadata MOV/MXF (Windows). Salida JSON |

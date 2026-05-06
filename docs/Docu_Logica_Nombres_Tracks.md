@@ -122,6 +122,13 @@ Los pasos para sumar una task nueva son:
 - **Review on/off por track:** [LGA_NKS_Review_Panel.py](../LGA_NKS_Review_Panel.py)
   - Métodos: `execute_DisableEXR()`, `execute_DisableRoto()`
 
+- **Script genérico de toggle:** [LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableEXR.py](../LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableEXR.py)
+  - Función: `main(track_name=None, enable_rev_fallback=False)`
+  - Cuando `enable_rev_fallback=True` (sólo para comp): si `_comp_` está vacío en el playhead o tiene un clip v00/v000, busca un track `_compXXX_`. Si coincide con `TRACK_comp_REV` (case-insensitive) opera ahí; si no, ofrece renombrarlo al nombre canónico antes de operar.
+
+- **Wrapper comp (con fallback REV):** [LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableComp.py](../LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableComp.py)
+  - Función: `main()` → llama a `disable_main(enable_rev_fallback=True)`
+
 - **Wrapper roto:** [LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableRoto.py](../LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableRoto.py)
   - Función: `main()`
 
