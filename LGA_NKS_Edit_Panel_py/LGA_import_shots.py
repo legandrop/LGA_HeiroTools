@@ -15,6 +15,7 @@ import os
 import re
 import sys
 import json
+import importlib
 import logging
 import platform
 import queue
@@ -49,7 +50,13 @@ else:
 
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 from LGA_NKS_Flow_NamingUtils import clean_base_name, extract_shot_code
-from LGA_NKS_Edit_Panel_py.LGA_import_shots_transcode import TranscodeWorker
+
+# During tool development, force the helper to reload on every panel execution.
+_TRANSCODE_HELPER = "LGA_NKS_Edit_Panel_py.LGA_import_shots_transcode"
+if _TRANSCODE_HELPER in sys.modules:
+    del sys.modules[_TRANSCODE_HELPER]
+_transcode_mod = importlib.import_module(_TRANSCODE_HELPER)
+TranscodeWorker = _transcode_mod.TranscodeWorker
 
 # ── flags ──────────────────────────────────────────────────────────
 # Si True, el transcode escribe a {seq_path}/test_transcode/ y los

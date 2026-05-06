@@ -235,6 +235,45 @@ Notas de uso:
 
 ---
 
+## Scripts ejecutados desde panel
+
+### Problema — El script principal se actualiza pero sus helpers quedan cacheados
+
+Cuando un boton del panel ejecuta un script externo con `importlib.util.spec_from_file_location`
+y `spec.loader.exec_module(module)`, el script principal se evalua de cero en cada click.
+Pero los helpers importados por ese script siguen pasando por el cache normal de Python
+en `sys.modules`.
+
+Sintoma: se modifica un helper, se aprieta de nuevo el boton del panel, y el cambio no aparece
+hasta reiniciar Hiero/Nuke Studio.
+
+#### Solucion para desarrollo
+
+Forzar que el helper se borre de `sys.modules` antes de importarlo. Esto hace que cada
+ejecucion del script principal vuelva a leer el helper desde disco:
+
+```python
+import importlib
+import sys
+
+_TRANSCODE_HELPER = "LGA_NKS_Edit_Panel_py.LGA_import_shots_transcode"
+if _TRANSCODE_HELPER in sys.modules:
+    del sys.modules[_TRANSCODE_HELPER]
+_transcode_mod = importlib.import_module(_TRANSCODE_HELPER)
+TranscodeWorker = _transcode_mod.TranscodeWorker
+```
+
+#### Cuando usarlo
+
+- Durante desarrollo iterativo de helpers llamados por herramientas de panel.
+- Cuando el script principal ya se ejecuta fresco, pero sus imports internos no.
+- En produccion se puede volver al import normal si no se necesita hot reload.
+
+Ejemplo aplicado: `LGA_import_shots.py` fuerza recarga de
+`LGA_import_shots_transcode.py` para que `TranscodeWorker` tome cambios sin reiniciar.
+
+---
+
 ## Referencias
 
 - [LGA_import_shots.py](../LGA_NKS_Edit_Panel_py/LGA_import_shots.py) — clase
