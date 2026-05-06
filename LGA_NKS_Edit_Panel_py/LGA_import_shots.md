@@ -48,9 +48,11 @@ Usa el sistema de logging dual estandar del proyecto (Sistema A — timer + limp
 ### Variables de control
 
 ```python
-DEBUG = True           # Master switch
-DEBUG_CONSOLE = False  # Salida a consola (off por defecto)
-DEBUG_LOG = True       # Escritura al archivo .log
+DEBUG = True                  # Master switch
+DEBUG_CONSOLE = False         # Salida a consola (off por defecto)
+DEBUG_LOG = True              # Escritura al archivo .log
+Transcode_TEST_Mode = True    # Output a /test_transcode; checkboxes de
+                              # originals quedan inertes
 ```
 
 ### Archivo de log
@@ -303,21 +305,25 @@ Conversion de EXR sequences para los items marcados.
 |-----|-----------|-------|
 | (barra) | Color `#42616d` (plates) | 4 px, sin header |
 | Nombre | Nombre de la secuencia | `#cccccc` |
-| Origen | `WxH · compresion · #f` | leido del scan, ej: `2048×1152 · zip · 480f` |
+| Origen | `WxH · bitdepth · Nch · compresion · #f` | leido del scan, ej: `2048×1152 · half · 3ch · zip · 480f` |
 | → | Flecha separadora | centrada, `#666` |
-| Destino | `WxH · compresion` resultantes | recalculado en vivo segun opciones |
+| Destino | `WxH · bitdepth · Nch · compresion` | recalculado en vivo segun opciones |
 | Tamaño | Tamaño actual en disco | escaneado al abrir la pagina (`_folder_size_bytes`) |
 | Estado | `Pendiente` | placeholder hasta integrar transcoder |
 
-La columna Destino se recalcula en vivo cuando cambian:
-DWAA on/off, preset de resolucion, custom W×H, "no upscale".
+La columna Destino se recalcula en vivo cuando cambian: DWAA on/off, DWAA level,
+bit depth, channels, preset de resolucion, custom W×H, "no upscale".
+
+El bit depth y channels se leen via `oiiotool --info -v` parseando la linea
+`"WxH, N channel, half openexr"` y se guardan en cada item como `bitdepth` y
+`channels` (int) en `_scan_input_folder()` y `_scan_publish_folders()`.
 
 ### Opciones — Codec / Calidad (columna izquierda)
 
 | Control | Default | Notas |
 |---------|---------|-------|
 | ☑ Convertir a DWAA | on | Si off, mantiene compresion original |
-| DWAA level (`QSpinBox`) | `45` | Rango `0–500` |
+| DWAA level (`QSpinBox` editable + `QSlider`) | `45` | Rango `0–500`. Spin con fondo `#d8d8d8` y texto `#333`; selección `#b8b8b8`. Slider y spin estan two-way bound. |
 | Bit depth (`QComboBox`) | `Mantener original` | `half (16-bit)` / `float (32-bit)` |
 | Channels (`QComboBox`) | `Mantener` | `RGB` / `RGBA` (para tirar canales extra) |
 
@@ -335,8 +341,34 @@ DWAA on/off, preset de resolucion, custom W×H, "no upscale".
 
 | Control | Default |
 |---------|---------|
-| ☑ Mover originales a `/Originals` | on |
+| ☑ Mover originales a `/Originals` | on (off si `Transcode_TEST_Mode`) |
 | ☑ Borrar `/Originals` al terminar | off |
+
+Cuando el flag global `Transcode_TEST_Mode = True` está activo:
+- Aparece un aviso `🧪 TEST MODE` en la sección.
+- Ambos checkboxes quedan deshabilitados.
+- El output del transcode (cuando se implemente) se escribirá en
+  `{seq_path}/test_transcode/` en vez de reemplazar la secuencia original.
+
+### Tests de dropdown (temporal)
+
+Debajo de "Manejo de originales" hay 7 `QComboBox` con distintas estrategias
+de styling, para encontrar cuál renderea correctamente la flecha ▼ en el
+sistema actual (algunas muestran un cuadradito en vez de la flecha):
+
+| # | Estrategia | Implementación |
+|---|-----------|----------------|
+| 1 | CSS triangle (método actual) | `border-left/right transparent + border-top sólido` |
+| 2 | SVG inline data URI | `image: url("data:image/svg+xml;...")` con polígono |
+| 3 | Sin custom drop-down | Solo styling de `QComboBox`, deja Qt manejar la flecha |
+| 4 | `image: none` con área | Oculta arrow pero mantiene drop-down area |
+| 5 | Subclase `_ArrowComboBox` + `paintEvent` | Dibuja triángulo con `QPainter` |
+| 6 | Sin stylesheet | Default puro de Qt |
+| 7 | `setStyle("Fusion")` | Aplica estilo Fusion via `QStyleFactory` |
+
+Una vez identificada la opción que funciona, se elimina el bloque de tests
+y se aplica el estilo elegido a todos los combos del diálogo (`_COMBO_STYLE`,
+`_COMBO_BASE`).
 
 ### Resumen
 

@@ -20,14 +20,6 @@ Startup/
       oiiotool.exe
       iinfo.exe
       *.dll
-    FFmpeg_Win/
-      bin/
-        ffmpeg.exe
-        ffprobe.exe
-        ffplay.exe
-      LICENSE.txt
-      doc/
-      presets/
     OCIO/
       configs/
 ```
@@ -75,7 +67,7 @@ Cada task debe tener el path de entrada y el path final de salida. Si tu herrami
 
 `resize` y `ocio` pueden ser `null` o estar ausentes.
 
-Si `src` o `dst` son relativos, se resuelven relativos a la carpeta donde esta el manifest. Si `ocio.config` es relativo, se resuelve relativo a `LGA_NKS_Edit_Panel_py/LGA_EXR_Convert`.
+Si `src` o `dst` son relativos, se resuelven relativos a la carpeta donde esta el manifest. Si `ocio.config` es relativo, se resuelve relativo a `LGA_NKS_Shared`.
 
 ## Uso Manual
 
@@ -147,15 +139,7 @@ Los benchmarks validaron metadata con `iinfo -v`.
 ## Notas De Portabilidad
 
 - No depende de tools instaladas globalmente ni del `PATH` del sistema.
-- Las tools Windows compartidas viven en `LGA_NKS_Shared`: `OpenEXR_Win`, `OIIO_Win` y `FFmpeg_Win`.
+- Las tools Windows compartidas viven en `LGA_NKS_Shared`: `OpenEXR_Win` y `OIIO_Win`.
 - `config.ocio` puede estar dentro de `LGA_NKS_Shared/OCIO/configs` o venir desde una ruta externa del proyecto.
-- En manifest, los paths relativos de frames son relativos al manifest; el path relativo de `ocio.config` es relativo a `LGA_EXR_Convert`.
+- En manifest, los paths relativos de frames son relativos al manifest; el path relativo de `ocio.config` es relativo a `LGA_NKS_Shared`.
 - Para copiar a otra repo, copiar `LGA_NKS_Edit_Panel_py/LGA_EXR_Convert` junto con las tools necesarias de `LGA_NKS_Shared`.
-
-## FFmpeg Incluido
-
-- Fuente: BtbN FFmpeg-Builds, asset `ffmpeg-master-latest-win64-gpl.zip`.
-- Release: `latest`, publicado el 2026-05-04.
-- Version testeada: `N-124387-gaa14727cd5-20260504`.
-- Binario principal local: `LGA_NKS_Shared/FFmpeg_Win/bin/ffmpeg.exe`.
-- Nota Git: `FFmpeg_Win` queda ignorado por tamano; reinstalarlo desde la misma fuente cuando se prepare una maquina nueva.

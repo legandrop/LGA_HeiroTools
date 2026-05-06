@@ -50,6 +50,11 @@ else:
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 from LGA_NKS_Flow_NamingUtils import clean_base_name, extract_shot_code
 
+# ── flags ──────────────────────────────────────────────────────────
+# Si True, el transcode escribe a {seq_path}/test_transcode/ y los
+# checkboxes "Mover originales" / "Borrar /Originals" quedan inertes.
+Transcode_TEST_Mode = True
+
 # ── logging ────────────────────────────────────────────────────────
 DEBUG = True
 DEBUG_CONSOLE = False
@@ -250,11 +255,11 @@ def _scan_exr_sequence(folder_path):
 
 
 def _read_exr_metadata(exr_path):
-    """Resolucion y compresion de un frame EXR via oiiotool --info -v."""
-    w, h, fps, comp = None, None, None, None
+    """Resolucion, compresion, bit depth y channels de un frame EXR via oiiotool --info -v."""
+    w, h, fps, comp, bitdepth, channels = None, None, None, None, None, None
     if not (_OIIOTOOL and _OIIOTOOL.exists()):
         debug_print("_read_exr_metadata: oiiotool no disponible", level="warning")
-        return w, h, fps, comp
+        return w, h, fps, comp, bitdepth, channels
     try:
         r = subprocess.run(
             [str(_OIIOTOOL), "--info", "-v", str(exr_path)],
@@ -264,9 +269,21 @@ def _read_exr_metadata(exr_path):
         out = r.stdout + r.stderr
         debug_print("oiiotool output para %s:\n%s" % (Path(exr_path).name, out[:600]))
         # "path/to/file.exr:  1920 x 1080, 3 channel, half openexr"
-        m = re.search(r"(\d+)\s*x\s*(\d+)", out)
+        m = re.search(r"(\d+)\s*x\s*(\d+),\s*(\d+)\s*channel,\s*(\w+)", out)
         if m:
             w, h = int(m.group(1)), int(m.group(2))
+            channels = int(m.group(3))
+            bitdepth = m.group(4)
+        else:
+            m = re.search(r"(\d+)\s*x\s*(\d+)", out)
+            if m:
+                w, h = int(m.group(1)), int(m.group(2))
+            m = re.search(r"(\d+)\s*channel", out)
+            if m:
+                channels = int(m.group(1))
+            m = re.search(r"channel,\s*(\w+)", out)
+            if m:
+                bitdepth = m.group(1)
         # 'framesPerSecond: 24/1'  o  'framesPerSecond: 24'
         m = re.search(r'[Ff]rames[Pp]er[Ss]econd[:\s]+"?(\d+)/(\d+)"?', out)
         if m:
@@ -284,10 +301,11 @@ def _read_exr_metadata(exr_path):
         m = re.search(r'compression[:\s]+"?([A-Za-z0-9_]+)"?', out, re.IGNORECASE)
         if m:
             comp = m.group(1)
-        debug_print("EXR meta: %sx%s fps=%s comp=%s" % (w, h, fps, comp))
+        debug_print("EXR meta: %sx%s fps=%s comp=%s bd=%s ch=%s" % (
+            w, h, fps, comp, bitdepth, channels))
     except Exception as e:
         debug_print("_read_exr_metadata error: %s" % e, level="error")
-    return w, h, fps, comp
+    return w, h, fps, comp, bitdepth, channels
 
 
 def _read_mov_metadata(mov_path):
@@ -385,10 +403,11 @@ def _scan_input_folder(shot_root):
             entry["is_latest"] = (entry["version_num"] == max_ver)
             entry["has_multiple_versions"] = has_multiple_versions
             # Leer metadata solo del primer archivo
-            w, h, fps, comp = (None, None, None, None)
+            w, h, fps, comp, bd, ch = (None, None, None, None, None, None)
             if entry["first_file"]:
-                w, h, fps, comp = _read_exr_metadata(entry["first_file"])
-            entry.update({"width": w, "height": h, "fps": fps, "compression": comp})
+                w, h, fps, comp, bd, ch = _read_exr_metadata(entry["first_file"])
+            entry.update({"width": w, "height": h, "fps": fps, "compression": comp,
+                          "bitdepth": bd, "channels": ch})
             items.append(entry)
 
     # 2. Archivos sueltos en _input/
@@ -423,6 +442,7 @@ def _scan_input_folder(shot_root):
                 "frame_count": mnb,
                 "first_file": str(f),
                 "width": mw, "height": mh, "fps": mfps, "compression": mcodec,
+                "bitdepth": None, "channels": None,
                 "is_latest": True,
                 "version_num": _version_number(f.stem),
             })
@@ -435,6 +455,7 @@ def _scan_input_folder(shot_root):
                 "first_frame": None, "last_frame": None, "frame_count": None,
                 "first_file": str(f),
                 "width": None, "height": None, "fps": None, "compression": None,
+                "bitdepth": None, "channels": None,
                 "is_latest": True,
                 "version_num": -1,
             })
@@ -483,9 +504,9 @@ def _scan_publish_folders(shot_root):
 
         for vd in version_dirs:
             first_f, last_f, count, first_file = _scan_exr_sequence(str(vd))
-            w, h, fps, comp = (None, None, None, None)
+            w, h, fps, comp, bd, ch = (None, None, None, None, None, None)
             if first_file:
-                w, h, fps, comp = _read_exr_metadata(first_file)
+                w, h, fps, comp, bd, ch = _read_exr_metadata(first_file)
             ver_num = _version_number(vd.name)
             results.append({
                 "task": task, "folder_name": folder_name, "track": track,
@@ -496,6 +517,8 @@ def _scan_publish_folders(shot_root):
                 "first_file": first_file,
                 "first_frame": first_f, "last_frame": last_f, "frame_count": count,
                 "width": w, "height": h, "fps": fps, "compression": comp,
+                "bitdepth": bd, "channels": ch,
+                "path": str(vd),
             })
 
     return results
@@ -857,6 +880,56 @@ class GradientTextLabel(QtWidgets.QLabel):
         painter.setPen(pen)
         painter.drawText(text_rect, QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter, text)
         painter.end()
+
+
+# ══════════════════════════════════════════════════════════════════
+#  ComboBox custom — pinta la flecha con QPainter
+# ══════════════════════════════════════════════════════════════════
+
+class _ArrowComboBox(QtWidgets.QComboBox):
+    """QComboBox que pinta su propia flecha ▼ via paintEvent.
+    Requiere que el stylesheet oculte la flecha nativa con
+    `QComboBox::down-arrow { image: none; width:0; height:0; }`."""
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        p = QtGui.QPainter(self)
+        p.setRenderHint(QtGui.QPainter.Antialiasing)
+        rect = self.rect()
+        cx = rect.right() - 10
+        cy = rect.center().y() + 1
+        path = QtGui.QPainterPath()
+        path.moveTo(cx - 4, cy - 2)
+        path.lineTo(cx + 4, cy - 2)
+        path.lineTo(cx, cy + 3)
+        path.closeSubpath()
+        p.fillPath(path, QtGui.QColor("#999999"))
+        p.end()
+
+
+# ══════════════════════════════════════════════════════════════════
+#  Variantes finales de QComboBox a testear
+#  Combinan subclase con paintEvent (flecha custom) + estrategia para
+#  que el popup desplegado no muestre los checkboxes nativos.
+# ══════════════════════════════════════════════════════════════════
+
+_COMBO_BASE = (
+    "QComboBox { background-color:#272727; border:1px solid #444; "
+    "color:#a7a7a7; padding:3px 6px; }"
+    "QComboBox QAbstractItemView { background-color:#2B2B2B; color:#a7a7a7; "
+    "selection-background-color:#3a3a3a; outline:0; }"
+)
+
+# Variante A — Subclase paintEvent + setView(QListView)
+# QListView no incluye check indicators → popup limpio
+_COMBO_STYLE_VARIANT_A = _COMBO_BASE + """
+    QComboBox::drop-down { border:0px; width:18px; }
+    QComboBox::down-arrow { image: none; width:0px; height:0px; }
+"""
+
+# Variante B — Subclase paintEvent + setItemDelegate(QStyledItemDelegate)
+# Reemplaza el delegate nativo (que dibuja el check) con uno básico
+_COMBO_STYLE_VARIANT_B = _COMBO_STYLE_VARIANT_A
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1503,9 +1576,40 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._convert_dwaa_level = QtWidgets.QSpinBox()
         self._convert_dwaa_level.setRange(0, 500)
         self._convert_dwaa_level.setValue(45)
-        self._convert_dwaa_level.setStyleSheet(self._SPIN_STYLE)
-        self._convert_dwaa_level.setFixedWidth(70)
+        self._convert_dwaa_level.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
+        self._convert_dwaa_level.setAlignment(QtCore.Qt.AlignCenter)
+        self._convert_dwaa_level.setFixedWidth(60)
+        # Mantiene look original; solo se cambia el color de la selección de texto
+        # (default amarillo → off-white con texto gris oscuro)
+        self._convert_dwaa_level.setStyleSheet("""
+            QSpinBox {
+                background-color: #272727;
+                color: #a7a7a7;
+                border: 1px solid #444;
+                padding: 2px 4px;
+                selection-background-color: #d8d8d8;
+                selection-color: #333333;
+            }
+        """)
         dwaa_row.addWidget(self._convert_dwaa_level)
+        self._convert_dwaa_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        self._convert_dwaa_slider.setRange(0, 500)
+        self._convert_dwaa_slider.setValue(45)
+        self._convert_dwaa_slider.setFixedWidth(120)
+        self._convert_dwaa_slider.setStyleSheet("""
+            QSlider::groove:horizontal {
+                height: 4px; background:#333; border-radius:2px;
+            }
+            QSlider::handle:horizontal {
+                background:#888; width:12px; margin:-5px 0; border-radius:6px;
+            }
+            QSlider::handle:horizontal:hover { background:#aaa; }
+            QSlider::sub-page:horizontal { background:#5a5a5a; border-radius:2px; }
+        """)
+        self._convert_dwaa_slider.valueChanged.connect(self._convert_dwaa_level.setValue)
+        self._convert_dwaa_level.valueChanged.connect(self._convert_dwaa_slider.setValue)
+        self._convert_dwaa_level.valueChanged.connect(lambda *_: self._refresh_convert_destinos())
+        dwaa_row.addWidget(self._convert_dwaa_slider)
         dwaa_row.addStretch()
         col_codec.addLayout(dwaa_row)
 
@@ -1518,6 +1622,9 @@ class ImportShotDialog(QtWidgets.QDialog):
         for opt in ("Mantener original", "half (16-bit)", "float (32-bit)"):
             self._convert_bitdepth.addItem(opt)
         self._convert_bitdepth.setFixedWidth(170)
+        self._convert_bitdepth.currentIndexChanged.connect(
+            lambda *_: self._refresh_convert_destinos()
+        )
         bd_row.addWidget(self._convert_bitdepth)
         bd_row.addStretch()
         col_codec.addLayout(bd_row)
@@ -1531,6 +1638,9 @@ class ImportShotDialog(QtWidgets.QDialog):
         for opt in ("Mantener", "RGB", "RGBA"):
             self._convert_channels.addItem(opt)
         self._convert_channels.setFixedWidth(170)
+        self._convert_channels.currentIndexChanged.connect(
+            lambda *_: self._refresh_convert_destinos()
+        )
         ch_row.addWidget(self._convert_channels)
         ch_row.addStretch()
         col_codec.addLayout(ch_row)
@@ -1620,15 +1730,69 @@ class ImportShotDialog(QtWidgets.QDialog):
         # Manejo de originales
         orig_lbl = _section_label("Manejo de originales")
         layout.addWidget(orig_lbl)
+
+        # Aviso de test mode
+        if Transcode_TEST_Mode:
+            test_warn = QtWidgets.QLabel(
+                "🧪  TEST MODE — el output va a {seq}/test_transcode/. "
+                "Los toggles de originals están deshabilitados."
+            )
+            test_warn.setStyleSheet(
+                "color:#d9a441; font-style:italic; padding:4px 0px;"
+            )
+            test_warn.setWordWrap(True)
+            layout.addWidget(test_warn)
+
         self._move_originals_chk = QtWidgets.QCheckBox("Mover originales a /Originals")
-        self._move_originals_chk.setChecked(True)
+        self._move_originals_chk.setChecked(not Transcode_TEST_Mode)
+        self._move_originals_chk.setEnabled(not Transcode_TEST_Mode)
         self._move_originals_chk.setStyleSheet("color:#a7a7a7; padding:2px;")
         layout.addWidget(self._move_originals_chk)
 
         self._delete_originals_chk = QtWidgets.QCheckBox("Borrar /Originals al terminar")
         self._delete_originals_chk.setChecked(False)
+        self._delete_originals_chk.setEnabled(not Transcode_TEST_Mode)
         self._delete_originals_chk.setStyleSheet("color:#a7a7a7; padding:2px;")
         layout.addWidget(self._delete_originals_chk)
+
+        # ── Dropdowns de test (temporales) ─────────────────────────
+        # 2 variantes finales: subclase con paintEvent (flecha custom)
+        # combinada con estrategias para eliminar los checkboxes del popup.
+        layout.addWidget(_separator())
+        test_lbl = QtWidgets.QLabel(
+            "🔬  TESTS de dropdown — flecha custom + popup sin checkboxes"
+        )
+        test_lbl.setStyleSheet("color:#cccccc; font-weight:bold; padding:4px 0px;")
+        layout.addWidget(test_lbl)
+
+        test_grid = QtWidgets.QGridLayout()
+        test_grid.setSpacing(6)
+
+        # Variante A — paintEvent + setView(QListView)
+        lbl_a = QtWidgets.QLabel("Variante A: paintEvent + setView(QListView)")
+        lbl_a.setStyleSheet("color:#a7a7a7;")
+        combo_a = _ArrowComboBox()
+        for opt in ("Item A", "Item B", "Item C"):
+            combo_a.addItem(opt)
+        combo_a.setStyleSheet(_COMBO_STYLE_VARIANT_A)
+        combo_a.setView(QtWidgets.QListView())
+        combo_a.setMinimumWidth(180)
+        test_grid.addWidget(lbl_a,   0, 0)
+        test_grid.addWidget(combo_a, 0, 1)
+
+        # Variante B — paintEvent + setItemDelegate(QStyledItemDelegate)
+        lbl_b = QtWidgets.QLabel("Variante B: paintEvent + QStyledItemDelegate")
+        lbl_b.setStyleSheet("color:#a7a7a7;")
+        combo_b = _ArrowComboBox()
+        for opt in ("Item A", "Item B", "Item C"):
+            combo_b.addItem(opt)
+        combo_b.setStyleSheet(_COMBO_STYLE_VARIANT_B)
+        combo_b.setItemDelegate(QtWidgets.QStyledItemDelegate(combo_b))
+        combo_b.setMinimumWidth(180)
+        test_grid.addWidget(lbl_b,   1, 0)
+        test_grid.addWidget(combo_b, 1, 1)
+
+        layout.addLayout(test_grid)
 
         # Resumen (totales sin estimaciones)
         layout.addWidget(_separator())
@@ -1699,6 +1863,26 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _target_compression(self, src_comp):
         return "dwaa" if self._convert_dwaa_chk.isChecked() else (src_comp or "—")
 
+    def _target_bitdepth(self, src_bd):
+        sel = self._convert_bitdepth.currentText()
+        if sel.startswith("half"):
+            return "half"
+        if sel.startswith("float"):
+            return "float"
+        return src_bd or "—"
+
+    def _target_channels(self, src_ch):
+        sel = self._convert_channels.currentText()
+        if sel == "RGB":
+            return 3
+        if sel == "RGBA":
+            return 4
+        return src_ch  # Mantener
+
+    @staticmethod
+    def _ch_str(ch):
+        return "%dch" % ch if isinstance(ch, int) else "—"
+
     def _refresh_convert_destinos(self):
         """Recalcula la columna 'Destino' de la tabla en vivo."""
         if not hasattr(self, "_convert_table") or not hasattr(self, "_convert_rows"):
@@ -1711,7 +1895,9 @@ class ImportShotDialog(QtWidgets.QDialog):
                 tw, th = sw, sh
             res_str = ("%d×%d" % (tw, th)) if (tw and th) else "—"
             comp = self._target_compression(item.get("compression"))
-            destino = "%s · %s" % (res_str, comp)
+            bd   = self._target_bitdepth(item.get("bitdepth"))
+            ch   = self._target_channels(item.get("channels"))
+            destino = "%s · %s · %s · %s" % (res_str, bd or "—", self._ch_str(ch), comp)
             cell = self._convert_table.item(row_i, 4)
             if cell:
                 cell.setText(destino)
@@ -1759,14 +1945,16 @@ class ImportShotDialog(QtWidgets.QDialog):
             name_item.setForeground(QtGui.QColor("#cccccc"))
             self._convert_table.setItem(i, 1, name_item)
 
-            # Col 2: Origen "WxH · comp · #f"
+            # Col 2: Origen "WxH · bd · Nch · comp · #f"
             sw, sh = it.get("width"), it.get("height")
             sc = it.get("compression") or "—"
+            sbd = it.get("bitdepth") or "—"
+            sch = it.get("channels")
             fc = it.get("frame_count") or 0
             total_frames += fc
-            origen = "%s · %s · %df" % (
+            origen = "%s · %s · %s · %s · %df" % (
                 ("%d×%d" % (sw, sh)) if (sw and sh) else "—",
-                sc, fc,
+                sbd, self._ch_str(sch), sc, fc,
             )
             o_item = QtWidgets.QTableWidgetItem(origen)
             o_item.setForeground(QtGui.QColor("#888888"))

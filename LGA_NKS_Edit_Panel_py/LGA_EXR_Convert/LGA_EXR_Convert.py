@@ -20,10 +20,8 @@ STARTUP_DIR = BASE_DIR.parent.parent
 SHARED_DIR = STARTUP_DIR / "LGA_NKS_Shared"
 OPENEXR_DIR = SHARED_DIR / "OpenEXR_Win"
 OIIO_DIR = SHARED_DIR / "OIIO_Win"
-FFMPEG_DIR = SHARED_DIR / "FFmpeg_Win" / "bin"
 EXRMETRICS = OPENEXR_DIR / "exrmetrics.exe"
 OIIOTOOL = OIIO_DIR / "oiiotool.exe"
-FFMPEG = FFMPEG_DIR / "ffmpeg.exe"
 
 
 @dataclass(frozen=True)
@@ -120,7 +118,7 @@ def load_manifest(path: Path, cli: argparse.Namespace) -> tuple[list[FrameTask],
         dwa_level=cli.dwa_level if cli.dwa_level is not None else int(data.get("dwa_level", 60)),
         resize=cli.resize or resize,
         resize_filter=cli.resize_filter or resize_filter,
-        ocio_config=resolve_relative_path(cli.ocio_config or ocio.get("config"), BASE_DIR),
+        ocio_config=resolve_relative_path(cli.ocio_config or ocio.get("config"), SHARED_DIR),
         ocio_src=cli.ocio_src or ocio.get("src_colorspace"),
         ocio_dst=cli.ocio_dst or ocio.get("dst_colorspace"),
         workers=cli.workers or int(data.get("workers", 6)),
@@ -143,7 +141,7 @@ def tasks_from_cli(cli: argparse.Namespace) -> tuple[list[FrameTask], ConvertOpt
         dwa_level=cli.dwa_level if cli.dwa_level is not None else 60,
         resize=resize,
         resize_filter=cli.resize_filter or resize_filter,
-        ocio_config=resolve_relative_path(cli.ocio_config, BASE_DIR),
+        ocio_config=resolve_relative_path(cli.ocio_config, SHARED_DIR),
         ocio_src=cli.ocio_src,
         ocio_dst=cli.ocio_dst,
         workers=cli.workers or 6,
