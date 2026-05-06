@@ -31,15 +31,58 @@ Permitir renombrado masivo con preview en vivo, de forma segura y modular.
 
 ## Tabla de preview
 
-Columnas:
+### Secciones
 
-1. barra color
-2. checkbox
-3. `Original`
-4. `→`
-5. `Renamed`
-6. `Folder`
-7. `Estado`
+La tabla está organizada en **secciones** igual que la tabla principal, con el mismo sistema
+de cabeceras de color. Solo se muestran las secciones que tienen ítems en la selección activa:
+
+| Sección | Color | Condición |
+|---------|-------|-----------|
+| PUBLISH | gradiente comp→roto→cleanup | items de `source = "publish"` |
+| PLATES | `#42616d` azul petróleo | items de `source = "plates"` |
+| REFERENCES | `#aa9e54` dorado | items de `source = "refs"` |
+
+La barra de color de cada fila de dato usa el color de la tarea (para publish) o el color de
+sección (para plates/references). Para publish: comp=`#3381e0`, roto=`#2abf7e`,
+cleanup=`#27c8c3`, dmp=`#e08033`.
+
+### Columnas
+
+| Col | Header | Ancho inicial | Resize |
+|-----|--------|---------------|--------|
+| 0 | (barra color) | 10 px | Fixed |
+| 1 | (checkbox) | 28 px | Fixed |
+| 2 | `Original` | 300 px | Interactive |
+| 3 | `→` | 24 px | Fixed |
+| 4 | `Renamed` | 300 px | Interactive |
+| 5 | `Folder Original` | 210 px | Interactive |
+| 6 | `Folder Renamed` | 210 px | Interactive |
+| 7 | `Estado` | 220 px | Interactive |
+
+Todas las columnas de contenido (2, 4, 5, 6, 7) son **resizables** por el usuario.
+
+### Comportamiento de cols 4, 6 y 7 según checkbox
+
+Cuando el checkbox de una fila está **desactivado** (no bloqueado, sino desmarcado por el
+usuario), las columnas `Renamed`, `Folder Renamed` y `Estado` se muestran **vacías**.
+Al volver a marcar el checkbox, se restauran los valores del preview.
+
+Esta actualización es en vivo (sin recalcular el preview completo) mediante
+`_on_rename_chk_changed(row_i)`.
+
+### Estructura interna: display rows
+
+La tabla usa `_rename_display_rows` (lista de dicts) que mezcla filas de sección y filas de
+dato, igual que `_table_rows` en la tabla principal:
+
+```
+{"type": "section_header", "label": "PLATES", "color": "#42616d", "source": "plates"}
+{"type": "data", "preview_row": <dict de compute_preview>}
+```
+
+`_rename_checkboxes` y los handlers de click usan el índice de display row (no de preview row).
+Las filas de tipo `section_header` son ignoradas en los handlers de click/doble-click y en
+`_update_rename_btn_state()` / `_run_rename()`.
 
 Para secuencias EXR se muestra una sola entrada con placeholder de padding:
 

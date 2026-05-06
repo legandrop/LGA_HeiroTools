@@ -1832,6 +1832,9 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _on_rename_row_clicked(self, row, col):
         if col <= 1:
             return
+        display_rows = getattr(self, "_rename_display_rows", [])
+        if row < len(display_rows) and display_rows[row].get("type") == "section_header":
+            return
         if row in self._rename_checkboxes:
             chk = self._rename_checkboxes[row]
             if chk.isEnabled():
@@ -1841,14 +1844,20 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _on_rename_row_double_clicked(self, row, col):
         import os
         import subprocess
+        display_rows = getattr(self, "_rename_display_rows", [])
+        if row < len(display_rows) and display_rows[row].get("type") == "section_header":
+            return
         if col > 1 and row in self._rename_checkboxes:
             chk = self._rename_checkboxes[row]
             if chk.isEnabled():
                 chk.setChecked(not chk.isChecked())
             self._update_rename_btn_state()
-        if not hasattr(self, "_rename_preview_rows") or row >= len(self._rename_preview_rows):
+        if row >= len(display_rows):
             return
-        it = self._rename_preview_rows[row]
+        dr = display_rows[row]
+        if dr.get("type") != "data":
+            return
+        it = dr["preview_row"]
         p = it.get("folder_path") if it.get("is_sequence") else it.get("item_path")
         if not p:
             return
@@ -1856,6 +1865,78 @@ class ImportShotDialog(QtWidgets.QDialog):
             os.startfile(p)
         elif os.name == "posix":
             subprocess.Popen(["open", p])
+
+    def _populate_rename_section_header(self, row_i, row_data):
+        ncols = self._rename_table.columnCount()
+        color = row_data["color"]
+        label = row_data["label"]
+
+        if label == "PUBLISH":
+            gradient = QtGui.QLinearGradient(0, 0, 0, 1)
+            gradient.setCoordinateMode(QtGui.QGradient.ObjectBoundingMode)
+            gradient.setColorAt(0.0, QtGui.QColor("#27c8c3"))
+            gradient.setColorAt(0.5, QtGui.QColor("#2abf7e"))
+            gradient.setColorAt(1.0, QtGui.QColor("#3381e0"))
+            bar = QtWidgets.QTableWidgetItem()
+            bar.setBackground(QtGui.QBrush(gradient))
+            bar.setFlags(QtCore.Qt.NoItemFlags)
+            self._rename_table.setItem(row_i, 0, bar)
+        else:
+            bar = QtWidgets.QTableWidgetItem()
+            bar.setBackground(QtGui.QColor(color))
+            bar.setFlags(QtCore.Qt.NoItemFlags)
+            self._rename_table.setItem(row_i, 0, bar)
+
+        self._rename_table.setSpan(row_i, 1, 1, ncols - 1)
+        if label == "PUBLISH":
+            lbl = GradientTextLabel("  " + label, ["#3381e0", "#2abf7e", "#27c8c3"])
+            lbl.setContentsMargins(8, 3, 8, 3)
+            font = lbl.font()
+            font.setBold(True)
+            font.setPointSize(8)
+            lbl.setFont(font)
+        else:
+            lbl = QtWidgets.QLabel("  " + label)
+            lbl.setStyleSheet(
+                "color: %s; font-weight: bold; font-size: 11px; "
+                "padding: 3px 8px; background: #313131; letter-spacing: 1px;" % color
+            )
+        self._rename_table.setCellWidget(row_i, 1, lbl)
+        self._rename_table.setRowHeight(row_i, 24)
+
+    def _on_rename_chk_changed(self, row_i):
+        display_rows = getattr(self, "_rename_display_rows", [])
+        if row_i >= len(display_rows):
+            return
+        dr = display_rows[row_i]
+        if dr.get("type") != "data":
+            return
+        it = dr["preview_row"]
+        chk = self._rename_checkboxes.get(row_i)
+        if chk is None:
+            return
+        is_checked = chk.isChecked()
+        self._rename_table.setCellWidget(
+            row_i, 4,
+            _cell_html_label(it.get("renamed_html", "") if is_checked else "")
+        )
+        self._rename_table.setCellWidget(
+            row_i, 6,
+            _cell_html_label(it.get("folder_renamed_html", "") if is_checked else "")
+        )
+        if is_checked:
+            blocked = it.get("blocked", False)
+            st_color = _CLR_STATUS_PENDING
+            st = it.get("status", "Pendiente")
+            if blocked:
+                st_color = _CLR_STATUS_UPSCALE
+            elif not it.get("has_changes"):
+                st_color = "#888888"
+            st_html = "<span style='color:%s;'>%s</span>" % (st_color, st)
+        else:
+            st_html = ""
+        self._rename_table.setCellWidget(row_i, 7, _cell_html_label(st_html))
+        self._update_rename_btn_state()
 
     def _build_page_rename(self):
         page = QtWidgets.QWidget()
@@ -1883,15 +1964,19 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_table.setColumnWidth(0, 10)
         hdr.setSectionResizeMode(1, QtWidgets.QHeaderView.Fixed)
         self._rename_table.setColumnWidth(1, 28)
-        hdr.setSectionResizeMode(2, QtWidgets.QHeaderView.Stretch)
-        hdr.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeToContents)
-        hdr.setSectionResizeMode(4, QtWidgets.QHeaderView.Stretch)
+        hdr.setSectionResizeMode(2, QtWidgets.QHeaderView.Interactive)
+        self._rename_table.setColumnWidth(2, 300)
+        hdr.setSectionResizeMode(3, QtWidgets.QHeaderView.Fixed)
+        self._rename_table.setColumnWidth(3, 24)
+        hdr.setSectionResizeMode(4, QtWidgets.QHeaderView.Interactive)
+        self._rename_table.setColumnWidth(4, 300)
         hdr.setSectionResizeMode(5, QtWidgets.QHeaderView.Interactive)
         self._rename_table.setColumnWidth(5, 210)
         hdr.setSectionResizeMode(6, QtWidgets.QHeaderView.Interactive)
         self._rename_table.setColumnWidth(6, 210)
-        hdr.setSectionResizeMode(7, QtWidgets.QHeaderView.Stretch)
-        hdr.setStretchLastSection(True)
+        hdr.setSectionResizeMode(7, QtWidgets.QHeaderView.Interactive)
+        self._rename_table.setColumnWidth(7, 220)
+        hdr.setStretchLastSection(False)
         self._rename_table.cellClicked.connect(self._on_rename_row_clicked)
         self._rename_table.cellDoubleClicked.connect(self._on_rename_row_double_clicked)
         layout.addWidget(self._rename_table)
@@ -2003,6 +2088,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_checkboxes = {}
         self._rename_selected_rows = []
         self._rename_preview_rows = []
+        self._rename_display_rows = []
         self._rename_settings = rename_settings_mod.load_settings()
         self._load_rename_settings_to_ui()
         self._connect_rename_autosave()
@@ -2094,19 +2180,60 @@ class ImportShotDialog(QtWidgets.QDialog):
             self._collect_rename_settings_from_ui() if hasattr(self, "_rename_sr1_search") else getattr(self, "_rename_settings", {}),
             colors,
         )
-        rows = self._rename_preview_rows
-        self._rename_table.setRowCount(len(rows))
+
+        # Construir display_rows: secciones intercaladas igual que la tabla principal
+        _SECTION_META = {
+            "publish": ("PUBLISH",    "#777777"),
+            "plates":  ("PLATES",     _CLR_PLATES),
+            "refs":    ("REFERENCES", _CLR_REFS),
+        }
+        _TASK_BAR_CLR = {
+            "comp":    _CLR_COMP,
+            "roto":    _CLR_ROTO,
+            "cleanup": _CLR_CLEANUP,
+            "dmp":     _CLR_DMP,
+        }
+        seen_sections = []
+        display_rows = []
+        for pr in self._rename_preview_rows:
+            src = pr.get("source", "")
+            if src not in seen_sections:
+                seen_sections.append(src)
+                label, color = _SECTION_META.get(src, (src.upper(), "#777777"))
+                display_rows.append({
+                    "type": "section_header",
+                    "label": label,
+                    "color": color,
+                    "source": src,
+                })
+            display_rows.append({"type": "data", "preview_row": pr})
+        self._rename_display_rows = display_rows
+
+        self._rename_table.clearSpans()
+        self._rename_table.setRowCount(len(display_rows))
         self._rename_checkboxes = {}
         blocked_n = 0
         checked_ok = 0
-        for i, it in enumerate(rows):
-            blocked = it.get("blocked", False)
-            fg = "#666666" if blocked else "#a7a7a7"
 
+        for i, dr in enumerate(display_rows):
+            if dr["type"] == "section_header":
+                self._populate_rename_section_header(i, dr)
+                continue
+
+            it = dr["preview_row"]
+            blocked = it.get("blocked", False)
+
+            # Barra de color según sección/tarea
+            src = it.get("source", "")
+            if src == "publish":
+                task = (it.get("item") or {}).get("task", "")
+                bar_color = _TASK_BAR_CLR.get(task, _CLR_COMP)
+            elif src == "refs":
+                bar_color = _CLR_REFS
+            else:
+                bar_color = _CLR_PLATES
             bar = QtWidgets.QTableWidgetItem()
-            bar.setBackground(QtGui.QColor(_CLR_PLATES if it.get("is_sequence") else _CLR_REFS))
-            if blocked:
-                bar.setBackground(QtGui.QColor("#444444"))
+            bar.setBackground(QtGui.QColor("#444444" if blocked else bar_color))
             bar.setFlags(QtCore.Qt.NoItemFlags)
             self._rename_table.setItem(i, 0, bar)
 
@@ -2114,7 +2241,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             chk.setStyleSheet("color:#a7a7a7; padding:2px;")
             chk.setChecked(not blocked)
             chk.setEnabled(not blocked)
-            chk.stateChanged.connect(lambda *_: self._update_rename_btn_state())
+            chk.stateChanged.connect(lambda _state, ri=i: self._on_rename_chk_changed(ri))
             self._rename_checkboxes[i] = chk
             cbox = QtWidgets.QWidget()
             cl = QtWidgets.QHBoxLayout(cbox)
@@ -2128,20 +2255,30 @@ class ImportShotDialog(QtWidgets.QDialog):
             arrow.setForeground(QtGui.QColor("#444444" if blocked else "#666666"))
             arrow.setTextAlignment(QtCore.Qt.AlignCenter)
             self._rename_table.setItem(i, 3, arrow)
-            self._rename_table.setCellWidget(i, 4, _cell_html_label(it.get("renamed_html", "")))
 
+            # Col 4 (Renamed), 6 (Folder Renamed) y 7 (Estado): dependen del checkbox
+            is_checked = not blocked
+            self._rename_table.setCellWidget(
+                i, 4,
+                _cell_html_label(it.get("renamed_html", "") if is_checked else "")
+            )
             self._rename_table.setCellWidget(i, 5, _cell_html_label(it.get("folder_original_html", "")))
-            self._rename_table.setCellWidget(i, 6, _cell_html_label(it.get("folder_renamed_html", "")))
+            self._rename_table.setCellWidget(
+                i, 6,
+                _cell_html_label(it.get("folder_renamed_html", "") if is_checked else "")
+            )
 
-            st_color = _CLR_STATUS_PENDING
-            st = it.get("status", "Pendiente")
-            if blocked:
-                st_color = _CLR_STATUS_UPSCALE
-            elif not it.get("has_changes"):
-                st_color = "#888888"
-            self._rename_table.setCellWidget(i, 7, _cell_html_label(
-                "<span style='color:%s;'>%s</span>" % (st_color, st)
-            ))
+            if is_checked:
+                st_color = _CLR_STATUS_PENDING
+                st = it.get("status", "Pendiente")
+                if blocked:
+                    st_color = _CLR_STATUS_UPSCALE
+                elif not it.get("has_changes"):
+                    st_color = "#888888"
+                st_html = "<span style='color:%s;'>%s</span>" % (st_color, st)
+            else:
+                st_html = ""
+            self._rename_table.setCellWidget(i, 7, _cell_html_label(st_html))
 
             if blocked:
                 blocked_n += 1
@@ -2150,29 +2287,36 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         self._rename_summary_lbl.setText(
             "%d items · %d listos para rename · %d bloqueados" % (
-                len(rows), checked_ok, blocked_n
+                len(self._rename_preview_rows), checked_ok, blocked_n
             )
         )
         self._update_rename_btn_state()
 
     def _update_rename_btn_state(self):
         ready = False
+        display_rows = getattr(self, "_rename_display_rows", [])
         for i, chk in self._rename_checkboxes.items():
             if not chk.isEnabled() or not chk.isChecked():
                 continue
-            if i < len(self._rename_preview_rows) and self._rename_preview_rows[i].get("has_changes"):
-                ready = True
-                break
+            if i < len(display_rows):
+                dr = display_rows[i]
+                if dr.get("type") == "data" and dr["preview_row"].get("has_changes"):
+                    ready = True
+                    break
         self._apply_rename_btn.setEnabled(ready)
         self._apply_rename_btn.setToolTip("" if ready else "No hay filas válidas con cambios")
 
     def _run_rename(self):
         to_apply = []
+        display_rows = getattr(self, "_rename_display_rows", [])
         for i, chk in self._rename_checkboxes.items():
             if not chk.isEnabled() or not chk.isChecked():
                 continue
-            if i < len(self._rename_preview_rows):
-                row = self._rename_preview_rows[i]
+            if i < len(display_rows):
+                dr = display_rows[i]
+                if dr.get("type") != "data":
+                    continue
+                row = dr["preview_row"]
                 if row.get("blocked") or not row.get("has_changes"):
                     continue
                 to_apply.append(row)
