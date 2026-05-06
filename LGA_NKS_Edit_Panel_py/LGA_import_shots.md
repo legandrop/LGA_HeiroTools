@@ -318,12 +318,23 @@ Conversion de EXR sequences para los items marcados.
 | Nombre | Nombre de la secuencia | `#cccccc` |
 | Origen | `WxH (AR) · bitdepth · Nch · compresion · #f - Xs` | AR dorado `#a89060`, comp coloreada, count+secs ámbar `#b09040` |
 | → | Flecha separadora | centrada, `#666` |
-| Destino | `WxH (AR) · bitdepth · Nch · compresion` | mismo coloring; griseado si upscale bloqueado |
+| Destino | `WxH (AR) · bitdepth · Nch · compresion` | mismo coloring; `—` gris oscuro si checkbox off |
 | Tamaño | Tamaño actual en disco | escaneado al abrir la pagina (`_folder_size_bytes`) |
-| Estado | `Pendiente` / `⚠ Upscale` | Pendiente = cian `#5a9ab5`; Upscale = rojo `#a06060` |
+| Estado | `Pendiente` / `⚠ Upscale` / `—` / barra de progreso / `✓ Listo` / `✗ Error` | ancho fijo 130px. Ver detalle abajo. |
+
+**Estados de la columna Estado:**
+
+| Estado | Descripción | Color/widget |
+|--------|-------------|--------------|
+| `Pendiente` | EXR chequeado, listo para convertir | cian `#5a9ab5` |
+| `⚠ Upscale` | Resize bloqueado por "no upscale" | rojo `#a06060` |
+| `—` | Checkbox desactivado (fila no se convertirá) | gris oscuro `#444444` |
+| Barra de progreso | Convirtiendo — polling QTimer cada 300ms de archivos en dst | teal `#2e5c70`, texto `#5a9ab5` |
+| `✓ Listo` | Conversión completada exitosamente | verde `#6a9960` |
+| `✗ Error` | Conversión fallida | rojo `#a06060` |
 
 La columna Destino y la columna Estado se recalculan en vivo cuando cambian:
-DWAA on/off, DWAA level, bit depth, channels, preset de resolucion, custom W×H, "no upscale".
+DWAA on/off, DWAA level, bit depth, channels, preset de resolucion, custom W×H, "no upscale", **checkbox de la fila**.
 
 **Upscale bloqueado:** cuando el resize resultaría en upscale y "Aplicar solo si origen es mayor"
 está activo, la fila muestra `⚠ Upscale` en rojo y la columna Destino se grísea. No se modifica
@@ -595,8 +606,8 @@ donde se distribuya la repo.
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `main()`, `ImportShotDialog`, `_show_page()`, `_build_page_media()`, `_build_media_table()`, `_build_table_rows()`, `_populate_section_header_row()`, `_populate_data_row()`, `_select_all()`, `_clear_selection()`, `_select_section()`, `_update_action_btns()`, `_build_page_rename()`, `_build_page_convert()`, `_update_convert_page()`, `_on_res_preset_changed()`, `_on_keep_ar_changed()`, `_update_match_dim_visibility()`, `_get_representative_res()`, `_on_custom_w_changed()`, `_on_custom_h_changed()`, `_current_target_res()`, `_target_compression()`, `_refresh_convert_destinos()`, `_update_res_combo_labels()`, `_toggle_convert_log()`, `_update_transcode_btn_state()`, `_run_transcode()`, `_on_transcode_log()`, `_on_sequence_started()`, `_on_sequence_done()`, `_on_transcode_all_done()`, `_on_transcode_error()`, `_cell_html_label()`, `_comp_color()`, `_ar_str()`, `_scan_input_folder()`, `_scan_publish_folders()`, `_read_exr_metadata()`, `_read_mov_metadata()`, `_folder_size_bytes()`, `_format_bytes()`, `_find_insert_frame()`, `_push_clips_right()`, `_stretch_burnin()`, `_shot_exists_in_timeline()`, `_import_clip_to_bin()`, `_place_clip_in_timeline()`, `_find_or_create_bin()` |
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots_transcode.py` | `TranscodeWorkerSignals`, `TranscodeWorker`, `build_manifest_for_sequence` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `main()`, `ImportShotDialog`, `_show_page()`, `_build_page_media()`, `_build_media_table()`, `_build_table_rows()`, `_populate_section_header_row()`, `_populate_data_row()`, `_select_all()`, `_clear_selection()`, `_select_section()`, `_update_action_btns()`, `_build_page_rename()`, `_build_page_convert()`, `_update_convert_page()`, `_on_res_preset_changed()`, `_on_keep_ar_changed()`, `_update_match_dim_visibility()`, `_get_representative_res()`, `_on_custom_w_changed()`, `_on_custom_h_changed()`, `_current_target_res()`, `_target_compression()`, `_refresh_convert_destinos()`, `_update_res_combo_labels()`, `_toggle_convert_log()`, `_update_transcode_btn_state()`, `_run_transcode()`, `_on_transcode_log()`, `_on_sequence_started()`, `_poll_transcode_progress()`, `_on_sequence_done()`, `_on_transcode_all_done()`, `_on_transcode_error()`, `_cell_html_label()`, `_comp_color()`, `_ar_str()`, `_scan_input_folder()`, `_scan_publish_folders()`, `_read_exr_metadata()`, `_read_mov_metadata()`, `_folder_size_bytes()`, `_format_bytes()`, `_find_insert_frame()`, `_push_clips_right()`, `_stretch_burnin()`, `_shot_exists_in_timeline()`, `_import_clip_to_bin()`, `_place_clip_in_timeline()`, `_find_or_create_bin()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots_transcode.py` | `TranscodeWorkerSignals` (señales: `log_message`, `sequence_started(row_i, dst_dir, total_frames)`, `sequence_done`, `all_done`, `error`), `TranscodeWorker`, `build_manifest_for_sequence` |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_CreateV000.py` | Referencia de UI, bin import, timeline placement, colorize path |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_SetShotName.py` | Renombrado de clips post-importacion |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_OrganizeProject.py` | Estructura de bins `F <grupo>/<shot>` |

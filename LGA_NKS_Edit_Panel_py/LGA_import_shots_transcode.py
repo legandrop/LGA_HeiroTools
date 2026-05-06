@@ -43,13 +43,14 @@ class TranscodeWorkerSignals(QObject):
     Señales emitidas por TranscodeWorker hacia el hilo principal de la UI.
 
     log_message      — línea de texto para el panel de log (plain text)
-    sequence_started — row_index: la secuencia comenzó a convertirse
+    sequence_started — (row_index, dst_dir_str, total_frames): archivos preparados,
+                       subprocess a punto de arrancar — permite iniciar barra de progreso
     sequence_done    — (row_index, ok, stats_dict): la secuencia terminó
     all_done         — lista de dicts resultado por secuencia (worker terminó)
     error            — mensaje de error fatal (detiene el worker)
     """
     log_message      = Signal(str)
-    sequence_started = Signal(int)
+    sequence_started = Signal(int, str, int)   # row_i, dst_dir, total_frames
     sequence_done    = Signal(int, bool, dict)
     all_done         = Signal(list)
     error            = Signal(str)
@@ -215,8 +216,6 @@ class TranscodeWorker(QRunnable):
         seq_name  = item.get("name", item_path.name)
         seq_start = time.perf_counter()
 
-        self.signals.sequence_started.emit(row_i)
-
         originals_dir: Path | None = None
         temp_src_dir:  Path | None = None
 
@@ -265,6 +264,10 @@ class TranscodeWorker(QRunnable):
             frame_count = len(manifest["tasks"])
             if frame_count == 0:
                 raise RuntimeError("No se encontraron frames EXR en: %s" % src_dir)
+
+            # Emitir sequence_started DESPUÉS de preparar archivos y conocer frame_count.
+            # La UI puede iniciar la barra de progreso sabiendo dst_dir y total de frames.
+            self.signals.sequence_started.emit(row_i, str(dst_dir), frame_count)
 
             resize_info = (
                 "%dx%d · %s" % (tw, th, resize_filter)
@@ -421,14 +424,23 @@ class TranscodeWorker(QRunnable):
         """
         Mueve todos los .exr de src_dir a dst_dir.
 
+        Usa os.rename() cuando es posible (misma unidad — operación atómica a nivel OS,
+        libera el GIL). Si falla (e.g. unidades distintas), usa shutil.move() como
+        fallback.
+
         Returns:
             Número de archivos movidos.
         """
+        import os
         src_path = Path(src_dir)
         dst_path = Path(dst_dir)
         dst_path.mkdir(parents=True, exist_ok=True)
         moved = 0
         for f in sorted(src_path.glob("*.exr")):
-            shutil.move(str(f), str(dst_path / f.name))
+            dst = dst_path / f.name
+            try:
+                os.rename(str(f), str(dst))
+            except OSError:
+                shutil.move(str(f), str(dst))
             moved += 1
         return moved

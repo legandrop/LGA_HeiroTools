@@ -1687,9 +1687,10 @@ class ImportShotDialog(QtWidgets.QDialog):
         # Destino (col 5) — mínimo 320px para "2048×858 (2.39:1) · half · RGB · dwaa"
         hdr.setSectionResizeMode(5, QtWidgets.QHeaderView.Interactive)
         self._convert_table.setColumnWidth(5, 320)
-        # Tamaño, Estado — ajustan al contenido
-        for c in (6, 7):
-            hdr.setSectionResizeMode(c, QtWidgets.QHeaderView.ResizeToContents)
+        # Tamaño — ajusta al contenido; Estado — ancho fijo para caber barra de progreso
+        hdr.setSectionResizeMode(6, QtWidgets.QHeaderView.ResizeToContents)
+        hdr.setSectionResizeMode(7, QtWidgets.QHeaderView.Interactive)
+        self._convert_table.setColumnWidth(7, 130)
         self._convert_checkboxes = {}
         self._convert_table.cellClicked.connect(self._on_convert_row_clicked)
         layout.addWidget(self._convert_table)
@@ -2137,8 +2138,8 @@ class ImportShotDialog(QtWidgets.QDialog):
         """Recalcula columnas 'Destino' y 'Estado' y las labels del combo (EXR solamente).
 
         Detecta automáticamente los casos de upscale bloqueado por 'no upscale':
-        - Destino: muestra la resolución final (griseado si upscale bloqueado)
-        - Estado:  'Pendiente' (cian) | '⚠ Upscale' (rojo, fila deshabilitada)
+        - Destino: muestra la resolución final (griseado si upscale bloqueado o desactivado)
+        - Estado:  'Pendiente' (cian) | '⚠ Upscale' (rojo) | '—' (gris, fila desactivada)
         """
         if not hasattr(self, "_convert_table") or not hasattr(self, "_convert_rows"):
             return
@@ -2146,6 +2147,18 @@ class ImportShotDialog(QtWidgets.QDialog):
         for row_i, item in enumerate(self._convert_rows):
             if item.get("kind") == "mov":
                 continue
+
+            # ── Fila desactivada (checkbox off) ──────────────────────────
+            chk = self._convert_checkboxes.get(row_i) if hasattr(self, "_convert_checkboxes") else None
+            if chk is not None and not chk.isChecked():
+                self._convert_table.setCellWidget(
+                    row_i, 5, _cell_html_label("<span style='color:#444444;'>—</span>")
+                )
+                self._convert_table.setCellWidget(
+                    row_i, 7, _cell_html_label("<span style='color:#444444;'>—</span>")
+                )
+                continue
+
             sw, sh = item.get("width"), item.get("height")
             tw, th = self._current_target_res(sw, sh)
 
@@ -2229,6 +2242,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             else:
                 chk.setChecked(True)
             chk.stateChanged.connect(lambda *_: self._update_transcode_btn_state())
+            chk.stateChanged.connect(lambda *_: self._refresh_convert_destinos())
             self._convert_checkboxes[i] = chk
             chk_container = QtWidgets.QWidget()
             cl = QtWidgets.QHBoxLayout(chk_container)
@@ -2406,14 +2420,72 @@ class ImportShotDialog(QtWidgets.QDialog):
         """Agrega una línea al panel de log de transcode."""
         self._convert_log.appendPlainText(msg)
 
-    def _on_sequence_started(self, row_i):
-        """Actualiza el Estado de la fila a 'Convirtiendo...' (ámbar)."""
-        if row_i < self._convert_table.rowCount():
-            html = "<span style='color:#d9a441;'>Convirtiendo...</span>"
-            self._convert_table.setCellWidget(row_i, 7, _cell_html_label(html))
+    # Estilo de la barra de progreso de transcode
+    _PBAR_STYLE = """
+        QProgressBar {
+            background-color: #1c2a30;
+            border: 1px solid #2e5060;
+            border-radius: 2px;
+            text-align: center;
+            color: #5a9ab5;
+            font-size: 9px;
+            min-height: 14px;
+            max-height: 22px;
+        }
+        QProgressBar::chunk {
+            background-color: #2e5c70;
+            border-radius: 1px;
+        }
+    """
+
+    def _on_sequence_started(self, row_i, dst_dir_str, total_frames):
+        """Crea barra de progreso en la columna Estado e inicia polling QTimer."""
+        if row_i >= self._convert_table.rowCount():
+            return
+
+        pbar = QtWidgets.QProgressBar()
+        pbar.setRange(0, max(total_frames, 1))
+        pbar.setValue(0)
+        pbar.setFormat("%v/%m")
+        pbar.setStyleSheet(self._PBAR_STYLE)
+        self._convert_table.setCellWidget(row_i, 7, pbar)
+
+        # Inicializar dicts de timers/pbars si no existen
+        if not hasattr(self, "_transcode_timers"):
+            self._transcode_timers = {}
+        if not hasattr(self, "_transcode_pbars"):
+            self._transcode_pbars = {}
+
+        dst_dir = Path(dst_dir_str)
+        self._transcode_pbars[row_i] = pbar
+
+        timer = QtCore.QTimer()
+        timer.setInterval(300)
+        timer.timeout.connect(
+            lambda: self._poll_transcode_progress(row_i, dst_dir, total_frames, pbar)
+        )
+        self._transcode_timers[row_i] = timer
+        timer.start()
+
+    def _poll_transcode_progress(self, row_i, dst_dir, total_frames, pbar):
+        """Cuenta archivos .exr en dst_dir y actualiza la barra de progreso."""
+        if not dst_dir.exists():
+            return
+        try:
+            done = sum(1 for _ in dst_dir.glob("*.exr"))
+            pbar.setValue(min(done, total_frames))
+        except Exception:
+            pass
 
     def _on_sequence_done(self, row_i, ok, stats):
-        """Actualiza el Estado de la fila a '✓ Listo' o '✗ Error'."""
+        """Detiene el timer de progreso y actualiza el Estado a '✓ Listo' o '✗ Error'."""
+        # Detener y eliminar timer
+        if hasattr(self, "_transcode_timers") and row_i in self._transcode_timers:
+            self._transcode_timers[row_i].stop()
+            del self._transcode_timers[row_i]
+        if hasattr(self, "_transcode_pbars"):
+            self._transcode_pbars.pop(row_i, None)
+
         if row_i < self._convert_table.rowCount():
             if ok:
                 html = "<span style='color:%s;'>✓ Listo</span>" % _CLR_STATUS_DONE
