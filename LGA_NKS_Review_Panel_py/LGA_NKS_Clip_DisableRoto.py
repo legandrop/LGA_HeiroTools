@@ -1,11 +1,16 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Clip_DisableRoto v1.00 | Lega
+  LGA_NKS_Clip_DisableRoto v1.10 | Lega
 
   Habilita o deshabilita el clip en el track _roto_.
   Wrapper de LGA_NKS_Clip_DisableEXR con track_name=TRACK_roto_EXR.
 
+  Pasa explícitamente `enable_rev_fallback=False` porque el flujo de fallback al track
+  de review (compRev / similares) es exclusivo del botón ON OFF _comp_.
+
+  v1.10: Pasa `enable_rev_fallback=False` para mantener el comportamiento original (sin
+         fallback al track REV). Necesario porque el default del script genérico es True.
   v1.00: Versión inicial
 ____________________________________________________________________
 
@@ -30,7 +35,7 @@ from LGA_NKS_Clip_DisableEXR import main as disable_main
 
 
 def main():
-    disable_main(track_name=TRACK_roto_EXR)
+    disable_main(track_name=TRACK_roto_EXR, enable_rev_fallback=False)
 
 
 if __name__ == "__main__":

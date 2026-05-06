@@ -481,7 +481,7 @@ class ReviewPanel(QtWidgets.QWidget):
         self.execute_external_script("LGA_NKS_OpenInNukeX.py")
 
     def execute_DisableEXR(self):
-        self.execute_external_script("LGA_NKS_Clip_DisableComp.py")
+        self.execute_external_script("LGA_NKS_Clip_DisableEXR.py")
 
     def execute_DisableRoto(self):
         self.execute_external_script("LGA_NKS_Clip_DisableRoto.py")

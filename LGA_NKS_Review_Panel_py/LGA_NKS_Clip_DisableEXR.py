@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Clip_DisableEXR v1.30 | Lega
+  LGA_NKS_Clip_DisableEXR v1.31 | Lega
 
   Habilita o deshabilita el clip en el track especificado (por defecto usa TRACK_comp_EXR del módulo LGA_NKS_GetClip).
 
@@ -10,12 +10,19 @@ ____________________________________________________________________
   2. Si no encuentra clip en playhead, usa el clip seleccionado como fallback
   3. Invierte el estado de habilitación del clip (enabled/disabled)
 
-  Modo `enable_rev_fallback=True` (sólo para el botón "ON OFF _comp_"):
+  Modo `enable_rev_fallback=True` (default, escenario comp / botón "ON OFF _comp_"):
+  - Trabaja exclusivamente sobre el playhead (sin fallback a selección).
   - Si el track _comp_ está vacío en el playhead o el clip ahí es v00/v000, busca un track
     de review (_compRev_, _compMOV_, _compMXF_, etc.) y opera sobre el clip de ese track.
   - Si el track encontrado no coincide con TRACK_comp_REV, ofrece renombrarlo al nombre canónico
     antes de operar.
 
+  Modo `enable_rev_fallback=False` (wrappers de otras tasks, ej: roto):
+  - Comportamiento original: usa `get_clip_to_process` (playhead con fallback a selección).
+
+  v1.31: Default `enable_rev_fallback=True` para que el botón ON OFF _comp_ herede el nuevo
+         flujo sin necesidad de un wrapper específico. El wrapper de roto pasa `False` explícito
+         para mantener su comportamiento original.
   v1.30: Agrega lógica de fallback al track de review (TRACK_comp_REV) cuando _comp_ está vacío
          o tiene v00/v000 en el playhead. Detecta tracks similares (_compMOV_, _compMXF_, etc.)
          y ofrece renombrarlos al nombre canónico.
@@ -33,7 +40,7 @@ import re
 from pathlib import Path
 import sys
 
-DEBUG = False
+DEBUG = True
 
 def debug_print(*message):
     if DEBUG:
@@ -241,18 +248,19 @@ def _resolve_clip_with_rev_fallback():
         return None
 
 
-def main(track_name=None, enable_rev_fallback=False):
+def main(track_name=None, enable_rev_fallback=True):
     """
     Función principal que ejecuta la secuencia de operaciones.
 
     Args:
         track_name: nombre del track a usar. None = TRACK_comp_EXR (por defecto).
                     Pasar TRACK_roto_EXR para operar sobre _roto_, etc.
-        enable_rev_fallback: si True, activa el fallback al track de review (sólo para comp).
-                             Cuando _comp_ está vacío en el playhead o tiene v00/v000, busca
-                             un track _compXXX_ y opera sobre ese clip. Si el track tiene
+        enable_rev_fallback: si True (por defecto, escenario comp), activa el fallback al track
+                             de review. Cuando _comp_ está vacío en el playhead o tiene v00/v000,
+                             busca un track _compXXX_ y opera sobre ese clip. Si el track tiene
                              un nombre distinto al canónico (TRACK_comp_REV), pregunta si
-                             renombrarlo antes de operar.
+                             renombrarlo antes de operar. Wrappers para otras tasks (ej: roto)
+                             deben pasar `enable_rev_fallback=False` explícitamente.
     """
     if enable_rev_fallback:
         clip = _resolve_clip_with_rev_fallback()
