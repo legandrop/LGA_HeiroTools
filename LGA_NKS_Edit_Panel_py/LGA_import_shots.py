@@ -1966,7 +1966,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_table.setShowGrid(False)
         self._rename_table.setStyleSheet(_TABLE_STYLE)
         self._rename_table.setMinimumHeight(120)
-        self._rename_table.setMaximumHeight(330)
+        self._rename_table.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         hdr = self._rename_table.horizontalHeader()
         hdr.setMinimumSectionSize(1)
         hdr.setSectionResizeMode(0, QtWidgets.QHeaderView.Fixed)
@@ -2002,13 +2002,15 @@ class ImportShotDialog(QtWidgets.QDialog):
             "QLineEdit:focus { border:1px solid #666666; }"
         )
 
-        # Etapas 1 y 2 — dos columnas con divisor vertical
-        sr_row = QtWidgets.QHBoxLayout()
-        sr_row.setSpacing(0)
+        # Opciones en 2 columnas — igual que transcode
+        opts_row = QtWidgets.QHBoxLayout()
+        opts_row.setSpacing(20)
 
-        sr1_col = QtWidgets.QVBoxLayout()
-        sr1_col.setSpacing(4)
-        sr1_col.addWidget(_section_label("Step 1 — Search & Replace"))
+        # Columna izquierda — Step 1 + Step 2
+        col_left = QtWidgets.QVBoxLayout()
+        col_left.setSpacing(6)
+
+        col_left.addWidget(_section_label("Step 1 — Search & Replace"))
         sr1_row = QtWidgets.QHBoxLayout()
         self._rename_sr1_search = QtWidgets.QLineEdit()
         self._rename_sr1_search.setPlaceholderText("Search")
@@ -2021,19 +2023,11 @@ class ImportShotDialog(QtWidgets.QDialog):
         sr1_row.addWidget(self._rename_sr1_search, 1)
         sr1_row.addWidget(self._rename_sr1_replace, 1)
         sr1_row.addWidget(self._rename_sr1_case, 0)
-        sr1_col.addLayout(sr1_row)
-        sr_row.addLayout(sr1_col, 1)
+        col_left.addLayout(sr1_row)
 
-        _vdiv1 = QtWidgets.QFrame()
-        _vdiv1.setFrameShape(QtWidgets.QFrame.VLine)
-        _vdiv1.setStyleSheet("color:#444444;")
-        sr_row.addSpacing(12)
-        sr_row.addWidget(_vdiv1)
-        sr_row.addSpacing(12)
+        col_left.addSpacing(8)
 
-        sr2_col = QtWidgets.QVBoxLayout()
-        sr2_col.setSpacing(4)
-        sr2_col.addWidget(_section_label("Step 2 — Search & Replace"))
+        col_left.addWidget(_section_label("Step 2 — Search & Replace"))
         sr2_row = QtWidgets.QHBoxLayout()
         self._rename_sr2_search = QtWidgets.QLineEdit()
         self._rename_sr2_search.setPlaceholderText("Search")
@@ -2046,17 +2040,19 @@ class ImportShotDialog(QtWidgets.QDialog):
         sr2_row.addWidget(self._rename_sr2_search, 1)
         sr2_row.addWidget(self._rename_sr2_replace, 1)
         sr2_row.addWidget(self._rename_sr2_case, 0)
-        sr2_col.addLayout(sr2_row)
-        sr_row.addLayout(sr2_col, 1)
+        col_left.addLayout(sr2_row)
 
-        layout.addLayout(sr_row)
+        col_left.addStretch()
+        opts_row.addLayout(col_left, 1)
 
-        # Etapas 3 y 4 — dos columnas con divisor vertical
-        dp_row = QtWidgets.QHBoxLayout()
-        dp_row.setSpacing(0)
+        # Separador vertical
+        opts_row.addWidget(_separator("v"))
 
-        delim_col = QtWidgets.QVBoxLayout()
-        delim_col.addWidget(_section_label("Step 3 — Delimiter"))
+        # Columna derecha — Step 3 + Step 4
+        col_right = QtWidgets.QVBoxLayout()
+        col_right.setSpacing(6)
+
+        col_right.addWidget(_section_label("Step 3 — Delimiter"))
         delim_inner = QtWidgets.QHBoxLayout()
         delim_lbl = QtWidgets.QLabel("Before frame:")
         delim_lbl.setStyleSheet("color:#a7a7a7;")
@@ -2068,18 +2064,11 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_delim_combo.setFixedWidth(80)
         delim_inner.addWidget(self._rename_delim_combo)
         delim_inner.addStretch()
-        delim_col.addLayout(delim_inner)
-        dp_row.addLayout(delim_col, 1)
+        col_right.addLayout(delim_inner)
 
-        _vdiv2 = QtWidgets.QFrame()
-        _vdiv2.setFrameShape(QtWidgets.QFrame.VLine)
-        _vdiv2.setStyleSheet("color:#444444;")
-        dp_row.addSpacing(12)
-        dp_row.addWidget(_vdiv2)
-        dp_row.addSpacing(12)
+        col_right.addSpacing(8)
 
-        pad_col = QtWidgets.QVBoxLayout()
-        pad_col.addWidget(_section_label("Step 4 — Frame Digits"))
+        col_right.addWidget(_section_label("Step 4 — Frame Digits"))
         pad_inner = QtWidgets.QHBoxLayout()
         pad_lbl = QtWidgets.QLabel("Digits:")
         pad_lbl.setStyleSheet("color:#a7a7a7;")
@@ -2091,12 +2080,12 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_digits_spin.setFixedWidth(88)
         pad_inner.addWidget(self._rename_digits_spin)
         pad_inner.addStretch()
-        pad_col.addLayout(pad_inner)
-        dp_row.addLayout(pad_col, 1)
+        col_right.addLayout(pad_inner)
 
-        layout.addLayout(dp_row)
+        col_right.addStretch()
+        opts_row.addLayout(col_right, 1)
 
-        layout.addStretch()
+        layout.addLayout(opts_row)
         layout.addWidget(_separator())
 
         btn_row = QtWidgets.QHBoxLayout()
