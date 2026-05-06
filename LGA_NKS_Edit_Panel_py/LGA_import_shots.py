@@ -56,7 +56,10 @@ _TRANSCODE_HELPER = "LGA_NKS_Edit_Panel_py.LGA_import_shots_transcode"
 if _TRANSCODE_HELPER in sys.modules:
     del sys.modules[_TRANSCODE_HELPER]
 _transcode_mod = importlib.import_module(_TRANSCODE_HELPER)
-TranscodeWorker = _transcode_mod.TranscodeWorker
+TranscodeWorker         = _transcode_mod.TranscodeWorker
+check_existing_outputs  = _transcode_mod.check_existing_outputs
+delete_existing_outputs = _transcode_mod.delete_existing_outputs
+show_overwrite_warning  = _transcode_mod.show_overwrite_warning
 
 # ── flags ──────────────────────────────────────────────────────────
 # Si True, el transcode escribe a {seq_path}/test_transcode/ y los
@@ -1716,10 +1719,13 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._convert_dwaa_chk = QtWidgets.QCheckBox("Convertir a DWAA")
         self._convert_dwaa_chk.setChecked(True)
         self._convert_dwaa_chk.setStyleSheet("color:#a7a7a7; padding:2px;")
-        self._convert_dwaa_chk.stateChanged.connect(self._refresh_convert_destinos)
+        self._convert_dwaa_chk.stateChanged.connect(self._on_dwaa_chk_changed)
         col_codec.addWidget(self._convert_dwaa_chk)
 
-        dwaa_row = QtWidgets.QHBoxLayout()
+        # Contenedor del nivel (se oculta cuando DWAA está desactivado)
+        self._dwaa_level_widget = QtWidgets.QWidget()
+        dwaa_row = QtWidgets.QHBoxLayout(self._dwaa_level_widget)
+        dwaa_row.setContentsMargins(0, 0, 0, 0)
         dwaa_lbl = QtWidgets.QLabel("DWAA level:")
         dwaa_lbl.setStyleSheet("color:#a7a7a7;")
         dwaa_row.addWidget(dwaa_lbl)
@@ -1729,8 +1735,6 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._convert_dwaa_level.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
         self._convert_dwaa_level.setAlignment(QtCore.Qt.AlignCenter)
         self._convert_dwaa_level.setFixedWidth(60)
-        # Mantiene look original; solo se cambia el color de la selección de texto
-        # (default amarillo → off-white con texto gris oscuro)
         self._convert_dwaa_level.setStyleSheet("""
             QSpinBox {
                 background-color: #272727;
@@ -1761,24 +1765,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._convert_dwaa_level.valueChanged.connect(lambda *_: self._refresh_convert_destinos())
         dwaa_row.addWidget(self._convert_dwaa_slider)
         dwaa_row.addStretch()
-        col_codec.addLayout(dwaa_row)
-
-        bd_row = QtWidgets.QHBoxLayout()
-        bd_lbl = QtWidgets.QLabel("Bit depth:")
-        bd_lbl.setStyleSheet("color:#a7a7a7;")
-        bd_row.addWidget(bd_lbl)
-        self._convert_bitdepth = _ArrowComboBox()
-        self._convert_bitdepth.setStyleSheet(self._COMBO_STYLE)
-        self._convert_bitdepth.setView(QtWidgets.QListView())
-        for opt in ("Mantener original", "half (16-bit)", "float (32-bit)"):
-            self._convert_bitdepth.addItem(opt)
-        self._convert_bitdepth.setFixedWidth(170)
-        self._convert_bitdepth.currentIndexChanged.connect(
-            lambda *_: self._refresh_convert_destinos()
-        )
-        bd_row.addWidget(self._convert_bitdepth)
-        bd_row.addStretch()
-        col_codec.addLayout(bd_row)
+        col_codec.addWidget(self._dwaa_level_widget)
 
         ch_row = QtWidgets.QHBoxLayout()
         ch_lbl = QtWidgets.QLabel("Channels:")
@@ -1787,7 +1774,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._convert_channels = _ArrowComboBox()
         self._convert_channels.setStyleSheet(self._COMBO_STYLE)
         self._convert_channels.setView(QtWidgets.QListView())
-        for opt in ("Mantener", "RGB", "RGBA"):
+        for opt in ("Mantener", "Reducir a RGB"):
             self._convert_channels.addItem(opt)
         self._convert_channels.setFixedWidth(170)
         self._convert_channels.currentIndexChanged.connect(
@@ -2113,23 +2100,21 @@ class ImportShotDialog(QtWidgets.QDialog):
             self._res_combo.setItemText(
                 i, "%s  →  %d×%d%s" % (base, tw, th, ar_part))
 
+    def _on_dwaa_chk_changed(self, state):
+        """Muestra u oculta el control de DWAA level según el estado del checkbox."""
+        self._dwaa_level_widget.setVisible(state == QtCore.Qt.Checked)
+        self._refresh_convert_destinos()
+
     def _target_compression(self, src_comp):
         return "dwaa" if self._convert_dwaa_chk.isChecked() else (src_comp or "—")
 
     def _target_bitdepth(self, src_bd):
-        sel = self._convert_bitdepth.currentText()
-        if sel.startswith("half"):
-            return "half"
-        if sel.startswith("float"):
-            return "float"
         return src_bd or "—"
 
     def _target_channels(self, src_ch):
         sel = self._convert_channels.currentText()
-        if sel == "RGB":
+        if sel == "Reducir a RGB":
             return 3
-        if sel == "RGBA":
-            return 4
         return src_ch  # Mantener
 
     @staticmethod
@@ -2140,6 +2125,13 @@ class ImportShotDialog(QtWidgets.QDialog):
             if ch == 4:  return "RGBA"
             return "%dch" % ch
         return "—"
+
+    @staticmethod
+    def _fmt_bd(bd):
+        """Convierte 'half'→'16b', 'float'→'32b'. Resto se muestra tal cual."""
+        if bd == "half":   return "16b"
+        if bd == "float":  return "32b"
+        return bd or "—"
 
     def _refresh_convert_destinos(self):
         """Recalcula columnas 'Destino' y 'Estado' y las labels del combo (EXR solamente).
@@ -2181,7 +2173,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             # ── Columna 5: Destino ────────────────────────────────────────
             dest_fg = "#555555" if is_upscale_blocked else "#a7a7a7"
             comp = self._target_compression(item.get("compression"))
-            bd   = self._target_bitdepth(item.get("bitdepth"))
+            bd   = self._fmt_bd(self._target_bitdepth(item.get("bitdepth")))
             ch   = self._target_channels(item.get("channels"))
             if tw and th:
                 ar = _ar_str(tw, th)
@@ -2268,7 +2260,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             # Col 3: Origen "WxH [AR] · bd · Nch · comp · #f - Xs"
             sw, sh = it.get("width"), it.get("height")
             sc = it.get("compression") or "—"
-            sbd = it.get("bitdepth") or "—"
+            sbd = self._fmt_bd(it.get("bitdepth"))
             sch = it.get("channels")
             fc = it.get("frame_count") or 0
             fps_val = it.get("fps")
@@ -2370,116 +2362,13 @@ class ImportShotDialog(QtWidgets.QDialog):
             "" if has_exr else "Selecciona al menos un EXR"
         )
 
-    # ── Helpers pre-transcode ───────────────────────────────────────────────────
-
-    def _check_existing_outputs(self, item, test_mode, move_originals):
-        """Detecta si ya existen archivos de un transcode previo para la secuencia.
-
-        Returns:
-            (has_conflict: bool, description: str)
-        """
-        item_path = Path(item["path"])
-        if test_mode:
-            dst = item_path / "test_transcode"
-            if dst.exists():
-                count = sum(1 for _ in dst.glob("*.exr"))
-                if count > 0:
-                    return True, "test_transcode/ ya contiene %d archivos EXR" % count
-        elif move_originals:
-            orig = item_path / "Originals"
-            if orig.exists():
-                count = sum(1 for _ in orig.glob("*.exr"))
-                label = "%d EXR" % count if count else "carpeta vacía"
-                return True, "Originals/ ya existe (%s — transcode anterior)" % label
-        else:
-            tmp = item_path / "_tc_temp_src"
-            if tmp.exists():
-                return True, "_tc_temp_src/ existe (transcode anterior incompleto)"
-        return False, ""
-
-    def _show_overwrite_warning(self, seq_name, conflict_desc):
-        """Muestra un diálogo personalizado de advertencia cuando el destino ya tiene archivos.
-
-        Returns:
-            True  → el usuario confirma sobreescribir
-            False → el usuario cancela esta secuencia
-        """
-        dlg = QtWidgets.QDialog(self)
-        dlg.setWindowTitle("Archivos existentes")
-        dlg.setMinimumWidth(440)
-        dlg.setWindowFlags(
-            QtCore.Qt.Dialog | QtCore.Qt.FramelessWindowHint
-        )
-        dlg.setStyleSheet("""
-            QDialog {
-                background-color: #2B2B2B;
-                border: 1px solid #555555;
-            }
-            QLabel { color: #a7a7a7; }
-        """)
-
-        layout = QtWidgets.QVBoxLayout(dlg)
-        layout.setContentsMargins(24, 20, 24, 20)
-        layout.setSpacing(10)
-
-        # ── Header ──────────────────────────────────────────────
-        header_row = QtWidgets.QHBoxLayout()
-        icon_lbl = QtWidgets.QLabel("⚠")
-        icon_lbl.setStyleSheet("color: #d9a441; font-size: 20px;")
-        title_lbl = QtWidgets.QLabel("Archivos existentes")
-        title_lbl.setStyleSheet(
-            "color: #d9a441; font-size: 13px; font-weight: bold;"
-        )
-        header_row.addWidget(icon_lbl)
-        header_row.addSpacing(8)
-        header_row.addWidget(title_lbl)
-        header_row.addStretch()
-        layout.addLayout(header_row)
-
-        sep = QtWidgets.QFrame()
-        sep.setFrameShape(QtWidgets.QFrame.HLine)
-        sep.setStyleSheet("background: #444444;")
-        sep.setFixedHeight(1)
-        layout.addWidget(sep)
-
-        # ── Nombre de secuencia ──────────────────────────────────
-        name_lbl = QtWidgets.QLabel(seq_name)
-        name_lbl.setStyleSheet(
-            "color: #cccccc; font-size: 12px; font-weight: bold; margin-top: 4px;"
-        )
-        layout.addWidget(name_lbl)
-
-        desc_lbl = QtWidgets.QLabel(conflict_desc)
-        desc_lbl.setStyleSheet("color: #999999; font-size: 11px;")
-        layout.addWidget(desc_lbl)
-
-        q_lbl = QtWidgets.QLabel("¿Desea sobreescribir los archivos existentes?")
-        q_lbl.setStyleSheet("color: #a7a7a7; font-size: 11px; margin-top: 4px;")
-        layout.addWidget(q_lbl)
-
-        layout.addSpacing(8)
-
-        # ── Botones ──────────────────────────────────────────────
-        btn_row = QtWidgets.QHBoxLayout()
-        btn_row.addStretch()
-        cancel_btn    = QtWidgets.QPushButton("Cancelar")
-        overwrite_btn = QtWidgets.QPushButton("Sobreescribir")
-        cancel_btn.setStyleSheet(_BTN_SECONDARY)
-        overwrite_btn.setStyleSheet(_BTN_PRIMARY)
-        btn_row.addWidget(cancel_btn)
-        btn_row.addSpacing(8)
-        btn_row.addWidget(overwrite_btn)
-        layout.addLayout(btn_row)
-
-        result = [False]
-        cancel_btn.clicked.connect(dlg.reject)
-        overwrite_btn.clicked.connect(lambda: (result.__setitem__(0, True), dlg.accept()))
-
-        dlg.exec_()
-        return result[0]
-
     def _run_transcode(self):
-        """Handler del botón Start Transcode. Construye el job y lanza el worker."""
+        """Handler del botón Start Transcode.
+
+        Inicializa la cola de secuencias y arranca la primera.
+        Las siguientes se procesan una a una en _start_next_sequence(),
+        que se llama al finalizar cada worker.
+        """
         if not hasattr(self, "_convert_checkboxes") or not hasattr(self, "_convert_rows"):
             return
 
@@ -2490,7 +2379,6 @@ class ImportShotDialog(QtWidgets.QDialog):
                 continue
             item = self._convert_rows[row_i]
             tw, th = self._current_target_res(item.get("width"), item.get("height"))
-            # Aplicar lógica no-upscale: si el destino es mayor que el origen, usar original
             sw, sh = item.get("width"), item.get("height")
             if self._convert_no_upscale.isChecked() and sw and sh and tw and th:
                 if tw > sw or th > sh:
@@ -2500,54 +2388,71 @@ class ImportShotDialog(QtWidgets.QDialog):
         if not job_sequences:
             return
 
-        # ── Pre-check: archivos existentes en destino ────────────
-        test_mode_flag      = Transcode_TEST_Mode
-        move_originals_flag = self._move_originals_chk.isChecked()
-        confirmed_sequences = []
-        for row_i, item, tw, th in job_sequences:
-            has_conflict, conflict_desc = self._check_existing_outputs(
-                item, test_mode_flag, move_originals_flag
-            )
-            if has_conflict:
-                seq_name = item.get("name") or Path(item["path"]).name
-                proceed  = self._show_overwrite_warning(seq_name, conflict_desc)
-                if not proceed:
-                    continue
-            confirmed_sequences.append((row_i, item, tw, th))
-
-        if not confirmed_sequences:
-            return
-
-        job_sequences = confirmed_sequences
-
-        # Deshabilitar botones durante el proceso
-        self._start_transcode_btn.setEnabled(False)
-        self._go_back_btn.setEnabled(False)
-        self._convert_log.clear()
-
-        global_opts = {
+        # Guardar estado compartido para toda la cola
+        self._sequence_queue       = list(job_sequences)
+        self._transcode_results_all = []
+        self._transcode_flags = {
+            "test_mode":        Transcode_TEST_Mode,
+            "move_originals":   self._move_originals_chk.isChecked(),
+            "delete_originals": self._delete_originals_chk.isChecked(),
+        }
+        self._transcode_global_opts = {
             "compression":   self._target_compression(None),
             "dwa_level":     self._convert_dwaa_level.value(),
             "resize_filter": self._convert_filter.currentText(),
             "workers":       6,
         }
 
-        worker = TranscodeWorker(
-            job_sequences,
-            global_opts,
-            test_mode        = Transcode_TEST_Mode,
-            move_originals   = self._move_originals_chk.isChecked(),
-            delete_originals = self._delete_originals_chk.isChecked(),
-            shared_dir       = str(SHARED_DIR),
-        )
-        worker.signals.log_message.connect(self._on_transcode_log)
-        worker.signals.sequence_started.connect(self._on_sequence_started)
-        worker.signals.sequence_done.connect(self._on_sequence_done)
-        worker.signals.all_done.connect(self._on_transcode_all_done)
-        worker.signals.error.connect(self._on_transcode_error)
+        # Deshabilitar botones mientras hay trabajo en curso
+        self._start_transcode_btn.setEnabled(False)
+        self._go_back_btn.setEnabled(False)
+        self._convert_log.clear()
 
-        QtCore.QThreadPool.globalInstance().start(worker)
-        debug_print("TranscodeWorker iniciado — %d secuencias" % len(job_sequences))
+        self._start_next_sequence()
+
+    def _start_next_sequence(self):
+        """Saca la siguiente secuencia de la cola, la verifica y lanza su worker.
+
+        - Si hay conflicto de archivos: muestra el diálogo de warning.
+          Si el usuario cancela esa secuencia, pasa a la siguiente.
+          Si confirma, borra los EXR existentes antes de empezar.
+        - Cuando la cola se vacía, llama a _finalize_transcode().
+        """
+        flags = self._transcode_flags
+        while self._sequence_queue:
+            row_i, item, tw, th = self._sequence_queue.pop(0)
+            has_conflict, conflict_desc = check_existing_outputs(
+                item, flags["test_mode"], flags["move_originals"]
+            )
+            if has_conflict:
+                seq_name = item.get("name") or Path(item["path"]).name
+                proceed  = show_overwrite_warning(seq_name, conflict_desc, parent=self)
+                if not proceed:
+                    continue  # saltar esta secuencia, probar la siguiente
+                delete_existing_outputs(
+                    item, flags["test_mode"], flags["move_originals"]
+                )
+
+            # Lanzar worker para esta única secuencia
+            worker = TranscodeWorker(
+                [(row_i, item, tw, th)],
+                self._transcode_global_opts,
+                test_mode        = flags["test_mode"],
+                move_originals   = flags["move_originals"],
+                delete_originals = flags["delete_originals"],
+                shared_dir       = str(SHARED_DIR),
+            )
+            worker.signals.log_message.connect(self._on_transcode_log)
+            worker.signals.sequence_started.connect(self._on_sequence_started)
+            worker.signals.sequence_done.connect(self._on_sequence_done)
+            worker.signals.all_done.connect(self._on_worker_batch_done)
+            worker.signals.error.connect(self._on_transcode_error)
+            QtCore.QThreadPool.globalInstance().start(worker)
+            debug_print("TranscodeWorker iniciado — secuencia %d" % row_i)
+            return  # esperar a que termine antes de continuar con la cola
+
+        # Cola vacía: todas las secuencias se procesaron (o se cancelaron)
+        self._finalize_transcode()
 
     # ── Handlers de señales del worker ─────────────────────────
 
@@ -2562,7 +2467,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             border: none;
             border-radius: 5px;
             text-align: center;
-            color: #ffffff;
+            color: #cccccc;
             font-size: 9px;
             min-height: 16px;
             max-height: 22px;
@@ -2628,11 +2533,19 @@ class ImportShotDialog(QtWidgets.QDialog):
                 html = "<span style='color:%s;'>✗ Error</span>" % _CLR_STATUS_ERROR
             self._convert_table.setCellWidget(row_i, 7, _cell_html_label(html))
 
-    def _on_transcode_all_done(self, results):
-        """Re-habilita los botones y muestra el resumen final."""
+    def _on_worker_batch_done(self, results):
+        """El worker de una secuencia terminó. Acumula resultados y arranca la siguiente."""
+        self._transcode_results_all.extend(results)
+        self._start_next_sequence()
+
+    def _finalize_transcode(self):
+        """Se llama cuando la cola queda vacía. Muestra resumen y re-habilita botones."""
+        results  = self._transcode_results_all
         total    = len(results)
         ok_count = sum(1 for r in results if r.get("ok"))
-        if ok_count == total:
+        if total == 0:
+            summary = "⚠ Todas las secuencias fueron canceladas"
+        elif ok_count == total:
             summary = "✓ Transcode completo: %d/%d OK" % (ok_count, total)
         else:
             summary = "⚠ Transcode: %d/%d OK, %d con errores" % (
@@ -2644,11 +2557,12 @@ class ImportShotDialog(QtWidgets.QDialog):
         debug_print("Transcode all_done — %d/%d OK" % (ok_count, total))
 
     def _on_transcode_error(self, msg):
-        """Muestra error fatal y re-habilita los botones."""
+        """Error fatal en el worker: vacía la cola, re-habilita botones."""
         self._on_transcode_log("ERROR FATAL: " + msg)
-        self._start_transcode_btn.setEnabled(True)
-        self._go_back_btn.setEnabled(True)
         debug_print("Transcode error fatal: %s" % msg, level="error")
+        if hasattr(self, "_sequence_queue"):
+            self._sequence_queue.clear()
+        self._finalize_transcode()
 
     # ══════════════════════════════════════════════════════════
     #  Helpers

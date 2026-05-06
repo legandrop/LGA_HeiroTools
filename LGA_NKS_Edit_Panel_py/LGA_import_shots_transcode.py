@@ -28,7 +28,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtCore
+from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtCore, QtWidgets
 
 QObject    = QtCore.QObject
 QRunnable  = QtCore.QRunnable
@@ -114,6 +114,159 @@ def build_manifest_for_sequence(
         "overwrite":   overwrite,
         "tasks":       tasks,
     }
+
+
+# ── Pre-transcode helpers (file-system + UI) ──────────────────────────────────
+
+def check_existing_outputs(item: dict, test_mode: bool, move_originals: bool):
+    """Detecta si ya existen archivos de un transcode previo para la secuencia.
+
+    Returns:
+        (has_conflict: bool, description: str)
+    """
+    item_path = Path(item["path"])
+    if test_mode:
+        dst = item_path / "test_transcode"
+        if dst.exists():
+            count = sum(1 for _ in dst.glob("*.exr"))
+            if count > 0:
+                return True, "test_transcode/ ya contiene %d archivos EXR" % count
+    elif move_originals:
+        orig = item_path / "Originals"
+        if orig.exists():
+            count = sum(1 for _ in orig.glob("*.exr"))
+            label = "%d EXR" % count if count else "carpeta vacía"
+            return True, "Originals/ ya existe (%s — transcode anterior)" % label
+    else:
+        tmp = item_path / "_tc_temp_src"
+        if tmp.exists():
+            return True, "_tc_temp_src/ existe (transcode anterior incompleto)"
+    return False, ""
+
+
+def delete_existing_outputs(item: dict, test_mode: bool, move_originals: bool) -> int:
+    """Elimina EXRs del destino antes de un re-transcode para limpiar el contador.
+
+    - TEST mode:      borra *.exr de test_transcode/
+    - no-move mode:   borra _tc_temp_src/ completa (era buffer de run fallido)
+    - move_originals: borra *.exr de item_path (archivos convertidos en el run anterior)
+
+    Returns:
+        Cantidad de archivos/directorios eliminados.
+    """
+    import os
+    item_path = Path(item["path"])
+    deleted = 0
+    if test_mode:
+        dst = item_path / "test_transcode"
+        if dst.exists():
+            for f in list(dst.glob("*.exr")):
+                try:
+                    os.remove(str(f))
+                    deleted += 1
+                except OSError:
+                    pass
+    elif move_originals:
+        # Borra los EXR convertidos que quedaron en item_path del run anterior
+        for f in list(item_path.glob("*.exr")):
+            try:
+                os.remove(str(f))
+                deleted += 1
+            except OSError:
+                pass
+    else:
+        # Borra la carpeta temporal de buffer si quedó de un run fallido
+        tmp = item_path / "_tc_temp_src"
+        if tmp.exists():
+            try:
+                shutil.rmtree(str(tmp))
+                deleted += 1
+            except OSError:
+                pass
+    return deleted
+
+
+def show_overwrite_warning(seq_name: str, conflict_desc: str, parent=None) -> bool:
+    """Muestra un diálogo personalizado cuando el destino ya tiene archivos.
+
+    Returns:
+        True  → el usuario confirma sobreescribir
+        False → el usuario cancela esta secuencia
+    """
+    _BTN_SECONDARY = (
+        "QPushButton { background-color:#3a3a3a; border:1px solid #555555;"
+        " color:#CCCCCC; padding:7px 18px; border-radius:3px; }"
+        "QPushButton:hover { background-color:#4a4a4a; }"
+    )
+    _BTN_PRIMARY = (
+        "QPushButton { background-color:#443a91; border:1px solid #5a4faa;"
+        " color:#CCCCCC; padding:7px 18px; border-radius:3px; font-weight:bold; }"
+        "QPushButton:hover { background-color:#774dcb; }"
+    )
+
+    dlg = QtWidgets.QDialog(parent)
+    dlg.setWindowTitle("Archivos existentes")
+    dlg.setMinimumWidth(440)
+    dlg.setWindowFlags(QtCore.Qt.Dialog | QtCore.Qt.FramelessWindowHint)
+    dlg.setStyleSheet(
+        "QDialog { background-color:#2B2B2B; border:1px solid #555555; }"
+        "QLabel  { color:#a7a7a7; }"
+    )
+
+    layout = QtWidgets.QVBoxLayout(dlg)
+    layout.setContentsMargins(24, 20, 24, 20)
+    layout.setSpacing(10)
+
+    header_row = QtWidgets.QHBoxLayout()
+    icon_lbl  = QtWidgets.QLabel("⚠")
+    icon_lbl.setStyleSheet("color:#d9a441; font-size:20px;")
+    title_lbl = QtWidgets.QLabel("Archivos existentes")
+    title_lbl.setStyleSheet("color:#d9a441; font-size:13px; font-weight:bold;")
+    header_row.addWidget(icon_lbl)
+    header_row.addSpacing(8)
+    header_row.addWidget(title_lbl)
+    header_row.addStretch()
+    layout.addLayout(header_row)
+
+    sep = QtWidgets.QFrame()
+    sep.setFrameShape(QtWidgets.QFrame.HLine)
+    sep.setStyleSheet("background:#444444;")
+    sep.setFixedHeight(1)
+    layout.addWidget(sep)
+
+    name_lbl = QtWidgets.QLabel(seq_name)
+    name_lbl.setStyleSheet(
+        "color:#cccccc; font-size:12px; font-weight:bold; margin-top:4px;"
+    )
+    layout.addWidget(name_lbl)
+
+    desc_lbl = QtWidgets.QLabel(conflict_desc)
+    desc_lbl.setStyleSheet("color:#999999; font-size:11px;")
+    layout.addWidget(desc_lbl)
+
+    q_lbl = QtWidgets.QLabel("¿Desea sobreescribir los archivos existentes?")
+    q_lbl.setStyleSheet("color:#a7a7a7; font-size:11px; margin-top:4px;")
+    layout.addWidget(q_lbl)
+
+    layout.addSpacing(8)
+
+    btn_row = QtWidgets.QHBoxLayout()
+    btn_row.addStretch()
+    cancel_btn    = QtWidgets.QPushButton("Cancelar")
+    overwrite_btn = QtWidgets.QPushButton("Sobreescribir")
+    cancel_btn.setStyleSheet(_BTN_SECONDARY)
+    overwrite_btn.setStyleSheet(_BTN_PRIMARY)
+    btn_row.addWidget(cancel_btn)
+    btn_row.addSpacing(8)
+    btn_row.addWidget(overwrite_btn)
+    layout.addLayout(btn_row)
+
+    result = [False]
+    cancel_btn.clicked.connect(dlg.reject)
+    overwrite_btn.clicked.connect(lambda: (result.__setitem__(0, True), dlg.accept()))
+
+    dlg.exec_()
+    return result[0]
 
 
 # ── Worker ────────────────────────────────────────────────────────────────────

@@ -7,9 +7,8 @@
 > Los plates MOV aparecen en la tabla con checkbox deshabilitado y estado
 > "No soportado". Implementar cuando haya herramienta de transcode MOV disponible.
 >
-> ℹ **Channels y bit depth ignorados**: las opciones de la UI `Channels (RGBA→RGB)` y
-> `Bit depth (half/float)` estan presentes pero no se pasan al manifest. Ver seccion
-> "Pendiente de implementacion" para detalles.
+> ℹ **Channels ignorados**: la opcion `Channels (Reducir a RGB)` esta presente en la UI
+> pero no se pasa al manifest todavia. Ver seccion "Pendiente de implementacion".
 
 # LGA_import_shots
 
@@ -334,7 +333,7 @@ Conversion de EXR sequences para los items marcados.
 | `✗ Error` | Conversión fallida | rojo `#a06060` |
 
 La columna Destino y la columna Estado se recalculan en vivo cuando cambian:
-DWAA on/off, DWAA level, bit depth, channels, preset de resolucion, custom W×H, "no upscale", **checkbox de la fila**.
+DWAA on/off, DWAA level, channels, preset de resolucion, custom W×H, "no upscale", **checkbox de la fila**.
 
 **Upscale bloqueado:** cuando el resize resultaría en upscale y "Aplicar solo si origen es mayor"
 está activo, la fila muestra `⚠ Upscale` en rojo y la columna Destino se grísea. No se modifica
@@ -348,10 +347,9 @@ El bit depth y channels se leen via `oiiotool --info -v` parseando la linea
 
 | Control | Default | Notas |
 |---------|---------|-------|
-| ☑ Convertir a DWAA | on | Si off, mantiene compresion original |
-| DWAA level (`QSpinBox` editable + `QSlider`) | `45` | Rango `0–500`. Spin con fondo `#d8d8d8` y texto `#333`; selección `#b8b8b8`. Slider y spin estan two-way bound. |
-| Bit depth (`QComboBox`) | `Mantener original` | `half (16-bit)` / `float (32-bit)` |
-| Channels (`QComboBox`) | `Mantener` | `RGB` / `RGBA` (para tirar canales extra) |
+| ☑ Convertir a DWAA | on | Si off, mantiene compresion original; oculta el control de nivel |
+| DWAA level (`QSpinBox` editable + `QSlider`) | `45` | Visible solo si DWAA activo. Rango `30–60`. Spin y slider two-way bound. |
+| Channels (`QComboBox`) | `Mantener` | `Reducir a RGB` para descartar canal alpha extra |
 
 ### Opciones — Resolucion (columna derecha)
 
@@ -585,13 +583,10 @@ donde se distribuya la repo.
 ## Pendiente de implementacion
 
 - **Sub-vista Rename:** implementacion real del find/replace con preview (hoy es stub)
-- **Convert — Channels (RGBA→RGB):** opcion presente en UI (`_convert_channels` combo) pero
-  ignorada al construir el manifest. Requiere agregar `--channels` a `LGA_EXR_Convert.py`
-  y pasarlo como `--ch R,G,B` a oiiotool. Mientras tanto el manifest siempre usa todos
-  los canales del origen.
-- **Convert — Bit depth (half/float):** opcion presente en UI (`_convert_bitdepth` combo)
-  pero ignorada al construir el manifest. Requiere agregar `--bit-depth half/float` a
-  `LGA_EXR_Convert.py` y pasarlo como `--type half/float` a oiiotool.
+- **Convert — Channels (Reducir a RGB):** opcion `Reducir a RGB` presente en UI
+  (`_convert_channels` combo) pero ignorada al construir el manifest. Requiere agregar
+  `--channels` a `LGA_EXR_Convert.py` y pasarlo como `--ch R,G,B` a oiiotool.
+  Mientras tanto el manifest usa todos los canales del origen.
 - **Convert — Transcode de MOV:** plates MOV aparecen en la tabla con checkbox deshabilitado
   y estado "No soportado". Implementar cuando haya herramienta de transcode MOV disponible.
 - **Convert — Presets:** guardado de presets de resolucion en `.ini`
