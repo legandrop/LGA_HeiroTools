@@ -1988,7 +1988,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         hdr.setStretchLastSection(False)
         self._rename_table.cellClicked.connect(self._on_rename_row_clicked)
         self._rename_table.cellDoubleClicked.connect(self._on_rename_row_double_clicked)
-        layout.addWidget(self._rename_table)
+        layout.addWidget(self._rename_table, 1)
 
         self._rename_summary_lbl = QtWidgets.QLabel("")
         self._rename_summary_lbl.setStyleSheet("color:#888888; padding:2px 6px;")
@@ -1997,9 +1997,10 @@ class ImportShotDialog(QtWidgets.QDialog):
         layout.addWidget(_separator())
 
         line_style = (
-            "QLineEdit { background-color:#272727; border:1px solid #555555;"
-            " color:#cccccc; padding:4px 8px; border-radius:3px; }"
-            "QLineEdit:focus { border:1px solid #666666; }"
+            "QLineEdit { background-color:#272727; border:1px solid #444;"
+            " color:#a7a7a7; padding:4px 8px; border-radius:3px;"
+            " selection-background-color:#505060; selection-color:#d0d0d0; }"
+            "QLineEdit:focus { border:1px solid #555555; }"
         )
 
         # Opciones en 2 columnas — igual que transcode
