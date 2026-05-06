@@ -379,22 +379,18 @@ Cuando el flag global `Transcode_TEST_Mode = True` está activo:
 - El output del transcode (cuando se implemente) se escribirá en
   `{seq_path}/test_transcode/` en vez de reemplazar la secuencia original.
 
-### Test section — SpinBox arrow styles (temporal)
+### Solución QSpinBox — `_ArrowSpinBox` (ganadora, implementada)
 
-Colapsable (toggle ▶ "TEST: SpinBox arrow styles"), visible solo para desarrollo.
-Objetivo: identificar qué estilo de flechas funciona en este build de Qt para
-los QSpinBox del panel Custom (actualmente las flechas no aparecen).
+Clase de módulo definida en `LGA_import_shots.py` (junto a `_ArrowComboBox`).
+Usada en los spinboxes W y H del panel Custom de resolución.
 
-| # | Estrategia | Detalle |
-|---|-----------|---------|
-| 1 | CSS triangle, 18px buttons | `border-left/right transparent + border-bottom/top sólido`, `subcontrol-origin:border` |
-| 2 | CSS triangle, 22px buttons | Igual pero botones más anchos y spinbox más ancho |
-| 3 | CSS triangle, `subcontrol-origin:padding` | Alternativa de posicionamiento |
-| 4 | Arrows nativos del SO | Solo custom background/color, sin `::up-arrow` personalizado |
-| 5 | `NoButtons` (referencia) | `setButtonSymbols(NoButtons)`, para comparar sin flechas |
+**Ronda 1 FALLADA**: CSS triangle, `subcontrol-origin:border/padding`, arrows nativos del SO
+→ flechas invisibles en este build.
 
-Una vez identificada la opción ganadora, eliminar el bloque y aplicar el estilo
-a `_SPIN_STYLE` y a los spinboxes del panel Custom.
+**Ronda 2 ganadora**: Subclase con `paintEvent` (Opción 7) — mismo patrón que `_ArrowComboBox`.
+Opciones 5 (▲▼ externos) y 6 ([−] valor [+]) también funcionales como workaround.
+
+Ver receta completa en `docs/Docu_PySide_UI_Aprendizajes.md — SpinBox`.
 
 ### Resumen
 

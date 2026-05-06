@@ -159,52 +159,79 @@ A diferencia de `QComboBox`, **el CSS triangle (border trick) SÍ funciona** en
 `QSpinBox` para renderear las flechas según la documentación oficial — pero en
 la práctica su efectividad depende del build y plataforma de Qt.
 
-#### Opciones probadas
+#### Opciones probadas — Ronda 1 (CSS, todas fallaron en este build)
 
 | # | Estrategia | Resultado |
 |---|-----------|-----------|
-| 1 | CSS triangle, 18px buttons, `subcontrol-origin:border` | 🔲 pendiente validar |
-| 2 | CSS triangle, 22px buttons wider | 🔲 pendiente validar |
-| 3 | CSS triangle, `subcontrol-origin:padding` | 🔲 pendiente validar |
-| 4 | Arrows nativos del SO (sin `::up-arrow` custom) | 🔲 pendiente validar |
-| 5 | `NoButtons` (sin flechas, referencia) | — sin flechas por diseño |
+| 1 | CSS triangle, 18px buttons, `subcontrol-origin:border` | ❌ flechas no visibles |
+| 2 | CSS triangle, 22px buttons, más anchas | ❌ flechas no visibles |
+| 3 | CSS triangle, `subcontrol-origin:padding` | ❌ flechas no visibles |
+| 4 | Arrows nativos del SO (solo custom background, sin `::up-arrow`) | ❌ flechas no visibles |
+| 5 | `NoButtons` vía CSS (`width:0px`) | — sin flechas por diseño |
 
-> **Estado actual (2026-05):** se agregó una sección de test colapsable en
-> `LGA_import_shots.py → _build_page_convert()` con las 5 variantes. Cuando el
-> usuario confirme cuál funciona, anotar el resultado aquí y actualizar
-> `_SPIN_STYLE` en el mismo archivo.
+**Conclusión ronda 1:** el CSS triangle (border trick) que SÍ funciona para `QComboBox`
+**NO funciona** para `QSpinBox` en este build de Qt. Ninguna variante CSS produce flechas visibles.
 
-#### Solucion tentativa (a confirmar)
+#### Opciones probadas — Ronda 2 (enfoques no-CSS)
 
-```css
-QSpinBox {
-    background-color: #272727; border: 1px solid #444;
-    color: #a7a7a7; padding: 2px 20px 2px 4px;
-}
-QSpinBox::up-button {
-    subcontrol-origin: border; subcontrol-position: top right;
-    width: 18px; border-left: 1px solid #444; background-color: #2e2e2e;
-}
-QSpinBox::up-button:hover { background-color: #3a3a3a; }
-QSpinBox::up-arrow {
-    image: none;
-    border-left: 4px solid transparent; border-right: 4px solid transparent;
-    border-bottom: 4px solid #888; width: 0px; height: 0px;
-}
-QSpinBox::down-button {
-    subcontrol-origin: border; subcontrol-position: bottom right;
-    width: 18px; border-left: 1px solid #444; background-color: #2e2e2e;
-}
-QSpinBox::down-button:hover { background-color: #3a3a3a; }
-QSpinBox::down-arrow {
-    image: none;
-    border-left: 4px solid transparent; border-right: 4px solid transparent;
-    border-top: 4px solid #888; width: 0px; height: 0px;
-}
+| # | Estrategia | Resultado |
+|---|-----------|-----------|
+| 1 | `setButtonSymbols(PlusMinus)` — `+` y `−` nativos Qt | — |
+| 2 | Default puro (sin `setStyleSheet`) — arrows del SO | — |
+| 3 | `setStyle(QStyleFactory.create("Fusion"))` en el widget | — |
+| 4 | `setStyle(QStyleFactory.create("Windows"))` en el widget | — |
+| 5 | Wrapper: `NoButtons` + QPushButton ▲▼ externos (verticales) | ✅ OK (workaround viable) |
+| 6 | Wrapper: `NoButtons` + QPushButton [−] valor [+] horizontales | ✅ OK (workaround viable) |
+| 7 | Subclase + `paintEvent` dibuja ▲▼ via `QPainter` (análogo a `_ArrowComboBox`) | ✅ **GANADORA** |
+
+#### Solución ganadora — `_ArrowSpinBox`
+
+**Opción 7**: subclase de `QSpinBox` que llama a `super().paintEvent()` y dibuja
+encima los triángulos ▲▼ con `QPainter`. Los botones nativos del SO siguen siendo
+funcionales (zona de click intacta); solo se reemplaza visualmente la imagen de la flecha.
+
+Mismo patrón que `_ArrowComboBox` (solución ganadora para combos).
+
+```python
+class _ArrowSpinBox(QtWidgets.QSpinBox):
+    _STYLE = (
+        "QSpinBox { background:#272727; border:1px solid #444; color:#a7a7a7;"
+        " padding:2px 20px 2px 4px;"
+        " selection-background-color:#d8d8d8; selection-color:#333333; }"
+        "QSpinBox::up-button, QSpinBox::down-button"
+        " { background:transparent; border:none; width:18px; }"
+        "QSpinBox::up-arrow, QSpinBox::down-arrow"
+        " { image:none; width:0; height:0; }"
+    )
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        p = QtGui.QPainter(self)
+        p.setRenderHint(QtGui.QPainter.Antialiasing)
+        r = self.rect()
+        cx = r.right() - 9
+        cy_up = r.height() // 4
+        path_up = QtGui.QPainterPath()
+        path_up.moveTo(cx - 4, cy_up + 2)
+        path_up.lineTo(cx + 4, cy_up + 2)
+        path_up.lineTo(cx,     cy_up - 2)
+        path_up.closeSubpath()
+        p.fillPath(path_up, QtGui.QColor("#999999"))
+        cy_dn = r.height() * 3 // 4
+        path_dn = QtGui.QPainterPath()
+        path_dn.moveTo(cx - 4, cy_dn - 2)
+        path_dn.lineTo(cx + 4, cy_dn - 2)
+        path_dn.lineTo(cx,     cy_dn + 2)
+        path_dn.closeSubpath()
+        p.fillPath(path_dn, QtGui.QColor("#999999"))
+        p.end()
 ```
 
-El padding derecho `2px 20px 2px 4px` deja espacio para los botones.
-Aplicar el mismo patron a `QDoubleSpinBox` (mismos sub-controles).
+Notas de uso:
+- `padding: 2px 20px 2px 4px` reserva el espacio derecho para la zona de los botones
+- `width: 18px` en `::up-button` / `::down-button` define el área de click de los nativos
+- `selection-background-color: #d8d8d8; selection-color: #333333` — evita el amarillo default
+- Ancho recomendado para 4-5 dígitos: `setFixedWidth(72)`
 
 ---
 

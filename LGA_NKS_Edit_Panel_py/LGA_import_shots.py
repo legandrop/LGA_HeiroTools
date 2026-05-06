@@ -942,6 +942,52 @@ class _ArrowComboBox(QtWidgets.QComboBox):
 
 
 # ══════════════════════════════════════════════════════════════════
+#  SpinBox custom — dibuja las flechas ▲▼ con QPainter (igual patrón que
+#  _ArrowComboBox). La stylesheet oculta las flechas nativas; los botones
+#  nativos del SO siguen siendo clickeables (solo se reemplaza la imagen).
+# ══════════════════════════════════════════════════════════════════
+
+class _ArrowSpinBox(QtWidgets.QSpinBox):
+    """QSpinBox que dibuja sus propias flechas ▲▼ via paintEvent.
+    Solución análoga a _ArrowComboBox: los botones nativos funcionan,
+    solo se pinta encima. Selección de texto: fondo gris claro / texto oscuro."""
+
+    _STYLE = (
+        "QSpinBox { background:#272727; border:1px solid #444; color:#a7a7a7;"
+        " padding:2px 20px 2px 4px;"
+        " selection-background-color:#d8d8d8; selection-color:#333333; }"
+        "QSpinBox::up-button, QSpinBox::down-button"
+        " { background:transparent; border:none; width:18px; }"
+        "QSpinBox::up-arrow, QSpinBox::down-arrow"
+        " { image:none; width:0; height:0; }"
+    )
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        p = QtGui.QPainter(self)
+        p.setRenderHint(QtGui.QPainter.Antialiasing)
+        r = self.rect()
+        cx = r.right() - 9
+        # Flecha ▲ (cuarto superior derecho)
+        cy_up = r.height() // 4
+        path_up = QtGui.QPainterPath()
+        path_up.moveTo(cx - 4, cy_up + 2)
+        path_up.lineTo(cx + 4, cy_up + 2)
+        path_up.lineTo(cx,     cy_up - 2)
+        path_up.closeSubpath()
+        p.fillPath(path_up, QtGui.QColor("#999999"))
+        # Flecha ▼ (cuarto inferior derecho)
+        cy_dn = r.height() * 3 // 4
+        path_dn = QtGui.QPainterPath()
+        path_dn.moveTo(cx - 4, cy_dn - 2)
+        path_dn.lineTo(cx + 4, cy_dn - 2)
+        path_dn.lineTo(cx,     cy_dn + 2)
+        path_dn.closeSubpath()
+        p.fillPath(path_dn, QtGui.QColor("#999999"))
+        p.end()
+
+
+# ══════════════════════════════════════════════════════════════════
 #  Stylesheet base para _ArrowComboBox
 #  Uso: combo.setStyleSheet(_COMBO_ARROW_STYLE) + combo.setView(QListView())
 # ══════════════════════════════════════════════════════════════════
@@ -1132,8 +1178,8 @@ class ImportShotDialog(QtWidgets.QDialog):
 
     def _build_media_table(self):
         # col 0: barra de color (4 px)  col 1: checkbox (28 px)
-        # col 2: Nombre  3: Tipo  4: Res  5: FPS  6: Compresión  7: Frames  8: Track
-        headers = ["", "", "Nombre", "Tipo", "Res", "FPS", "Compresión", "Frames", "Track"]
+        # col 2: Nombre  3: Tipo  4: Resolución  5: FPS  6: Compresión  7: Frames/Duration  8: Track
+        headers = ["", "", "Nombre", "Tipo", "Resolución", "FPS", "Compresión", "Frames/Duration", "Track"]
         table = QtWidgets.QTableWidget()
         table.setColumnCount(len(headers))
         table.setHorizontalHeaderLabels(headers)
@@ -1166,9 +1212,17 @@ class ImportShotDialog(QtWidgets.QDialog):
         header.setSectionResizeMode(1, QtWidgets.QHeaderView.Fixed)
         table.setColumnWidth(1, 28)
         header.setSectionResizeMode(2, QtWidgets.QHeaderView.Stretch)
-        for col in range(3, len(headers) - 1):
+        # Tipo, FPS, Compresión — ajustan al contenido
+        for col in (3, 5, 6):
             header.setSectionResizeMode(col, QtWidgets.QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(len(headers) - 1, QtWidgets.QHeaderView.ResizeToContents)
+        # Resolución (col 4) — mínimo 165px para "2048×1152 (2.39:1)"
+        header.setSectionResizeMode(4, QtWidgets.QHeaderView.Interactive)
+        table.setColumnWidth(4, 165)
+        # Frames/Duration (col 7) — mínimo 210px para "1001–1480  (480f - 20.0s)"
+        header.setSectionResizeMode(7, QtWidgets.QHeaderView.Interactive)
+        table.setColumnWidth(7, 210)
+        # Track — ajusta al contenido
+        header.setSectionResizeMode(8, QtWidgets.QHeaderView.ResizeToContents)
 
         table.cellClicked.connect(self._on_media_row_clicked)
         return table
@@ -1623,7 +1677,16 @@ class ImportShotDialog(QtWidgets.QDialog):
         hdr.setSectionResizeMode(1, QtWidgets.QHeaderView.Fixed)
         self._convert_table.setColumnWidth(1, 28)
         hdr.setSectionResizeMode(2, QtWidgets.QHeaderView.Stretch)
-        for c in (3, 4, 5, 6, 7):
+        # Origen (col 3) — mínimo 280px para "2048×1152 (2.39:1) · half · RGB · zip · 480f - 20.0s"
+        hdr.setSectionResizeMode(3, QtWidgets.QHeaderView.Interactive)
+        self._convert_table.setColumnWidth(3, 280)
+        # Flecha (col 4)
+        hdr.setSectionResizeMode(4, QtWidgets.QHeaderView.ResizeToContents)
+        # Destino (col 5) — mínimo 320px para "2048×858 (2.39:1) · half · RGB · dwaa"
+        hdr.setSectionResizeMode(5, QtWidgets.QHeaderView.Interactive)
+        self._convert_table.setColumnWidth(5, 320)
+        # Tamaño, Estado — ajustan al contenido
+        for c in (6, 7):
             hdr.setSectionResizeMode(c, QtWidgets.QHeaderView.ResizeToContents)
         self._convert_checkboxes = {}
         self._convert_table.cellClicked.connect(self._on_convert_row_clicked)
@@ -1756,20 +1819,20 @@ class ImportShotDialog(QtWidgets.QDialog):
         res_row.addStretch()
         col_res.addLayout(res_row)
 
-        # Custom W × H (oculto salvo Custom)
+        # Custom W × H (oculto salvo Custom) — usa _ArrowSpinBox (solución ganadora)
         self._custom_res_widget = QtWidgets.QWidget()
         cr_row = QtWidgets.QHBoxLayout(self._custom_res_widget)
         cr_row.setContentsMargins(0, 0, 0, 0)
-        self._convert_custom_w = QtWidgets.QSpinBox()
+        self._convert_custom_w = _ArrowSpinBox()
         self._convert_custom_w.setRange(1, 16384)
         self._convert_custom_w.setValue(2048)
-        self._convert_custom_w.setStyleSheet(self._SPIN_STYLE)
-        self._convert_custom_w.setFixedWidth(80)
-        self._convert_custom_h = QtWidgets.QSpinBox()
+        self._convert_custom_w.setStyleSheet(_ArrowSpinBox._STYLE)
+        self._convert_custom_w.setFixedWidth(72)
+        self._convert_custom_h = _ArrowSpinBox()
         self._convert_custom_h.setRange(1, 16384)
         self._convert_custom_h.setValue(1152)
-        self._convert_custom_h.setStyleSheet(self._SPIN_STYLE)
-        self._convert_custom_h.setFixedWidth(80)
+        self._convert_custom_h.setStyleSheet(_ArrowSpinBox._STYLE)
+        self._convert_custom_h.setFixedWidth(72)
         x_lbl = QtWidgets.QLabel("×")
         x_lbl.setStyleSheet("color:#a7a7a7;")
         cr_row.addWidget(self._convert_custom_w)
@@ -1872,144 +1935,6 @@ class ImportShotDialog(QtWidgets.QDialog):
         layout.addWidget(self._convert_summary_lbl)
 
         layout.addStretch()
-
-        # ── Sección de test: QSpinBox styles ─────────────────────────────
-        # Objetivo: encontrar qué estilo de flechas funciona en este build de Qt.
-        # Indicar al desarrollador cuál opción funciona y borrar el resto.
-        self._spin_test_toggle = QtWidgets.QPushButton("▶ TEST: SpinBox arrow styles")
-        self._spin_test_toggle.setCheckable(True)
-        self._spin_test_toggle.setStyleSheet(
-            "QPushButton { background:#1e1e1e; border:1px solid #333; color:#666;"
-            " padding:3px 8px; text-align:left; font-size:11px; }"
-            "QPushButton:checked { color:#888; border-color:#444; }"
-        )
-        layout.addWidget(self._spin_test_toggle)
-
-        self._spin_test_frame = QtWidgets.QFrame()
-        self._spin_test_frame.setStyleSheet(
-            "QFrame { background:#1e1e1e; border:1px solid #333; }"
-        )
-        self._spin_test_frame.hide()
-        stf_layout = QtWidgets.QVBoxLayout(self._spin_test_frame)
-        stf_layout.setSpacing(8)
-        stf_layout.setContentsMargins(10, 8, 10, 8)
-
-        _lbl_note = QtWidgets.QLabel(
-            "Probá cada spinbox — anotá cuál muestra las flechas correctamente."
-        )
-        _lbl_note.setStyleSheet("color:#666; font-style:italic; font-size:11px;")
-        stf_layout.addWidget(_lbl_note)
-
-        # Opción 1 — CSS triangle (border trick) — igual que la doc (solución ganadora doc)
-        _SPIN_OPT1 = """
-            QSpinBox { background:#272727; border:1px solid #444; color:#a7a7a7;
-                       padding:2px 20px 2px 4px; }
-            QSpinBox::up-button   { subcontrol-origin:border; subcontrol-position:top right;
-                                    width:18px; border-left:1px solid #444; background:#2e2e2e; }
-            QSpinBox::up-button:hover { background:#3a3a3a; }
-            QSpinBox::up-arrow    { image:none;
-                                    border-left:4px solid transparent;
-                                    border-right:4px solid transparent;
-                                    border-bottom:4px solid #888;
-                                    width:0px; height:0px; }
-            QSpinBox::down-button { subcontrol-origin:border; subcontrol-position:bottom right;
-                                    width:18px; border-left:1px solid #444; background:#2e2e2e; }
-            QSpinBox::down-button:hover { background:#3a3a3a; }
-            QSpinBox::down-arrow  { image:none;
-                                    border-left:4px solid transparent;
-                                    border-right:4px solid transparent;
-                                    border-top:4px solid #888;
-                                    width:0px; height:0px; }
-        """
-        # Opción 2 — CSS triangle con botones más anchos (22px) y spinbox más ancho
-        _SPIN_OPT2 = """
-            QSpinBox { background:#272727; border:1px solid #444; color:#a7a7a7;
-                       padding:2px 24px 2px 4px; }
-            QSpinBox::up-button   { subcontrol-origin:border; subcontrol-position:top right;
-                                    width:22px; border-left:1px solid #444; background:#2e2e2e; }
-            QSpinBox::up-button:hover { background:#3a3a3a; }
-            QSpinBox::up-arrow    { image:none;
-                                    border-left:5px solid transparent;
-                                    border-right:5px solid transparent;
-                                    border-bottom:5px solid #888;
-                                    width:0px; height:0px; }
-            QSpinBox::down-button { subcontrol-origin:border; subcontrol-position:bottom right;
-                                    width:22px; border-left:1px solid #444; background:#2e2e2e; }
-            QSpinBox::down-button:hover { background:#3a3a3a; }
-            QSpinBox::down-arrow  { image:none;
-                                    border-left:5px solid transparent;
-                                    border-right:5px solid transparent;
-                                    border-top:5px solid #888;
-                                    width:0px; height:0px; }
-        """
-        # Opción 3 — subcontrol-origin: padding (alternativa de posicionamiento)
-        _SPIN_OPT3 = """
-            QSpinBox { background:#272727; border:1px solid #444; color:#a7a7a7;
-                       padding:2px 20px 2px 4px; }
-            QSpinBox::up-button   { subcontrol-origin:padding; subcontrol-position:top right;
-                                    width:18px; height:12px; background:#2e2e2e;
-                                    border-left:1px solid #444; }
-            QSpinBox::up-button:hover { background:#3a3a3a; }
-            QSpinBox::up-arrow    { image:none;
-                                    border-left:4px solid transparent;
-                                    border-right:4px solid transparent;
-                                    border-bottom:4px solid #888;
-                                    width:0px; height:0px; }
-            QSpinBox::down-button { subcontrol-origin:padding; subcontrol-position:bottom right;
-                                    width:18px; height:12px; background:#2e2e2e;
-                                    border-left:1px solid #444; }
-            QSpinBox::down-button:hover { background:#3a3a3a; }
-            QSpinBox::down-arrow  { image:none;
-                                    border-left:4px solid transparent;
-                                    border-right:4px solid transparent;
-                                    border-top:4px solid #888;
-                                    width:0px; height:0px; }
-        """
-        # Opción 4 — solo colores base, arrows nativos del SO (sin customizar ::up-arrow)
-        _SPIN_OPT4 = """
-            QSpinBox { background:#272727; border:1px solid #444; color:#a7a7a7;
-                       padding:2px 4px; }
-            QSpinBox::up-button   { subcontrol-origin:border; subcontrol-position:top right;
-                                    width:18px; background:#2e2e2e;
-                                    border-left:1px solid #444; }
-            QSpinBox::down-button { subcontrol-origin:border; subcontrol-position:bottom right;
-                                    width:18px; background:#2e2e2e;
-                                    border-left:1px solid #444; }
-        """
-        # Opción 5 — NoButtons (sin flechas, solo teclado / scroll) como referencia
-        _SPIN_OPT5 = """
-            QSpinBox { background:#272727; border:1px solid #444; color:#a7a7a7;
-                       padding:2px 4px; }
-            QSpinBox::up-button, QSpinBox::down-button { width:0px; }
-        """
-
-        _spin_variants = [
-            ("Opción 1 — CSS triangle, 18px buttons (doc solution)", _SPIN_OPT1, 100, True),
-            ("Opción 2 — CSS triangle, 22px buttons wider", _SPIN_OPT2, 110, True),
-            ("Opción 3 — CSS triangle, subcontrol-origin:padding", _SPIN_OPT3, 100, True),
-            ("Opción 4 — Arrows nativos del SO (sin custom ::up-arrow)", _SPIN_OPT4, 100, True),
-            ("Opción 5 — NoButtons (solo teclado/scroll, referencia)", _SPIN_OPT5, 80, False),
-        ]
-
-        for lbl_txt, style, w, has_btns in _spin_variants:
-            row_w = QtWidgets.QHBoxLayout()
-            row_lbl = QtWidgets.QLabel(lbl_txt)
-            row_lbl.setStyleSheet("color:#888; font-size:11px;")
-            row_lbl.setFixedWidth(340)
-            row_w.addWidget(row_lbl)
-            sp = QtWidgets.QSpinBox()
-            sp.setRange(1, 16384)
-            sp.setValue(2048)
-            sp.setFixedWidth(w)
-            sp.setStyleSheet(style)
-            if not has_btns:
-                sp.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
-            row_w.addWidget(sp)
-            row_w.addStretch()
-            stf_layout.addLayout(row_w)
-
-        layout.addWidget(self._spin_test_frame)
-        self._spin_test_toggle.toggled.connect(self._spin_test_frame.setVisible)
 
         # Log panel (3 líneas, expandible)
         layout.addWidget(_separator())
