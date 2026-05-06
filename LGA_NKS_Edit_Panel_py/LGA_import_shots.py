@@ -81,6 +81,7 @@ if _PREVIEW_HELPER in sys.modules:
     del sys.modules[_PREVIEW_HELPER]
 preview_mod = importlib.import_module(_PREVIEW_HELPER)
 build_import_preview_data = preview_mod.build_import_preview_data
+mix_colors                = preview_mod.mix_colors
 
 # ── flags ──────────────────────────────────────────────────────────
 # Si True, el transcode escribe a {seq_path}/test_transcode/ y los
@@ -3034,15 +3035,6 @@ class ImportShotDialog(QtWidgets.QDialog):
     #  PÁGINA: Import Preview
     # ══════════════════════════════════════════════════════════════
 
-    # Colores para los chips de clips en la tabla timeline
-    _CLR_CHIP_BEFORE = "#2e2e2e"
-    _CLR_CHIP_BEFORE_BORDER = "#444444"
-    _CLR_CHIP_BEFORE_TEXT = "#888888"
-    _CLR_CHIP_NEW = "#2e2547"
-    _CLR_CHIP_NEW_BORDER = "#5a4faa"
-    _CLR_CHIP_NEW_TEXT = "#cccccc"
-    _CLR_CHIP_EMPTY = "transparent"
-
     def _build_page_import(self):
         page = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(page)
@@ -3126,48 +3118,98 @@ class ImportShotDialog(QtWidgets.QDialog):
             "cleanup": _CLR_CLEANUP,
         }.get(track_type, "#555555")
 
-    def _make_clip_chip(self, text: str, is_new: bool = False, empty: bool = False) -> QtWidgets.QWidget:
-        """Construye el widget 'chip' estilo bloque de timeline para una celda."""
+    def _item_section_color(self, row_data: dict) -> str:
+        """Devuelve el color de barra correspondiente al ítem según su sección."""
+        section = row_data.get("section", "")
+        if section == "plates":
+            return _CLR_PLATES
+        if section == "refs":
+            return _CLR_REFS
+        if section == "publish":
+            task = row_data.get("item", {}).get("task", "")
+            return _TASK_ROW_COLORS.get(task, "#777777")
+        return "#555555"
+
+    @staticmethod
+    def _fmt_duration(frame_count) -> str:
+        """Formatea frame_count como '480f' o '' si es None/0."""
+        try:
+            fc = int(frame_count)
+            return "%df" % fc if fc > 0 else ""
+        except (TypeError, ValueError):
+            return ""
+
+    def _make_clip_chip(
+        self,
+        text: str,
+        color: str = "#555555",
+        is_new: bool = False,
+        empty: bool = False,
+        duration_text: str = "",
+    ) -> QtWidgets.QWidget:
+        """
+        Construye el widget 'chip' estilo bloque de timeline para una celda.
+
+        Args:
+            text:          nombre del clip
+            color:         color de la barra del track (se usa para derivar los colores del chip)
+            is_new:        True si es el clip nuevo que se importa (más destacado)
+            empty:         True si la celda debe quedar vacía
+            duration_text: texto de duración opcional (ej. "480f")
+        """
         container = QtWidgets.QWidget()
         cl = QtWidgets.QHBoxLayout(container)
         cl.setContentsMargins(4, 3, 4, 3)
         cl.setSpacing(0)
+        container.setStyleSheet("background: transparent;")
 
         if empty or not text:
-            container.setStyleSheet("background: transparent;")
             return container
 
-        lbl = QtWidgets.QLabel()
-        lbl.setText(text)
-        lbl.setTextFormat(QtCore.Qt.PlainText)
-
+        # Derivar colores del chip desde el color de la barra del track
+        _BASE = "#1a1a1a"
         if is_new:
-            lbl.setStyleSheet(
-                "background: %s; border: 1px solid %s; color: %s; "
-                "font-weight: bold; padding: 4px 10px; border-radius: 3px;"
-                % (self._CLR_CHIP_NEW, self._CLR_CHIP_NEW_BORDER, self._CLR_CHIP_NEW_TEXT)
-            )
+            bg     = mix_colors(color, _BASE, 0.38)
+            border = color
+            clr    = mix_colors(color, "#ffffff", 0.55)
+            weight = "bold"
         else:
-            lbl.setStyleSheet(
-                "background: %s; border: 1px solid %s; color: %s; "
-                "padding: 4px 10px; border-radius: 3px;"
-                % (self._CLR_CHIP_BEFORE, self._CLR_CHIP_BEFORE_BORDER, self._CLR_CHIP_BEFORE_TEXT)
-            )
+            bg     = mix_colors(color, _BASE, 0.10)
+            border = mix_colors(color, _BASE, 0.45)
+            clr    = mix_colors(color, "#ffffff", 0.50)
+            weight = "normal"
 
-        # Elipsis si el texto es muy largo
-        fm = lbl.fontMetrics()
+        # Construir texto del label (nombre + duración opcional)
+        display = text
+        if duration_text:
+            display = "%s  <span style='color:%s; font-weight:normal; font-size:10px;'>%s</span>" % (
+                text, mix_colors(color, "#ffffff", 0.30), duration_text
+            )
+            lbl = QtWidgets.QLabel()
+            lbl.setTextFormat(QtCore.Qt.RichText)
+            lbl.setText(display)
+        else:
+            lbl = QtWidgets.QLabel(text)
+            lbl.setTextFormat(QtCore.Qt.PlainText)
+
+        lbl.setStyleSheet(
+            "background: %s; border: 1px solid %s; color: %s; "
+            "font-weight: %s; padding: 4px 10px; border-radius: 3px;"
+            % (bg, border, clr, weight)
+        )
         lbl.setMinimumWidth(40)
 
         cl.addWidget(lbl)
         cl.addStretch()
-        container.setStyleSheet("background: transparent;")
         return container
 
     def _update_import_page(self):
         """Recopila ítems chequeados, llama a build_import_preview_data y puebla la tabla."""
-        # 1. Recopilar items chequeados y su track
-        items_by_track = {}
-        unassigned = []
+        # 1. Recopilar ítems chequeados agrupados por track
+        #    Para cada track se conserva SOLO la versión más alta (mayor version_num).
+        items_by_track_raw: dict[str, list[dict]] = {}
+        unassigned_raw: list[tuple[dict, dict]] = []   # (item, row_data)
+
         for row, chk in self._checkboxes.items():
             if not chk.isChecked():
                 continue
@@ -3175,13 +3217,29 @@ class ImportShotDialog(QtWidgets.QDialog):
             if row_data.get("type") == "section_header":
                 continue
             track = self._get_track_for_row(row)
-            item = row_data.get("item", {})
+            item  = row_data.get("item", {})
             if not item:
                 continue
             if track:
-                items_by_track.setdefault(track, []).append(item)
+                items_by_track_raw.setdefault(track, []).append(item)
             else:
-                unassigned.append(item)
+                unassigned_raw.append((item, row_data))
+
+        # Deduplicar por track: solo la versión con mayor version_num
+        items_by_track: dict[str, list[dict]] = {}
+        for tname, items in items_by_track_raw.items():
+            if len(items) > 1:
+                latest = max(items, key=lambda x: x.get("version_num", -1))
+                items_by_track[tname] = [latest]
+            else:
+                items_by_track[tname] = list(items)
+
+        # Construir lista de unassigned con su color de sección
+        unassigned: list[dict] = []
+        for item, row_data in unassigned_raw:
+            enriched = dict(item)
+            enriched["_color"] = self._item_section_color(row_data)
+            unassigned.append(enriched)
 
         # 2. Construir datos del preview
         data = build_import_preview_data(
@@ -3198,35 +3256,35 @@ class ImportShotDialog(QtWidgets.QDialog):
         # Habilitar Import Now solo si hay ítems asignados a tracks
         has_assigned = bool(items_by_track)
         self._import_now_btn.setEnabled(has_assigned)
-        if not has_assigned:
-            self._import_now_btn.setToolTip("No hay ítems con track asignado para importar")
-        else:
-            self._import_now_btn.setToolTip("Importar al bin y colocar en el timeline")
+        self._import_now_btn.setToolTip(
+            "Importar al bin y colocar en el timeline"
+            if has_assigned else
+            "No hay ítems con track asignado para importar"
+        )
 
     def _populate_import_table(self, data: dict):
         """Puebla self._import_table con los datos del preview."""
         table = self._import_table
         table.clearContents()
 
-        tracks = data.get("tracks", [])
+        tracks    = data.get("tracks", [])
         unassigned = data.get("unassigned", [])
 
-        # Calcular filas totales:
-        # una por track + separador "SIN TRACK" si hay unassigned + una por ítem unassigned
+        # Filas: una por track + separador + una por ítem unassigned
         n_rows = len(tracks)
         if unassigned:
-            n_rows += 1 + len(unassigned)  # header + items
+            n_rows += 1 + len(unassigned)
 
         table.setRowCount(n_rows)
         row_h = 36
 
         row_i = 0
         for tdata in tracks:
-            tname   = tdata["track_name"]
-            ttype   = tdata["track_type"]
-            before  = tdata.get("before_clip")
+            tname     = tdata["track_name"]
+            ttype     = tdata["track_type"]
+            before    = tdata.get("before_clip")
             new_items = tdata.get("new_items", [])
-            after   = tdata.get("after_clip")
+            after     = tdata.get("after_clip")
 
             bar_color = self._track_bar_color(ttype)
 
@@ -3236,43 +3294,52 @@ class ImportShotDialog(QtWidgets.QDialog):
             bar.setFlags(QtCore.Qt.NoItemFlags)
             table.setItem(row_i, 0, bar)
 
-            # Col 1: track name (alineado a la derecha, dimmed)
+            # Col 1: track name
             name_lbl = QtWidgets.QLabel("  " + tname)
             name_lbl.setAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft)
             name_lbl.setStyleSheet(
-                "color: #888888; font-size: 11px; padding: 0px 4px; background: transparent;"
+                "color: %s; font-size: 11px; padding: 0px 4px; background: transparent;"
+                % mix_colors(bar_color, "#ffffff", 0.55)
             )
             table.setCellWidget(row_i, 1, name_lbl)
 
             # Col 2: clip anterior
-            before_text = before["name"] if before else ""
-            table.setCellWidget(row_i, 2, self._make_clip_chip(before_text, is_new=False, empty=not before_text))
+            if before:
+                dur = self._fmt_duration(before.get("duration"))
+                table.setCellWidget(row_i, 2, self._make_clip_chip(
+                    before["name"], color=bar_color, is_new=False, duration_text=dur
+                ))
+            else:
+                table.setCellWidget(row_i, 2, self._make_clip_chip("", empty=True))
 
             # Col 3: clip(s) nuevos
             if new_items:
-                # Mostrar el nombre del primer ítem (generalmente hay uno por track)
-                new_name = new_items[0].get("name", "")
-                if len(new_items) > 1:
-                    new_name = "%s (+%d)" % (new_name, len(new_items) - 1)
-                table.setCellWidget(row_i, 3, self._make_clip_chip(new_name, is_new=True))
+                item0    = new_items[0]
+                new_name = item0.get("name", "")
+                dur      = self._fmt_duration(item0.get("frame_count"))
+                table.setCellWidget(row_i, 3, self._make_clip_chip(
+                    new_name, color=bar_color, is_new=True, duration_text=dur
+                ))
             else:
-                # Track existente sin ítem nuevo, mostrar símbolo de posición
-                gap_lbl = QtWidgets.QLabel()
-                gap_lbl.setStyleSheet("background: transparent;")
-                table.setCellWidget(row_i, 3, gap_lbl)
+                table.setCellWidget(row_i, 3, self._make_clip_chip("", empty=True))
 
             # Col 4: clip siguiente
-            after_text = after["name"] if after else ""
-            table.setCellWidget(row_i, 4, self._make_clip_chip(after_text, is_new=False, empty=not after_text))
+            if after:
+                dur = self._fmt_duration(after.get("duration"))
+                table.setCellWidget(row_i, 4, self._make_clip_chip(
+                    after["name"], color=bar_color, is_new=False, duration_text=dur
+                ))
+            else:
+                table.setCellWidget(row_i, 4, self._make_clip_chip("", empty=True))
 
             table.setRowHeight(row_i, row_h)
             row_i += 1
 
         # Sección de ítems sin track asignado
         if unassigned:
-            # Encabezado de sección
             ncols = table.columnCount()
 
+            # Encabezado de sección
             bar_item = QtWidgets.QTableWidgetItem()
             bar_item.setBackground(QtGui.QColor("#555555"))
             bar_item.setFlags(QtCore.Qt.NoItemFlags)
@@ -3288,21 +3355,32 @@ class ImportShotDialog(QtWidgets.QDialog):
             table.setRowHeight(row_i, 24)
             row_i += 1
 
+            # Cada ítem sin track: chip coloreado con duración
             for item in unassigned:
-                iname = item.get("name", "—")
+                icolor = item.get("_color", "#555555")
+                iname  = item.get("name", "—")
+                dur    = self._fmt_duration(item.get("frame_count"))
 
                 bar2 = QtWidgets.QTableWidgetItem()
-                bar2.setBackground(QtGui.QColor("#555555"))
+                bar2.setBackground(QtGui.QColor(icolor))
                 bar2.setFlags(QtCore.Qt.NoItemFlags)
                 table.setItem(row_i, 0, bar2)
 
+                # Chip ocupa cols 1-4
                 table.setSpan(row_i, 1, 1, ncols - 1)
-                item_lbl = QtWidgets.QLabel("    ● " + iname)
-                item_lbl.setStyleSheet(
-                    "color: #888888; padding: 3px 8px; background: transparent;"
+                chip_container = QtWidgets.QWidget()
+                chip_layout    = QtWidgets.QHBoxLayout(chip_container)
+                chip_layout.setContentsMargins(6, 2, 6, 2)
+                chip_layout.setSpacing(0)
+                chip_container.setStyleSheet("background: transparent;")
+
+                chip = self._make_clip_chip(
+                    iname, color=icolor, is_new=False, duration_text=dur
                 )
-                table.setCellWidget(row_i, 1, item_lbl)
-                table.setRowHeight(row_i, 28)
+                chip_layout.addWidget(chip)
+                chip_layout.addStretch()
+                table.setCellWidget(row_i, 1, chip_container)
+                table.setRowHeight(row_i, row_h)
                 row_i += 1
 
     # ── Importación real ─────────────────────────────────────────

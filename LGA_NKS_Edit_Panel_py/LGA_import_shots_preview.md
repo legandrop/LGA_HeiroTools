@@ -49,9 +49,14 @@ La tabla NO usa el look estándar de las otras secciones (Rename, Transcode). Su
 
 ### Aspecto de los chips
 
-- **Clip anterior / siguiente** (contexto): fondo `#2e2e2e`, borde `#444444`, texto `#888888`.
-- **Clip nuevo** (ítem a importar): fondo `#2e2547`, borde `#5a4faa`, texto `#cccccc` bold.
-- **Celda vacía** (sin clip adyacente o sin ítem nuevo para ese track): widget transparente vacío.
+El color de TODOS los chips (anterior, nuevo, siguiente) se deriva del mismo color de barra del track. La diferencia entre "nuevo" y "contexto" es la intensidad:
+
+- **Clip nuevo** (ítem a importar): fondo = `mix_colors(track_color, base, 0.38)`, borde = `track_color`, texto = `mix_colors(track_color, "#ffffff", 0.55)`, bold. Más destacado.
+- **Clip anterior / siguiente** (contexto existente): fondo = `mix_colors(track_color, base, 0.10)`, borde = `mix_colors(track_color, base, 0.45)`, texto = `mix_colors(track_color, "#ffffff", 0.50)`. Más sutil.
+- **Celda vacía**: widget transparente vacío.
+- Todos los chips muestran la duración en frames (`480f`) junto al nombre, en texto más pequeño y sutil.
+
+La función `mix_colors(hex_color, base="#1a1a1a", factor)` interpola linealmente entre `hex_color` (factor=1.0) y `base` (factor=0.0).
 
 ### Colores de barra de track
 
@@ -68,7 +73,12 @@ Los mismos que usa la página principal de media:
 
 ### Sección "SIN TRACK ASIGNADO"
 
-Debajo de todos los tracks, si hay ítems sin track asignado (track `None`, `"?"` o `"— sin track —"` en el combo), aparece un separador de sección gris con el encabezado `SIN TRACK ASIGNADO` y debajo un ítem por línea. Estos ítems **no se importan al timeline** al pulsar "Import Now".
+Debajo de todos los tracks, si hay ítems sin track asignado (track `None`, `"?"` o `"— sin track —"` en el combo), aparece un separador de sección gris con el encabezado `SIN TRACK ASIGNADO` y debajo un chip por ítem.
+
+Los chips de la sección unassigned:
+- Usan el color de su sección de origen (plates → `_CLR_PLATES`, refs → `_CLR_REFS`, publish → color de task).
+- Muestran el nombre y la duración igual que los chips de tracks.
+- Estos ítems **no se importan al timeline** al pulsar "Import Now".
 
 ---
 
@@ -76,14 +86,20 @@ Debajo de todos los tracks, si hay ítems sin track asignado (track `None`, `"?"
 
 `build_import_preview_data()` itera todos los `videoTracks()` de la secuencia activa.
 
-Un track se incluye en la tabla si cumple al menos una condición:
+Se incluyen **TODOS** los tracks del timeline en su orden original, excepto:
+- Tracks de burn-in (`burnin`, `burn in`, `burn_in`).
 
-- Tiene ítems nuevos asignados (chequeados en la página Media con ese track seleccionado).
-- Tiene clips adyacentes (before o after) al punto de inserción.
+Un track puede aparecer con todas sus columnas vacías (sin antes, sin nuevo, sin después). Esto es intencional: el usuario ve todos los tracks del timeline existente como contexto, no solo los relevantes.
 
-Se excluyen los tracks de burn-in (`burnin`, `burn in`, `burn_in`).
+Si un ítem está asignado a un track que **no existe en el timeline**, ese track se añade al final de la lista (con `before = None` y `after = None`).
 
-Si un ítem está asignado a un track que **no existe en el timeline**, ese track se incluye igual (con `before = None` y `after = None`), porque el ítem necesita ser colocado allí.
+---
+
+## Deduplicación de versiones
+
+En `_update_import_page()`, antes de llamar a `build_import_preview_data()`, se deduplicada por track: si hay múltiples ítems chequeados asignados al mismo track (ej. `aPlate_v01` y `aPlate_v02` ambos chequeados), **solo se importa el de mayor `version_num`**.
+
+Esto garantiza que siempre se importa la versión más alta, independientemente de cuántas versiones haya chequeado el usuario.
 
 ---
 
@@ -182,8 +198,8 @@ Orquesta la importación completa:
 
 | Archivo | Función / Clase |
 |---------|----------------|
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots_preview.py` | `build_import_preview_data`, `classify_track_type`, `_find_adjacent_clips`, `_is_burnin` |
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `ImportShotDialog._build_page_import`, `_update_import_page`, `_populate_import_table`, `_go_to_import`, `_do_import`, `_make_clip_chip`, `_track_bar_color` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots_preview.py` | `build_import_preview_data`, `classify_track_type`, `mix_colors`, `_find_adjacent_clips`, `_is_burnin` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `ImportShotDialog._build_page_import`, `_update_import_page`, `_populate_import_table`, `_go_to_import`, `_do_import`, `_make_clip_chip`, `_track_bar_color`, `_item_section_color`, `_fmt_duration` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `_find_or_create_shot_bin`, `_import_item_to_bin`, `_place_clip_in_timeline` |
 
 ### Documentación relacionada
