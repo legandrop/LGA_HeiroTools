@@ -161,7 +161,7 @@ Ejemplos:
 
 Una fila queda bloqueada y excluida del rename cuando:
 
-- **Mismatch carpeta/secuencia**: en secuencias EXR el nombre de carpeta difiere del prefijo.
+- **Mismatch carpeta/seq**: en secuencias EXR el nombre de carpeta difiere del prefijo.
   - Ejemplo válido: carpeta `TEST_013_030_aPlate_v01` + secuencia `TEST_013_030_aPlate_v01_####.exr`
 - **Conflicto de destino**: el destino ya existe en disco Y la fuente (`op.src`) también existe
   (ambas condiciones necesarias; si la fuente ya no existe significa que el rename fue exitoso

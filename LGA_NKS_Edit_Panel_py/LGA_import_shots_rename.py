@@ -345,7 +345,7 @@ def compute_preview(rows: list[dict], settings: dict, stage_colors: dict[int, st
             seq_prefix = row.get("seq_prefix", "")
             if folder_name != seq_prefix:
                 blocked = True
-                folder_warning = "Mismatch carpeta/secuencia"
+                folder_warning = "Mismatch carpeta/seq"
 
         target_folder_name = row.get("folder_name", "")
         folder_original_html = "<span style='color:#a7a7a7;'>%s</span>" % _html_escape(row.get("folder_name", ""))

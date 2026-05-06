@@ -2490,6 +2490,21 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         self._refresh_rename_preview()
 
+        # Marcar con estado de éxito los items renombrados
+        if applied > 0:
+            renamed_new_paths = {
+                os.path.normcase(os.path.normpath(v["new_path"]))
+                for v in old_to_new.values()
+            }
+            for i, dr in enumerate(self._rename_display_rows):
+                if dr.get("type") != "data":
+                    continue
+                pr = dr["preview_row"]
+                item_path_norm = os.path.normcase(os.path.normpath(pr.get("item_path", "")))
+                if item_path_norm in renamed_new_paths:
+                    st_html = "<span style='color:%s;'>✓ Renombrado</span>" % _CLR_STATUS_DONE
+                    self._rename_table.setCellWidget(i, 7, _cell_html_label(st_html))
+
         # Restaurar estados de checkboxes tal como estaban antes del rename
         for idx, was_checked in saved_chk.items():
             if idx in self._rename_checkboxes:
