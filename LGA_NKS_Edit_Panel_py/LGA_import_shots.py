@@ -908,28 +908,18 @@ class _ArrowComboBox(QtWidgets.QComboBox):
 
 
 # ══════════════════════════════════════════════════════════════════
-#  Variantes finales de QComboBox a testear
-#  Combinan subclase con paintEvent (flecha custom) + estrategia para
-#  que el popup desplegado no muestre los checkboxes nativos.
+#  Stylesheet base para _ArrowComboBox
+#  Uso: combo.setStyleSheet(_COMBO_ARROW_STYLE) + combo.setView(QListView())
 # ══════════════════════════════════════════════════════════════════
 
 _COMBO_BASE = (
     "QComboBox { background-color:#272727; border:1px solid #444; "
     "color:#a7a7a7; padding:3px 6px; }"
+    "QComboBox::drop-down { border:0px; width:18px; }"
+    "QComboBox::down-arrow { image:none; width:0px; height:0px; }"
     "QComboBox QAbstractItemView { background-color:#2B2B2B; color:#a7a7a7; "
-    "selection-background-color:#3a3a3a; outline:0; }"
+    "selection-background-color:#272727; selection-color:#a7a7a7; outline:0; }"
 )
-
-# Variante A — Subclase paintEvent + setView(QListView)
-# QListView no incluye check indicators → popup limpio
-_COMBO_STYLE_VARIANT_A = _COMBO_BASE + """
-    QComboBox::drop-down { border:0px; width:18px; }
-    QComboBox::down-arrow { image: none; width:0px; height:0px; }
-"""
-
-# Variante B — Subclase paintEvent + setItemDelegate(QStyledItemDelegate)
-# Reemplaza el delegate nativo (que dibuja el check) con uno básico
-_COMBO_STYLE_VARIANT_B = _COMBO_STYLE_VARIANT_A
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1350,35 +1340,17 @@ class ImportShotDialog(QtWidgets.QDialog):
             "fgPlate", "bgPlate", "EditRef", "EditRefClean",
             "_comp_", "_roto_", "_cleanup_",
         ]
-        combo = QtWidgets.QComboBox()
-        combo.setStyleSheet("""
-            QComboBox {
-                background-color: #272727;
-                border: 0px;
-                color: #a7a7a7;
-                padding: 1px 4px;
-                selection-background-color: transparent;
-            }
-            QComboBox::drop-down {
-                border: 0px;
-                width: 14px;
-            }
-            QComboBox::down-arrow {
-                image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 5px solid #666666;
-                width: 0px;
-                height: 0px;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #2B2B2B;
-                border: 1px solid #444444;
-                color: #a7a7a7;
-                selection-background-color: #3a3a3a;
-                outline: none;
-            }
-        """)
+        combo = _ArrowComboBox()
+        combo.setView(QtWidgets.QListView())
+        combo.setStyleSheet(
+            "QComboBox { background-color:#272727; border:0px; "
+            "color:#a7a7a7; padding:1px 4px; }"
+            "QComboBox::drop-down { border:0px; width:14px; }"
+            "QComboBox::down-arrow { image:none; width:0px; height:0px; }"
+            "QComboBox QAbstractItemView { background-color:#2B2B2B; "
+            "border:1px solid #444444; color:#a7a7a7; "
+            "selection-background-color:#272727; selection-color:#a7a7a7; outline:none; }"
+        )
         # "?" como primera opcion para tracks desconocidos (MOVs no identificados)
         track_options_display = ["— sin track —", "?"] + track_options
         for opt in track_options_display:
@@ -1489,24 +1461,14 @@ class ImportShotDialog(QtWidgets.QDialog):
         ("Custom...",           "custom"),
     ]
 
-    _COMBO_STYLE = """
-        QComboBox {
-            background-color: #272727; border: 1px solid #444;
-            color: #a7a7a7; padding: 3px 6px;
-        }
-        QComboBox::drop-down { border: 0px; width: 14px; }
-        QComboBox::down-arrow {
-            image: none;
-            border-left: 4px solid transparent;
-            border-right: 4px solid transparent;
-            border-top: 5px solid #666666;
-            width: 0px; height: 0px;
-        }
-        QComboBox QAbstractItemView {
-            background-color: #2B2B2B; color: #a7a7a7;
-            selection-background-color: #3a3a3a;
-        }
-    """
+    _COMBO_STYLE = (
+        "QComboBox { background-color:#272727; border:1px solid #444; "
+        "color:#a7a7a7; padding:3px 6px; }"
+        "QComboBox::drop-down { border:0px; width:18px; }"
+        "QComboBox::down-arrow { image:none; width:0px; height:0px; }"
+        "QComboBox QAbstractItemView { background-color:#2B2B2B; color:#a7a7a7; "
+        "selection-background-color:#272727; selection-color:#a7a7a7; outline:0; }"
+    )
 
     _SPIN_STYLE = """
         QSpinBox, QDoubleSpinBox {
@@ -1617,8 +1579,9 @@ class ImportShotDialog(QtWidgets.QDialog):
         bd_lbl = QtWidgets.QLabel("Bit depth:")
         bd_lbl.setStyleSheet("color:#a7a7a7;")
         bd_row.addWidget(bd_lbl)
-        self._convert_bitdepth = QtWidgets.QComboBox()
+        self._convert_bitdepth = _ArrowComboBox()
         self._convert_bitdepth.setStyleSheet(self._COMBO_STYLE)
+        self._convert_bitdepth.setView(QtWidgets.QListView())
         for opt in ("Mantener original", "half (16-bit)", "float (32-bit)"):
             self._convert_bitdepth.addItem(opt)
         self._convert_bitdepth.setFixedWidth(170)
@@ -1633,8 +1596,9 @@ class ImportShotDialog(QtWidgets.QDialog):
         ch_lbl = QtWidgets.QLabel("Channels:")
         ch_lbl.setStyleSheet("color:#a7a7a7;")
         ch_row.addWidget(ch_lbl)
-        self._convert_channels = QtWidgets.QComboBox()
+        self._convert_channels = _ArrowComboBox()
         self._convert_channels.setStyleSheet(self._COMBO_STYLE)
+        self._convert_channels.setView(QtWidgets.QListView())
         for opt in ("Mantener", "RGB", "RGBA"):
             self._convert_channels.addItem(opt)
         self._convert_channels.setFixedWidth(170)
@@ -1660,8 +1624,9 @@ class ImportShotDialog(QtWidgets.QDialog):
         res_lbl = QtWidgets.QLabel("Destino:")
         res_lbl.setStyleSheet("color:#a7a7a7;")
         res_row.addWidget(res_lbl)
-        self._res_combo = QtWidgets.QComboBox()
+        self._res_combo = _ArrowComboBox()
         self._res_combo.setStyleSheet(self._COMBO_STYLE)
+        self._res_combo.setView(QtWidgets.QListView())
         for label, _ in self._RES_PRESETS:
             self._res_combo.addItem(label)
         self._res_combo.currentIndexChanged.connect(self._on_res_preset_changed)
@@ -1703,8 +1668,9 @@ class ImportShotDialog(QtWidgets.QDialog):
         flt_lbl = QtWidgets.QLabel("Filtro resampling:")
         flt_lbl.setStyleSheet("color:#a7a7a7;")
         flt_row.addWidget(flt_lbl)
-        self._convert_filter = QtWidgets.QComboBox()
+        self._convert_filter = _ArrowComboBox()
         self._convert_filter.setStyleSheet(self._COMBO_STYLE)
+        self._convert_filter.setView(QtWidgets.QListView())
         for opt in ("lanczos3", "cubic", "box"):
             self._convert_filter.addItem(opt)
         self._convert_filter.setFixedWidth(150)
@@ -1754,45 +1720,6 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._delete_originals_chk.setEnabled(not Transcode_TEST_Mode)
         self._delete_originals_chk.setStyleSheet("color:#a7a7a7; padding:2px;")
         layout.addWidget(self._delete_originals_chk)
-
-        # ── Dropdowns de test (temporales) ─────────────────────────
-        # 2 variantes finales: subclase con paintEvent (flecha custom)
-        # combinada con estrategias para eliminar los checkboxes del popup.
-        layout.addWidget(_separator())
-        test_lbl = QtWidgets.QLabel(
-            "🔬  TESTS de dropdown — flecha custom + popup sin checkboxes"
-        )
-        test_lbl.setStyleSheet("color:#cccccc; font-weight:bold; padding:4px 0px;")
-        layout.addWidget(test_lbl)
-
-        test_grid = QtWidgets.QGridLayout()
-        test_grid.setSpacing(6)
-
-        # Variante A — paintEvent + setView(QListView)
-        lbl_a = QtWidgets.QLabel("Variante A: paintEvent + setView(QListView)")
-        lbl_a.setStyleSheet("color:#a7a7a7;")
-        combo_a = _ArrowComboBox()
-        for opt in ("Item A", "Item B", "Item C"):
-            combo_a.addItem(opt)
-        combo_a.setStyleSheet(_COMBO_STYLE_VARIANT_A)
-        combo_a.setView(QtWidgets.QListView())
-        combo_a.setMinimumWidth(180)
-        test_grid.addWidget(lbl_a,   0, 0)
-        test_grid.addWidget(combo_a, 0, 1)
-
-        # Variante B — paintEvent + setItemDelegate(QStyledItemDelegate)
-        lbl_b = QtWidgets.QLabel("Variante B: paintEvent + QStyledItemDelegate")
-        lbl_b.setStyleSheet("color:#a7a7a7;")
-        combo_b = _ArrowComboBox()
-        for opt in ("Item A", "Item B", "Item C"):
-            combo_b.addItem(opt)
-        combo_b.setStyleSheet(_COMBO_STYLE_VARIANT_B)
-        combo_b.setItemDelegate(QtWidgets.QStyledItemDelegate(combo_b))
-        combo_b.setMinimumWidth(180)
-        test_grid.addWidget(lbl_b,   1, 0)
-        test_grid.addWidget(combo_b, 1, 1)
-
-        layout.addLayout(test_grid)
 
         # Resumen (totales sin estimaciones)
         layout.addWidget(_separator())
@@ -1976,7 +1903,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             total_size += size_b
             s_item = QtWidgets.QTableWidgetItem(_format_bytes(size_b))
             s_item.setForeground(QtGui.QColor("#888888"))
-            s_item.setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+            s_item.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
             self._convert_table.setItem(i, 5, s_item)
 
             # Col 6: Estado

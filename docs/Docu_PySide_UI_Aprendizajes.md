@@ -73,32 +73,84 @@ vacia) a la izquierda. Es el delegate nativo del style de Windows.
 
 | # | Estrategia | Resultado |
 |---|-----------|-----------|
-| A | `combo.setView(QtWidgets.QListView())` | (a confirmar) |
-| B | `combo.setItemDelegate(QtWidgets.QStyledItemDelegate(combo))` | (a confirmar) |
+| A | `combo.setView(QtWidgets.QListView())` | ✅ Popup limpio |
+| B | `combo.setItemDelegate(QtWidgets.QStyledItemDelegate(combo))` | ✅ Popup limpio (visualmente igual a A) |
 | Fallback | `combo.setStyle(QStyleFactory.create("Fusion"))` | ✅ Popup limpio (pero cambia look del combo entero) |
 
 #### Solucion ganadora
 
-**Pendiente** — actualmente bajo test en
-[LGA_import_shots.py](../LGA_NKS_Edit_Panel_py/LGA_import_shots.py) en la
-seccion de tests de la pagina de Convert. Se actualiza este archivo cuando
-quede confirmado.
+**`setView(QListView)`** (opcion A). `QListView` no incluye check indicators
+y es la solucion mas limpia. Se llama una vez despues de crear el combo:
+
+```python
+combo = _ArrowComboBox()
+combo.setView(QtWidgets.QListView())
+```
 
 ---
 
-### Combo final recomendado
+### Problema 3 — El item en hover del popup tiene texto negro sobre fondo gris
 
-Cuando se confirme la solucion al Problema 2, la receta canonica para crear
-un combo styled con flecha custom y popup limpio quedara documentada aqui.
-Por ahora ver [`_ArrowComboBox`](../LGA_NKS_Edit_Panel_py/LGA_import_shots.py)
-y los stylesheets `_COMBO_BASE` / `_COMBO_STYLE_VARIANT_A` / `_COMBO_STYLE_VARIANT_B`.
+Al hacer hover sobre un item del popup desplegado, el texto pasa a negro
+(heredado del sistema) sobre un fondo de seleccion del OS. La combinacion
+es ilegible sobre fondos oscuros.
+
+#### Solucion
+
+Agregar `selection-color` y usar `selection-background-color` explicito en
+el stylesheet del `QAbstractItemView`:
+
+```css
+QComboBox QAbstractItemView {
+    background-color: #2B2B2B;
+    color: #a7a7a7;
+    selection-background-color: #272727;
+    selection-color: #a7a7a7;
+    outline: 0;
+}
+```
+
+---
+
+### Receta canonica — `_ArrowComboBox` completo
+
+Combo styled con flecha custom, popup sin checkboxes y hover legible:
+
+```python
+combo = _ArrowComboBox()
+combo.setView(QtWidgets.QListView())
+combo.setStyleSheet(
+    "QComboBox { background-color:#272727; border:1px solid #444; "
+    "color:#a7a7a7; padding:3px 6px; }"
+    "QComboBox::drop-down { border:0px; width:18px; }"
+    "QComboBox::down-arrow { image:none; width:0px; height:0px; }"
+    "QComboBox QAbstractItemView { background-color:#2B2B2B; color:#a7a7a7; "
+    "selection-background-color:#272727; selection-color:#a7a7a7; outline:0; }"
+)
+```
+
+Para version sin border (columna Track en tabla):
+
+```python
+combo = _ArrowComboBox()
+combo.setView(QtWidgets.QListView())
+combo.setStyleSheet(
+    "QComboBox { background-color:#272727; border:0px; "
+    "color:#a7a7a7; padding:1px 4px; }"
+    "QComboBox::drop-down { border:0px; width:14px; }"
+    "QComboBox::down-arrow { image:none; width:0px; height:0px; }"
+    "QComboBox QAbstractItemView { background-color:#2B2B2B; "
+    "border:1px solid #444444; color:#a7a7a7; "
+    "selection-background-color:#272727; selection-color:#a7a7a7; outline:none; }"
+)
+```
 
 ---
 
 ## Referencias
 
 - [LGA_import_shots.py](../LGA_NKS_Edit_Panel_py/LGA_import_shots.py) — clase
-  `_ArrowComboBox`, constantes `_COMBO_BASE`, `_COMBO_STYLE_VARIANT_A/B`.
+  `_ArrowComboBox`, constantes `_COMBO_BASE`, `_COMBO_STYLE_VARIANT_A`.
 - [LGA_NKS_Panel_Style_Guide.md](LGA_NKS_Panel_Style_Guide.md) — guia general
   de estilos de paneles (colores, fuentes, bordes).
 - [GUI_Windows_Reference.md](GUI_Windows_Reference.md) — referencias de
