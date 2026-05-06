@@ -2002,7 +2002,10 @@ class ImportShotDialog(QtWidgets.QDialog):
             "QLineEdit:focus { border:1px solid #666666; }"
         )
 
-        # Etapa 1
+        # Etapas 1 y 2 — dos columnas con divisor vertical
+        sr_row = QtWidgets.QHBoxLayout()
+        sr_row.setSpacing(0)
+
         sr1_col = QtWidgets.QVBoxLayout()
         sr1_col.setSpacing(4)
         sr1_col.addWidget(_section_label("Step 1 — Search & Replace"))
@@ -2019,9 +2022,15 @@ class ImportShotDialog(QtWidgets.QDialog):
         sr1_row.addWidget(self._rename_sr1_replace, 1)
         sr1_row.addWidget(self._rename_sr1_case, 0)
         sr1_col.addLayout(sr1_row)
-        layout.addLayout(sr1_col)
+        sr_row.addLayout(sr1_col, 1)
 
-        # Etapa 2
+        _vdiv1 = QtWidgets.QFrame()
+        _vdiv1.setFrameShape(QtWidgets.QFrame.VLine)
+        _vdiv1.setStyleSheet("color:#444444;")
+        sr_row.addSpacing(12)
+        sr_row.addWidget(_vdiv1)
+        sr_row.addSpacing(12)
+
         sr2_col = QtWidgets.QVBoxLayout()
         sr2_col.setSpacing(4)
         sr2_col.addWidget(_section_label("Step 2 — Search & Replace"))
@@ -2038,41 +2047,54 @@ class ImportShotDialog(QtWidgets.QDialog):
         sr2_row.addWidget(self._rename_sr2_replace, 1)
         sr2_row.addWidget(self._rename_sr2_case, 0)
         sr2_col.addLayout(sr2_row)
-        layout.addLayout(sr2_col)
+        sr_row.addLayout(sr2_col, 1)
 
-        # Etapa 3
+        layout.addLayout(sr_row)
+
+        # Etapas 3 y 4 — dos columnas con divisor vertical
+        dp_row = QtWidgets.QHBoxLayout()
+        dp_row.setSpacing(0)
+
         delim_col = QtWidgets.QVBoxLayout()
         delim_col.addWidget(_section_label("Step 3 — Delimiter"))
-        delim_row = QtWidgets.QHBoxLayout()
+        delim_inner = QtWidgets.QHBoxLayout()
         delim_lbl = QtWidgets.QLabel("Before frame:")
         delim_lbl.setStyleSheet("color:#a7a7a7;")
-        delim_row.addWidget(delim_lbl)
+        delim_inner.addWidget(delim_lbl)
         self._rename_delim_combo = _ArrowComboBox()
         self._rename_delim_combo.setStyleSheet(self._COMBO_STYLE)
         self._rename_delim_combo.setView(QtWidgets.QListView())
         self._rename_delim_combo.addItems(["_", "."])
         self._rename_delim_combo.setFixedWidth(80)
-        delim_row.addWidget(self._rename_delim_combo)
-        delim_row.addStretch()
-        delim_col.addLayout(delim_row)
-        layout.addLayout(delim_col)
+        delim_inner.addWidget(self._rename_delim_combo)
+        delim_inner.addStretch()
+        delim_col.addLayout(delim_inner)
+        dp_row.addLayout(delim_col, 1)
 
-        # Etapa 4 (debajo de la etapa 3)
+        _vdiv2 = QtWidgets.QFrame()
+        _vdiv2.setFrameShape(QtWidgets.QFrame.VLine)
+        _vdiv2.setStyleSheet("color:#444444;")
+        dp_row.addSpacing(12)
+        dp_row.addWidget(_vdiv2)
+        dp_row.addSpacing(12)
+
         pad_col = QtWidgets.QVBoxLayout()
         pad_col.addWidget(_section_label("Step 4 — Frame Digits"))
-        pad_row = QtWidgets.QHBoxLayout()
+        pad_inner = QtWidgets.QHBoxLayout()
         pad_lbl = QtWidgets.QLabel("Digits:")
         pad_lbl.setStyleSheet("color:#a7a7a7;")
-        pad_row.addWidget(pad_lbl)
+        pad_inner.addWidget(pad_lbl)
         self._rename_digits_spin = _ArrowSpinBox()
         self._rename_digits_spin.setRange(1, 12)
         self._rename_digits_spin.setValue(4)
         self._rename_digits_spin.setStyleSheet(_ArrowSpinBox._STYLE)
         self._rename_digits_spin.setFixedWidth(88)
-        pad_row.addWidget(self._rename_digits_spin)
-        pad_row.addStretch()
-        pad_col.addLayout(pad_row)
-        layout.addLayout(pad_col)
+        pad_inner.addWidget(self._rename_digits_spin)
+        pad_inner.addStretch()
+        pad_col.addLayout(pad_inner)
+        dp_row.addLayout(pad_col, 1)
+
+        layout.addLayout(dp_row)
 
         layout.addStretch()
         layout.addWidget(_separator())
