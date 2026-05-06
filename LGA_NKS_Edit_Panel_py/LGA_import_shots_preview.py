@@ -158,34 +158,23 @@ def _find_adjacent_clips(track, insert_frame: int):
 
         else:
             # ── Clip que CRUZA insert_frame ───────────────────────────────
-            # Porción izquierda → before
-            eff_tl_out = insert_frame - 1
-            eff_dur    = eff_tl_out - tl_in + 1
-            # Porción derecha → after
-            aft_tl_in  = insert_frame
-            aft_dur    = tl_out - insert_frame + 1
-
+            # El clip abarca antes Y después del punto de inserción.
+            # Regla: NO contribuye al bucket "before".
+            # Solo contribuye al bucket "after" con su rango COMPLETO (tl_in real),
+            # para que la columna "Shot Siguiente" lo muestre desde su inicio real.
+            full_dur = tl_out - tl_in + 1
             _log(
                 "_find_adjacent_clips: clip '%s' CRUZA insert_frame=%d "
-                "(tl_in=%d, tl_out=%d) → "
-                "before: %d-%d (dur=%d) | after: %d-%d (dur=%d)"
-                % (name, insert_frame,
-                   tl_in, tl_out,
-                   tl_in, eff_tl_out, eff_dur,
-                   aft_tl_in, tl_out, aft_dur)
+                "(tl_in=%d, tl_out=%d, dur=%d) → "
+                "solo va a after (rango completo)"
+                % (name, insert_frame, tl_in, tl_out, full_dur)
             )
 
-            if before is None or eff_tl_out > before.get("tl_out", -1):
-                before = {
-                    "name": name, "tl_in": tl_in, "tl_out": eff_tl_out,
-                    "duration": eff_dur,
-                }
-
-            # La porción DESPUÉS también es candidato after
-            if after is None or aft_tl_in < after.get("tl_in", 999999):
+            # Candidato after con rango completo (tl_in original)
+            if after is None or tl_in < after.get("tl_in", 999999):
                 after = {
-                    "name": name, "tl_in": aft_tl_in, "tl_out": tl_out,
-                    "duration": aft_dur,
+                    "name": name, "tl_in": tl_in, "tl_out": tl_out,
+                    "duration": full_dur,
                 }
 
     _log(

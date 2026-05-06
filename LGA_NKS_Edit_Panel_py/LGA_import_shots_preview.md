@@ -57,14 +57,24 @@ Entre columnas hay un separador visual de 2-4 px (padding de celdas).
 
 ### Aspecto de los chips
 
-El color de TODOS los chips (anterior, nuevo, siguiente) se deriva del mismo color de barra del track. La diferencia entre "nuevo" y "contexto" es la intensidad:
+El color de TODOS los chips (anterior, nuevo, siguiente) es **idéntico** — mismo fondo, mismo borde, mismo color de texto — derivado del track color:
 
-- **Clip nuevo** (ítem a importar): fondo = `mix_colors(track_color, base, 0.38)`, borde = `track_color`, texto = `mix_colors(track_color, "#ffffff", 0.55)`, bold. Más destacado.
-- **Clip anterior / siguiente** (contexto existente): fondo = `mix_colors(track_color, base, 0.10)`, borde = `mix_colors(track_color, base, 0.45)`, texto = `mix_colors(track_color, "#ffffff", 0.50)`. Más sutil.
-- **Celda vacía**: widget transparente vacío.
-- Todos los chips muestran la duración en frames (`480f`) junto al nombre, en texto más pequeño y sutil.
+- `bg     = mix_colors(track_color, "#1a1a1a", 0.35)`
+- `border = track_color`
+- `text   = mix_colors(track_color, "#ffffff", 0.75)`
+- `weight = "bold"` solo para clips nuevos (a importar), `"normal"` para clips de contexto.
 
-La función `mix_colors(hex_color, base="#1a1a1a", factor)` interpola linealmente entre `hex_color` (factor=1.0) y `base` (factor=0.0).
+Los chips **no muestran la duración en el texto**. La duración (frames + segundos) se muestra en el **tooltip** al hacer hover.
+
+Los chips pueden shrinkear por debajo de su `sizeHint` (`QSizePolicy.Ignored`, `minimumWidth=1`). Si el chip es muy angosto, el texto se cropea naturalmente por la izquierda del padding. Esto garantiza que los anchos porcentuales se respeten sin que el texto fuerce un mínimo.
+
+### Tooltip de clips
+
+Al hacer hover sobre cualquier chip, se muestra un tooltip estilizado con:
+- Nombre completo del clip (accent color del track)
+- Duración en frames y segundos
+
+Implementado via `LGA_NKS_Shared/LGA_tooltip_helper.py` → `set_clip_tooltip()`. El stylesheet global de `QToolTip` se aplica una sola vez en `_build_page_import()` via `apply_tooltip_stylesheet()`.
 
 ### Anchos proporcionales por columna (K = 1000)
 
@@ -162,12 +172,22 @@ La página principal (Media) aplica la regla de **un solo clip por track** en do
 
 ### Clips que cruzan el insert_frame
 
-`_find_adjacent_clips` maneja el caso de clips que **abarcan** el punto de inserción (`tl_in < insert_frame <= tl_out`). Este patrón es típico del track `_comp_`, que suele tener un clip largo que cubre todo el timeline. En ese caso el clip contribuye a **ambos buckets**:
+`_find_adjacent_clips` clasifica clips en tres categorías según su relación con `insert_frame`:
 
-- **before**: porción `tl_in .. insert_frame - 1`, duración = `insert_frame - tl_in`
-- **after**: porción `insert_frame .. tl_out`, duración = `tl_out - insert_frame + 1`
+| Condición | Bucket |
+|-----------|--------|
+| `tl_out < insert_frame` | **before** (clip enteramente antes) |
+| `tl_in >= insert_frame` | **after** (clip enteramente después) |
+| `tl_in < insert_frame <= tl_out` | **solo after**, con rango COMPLETO (`tl_in` original) |
 
-Esto es correcto porque visualmente el mismo clip pertenece al shot anterior (la mitad izquierda) y al shot siguiente (la mitad derecha). Ambas porciones se muestran en sus respectivas columnas de la tabla.
+Los clips que cruzan `insert_frame` **NO contribuyen al bucket before**. Esto es intencional: la columna "Shot Anterior" debe mostrar únicamente los clips del shot anterior completo (ej. `TEST_013_010`), no una porción cropeada de un clip que ya pertenece al shot siguiente.
+
+Los clips que cruzan se muestran en "Shot Siguiente" con su `tl_in` real (no desde `insert_frame`), lo que permite visualizar correctamente su posición y duración dentro de la ventana temporal del shot siguiente.
+
+**Ejemplo**:
+- `_comp_`: `TEST_013_010` TL 0-479 (480f) → **before**
+- `_comp_`: `TEST_013_030_Chroma_AutoDia` TL 480-715 (236f) cruza insert_frame=548 → **after (rango completo, tl_in=480)**
+- `bPlate`: `TEST_013_030_Chroma_AutoDia` TL 548-613 (66f), tl_in=548=insert_frame → **after (enteramente después)**
 
 ## Deduplicación de versiones
 

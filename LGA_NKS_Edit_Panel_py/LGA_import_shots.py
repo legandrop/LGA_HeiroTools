@@ -82,6 +82,19 @@ if _PREVIEW_HELPER in sys.modules:
 preview_mod = importlib.import_module(_PREVIEW_HELPER)
 build_import_preview_data = preview_mod.build_import_preview_data
 mix_colors                = preview_mod.mix_colors
+
+# ── tooltip helper ──────────────────────────────────────────────────────────
+_TOOLTIP_HELPER = "LGA_NKS_Shared.LGA_tooltip_helper"
+if _TOOLTIP_HELPER in sys.modules:
+    del sys.modules[_TOOLTIP_HELPER]
+try:
+    _tooltip_mod        = importlib.import_module(_TOOLTIP_HELPER)
+    set_clip_tooltip    = _tooltip_mod.set_clip_tooltip
+    apply_tooltip_ss    = _tooltip_mod.apply_tooltip_stylesheet
+except Exception as _te:
+    def set_clip_tooltip(*a, **kw): pass
+    def apply_tooltip_ss(*a, **kw): pass
+
 # La inyección de debug_print se hace después de que setup_debug_logging() corra
 # (ver final del bloque de logging más abajo → _inject_preview_logger())
 
@@ -1361,6 +1374,12 @@ class ImportShotDialog(QtWidgets.QDialog):
         # Custom resolution + Preserve AR
         self._custom_ar_updating = False   # evita recursión al actualizar spinboxes
         self._custom_master = "w"          # "w" | "h" — última dimensión editada
+
+        # FPS del timeline (para tooltips de duración en segundos)
+        try:
+            self._fps = float(self.seq.framerate().toFloat())
+        except Exception:
+            self._fps = 24.0
 
         # Resolución del timeline (para el preset "Timeline" hardcoded)
         try:
@@ -3112,6 +3131,9 @@ class ImportShotDialog(QtWidgets.QDialog):
     # ══════════════════════════════════════════════════════════════
 
     def _build_page_import(self):
+        # Aplicar stylesheet de tooltips a la QApplication (una sola vez es suficiente)
+        apply_tooltip_ss(QtWidgets.QApplication.instance())
+
         page = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(page)
         layout.setSpacing(8)
@@ -3219,42 +3241,49 @@ class ImportShotDialog(QtWidgets.QDialog):
         color: str = "#555555",
         is_new: bool = False,
         duration_text: str = "",
+        frames: int = 0,
+        fps: float = 24.0,
     ) -> QtWidgets.QLabel:
         """
         Devuelve un QLabel estilizado como bloque de clip de timeline.
-        El label tiene SizePolicy Expanding para responder a stretch en QHBoxLayout.
 
-        Todos los chips usan el mismo color de fondo / borde derivado del track color.
-        Los clips "new" (a importar) llevan texto en bold; los de contexto en normal.
+        - El texto del chip es SOLO el nombre (sin duración).
+        - La duración y segundos se muestran en el tooltip.
+        - El chip puede shrinkear por debajo de su sizeHint: el texto se cropea.
+        - Los clips "new" (a importar) llevan texto en bold; los de contexto en normal.
+        - Todos los chips usan el mismo color derivado del track (is_new solo cambia bold).
+
+        Args:
+            text:          Nombre del clip (puede cropearse si el chip es muy angosto).
+            color:         Color del track (hex).
+            is_new:        True para clips a importar (bold), False para contexto.
+            duration_text: Ignorado — se usa "frames" para el tooltip.
+            frames:        Duración en frames (para tooltip).
+            fps:           FPS del proyecto (para convertir a segundos en tooltip).
         """
-        _BASE = "#1a1a1a"
+        _BASE  = "#1a1a1a"
         bg     = mix_colors(color, _BASE, 0.35)
         border = color
         clr    = mix_colors(color, "#ffffff", 0.75)
         weight = "bold" if is_new else "normal"
 
-        if duration_text:
-            lbl = QtWidgets.QLabel()
-            lbl.setTextFormat(QtCore.Qt.RichText)
-            dim_clr = mix_colors(color, "#ffffff", 0.50)
-            lbl.setText(
-                "%s  <span style='color:%s; font-weight:normal; font-size:10px;'>%s</span>"
-                % (text, dim_clr, duration_text)
-            )
-        else:
-            lbl = QtWidgets.QLabel(text)
-            lbl.setTextFormat(QtCore.Qt.PlainText)
-
+        lbl = QtWidgets.QLabel(text)
+        lbl.setTextFormat(QtCore.Qt.PlainText)
         lbl.setStyleSheet(
             "background: %s; border: 1px solid %s; color: %s; "
-            "font-weight: %s; padding: 4px 10px; border-radius: 3px;"
+            "font-weight: %s; padding: 4px 6px; border-radius: 3px;"
             % (bg, border, clr, weight)
         )
-        lbl.setMinimumWidth(0)
+        # Permitir que el chip shrinkee por debajo de su sizeHint:
+        # el texto se cropea naturalmente (Qt alinea a la izquierda y corta).
+        lbl.setMinimumWidth(1)
         lbl.setSizePolicy(
-            QtWidgets.QSizePolicy.Expanding,
+            QtWidgets.QSizePolicy.Ignored,   # ignora sizeHint horizontal
             QtWidgets.QSizePolicy.Preferred,
         )
+        # Tooltip con nombre completo, frames y segundos
+        if frames > 0:
+            set_clip_tooltip(lbl, text, frames, fps=fps, color=color)
         return lbl
 
     def _build_before_cell(
@@ -3299,7 +3328,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             lo.addStretch(offset_K)
         lbl = self._make_chip_label(
             before_clip["name"], bar_color, is_new=False,
-            duration_text=self._fmt_duration(clip_dur),
+            frames=clip_dur, fps=self._fps,
         )
         lo.addWidget(lbl, chip_K)
         if trail_K > 0:
@@ -3339,7 +3368,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         if chip_K > 0:
             lbl = self._make_chip_label(
                 new_name, bar_color, is_new=True,
-                duration_text=self._fmt_duration(clip_dur),
+                frames=clip_dur, fps=self._fps,
             )
             lo.addWidget(lbl, chip_K)
         if trail_K > 0:
@@ -3387,7 +3416,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             lo.addStretch(offset_K)
         lbl = self._make_chip_label(
             after_clip["name"], bar_color, is_new=False,
-            duration_text=self._fmt_duration(clip_dur),
+            frames=clip_dur, fps=self._fps,
         )
         lo.addWidget(lbl, chip_K)
         if trail_K > 0:
@@ -3582,12 +3611,11 @@ class ImportShotDialog(QtWidgets.QDialog):
             table.setRowHeight(row_i, 24)
             row_i += 1
 
-            # Cada ítem sin track: chip proporcional coloreado con duración
+            # Cada ítem sin track: chip proporcional coloreado (tooltip con duración)
             for item in unassigned:
                 icolor  = item.get("_color", "#555555")
                 iname   = item.get("name") or item.get("version_name") or "—"
                 dur_v   = item.get("frame_count") or 0
-                dur_txt = self._fmt_duration(dur_v)
 
                 bar2 = QtWidgets.QTableWidgetItem()
                 bar2.setBackground(QtGui.QColor(icolor))
@@ -3605,7 +3633,8 @@ class ImportShotDialog(QtWidgets.QDialog):
                 chip_K  = max(1, int(min(1.0, dur_v / new_shot_dur) * K)) if dur_v > 0 else K
                 trail_K = max(0, K - chip_K)
                 lbl = self._make_chip_label(
-                    iname, color=icolor, is_new=False, duration_text=dur_txt
+                    iname, color=icolor, is_new=False,
+                    frames=dur_v, fps=self._fps,
                 )
                 chip_layout.addWidget(lbl, chip_K)
                 if trail_K > 0:
