@@ -147,6 +147,51 @@ combo.setStyleSheet(
 
 ---
 
+## SpinBox (`QSpinBox` / `QDoubleSpinBox`)
+
+### Problema — Los botones arriba/abajo desaparecen con stylesheet custom
+
+Cuando se aplica un stylesheet custom a `QSpinBox`, los botones up/down pueden
+desaparecer o quedar invisibles si no se definen los sub-controles
+`::up-button`, `::down-button`, `::up-arrow` y `::down-arrow`.
+
+A diferencia de `QComboBox`, **el CSS triangle (border trick) SÍ funciona** en
+`QSpinBox` para renderear las flechas.
+
+#### Solucion ganadora
+
+```css
+QSpinBox {
+    background-color: #272727; border: 1px solid #444;
+    color: #a7a7a7; padding: 2px 20px 2px 4px;
+}
+QSpinBox::up-button {
+    subcontrol-origin: border; subcontrol-position: top right;
+    width: 18px; border-left: 1px solid #444; background-color: #2e2e2e;
+}
+QSpinBox::up-button:hover { background-color: #3a3a3a; }
+QSpinBox::up-arrow {
+    image: none;
+    border-left: 4px solid transparent; border-right: 4px solid transparent;
+    border-bottom: 4px solid #888; width: 0px; height: 0px;
+}
+QSpinBox::down-button {
+    subcontrol-origin: border; subcontrol-position: bottom right;
+    width: 18px; border-left: 1px solid #444; background-color: #2e2e2e;
+}
+QSpinBox::down-button:hover { background-color: #3a3a3a; }
+QSpinBox::down-arrow {
+    image: none;
+    border-left: 4px solid transparent; border-right: 4px solid transparent;
+    border-top: 4px solid #888; width: 0px; height: 0px;
+}
+```
+
+El padding derecho `2px 20px 2px 4px` deja espacio para los botones.
+Aplicar el mismo patron a `QDoubleSpinBox` (mismos sub-controles).
+
+---
+
 ## Referencias
 
 - [LGA_import_shots.py](../LGA_NKS_Edit_Panel_py/LGA_import_shots.py) — clase

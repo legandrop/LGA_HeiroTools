@@ -922,6 +922,21 @@ _COMBO_BASE = (
 )
 
 
+def _ar_str(w, h):
+    """Devuelve el aspect ratio como '16:9', '2.39:1', etc."""
+    if not w or not h:
+        return ""
+    try:
+        from math import gcd
+        g = gcd(int(w), int(h))
+        rw, rh = int(w) // g, int(h) // g
+        if rw <= 32 and rh <= 32:
+            return "%d:%d" % (rw, rh)
+        return "%.2f:1" % (w / float(h))
+    except Exception:
+        return ""
+
+
 # ══════════════════════════════════════════════════════════════════
 #  Dialogo principal
 # ══════════════════════════════════════════════════════════════════
@@ -950,7 +965,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self.setObjectName("LGA_ImportShotDialog")
         self.setModal(True)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-        self.setMinimumWidth(970)
+        self.setMinimumWidth(1170)
         self.setMinimumHeight(650)
         self.setStyleSheet(_DIALOG_STYLE)
 
@@ -1127,6 +1142,14 @@ class ImportShotDialog(QtWidgets.QDialog):
             chk = self._checkboxes[row]
             chk.setChecked(not chk.isChecked())
 
+    def _on_convert_row_clicked(self, row, col):
+        if col <= 1:
+            return  # barra de color y checkbox manejan sus propios eventos
+        if row in self._convert_checkboxes:
+            chk = self._convert_checkboxes[row]
+            if chk.isEnabled():
+                chk.setChecked(not chk.isChecked())
+
     def _build_table_rows(self):
         """
         Construye la lista de filas con secciones intercaladas.
@@ -1291,7 +1314,11 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         # Col 4: Res
         w, h = item.get("width"), item.get("height")
-        res_str = ("%d×%d" % (w, h)) if (w and h) else "—"
+        if w and h:
+            ar = _ar_str(w, h)
+            res_str = "%d×%d (%s)" % (w, h, ar) if ar else "%d×%d" % (w, h)
+        else:
+            res_str = "—"
         res_item = QtWidgets.QTableWidgetItem(res_str)
         res_item.setForeground(QtGui.QColor("#888888"))
         table.setItem(row_i, 4, res_item)
@@ -1473,7 +1500,37 @@ class ImportShotDialog(QtWidgets.QDialog):
     _SPIN_STYLE = """
         QSpinBox, QDoubleSpinBox {
             background-color: #272727; border: 1px solid #444;
-            color: #a7a7a7; padding: 2px 4px;
+            color: #a7a7a7; padding: 2px 20px 2px 4px;
+        }
+        QSpinBox::up-button, QDoubleSpinBox::up-button {
+            subcontrol-origin: border; subcontrol-position: top right;
+            width: 18px; border-left: 1px solid #444;
+            background-color: #2e2e2e;
+        }
+        QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover {
+            background-color: #3a3a3a;
+        }
+        QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {
+            image: none;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-bottom: 4px solid #888;
+            width: 0px; height: 0px;
+        }
+        QSpinBox::down-button, QDoubleSpinBox::down-button {
+            subcontrol-origin: border; subcontrol-position: bottom right;
+            width: 18px; border-left: 1px solid #444;
+            background-color: #2e2e2e;
+        }
+        QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {
+            background-color: #3a3a3a;
+        }
+        QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {
+            image: none;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 4px solid #888;
+            width: 0px; height: 0px;
         }
     """
 
@@ -1510,6 +1567,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         for c in (3, 4, 5, 6, 7):
             hdr.setSectionResizeMode(c, QtWidgets.QHeaderView.ResizeToContents)
         self._convert_checkboxes = {}
+        self._convert_table.cellClicked.connect(self._on_convert_row_clicked)
         layout.addWidget(self._convert_table)
 
         layout.addWidget(_separator())
@@ -1628,7 +1686,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         for label, _ in self._RES_PRESETS:
             self._res_combo.addItem(label)
         self._res_combo.currentIndexChanged.connect(self._on_res_preset_changed)
-        self._res_combo.setMinimumWidth(180)
+        self._res_combo.setMinimumWidth(240)
         res_row.addWidget(self._res_combo)
         res_row.addStretch()
         col_res.addLayout(res_row)
@@ -1652,15 +1710,36 @@ class ImportShotDialog(QtWidgets.QDialog):
         cr_row.addWidget(self._convert_custom_w)
         cr_row.addWidget(x_lbl)
         cr_row.addWidget(self._convert_custom_h)
-        self._convert_keep_ar = QtWidgets.QCheckBox("Mantener aspect ratio")
-        self._convert_keep_ar.setChecked(True)
-        self._convert_keep_ar.setStyleSheet("color:#a7a7a7; padding:2px;")
-        cr_row.addWidget(self._convert_keep_ar)
         cr_row.addStretch()
         self._custom_res_widget.hide()
         col_res.addWidget(self._custom_res_widget)
         self._convert_custom_w.valueChanged.connect(self._refresh_convert_destinos)
         self._convert_custom_h.valueChanged.connect(self._refresh_convert_destinos)
+
+        # Preserve aspect ratio — siempre visible
+        self._convert_keep_ar = QtWidgets.QCheckBox("Preserve aspect ratio")
+        self._convert_keep_ar.setChecked(True)
+        self._convert_keep_ar.setStyleSheet("color:#a7a7a7; padding:2px;")
+        self._convert_keep_ar.stateChanged.connect(self._on_keep_ar_changed)
+        col_res.addWidget(self._convert_keep_ar)
+
+        # Match dimension (visible solo si PAR activo)
+        self._match_dim_widget = QtWidgets.QWidget()
+        md_row = QtWidgets.QHBoxLayout(self._match_dim_widget)
+        md_row.setContentsMargins(16, 0, 0, 0)
+        md_lbl = QtWidgets.QLabel("Dimensión que manda:")
+        md_lbl.setStyleSheet("color:#a7a7a7;")
+        md_row.addWidget(md_lbl)
+        self._convert_match_dim = _ArrowComboBox()
+        self._convert_match_dim.setStyleSheet(self._COMBO_STYLE)
+        self._convert_match_dim.setView(QtWidgets.QListView())
+        for opt in ("Match target width", "Match target height"):
+            self._convert_match_dim.addItem(opt)
+        self._convert_match_dim.setFixedWidth(180)
+        self._convert_match_dim.currentIndexChanged.connect(self._refresh_convert_destinos)
+        md_row.addWidget(self._convert_match_dim)
+        md_row.addStretch()
+        col_res.addWidget(self._match_dim_widget)
 
         flt_row = QtWidgets.QHBoxLayout()
         flt_lbl = QtWidgets.QLabel("Filtro resampling:")
@@ -1772,19 +1851,54 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._custom_res_widget.setVisible(preset == "custom")
         self._refresh_convert_destinos()
 
+    def _on_keep_ar_changed(self):
+        self._match_dim_widget.setVisible(self._convert_keep_ar.isChecked())
+        self._refresh_convert_destinos()
+
     def _current_target_res(self, src_w, src_h):
-        """Devuelve (w, h) destino segun preset actual, o (src_w, src_h) si Original."""
+        """Devuelve (tw, th) destino segun preset y opciones de aspect ratio.
+
+        Si Preserve AR está activo y el preset es fijo, se ajusta la dimensión
+        secundaria para no deformar la imagen.  Custom usa directamente los
+        spinboxes sin ningún ajuste de AR.
+        """
         idx = self._res_combo.currentIndex()
         preset = self._RES_PRESETS[idx][1] if 0 <= idx < len(self._RES_PRESETS) else None
         if preset is None:
-            return src_w, src_h
+            return src_w, src_h          # Original
         if preset == "custom":
-            tw = self._convert_custom_w.value()
-            th = self._convert_custom_h.value()
-            if self._convert_keep_ar.isChecked() and src_w and src_h:
-                th = int(round(tw * (src_h / float(src_w))))
-            return tw, th
-        return preset  # tuple (w, h)
+            return self._convert_custom_w.value(), self._convert_custom_h.value()
+        # preset fijo (w, h)
+        tw, th = preset
+        if self._convert_keep_ar.isChecked() and src_w and src_h:
+            match_width = self._convert_match_dim.currentText().startswith("Match target width")
+            if match_width:
+                th = int(round(tw * src_h / float(src_w)))
+            else:
+                tw = int(round(th * src_w / float(src_h)))
+        return tw, th
+
+    def _update_res_combo_labels(self):
+        """Actualiza los items del combo con la resolución final real entre paréntesis."""
+        # Buscar primer EXR disponible para calcular la resolución real
+        src_w = src_h = None
+        if hasattr(self, "_convert_rows"):
+            for it in self._convert_rows:
+                if it.get("kind") != "mov" and it.get("width") and it.get("height"):
+                    src_w, src_h = it.get("width"), it.get("height")
+                    break
+        for i, (label, preset) in enumerate(self._RES_PRESETS):
+            if preset is None or preset == "custom" or not src_w or not src_h:
+                self._res_combo.setItemText(i, label)
+                continue
+            tw, th = preset
+            if self._convert_keep_ar.isChecked():
+                match_width = self._convert_match_dim.currentText().startswith("Match target width")
+                if match_width:
+                    th = int(round(tw * src_h / float(src_w)))
+                else:
+                    tw = int(round(th * src_w / float(src_h)))
+            self._res_combo.setItemText(i, "%s  (→ %d×%d)" % (label, tw, th))
 
     def _target_compression(self, src_comp):
         return "dwaa" if self._convert_dwaa_chk.isChecked() else (src_comp or "—")
@@ -1807,12 +1921,18 @@ class ImportShotDialog(QtWidgets.QDialog):
 
     @staticmethod
     def _ch_str(ch):
-        return "%dch" % ch if isinstance(ch, int) else "—"
+        if isinstance(ch, int):
+            if ch == 1:  return "Y"
+            if ch == 3:  return "RGB"
+            if ch == 4:  return "RGBA"
+            return "%dch" % ch
+        return "—"
 
     def _refresh_convert_destinos(self):
-        """Recalcula la columna 'Destino' de la tabla en vivo (solo EXR, no MOVs)."""
+        """Recalcula la columna 'Destino' y las labels del combo (solo EXR, no MOVs)."""
         if not hasattr(self, "_convert_table") or not hasattr(self, "_convert_rows"):
             return
+        self._update_res_combo_labels()
         for row_i, item in enumerate(self._convert_rows):
             if item.get("kind") == "mov":
                 continue
@@ -1821,7 +1941,11 @@ class ImportShotDialog(QtWidgets.QDialog):
             if (self._convert_no_upscale.isChecked() and sw and sh and tw and th
                     and (tw > sw or th > sh)):
                 tw, th = sw, sh
-            res_str = ("%d×%d" % (tw, th)) if (tw and th) else "—"
+            if tw and th:
+                ar = _ar_str(tw, th)
+                res_str = "%d×%d (%s)" % (tw, th, ar) if ar else "%d×%d" % (tw, th)
+            else:
+                res_str = "—"
             comp = self._target_compression(item.get("compression"))
             bd   = self._target_bitdepth(item.get("bitdepth"))
             ch   = self._target_channels(item.get("channels"))
@@ -1891,9 +2015,13 @@ class ImportShotDialog(QtWidgets.QDialog):
             fc = it.get("frame_count") or 0
             if not is_mov:
                 total_frames += fc
+            if sw and sh:
+                ar = _ar_str(sw, sh)
+                res_origen = "%d×%d (%s)" % (sw, sh, ar) if ar else "%d×%d" % (sw, sh)
+            else:
+                res_origen = "—"
             origen = "%s · %s · %s · %s · %df" % (
-                ("%d×%d" % (sw, sh)) if (sw and sh) else "—",
-                sbd, self._ch_str(sch), sc, fc,
+                res_origen, sbd, self._ch_str(sch), sc, fc,
             )
             o_item = QtWidgets.QTableWidgetItem(origen)
             o_item.setForeground(QtGui.QColor(dim_color))
