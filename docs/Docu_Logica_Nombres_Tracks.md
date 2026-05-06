@@ -122,15 +122,13 @@ Los pasos para sumar una task nueva son:
 - **Review on/off por track:** [LGA_NKS_Review_Panel.py](../LGA_NKS_Review_Panel.py)
   - Métodos: `execute_DisableEXR()`, `execute_DisableRoto()`
 
-- **Script genérico de toggle:** [LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableEXR.py](../LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableEXR.py)
-  - Función: `main(track_name=None, enable_rev_fallback=False)`
-  - Cuando `enable_rev_fallback=True` (sólo para comp): si `_comp_` está vacío en el playhead o tiene un clip v00/v000, busca un track `_compXXX_`. Si coincide con `TRACK_comp_REV` (case-insensitive) opera ahí; si no, ofrece renombrarlo al nombre canónico antes de operar.
-
-- **Wrapper comp (con fallback REV):** [LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableComp.py](../LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableComp.py)
-  - Función: `main()` → llama a `disable_main(enable_rev_fallback=True)`
+- **Script de toggle (escenario comp por default):** [LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableEXR.py](../LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableEXR.py)
+  - Función: `main(track_name=None, enable_rev_fallback=True)`
+  - Default `enable_rev_fallback=True`: trabaja exclusivamente sobre el playhead. Si `_comp_` está vacío en el playhead o tiene un clip v00/v000, busca un track `_compXXX_`. Si coincide con `TRACK_comp_REV` (case-insensitive) opera ahí; si no, ofrece renombrarlo al nombre canónico antes de operar.
+  - `enable_rev_fallback=False`: comportamiento original (playhead con fallback a selección, sin lógica REV). Usado por wrappers de otras tasks.
 
 - **Wrapper roto:** [LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableRoto.py](../LGA_NKS_Review_Panel_py/LGA_NKS_Clip_DisableRoto.py)
-  - Función: `main()`
+  - Función: `main()` → llama a `disable_main(track_name=TRACK_roto_EXR, enable_rev_fallback=False)`
 
 - **Selección de task en playhead (single-task tools):** [LGA_NKS_Shared/LGA_NKS_TaskSelectionDialog.py](../LGA_NKS_Shared/LGA_NKS_TaskSelectionDialog.py)
   - Funciones: `get_tasks_at_playhead()`, `track_for_task()`, `prompt_task_selection()`, `resolve_task_at_playhead()`
