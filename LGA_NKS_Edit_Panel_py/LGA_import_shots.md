@@ -59,7 +59,7 @@ Usa el sistema de logging dual estandar del proyecto (Sistema A — timer + limp
 DEBUG = True                  # Master switch
 DEBUG_CONSOLE = False         # Salida a consola (off por defecto)
 DEBUG_LOG = True              # Escritura al archivo .log
-Transcode_TEST_Mode = True    # Output a /test_transcode; checkboxes de
+Transcode_TEST_Mode = False   # Output a /test_transcode; checkboxes de
                               # originals quedan inertes
 ```
 
@@ -314,7 +314,7 @@ Conversion de EXR sequences para los items marcados.
 |-----|-----------|-----------------|
 | (barra) | Color `#42616d` (plates) | 4 px, sin header |
 | Nombre | Nombre de la secuencia | `#cccccc` |
-| Origen | `WxH (AR) (PAR) · bitdepth · Nch · compresion · #f - Xs` | AR dorado `#a89060`, PAR rosa `#c4787a` entre paréntesis, comp coloreada, count+secs ámbar `#b09040`. Ancho: 375 px |
+| Origen | `WxH (AR) (PAR) · bitdepth · Nch · compresion · #f - Xs` | AR dorado `#a89060`, PAR rosa `#c4787a` entre paréntesis, comp coloreada, count+secs ámbar `#b09040`. Ancho: 400 px |
 | → | Flecha separadora | centrada, `#666` |
 | Destino | `WxH (AR) (PAR) · bitdepth · Nch · compresion` | mismo coloring; PAR destino = `(1)` si desanamorfizar activo, sino mismo PAR fuente; `—` gris oscuro si checkbox off |
 | Tamaño | Tamaño actual en disco | escaneado al abrir la pagina (`_folder_size_bytes`) |
@@ -357,8 +357,8 @@ El bit depth y channels se leen via `oiiotool --info -v` parseando la linea
 
 | Control | Default | Notas |
 |---------|---------|-------|
-| Destino (`QComboBox`) | `Original` | Presets cargados desde INI. Secciones `[AR]` en dorado. Ícono 🗑 a la derecha en presets borrables; click en ícono borra el preset del INI. Presets por defecto: `Original`, `2K — 2048×1152 [16:9]`, `UHD — 3840×2160 [16:9]`, `4K — 4096×2304 [16:9]`, `Custom...`. Con source disponible: muestra `→ WxH [AR_real]` calculado según PAR y match_dim |
-| Custom W × H + `[Save preset]` | `2048 × 1152` | Solo visible si preset = `Custom...`. El botón "Save preset" abre un diálogo para nombrar y guardar el preset al INI. |
+| Destino (`QComboBox`) | `Original` | Presets cargados desde INI. Secciones `[AR]` en dorado. Ícono 🗑 a la derecha solo en presets borrables (excluye `Original`, `Timeline ...` y `Custom...`); click en ícono borra el preset del INI. Presets por defecto: `Original`, `Timeline  WxH  [AR]` (resolución del timeline activo), `2K — 2048×1152 [16:9]`, `UHD — 3840×2160 [16:9]`, `4K — 4096×2304 [16:9]`, `Custom...`. Con source disponible: muestra `→ WxH [AR_real]` calculado según PAR y match_dim |
+| Custom W × H + `[Save preset]` | `2048 × 1152` | Solo visible si preset = `Custom...`. Spinboxes de 88 px de ancho (suficiente para mostrar 4 dígitos completos). El botón "Save preset" usa estilo `_BTN_SMALL` (igual que los botones de selección rápida). Abre un diálogo para nombrar y guardar el preset al INI. |
 | ☑ Preserve aspect ratio | on | **Comportamiento según preset:** |
 | | | — **Presets fijos** (2K/UHD/4K): muestra "Dimensión que manda" (match width/height) |
 | | | — **Custom:** oculta "Dimensión que manda"; vincula W↔H dinámicamente. La última dimensión editada es el "master"; la otra se recalcula por ítem según su AR de source |
@@ -414,13 +414,14 @@ _current_target_res(src_w, src_h) con preset=custom y PAR on:
 
 | Control | Default |
 |---------|---------|
-| ☑ Mover originales a `/Originals` | on (off si `Transcode_TEST_Mode`) |
+| ☑ Mover originales a `/Originals` | on (bloqueado si `Transcode_TEST_Mode = True`) |
 | ☑ Borrar `/Originals` al terminar | off |
 
 > Los valores de Manejo de originales son **persistentes** (se guardan en el INI al cambiar),
 > excepto cuando `Transcode_TEST_Mode = True` (los checkboxes quedan bloqueados).
+> Con `Transcode_TEST_Mode = False` (valor actual), el flujo completo de originales está activo.
 
-Cuando el flag global `Transcode_TEST_Mode = True` está activo:
+Cuando el flag global `Transcode_TEST_Mode = True` está activo (actualmente `False`):
 - Aparece un aviso `🧪 TEST MODE` en la sección.
 - Ambos checkboxes quedan deshabilitados.
 - El output del transcode (cuando se implemente) se escribirá en
@@ -582,7 +583,7 @@ Basado en `LGA_NKS_CreateV000.py`:
 - Botones secundarios (Rename, Transcode EXR): `#3a3a3a` con borde `#555555`
 - Botones pequenos (seleccion): `#2e2e2e` con borde `#444444`, texto `#999999`
 - Boton cancelar/volver: `#555555` con borde `#666666`
-- Ancho minimo del dialogo: `1275px` (requiere espacio para la tabla de transcode con Origen 375 px + Destino amplio)
+- Ancho minimo del dialogo: `1300px` (requiere espacio para la tabla de transcode con Origen 400 px + Destino amplio)
 - Titulos de seccion de tabla: color de la seccion sobre fondo `#313131`
 - Referencias (seqref en bin): texto color `#aa9e54`
 

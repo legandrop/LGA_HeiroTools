@@ -69,7 +69,7 @@ settings_mod = importlib.import_module(_SETTINGS_HELPER)
 # ── flags ──────────────────────────────────────────────────────────
 # Si True, el transcode escribe a {seq_path}/test_transcode/ y los
 # checkboxes "Mover originales" / "Borrar /Originals" quedan inertes.
-Transcode_TEST_Mode = True
+Transcode_TEST_Mode = False
 
 # ── logging ────────────────────────────────────────────────────────
 DEBUG = True
@@ -1080,7 +1080,7 @@ class _ResPresetListView(QtWidgets.QListView):
     @staticmethod
     def _is_deletable(text):
         t = text.strip()
-        return t not in ("Original", "Timeline", "Custom...")
+        return t not in ("Original", "Custom...") and not t.startswith("Timeline")
 
     def _in_trash_zone(self, row, pos):
         m = self.model()
@@ -1147,7 +1147,7 @@ class _ResPresetDelegate(QtWidgets.QStyledItemDelegate):
     @staticmethod
     def _is_deletable(text):
         t = text.strip()
-        return t not in ("Original", "Timeline", "Custom...")
+        return t not in ("Original", "Custom...") and not t.startswith("Timeline")
 
     def paint(self, painter, option, index):
         painter.save()
@@ -1242,7 +1242,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self.setObjectName("LGA_ImportShotDialog")
         self.setModal(True)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-        self.setMinimumWidth(1275)
+        self.setMinimumWidth(1300)
         self.setMinimumHeight(650)
         self.setStyleSheet(_DIALOG_STYLE)
 
@@ -1901,9 +1901,9 @@ class ImportShotDialog(QtWidgets.QDialog):
         hdr.setSectionResizeMode(1, QtWidgets.QHeaderView.Fixed)
         self._convert_table.setColumnWidth(1, 28)
         hdr.setSectionResizeMode(2, QtWidgets.QHeaderView.Stretch)
-        # Origen (col 3) — 360px para "4096×2160 (2.39:1) (2) · 16b · RGB · dwaa · 480f - 20.0s"
+        # Origen (col 3) — 400px para "4096×2160 (2.39:1) (2) · 16b · RGB · dwaa · 480f - 20.0s"
         hdr.setSectionResizeMode(3, QtWidgets.QHeaderView.Interactive)
-        self._convert_table.setColumnWidth(3, 375)
+        self._convert_table.setColumnWidth(3, 400)
         # Flecha (col 4)
         hdr.setSectionResizeMode(4, QtWidgets.QHeaderView.ResizeToContents)
         # Destino (col 5) — mínimo 320px para "2048×858 (2.39:1) · half · RGB · dwaa"
@@ -2040,20 +2040,16 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._convert_custom_w.setRange(1, 16384)
         self._convert_custom_w.setValue(2048)
         self._convert_custom_w.setStyleSheet(_ArrowSpinBox._STYLE)
-        self._convert_custom_w.setFixedWidth(72)
+        self._convert_custom_w.setFixedWidth(88)
         self._convert_custom_h = _ArrowSpinBox()
         self._convert_custom_h.setRange(1, 16384)
         self._convert_custom_h.setValue(1152)
         self._convert_custom_h.setStyleSheet(_ArrowSpinBox._STYLE)
-        self._convert_custom_h.setFixedWidth(72)
+        self._convert_custom_h.setFixedWidth(88)
         x_lbl = QtWidgets.QLabel("×")
         x_lbl.setStyleSheet("color:#a7a7a7;")
         self._save_preset_btn = QtWidgets.QPushButton("Save preset")
-        self._save_preset_btn.setStyleSheet(
-            "QPushButton { background:#2a2a3a; border:1px solid #555; color:#a7a7a7; "
-            "padding:3px 10px; border-radius:3px; font-size:11px; }"
-            "QPushButton:hover { background:#3a3a4a; color:#cccccc; }"
-        )
+        self._save_preset_btn.setStyleSheet(_BTN_SMALL)
         self._save_preset_btn.setFixedHeight(24)
         self._save_preset_btn.setToolTip("Guardar esta resolución como preset")
         self._save_preset_btn.clicked.connect(self._on_save_preset_clicked)
@@ -2420,7 +2416,8 @@ class ImportShotDialog(QtWidgets.QDialog):
         tl_lbl = "Timeline"
         if self._tl_w and self._tl_h:
             ar = _ar_str(self._tl_w, self._tl_h)
-            tl_lbl = ("Timeline  [%s]" % ar) if ar else "Timeline"
+            res_part = "%d\u00d7%d" % (self._tl_w, self._tl_h)
+            tl_lbl = ("Timeline  %s  [%s]" % (res_part, ar)) if ar else ("Timeline  %s" % res_part)
         head = [
             ("Original", None),
             (tl_lbl, "timeline"),

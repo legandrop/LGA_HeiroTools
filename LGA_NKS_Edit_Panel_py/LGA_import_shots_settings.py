@@ -248,12 +248,8 @@ def show_save_preset_dialog(w, h, parent=None):
 
     # Encabezado
     header_row = QtWidgets.QHBoxLayout()
-    icon_lbl  = QtWidgets.QLabel("💾")
-    icon_lbl.setStyleSheet("font-size:18px;")
     title_lbl = QtWidgets.QLabel("Guardar preset de resolución")
     title_lbl.setStyleSheet("color:#d9a441; font-size:13px; font-weight:bold;")
-    header_row.addWidget(icon_lbl)
-    header_row.addSpacing(8)
     header_row.addWidget(title_lbl)
     header_row.addStretch()
     layout.addLayout(header_row)
