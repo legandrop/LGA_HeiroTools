@@ -336,7 +336,7 @@ DWAA on/off, DWAA level, channels, preset de resolucion, custom W×H, "no upscal
 
 **Interacción con la tabla:**
 - **Click simple** en cualquier columna (excepto col 0/1): activa/desactiva el checkbox de la fila.
-- **Doble click**: abre la carpeta del plate en el explorador del sistema (Windows: `os.startfile`; macOS: `open`).
+- **Doble click**: restaura el checkbox a su estado previo (cancela el toggle del primer click) y abre la carpeta del plate en el explorador del sistema (Windows: `os.startfile`; macOS: `open`).
 
 **Upscale bloqueado:** cuando el resize resultaría en upscale y "Aplicar solo si origen es mayor"
 está activo, la fila muestra `⚠ Upscale` en rojo y la columna Destino se grísea. No se modifica
@@ -416,18 +416,16 @@ _current_target_res(src_w, src_h) con preset=custom y PAR on:
 
 ### Opciones — Manejo de originales (fila inferior)
 
-| Control | Default |
-|---------|---------|
-| ☑ Mover originales a `/Originals` | on (bloqueado si `Transcode_TEST_Mode = True`) |
-| ☑ Borrar `/Originals` al terminar | off |
+| Control | Default | Notas |
+|---------|---------|-------|
+| ☑ Borrar `/Originals` al terminar | off | Los originales **siempre** se mueven a `_input/Originals/<plate>/` antes del transcode. Este checkbox solo controla si se borran al finalizar exitosamente. Tooltip explica el comportamiento al hacer hover. |
 
-> Los valores de Manejo de originales son **persistentes** (se guardan en el INI al cambiar),
-> excepto cuando `Transcode_TEST_Mode = True` (los checkboxes quedan bloqueados).
-> Con `Transcode_TEST_Mode = False` (valor actual), el flujo completo de originales está activo.
+> El valor de "Borrar /Originals" es **persistente** (se guarda en el INI).
+> Con `Transcode_TEST_Mode = True`, el checkbox queda deshabilitado y los originales no se mueven.
 
 Cuando el flag global `Transcode_TEST_Mode = True` está activo (actualmente `False`):
 - Aparece un aviso `🧪 TEST MODE` en la sección.
-- Ambos checkboxes quedan deshabilitados.
+- El checkbox queda deshabilitado.
 - El output del transcode se escribe en `{seq_path}/test_transcode/` sin mover nada.
 
 #### Estructura de Originals (cuando `move_originals = True`)

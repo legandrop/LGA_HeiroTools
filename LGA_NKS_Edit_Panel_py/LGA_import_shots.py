@@ -1107,9 +1107,10 @@ class _ResPresetListView(QtWidgets.QListView):
         if new_hover != self._hovered_trash_row:
             old = self._hovered_trash_row
             self._hovered_trash_row = new_hover
+            vp = self.viewport()
             for r in (old, new_hover):
                 if r >= 0:
-                    self.update(self.visualRect(m.index(r, 0)))
+                    vp.update(self.visualRect(m.index(r, 0)))
 
     def eventFilter(self, obj, event):
         vp = self.viewport()
@@ -1122,7 +1123,7 @@ class _ResPresetListView(QtWidgets.QListView):
                 self._hovered_trash_row = -1
                 m = self.model()
                 if m and old >= 0:
-                    self.update(self.visualRect(m.index(old, 0)))
+                    self.viewport().update(self.visualRect(m.index(old, 0)))
             elif etype == QtCore.QEvent.MouseButtonRelease:
                 m = self.model()
                 if m:
@@ -1470,15 +1471,22 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._update_transcode_btn_state()
 
     def _on_convert_row_double_clicked(self, row, col):
-        """Doble click en la tabla de transcode: abre la carpeta del item en el explorador."""
-        import subprocess
+        """Doble click en la tabla de transcode: restaura checkbox (cancela el toggle del
+        primer click) y abre la carpeta del item en el explorador del sistema."""
+        import os, subprocess
+        # El primer click ya hizo toggle del checkbox; lo invertimos para dejarlo como estaba.
+        if col > 1 and row in self._convert_checkboxes:
+            chk = self._convert_checkboxes[row]
+            if chk.isEnabled():
+                chk.setChecked(not chk.isChecked())
+            self._update_transcode_btn_state()
+        # Abrir carpeta en el explorador
         if not hasattr(self, "_convert_rows") or row >= len(self._convert_rows):
             return
         item = self._convert_rows[row]
         path = item.get("path", "")
         if not path:
             return
-        import os
         if os.name == "nt":
             os.startfile(path)
         elif os.name == "posix":
@@ -2174,7 +2182,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         if Transcode_TEST_Mode:
             test_warn = QtWidgets.QLabel(
                 "🧪  TEST MODE — el output va a {seq}/test_transcode/. "
-                "Los toggles de originals están deshabilitados."
+                "Los originales no se mueven."
             )
             test_warn.setStyleSheet(
                 "color:#d9a441; font-style:italic; padding:4px 0px;"
@@ -2182,16 +2190,14 @@ class ImportShotDialog(QtWidgets.QDialog):
             test_warn.setWordWrap(True)
             layout.addWidget(test_warn)
 
-        self._move_originals_chk = QtWidgets.QCheckBox("Mover originales a /Originals")
-        self._move_originals_chk.setChecked(not Transcode_TEST_Mode)
-        self._move_originals_chk.setEnabled(not Transcode_TEST_Mode)
-        self._move_originals_chk.setStyleSheet("color:#a7a7a7; padding:2px;")
-        layout.addWidget(self._move_originals_chk)
-
         self._delete_originals_chk = QtWidgets.QCheckBox("Borrar /Originals al terminar")
         self._delete_originals_chk.setChecked(False)
         self._delete_originals_chk.setEnabled(not Transcode_TEST_Mode)
         self._delete_originals_chk.setStyleSheet("color:#a7a7a7; padding:2px;")
+        self._delete_originals_chk.setToolTip(
+            "Los originales siempre se mueven a _input/Originals/<plate>/ antes del transcode.\n"
+            "Activa para borrarlos automáticamente al terminar."
+        )
         layout.addWidget(self._delete_originals_chk)
 
         # Resumen (totales sin estimaciones)
@@ -2259,7 +2265,6 @@ class ImportShotDialog(QtWidgets.QDialog):
             (self._convert_no_upscale,   "stateChanged"),
             (self._convert_deana_chk,    "stateChanged"),
             (self._convert_deana_par,    "currentIndexChanged"),
-            (self._move_originals_chk,   "stateChanged"),
             (self._delete_originals_chk, "stateChanged"),
         ]:
             getattr(_w, _sig).connect(self._save_all_settings)
@@ -2496,7 +2501,6 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         # Originals (solo si no estamos en test mode)
         if not Transcode_TEST_Mode:
-            self._move_originals_chk.setChecked(org.get("move", "false").lower() == "true")
             self._delete_originals_chk.setChecked(org.get("delete", "false").lower() == "true")
 
     def _save_all_settings(self, *_):
@@ -2520,7 +2524,6 @@ class ImportShotDialog(QtWidgets.QDialog):
                 "deana_par":    self._convert_deana_par.currentText(),
             },
             "originals": {
-                "move":   str(self._move_originals_chk.isChecked()).lower(),
                 "delete": str(self._delete_originals_chk.isChecked()).lower(),
             },
         })
@@ -2914,7 +2917,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._transcode_results_all = []
         self._transcode_flags = {
             "test_mode":        Transcode_TEST_Mode,
-            "move_originals":   self._move_originals_chk.isChecked(),
+            "move_originals":   not Transcode_TEST_Mode,  # siempre True en modo normal
             "delete_originals": self._delete_originals_chk.isChecked(),
         }
         _deana_active = (hasattr(self, "_convert_deana_chk")
