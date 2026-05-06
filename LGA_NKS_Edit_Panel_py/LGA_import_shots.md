@@ -34,6 +34,8 @@ sin depender del playhead.
 |---------|-------------------|--------|
 | `LGA_import_shots_transcode.py` | `TranscodeWorkerSignals`, `TranscodeWorker`, `build_manifest_for_sequence`, `check_existing_outputs`, `delete_existing_outputs`, `show_overwrite_warning` | **implementado** |
 | `LGA_import_shots_settings.py` | Persistencia de settings e INI de presets de resolución. `load_all_settings`, `save_all_settings`, `load_res_presets`, `save_res_presets`, `preset_to_tuple`, `show_save_preset_dialog` | **implementado** |
+| `LGA_import_shots_rename.py` | Lógica de preview/validación/ejecución para Rename. `build_selected_rows`, `compute_preview`, `build_row_ops`, `execute_ops` | **implementado** |
+| `LGA_import_shots_rename_settings.py` | Persistencia INI dedicada de Rename. `load_settings`, `save_settings`, `get_settings_path` | **implementado** |
 | `LGA_import_shots_scan.py` | Helpers de escaneo de carpetas y metadata | pendiente |
 | `LGA_import_shots_timeline.py` | Helpers de timeline (push, stretch, posicionamiento) | pendiente |
 | `LGA_import_shots_bin.py` | Helpers de bin (find/create, import) | pendiente |
@@ -118,7 +120,7 @@ main()
     └── ImportShotDialog(...)               -> ventana principal con tabla + 3 botones
             |
             ├── [Rename]  -> sub-vista de renombrado para items marcados
-            │                (stub: ventana temporal con Rename / Cancel)
+            │                (preview en vivo + ejecución segura en batch)
             ├── [Convert] -> sub-vista de conversion EXR para items marcados
             │                Solo opera sobre EXR sequences. Si hay MOVs marcados,
             │                muestra advertencia por cada uno y los excluye.
@@ -274,8 +276,8 @@ Cuando se implemente:
 Estilo PowerRename: find/replace con preview en tiempo real sobre los nombres
 de los items marcados.
 
-> **Estado actual:** stub. Muestra una ventana temporal con botones Rename y Cancel.
-> Cancel vuelve a la ventana principal sin cambios.
+> **Estado actual:** implementado.
+> Documentación detallada: `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_import_shots_rename.md`
 
 ---
 
@@ -723,7 +725,6 @@ donde se distribuya la repo.
 
 ## Pendiente de implementacion
 
-- **Sub-vista Rename:** implementacion real del find/replace con preview (hoy es stub)
 - **Convert — Transcode de MOV:** plates MOV aparecen en la tabla con checkbox deshabilitado
   y estado "No soportado". Implementar cuando haya herramienta de transcode MOV disponible.
 - **Post-import: pregunta para Create v000 + estructura de tasks (PENDIENTE):**
@@ -746,6 +747,9 @@ donde se distribuya la repo.
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `main()`, `ImportShotDialog`, `_show_page()`, `_build_page_media()`, `_build_page_convert()`, `_update_convert_page()`, `_on_res_preset_changed()`, `_on_keep_ar_changed()`, `_update_match_dim_visibility()`, `_get_representative_res()`, `_on_custom_w_changed()`, `_on_custom_h_changed()`, `_current_target_res()`, `_target_compression()`, `_refresh_convert_destinos()`, `_update_res_combo_labels()`, `_on_dwaa_chk_changed()`, `_on_deana_chk_changed()`, `_apply_deana_if_active()`, `_load_settings_to_ui()`, `_save_all_settings()`, `_rebuild_res_combo()`, `_on_delete_preset()`, `_on_save_preset_clicked()`, `_run_transcode()`, `_start_next_sequence()`, `_on_sequence_started()`, `_poll_transcode_progress()`, `_on_sequence_done()`, `_on_worker_batch_done()`, `_finalize_transcode()`, `_on_transcode_error()`, `_fmt_bd()`, `_fmt_par()`, `_ar_str()`, `_read_exr_metadata()`, `_read_mov_metadata()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_transcode.py` | `TranscodeWorkerSignals` (señales: `log_message`, `sequence_started(row_i, dst_dir, total_frames)`, `sequence_done`, `all_done`, `error`), `TranscodeWorker`, `build_manifest_for_sequence(channels, pixel_aspect_ratio)`, `check_existing_outputs()`, `delete_existing_outputs()`, `show_overwrite_warning()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_settings.py` | `get_settings_path()`, `load_all_settings()`, `save_all_settings()`, `load_res_presets()`, `save_res_presets()`, `preset_to_tuple()`, `show_save_preset_dialog()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots_rename.py` | `build_selected_rows()`, `compute_preview()`, `build_row_ops()`, `execute_ops()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots_rename_settings.py` | `get_settings_path()`, `load_settings()`, `save_settings()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots_rename.md` | Especificación funcional y técnica de la sección Rename |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_CreateV000.py` | Referencia de UI, bin import, timeline placement, colorize path, patrón de settings persistentes |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_SetShotName.py` | Renombrado de clips post-importacion |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_OrganizeProject.py` | Estructura de bins `F <grupo>/<shot>` |

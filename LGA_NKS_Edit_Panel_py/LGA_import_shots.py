@@ -66,6 +66,16 @@ if _SETTINGS_HELPER in sys.modules:
     del sys.modules[_SETTINGS_HELPER]
 settings_mod = importlib.import_module(_SETTINGS_HELPER)
 
+_RENAME_SETTINGS_HELPER = "LGA_NKS_Edit_Panel_py.LGA_import_shots_rename_settings"
+if _RENAME_SETTINGS_HELPER in sys.modules:
+    del sys.modules[_RENAME_SETTINGS_HELPER]
+rename_settings_mod = importlib.import_module(_RENAME_SETTINGS_HELPER)
+
+_RENAME_HELPER = "LGA_NKS_Edit_Panel_py.LGA_import_shots_rename"
+if _RENAME_HELPER in sys.modules:
+    del sys.modules[_RENAME_HELPER]
+rename_mod = importlib.import_module(_RENAME_HELPER)
+
 # ── flags ──────────────────────────────────────────────────────────
 # Si True, el transcode escribe a {seq_path}/test_transcode/ y los
 # checkboxes "Mover originales" / "Borrar /Originals" quedan inertes.
@@ -1238,6 +1248,7 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         self._track_overrides = {}
         self._create_v000_tasks = set()
+        self._rename_happened = False
 
         # Custom resolution + Preserve AR
         self._custom_ar_updating = False   # evita recursión al actualizar spinboxes
@@ -1319,8 +1330,12 @@ class ImportShotDialog(QtWidgets.QDialog):
             if getattr(self, "_transcode_happened", False):
                 self._transcode_happened = False
                 self._refresh_media_page()
+            if getattr(self, "_rename_happened", False):
+                self._rename_happened = False
+                self._refresh_media_page()
             self._content_area.setCurrentWidget(self._page_media)
         elif page == self.PAGE_RENAME:
+            self._refresh_rename_preview()
             self._content_area.setCurrentWidget(self._page_rename)
         elif page == self.PAGE_CONVERT:
             self._content_area.setCurrentWidget(self._page_convert)
@@ -1801,6 +1816,7 @@ class ImportShotDialog(QtWidgets.QDialog):
                 self._checkboxes[row_i].setChecked(True)
 
     def _go_to_rename(self):
+        self._update_rename_page()
         self._show_page(self.PAGE_RENAME)
 
     def _go_to_convert(self):
@@ -1808,8 +1824,36 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._show_page(self.PAGE_CONVERT)
 
     # ══════════════════════════════════════════════════════════
-    #  PAGINA: Rename (stub)
+    #  PAGINA: Rename
     # ══════════════════════════════════════════════════════════
+
+    def _on_rename_row_clicked(self, row, col):
+        if col <= 1:
+            return
+        if row in self._rename_checkboxes:
+            chk = self._rename_checkboxes[row]
+            if chk.isEnabled():
+                chk.setChecked(not chk.isChecked())
+        self._update_rename_btn_state()
+
+    def _on_rename_row_double_clicked(self, row, col):
+        import os
+        import subprocess
+        if col > 1 and row in self._rename_checkboxes:
+            chk = self._rename_checkboxes[row]
+            if chk.isEnabled():
+                chk.setChecked(not chk.isChecked())
+            self._update_rename_btn_state()
+        if not hasattr(self, "_rename_preview_rows") or row >= len(self._rename_preview_rows):
+            return
+        it = self._rename_preview_rows[row]
+        p = it.get("folder_path") if it.get("is_sequence") else it.get("item_path")
+        if not p:
+            return
+        if os.name == "nt":
+            os.startfile(p)
+        elif os.name == "posix":
+            subprocess.Popen(["open", p])
 
     def _build_page_rename(self):
         page = QtWidgets.QWidget()
@@ -1818,32 +1862,334 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         layout.addWidget(_section_label("RENOMBRAR"))
 
-        placeholder = QtWidgets.QLabel(
-            "Rename en desarrollo. Próximamente: find/replace con preview en tiempo real."
+        self._rename_table = QtWidgets.QTableWidget()
+        self._rename_table.setColumnCount(7)
+        self._rename_table.setHorizontalHeaderLabels(
+            ["", "", "Original", "→", "Renamed", "Folder", "Estado"]
         )
-        placeholder.setStyleSheet(
-            "color:#666666; font-style:italic; padding:20px 6px;"
-        )
-        layout.addWidget(placeholder)
+        self._rename_table.verticalHeader().setVisible(False)
+        self._rename_table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
+        self._rename_table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self._rename_table.setFocusPolicy(QtCore.Qt.NoFocus)
+        self._rename_table.setShowGrid(False)
+        self._rename_table.setStyleSheet(_TABLE_STYLE)
+        self._rename_table.setMinimumHeight(120)
+        self._rename_table.setMaximumHeight(250)
+        hdr = self._rename_table.horizontalHeader()
+        hdr.setMinimumSectionSize(1)
+        hdr.setSectionResizeMode(0, QtWidgets.QHeaderView.Fixed)
+        self._rename_table.setColumnWidth(0, 10)
+        hdr.setSectionResizeMode(1, QtWidgets.QHeaderView.Fixed)
+        self._rename_table.setColumnWidth(1, 28)
+        hdr.setSectionResizeMode(2, QtWidgets.QHeaderView.Interactive)
+        self._rename_table.setColumnWidth(2, 300)
+        hdr.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeToContents)
+        hdr.setSectionResizeMode(4, QtWidgets.QHeaderView.Interactive)
+        self._rename_table.setColumnWidth(4, 300)
+        hdr.setSectionResizeMode(5, QtWidgets.QHeaderView.Interactive)
+        self._rename_table.setColumnWidth(5, 260)
+        hdr.setSectionResizeMode(6, QtWidgets.QHeaderView.Interactive)
+        self._rename_table.setColumnWidth(6, 180)
+        self._rename_table.cellClicked.connect(self._on_rename_row_clicked)
+        self._rename_table.cellDoubleClicked.connect(self._on_rename_row_double_clicked)
+        layout.addWidget(self._rename_table)
 
+        self._rename_summary_lbl = QtWidgets.QLabel("")
+        self._rename_summary_lbl.setStyleSheet("color:#888888; padding:2px 6px;")
+        layout.addWidget(self._rename_summary_lbl)
+
+        layout.addWidget(_separator())
+
+        line_style = (
+            "QLineEdit { background-color:#272727; border:1px solid #555555;"
+            " color:#cccccc; padding:4px 8px; border-radius:3px; }"
+            "QLineEdit:focus { border:1px solid #666666; }"
+        )
+
+        # Etapa 1
+        sr1_box = QtWidgets.QGroupBox("Step 1 — Search & Replace")
+        sr1_box.setStyleSheet("QGroupBox{color:#a7a7a7; border:1px solid #3a3a3a; margin-top:8px; padding-top:8px;}")
+        sr1_layout = QtWidgets.QHBoxLayout(sr1_box)
+        self._rename_sr1_search = QtWidgets.QLineEdit()
+        self._rename_sr1_search.setPlaceholderText("Search")
+        self._rename_sr1_search.setStyleSheet(line_style)
+        self._rename_sr1_replace = QtWidgets.QLineEdit()
+        self._rename_sr1_replace.setPlaceholderText("Replace")
+        self._rename_sr1_replace.setStyleSheet(line_style)
+        self._rename_sr1_case = QtWidgets.QCheckBox("Case Sensitive")
+        self._rename_sr1_case.setStyleSheet("color:#a7a7a7; padding:2px;")
+        sr1_layout.addWidget(self._rename_sr1_search, 1)
+        sr1_layout.addWidget(self._rename_sr1_replace, 1)
+        sr1_layout.addWidget(self._rename_sr1_case, 0)
+        layout.addWidget(sr1_box)
+
+        # Etapa 2
+        sr2_box = QtWidgets.QGroupBox("Step 2 — Search & Replace")
+        sr2_box.setStyleSheet("QGroupBox{color:#a7a7a7; border:1px solid #3a3a3a; margin-top:8px; padding-top:8px;}")
+        sr2_layout = QtWidgets.QHBoxLayout(sr2_box)
+        self._rename_sr2_search = QtWidgets.QLineEdit()
+        self._rename_sr2_search.setPlaceholderText("Search")
+        self._rename_sr2_search.setStyleSheet(line_style)
+        self._rename_sr2_replace = QtWidgets.QLineEdit()
+        self._rename_sr2_replace.setPlaceholderText("Replace")
+        self._rename_sr2_replace.setStyleSheet(line_style)
+        self._rename_sr2_case = QtWidgets.QCheckBox("Case Sensitive")
+        self._rename_sr2_case.setStyleSheet("color:#a7a7a7; padding:2px;")
+        sr2_layout.addWidget(self._rename_sr2_search, 1)
+        sr2_layout.addWidget(self._rename_sr2_replace, 1)
+        sr2_layout.addWidget(self._rename_sr2_case, 0)
+        layout.addWidget(sr2_box)
+
+        # Etapa 3/4
+        stage_row = QtWidgets.QHBoxLayout()
+        stage_row.setSpacing(20)
+
+        delim_col = QtWidgets.QVBoxLayout()
+        delim_col.addWidget(_section_label("Step 3 — Delimiter"))
+        delim_row = QtWidgets.QHBoxLayout()
+        delim_lbl = QtWidgets.QLabel("Before frame:")
+        delim_lbl.setStyleSheet("color:#a7a7a7;")
+        delim_row.addWidget(delim_lbl)
+        self._rename_delim_combo = _ArrowComboBox()
+        self._rename_delim_combo.setStyleSheet(self._COMBO_STYLE)
+        self._rename_delim_combo.setView(QtWidgets.QListView())
+        self._rename_delim_combo.addItems(["_", "."])
+        self._rename_delim_combo.setFixedWidth(80)
+        delim_row.addWidget(self._rename_delim_combo)
+        delim_row.addStretch()
+        delim_col.addLayout(delim_row)
+        stage_row.addLayout(delim_col, 1)
+
+        stage_row.addWidget(_separator("v"))
+
+        pad_col = QtWidgets.QVBoxLayout()
+        pad_col.addWidget(_section_label("Step 4 — Frame Digits"))
+        pad_row = QtWidgets.QHBoxLayout()
+        pad_lbl = QtWidgets.QLabel("Digits:")
+        pad_lbl.setStyleSheet("color:#a7a7a7;")
+        pad_row.addWidget(pad_lbl)
+        self._rename_digits_spin = _ArrowSpinBox()
+        self._rename_digits_spin.setRange(1, 12)
+        self._rename_digits_spin.setValue(4)
+        self._rename_digits_spin.setStyleSheet(_ArrowSpinBox._STYLE)
+        self._rename_digits_spin.setFixedWidth(88)
+        pad_row.addWidget(self._rename_digits_spin)
+        pad_row.addStretch()
+        pad_col.addLayout(pad_row)
+        stage_row.addLayout(pad_col, 1)
+
+        layout.addLayout(stage_row)
         layout.addStretch()
         layout.addWidget(_separator())
 
         btn_row = QtWidgets.QHBoxLayout()
         btn_row.addStretch()
-        cancel_btn = QtWidgets.QPushButton("← Go Back")
-        cancel_btn.setStyleSheet(_BTN_SECONDARY)
-        cancel_btn.clicked.connect(lambda: self._show_page(self.PAGE_MEDIA))
-        btn_row.addWidget(cancel_btn)
+        self._rename_back_btn = QtWidgets.QPushButton("← Go Back")
+        self._rename_back_btn.setStyleSheet(_BTN_SECONDARY)
+        self._rename_back_btn.clicked.connect(lambda: self._show_page(self.PAGE_MEDIA))
+        btn_row.addWidget(self._rename_back_btn)
         btn_row.addSpacing(6)
-        rename_btn = QtWidgets.QPushButton("Rename")
-        rename_btn.setStyleSheet(_BTN_PRIMARY)
-        rename_btn.setEnabled(False)
-        rename_btn.setToolTip("Pendiente de implementación")
-        btn_row.addWidget(rename_btn)
+        self._apply_rename_btn = QtWidgets.QPushButton("Rename")
+        self._apply_rename_btn.setStyleSheet(_BTN_PRIMARY)
+        self._apply_rename_btn.setEnabled(False)
+        self._apply_rename_btn.clicked.connect(self._run_rename)
+        btn_row.addWidget(self._apply_rename_btn)
+        layout.addSpacing(_BTN_ROW_TOP_SPACING)
         layout.addLayout(btn_row)
 
+        self._rename_checkboxes = {}
+        self._rename_selected_rows = []
+        self._rename_preview_rows = []
+        self._rename_settings = rename_settings_mod.load_settings()
+        self._load_rename_settings_to_ui()
+        self._connect_rename_autosave()
+        self._refresh_rename_preview()
         return page
+
+    def _connect_rename_autosave(self):
+        for _w, _sig in [
+            (self._rename_sr1_search, "textChanged"),
+            (self._rename_sr1_replace, "textChanged"),
+            (self._rename_sr1_case, "stateChanged"),
+            (self._rename_sr2_search, "textChanged"),
+            (self._rename_sr2_replace, "textChanged"),
+            (self._rename_sr2_case, "stateChanged"),
+            (self._rename_delim_combo, "currentIndexChanged"),
+            (self._rename_digits_spin, "valueChanged"),
+        ]:
+            getattr(_w, _sig).connect(self._on_rename_settings_changed)
+
+    def _load_rename_settings_to_ui(self):
+        s = self._rename_settings
+        sr1 = s.get("sr1", {})
+        sr2 = s.get("sr2", {})
+        dm = s.get("delimiter", {})
+        pd = s.get("padding", {})
+        self._rename_sr1_search.setText(sr1.get("search", ""))
+        self._rename_sr1_replace.setText(sr1.get("replace", ""))
+        self._rename_sr1_case.setChecked(sr1.get("case_sensitive", "false").lower() == "true")
+        self._rename_sr2_search.setText(sr2.get("search", ""))
+        self._rename_sr2_replace.setText(sr2.get("replace", ""))
+        self._rename_sr2_case.setChecked(sr2.get("case_sensitive", "false").lower() == "true")
+        d = dm.get("char", "_")
+        self._rename_delim_combo.setCurrentIndex(1 if d == "." else 0)
+        try:
+            self._rename_digits_spin.setValue(int(pd.get("digits", "4")))
+        except Exception:
+            self._rename_digits_spin.setValue(4)
+
+    def _collect_rename_settings_from_ui(self):
+        return {
+            "sr1": {
+                "search": self._rename_sr1_search.text(),
+                "replace": self._rename_sr1_replace.text(),
+                "case_sensitive": str(self._rename_sr1_case.isChecked()).lower(),
+            },
+            "sr2": {
+                "search": self._rename_sr2_search.text(),
+                "replace": self._rename_sr2_replace.text(),
+                "case_sensitive": str(self._rename_sr2_case.isChecked()).lower(),
+            },
+            "delimiter": {
+                "char": self._rename_delim_combo.currentText(),
+            },
+            "padding": {
+                "digits": str(self._rename_digits_spin.value()),
+            },
+        }
+
+    def _on_rename_settings_changed(self, *_):
+        self._rename_settings = self._collect_rename_settings_from_ui()
+        rename_settings_mod.save_settings(self._rename_settings)
+        self._refresh_rename_preview()
+
+    def _update_rename_page(self):
+        selected = []
+        for row, chk in self._checkboxes.items():
+            if not chk.isChecked():
+                continue
+            row_data = self._table_rows[row]
+            if row_data.get("type") != "data":
+                continue
+            item = dict(row_data.get("item", {}))
+            item["source"] = row_data.get("section")
+            selected.append(item)
+        self._rename_selected_rows = rename_mod.build_selected_rows(selected)
+        self._refresh_rename_preview()
+
+    def _refresh_rename_preview(self):
+        if not hasattr(self, "_rename_table"):
+            return
+        colors = {
+            1: _CLR_AR,
+            2: _CLR_PAR,
+            3: _CLR_COMP_DWAA,
+            4: _CLR_STATUS_PENDING,
+        }
+        self._rename_preview_rows = rename_mod.compute_preview(
+            getattr(self, "_rename_selected_rows", []),
+            self._collect_rename_settings_from_ui() if hasattr(self, "_rename_sr1_search") else getattr(self, "_rename_settings", {}),
+            colors,
+        )
+        rows = self._rename_preview_rows
+        self._rename_table.setRowCount(len(rows))
+        self._rename_checkboxes = {}
+        blocked_n = 0
+        checked_ok = 0
+        for i, it in enumerate(rows):
+            blocked = it.get("blocked", False)
+            fg = "#666666" if blocked else "#a7a7a7"
+
+            bar = QtWidgets.QTableWidgetItem()
+            bar.setBackground(QtGui.QColor(_CLR_PLATES if it.get("is_sequence") else _CLR_REFS))
+            if blocked:
+                bar.setBackground(QtGui.QColor("#444444"))
+            bar.setFlags(QtCore.Qt.NoItemFlags)
+            self._rename_table.setItem(i, 0, bar)
+
+            chk = QtWidgets.QCheckBox()
+            chk.setStyleSheet("color:#a7a7a7; padding:2px;")
+            chk.setChecked(not blocked)
+            chk.setEnabled(not blocked)
+            chk.stateChanged.connect(lambda *_: self._update_rename_btn_state())
+            self._rename_checkboxes[i] = chk
+            cbox = QtWidgets.QWidget()
+            cl = QtWidgets.QHBoxLayout(cbox)
+            cl.setContentsMargins(0, 0, 0, 0)
+            cl.setAlignment(QtCore.Qt.AlignCenter)
+            cl.addWidget(chk)
+            self._rename_table.setCellWidget(i, 1, cbox)
+
+            self._rename_table.setCellWidget(i, 2, _cell_html_label(it.get("original_html", "")))
+            arrow = QtWidgets.QTableWidgetItem("→")
+            arrow.setForeground(QtGui.QColor("#444444" if blocked else "#666666"))
+            arrow.setTextAlignment(QtCore.Qt.AlignCenter)
+            self._rename_table.setItem(i, 3, arrow)
+            self._rename_table.setCellWidget(i, 4, _cell_html_label(it.get("renamed_html", "")))
+
+            folder_txt = it.get("folder_name", "")
+            if it.get("is_sequence"):
+                folder_txt = "%s → %s" % (it.get("folder_name", ""), it.get("target_folder_name", ""))
+            folder_item = QtWidgets.QTableWidgetItem(folder_txt)
+            folder_item.setForeground(QtGui.QColor(fg))
+            self._rename_table.setItem(i, 5, folder_item)
+
+            st_color = _CLR_STATUS_PENDING
+            st = it.get("status", "Pendiente")
+            if blocked:
+                st_color = _CLR_STATUS_UPSCALE
+            elif not it.get("has_changes"):
+                st_color = "#888888"
+            self._rename_table.setCellWidget(i, 6, _cell_html_label(
+                "<span style='color:%s;'>%s</span>" % (st_color, st)
+            ))
+
+            if blocked:
+                blocked_n += 1
+            elif chk.isChecked() and it.get("has_changes"):
+                checked_ok += 1
+
+        self._rename_summary_lbl.setText(
+            "%d items · %d listos para rename · %d bloqueados" % (
+                len(rows), checked_ok, blocked_n
+            )
+        )
+        self._update_rename_btn_state()
+
+    def _update_rename_btn_state(self):
+        ready = False
+        for i, chk in self._rename_checkboxes.items():
+            if not chk.isEnabled() or not chk.isChecked():
+                continue
+            if i < len(self._rename_preview_rows) and self._rename_preview_rows[i].get("has_changes"):
+                ready = True
+                break
+        self._apply_rename_btn.setEnabled(ready)
+        self._apply_rename_btn.setToolTip("" if ready else "No hay filas válidas con cambios")
+
+    def _run_rename(self):
+        to_apply = []
+        for i, chk in self._rename_checkboxes.items():
+            if not chk.isEnabled() or not chk.isChecked():
+                continue
+            if i < len(self._rename_preview_rows):
+                row = self._rename_preview_rows[i]
+                if row.get("blocked") or not row.get("has_changes"):
+                    continue
+                to_apply.append(row)
+        result = rename_mod.execute_ops(to_apply)
+        if result.get("errors"):
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Rename",
+                "Se produjo un error durante el rename:\n%s" % "\n".join(result["errors"]),
+            )
+            return
+        applied = int(result.get("applied", 0))
+        if applied > 0:
+            self._rename_happened = True
+            self._update_rename_page()
+        self._refresh_rename_preview()
 
     # ══════════════════════════════════════════════════════════
     #  PAGINA: Transcode Plates
