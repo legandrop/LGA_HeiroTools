@@ -334,6 +334,10 @@ Conversion de EXR sequences para los items marcados.
 La columna Destino y la columna Estado se recalculan en vivo cuando cambian:
 DWAA on/off, DWAA level, channels, preset de resolucion, custom W×H, "no upscale", **checkbox de la fila**.
 
+**Interacción con la tabla:**
+- **Click simple** en cualquier columna (excepto col 0/1): activa/desactiva el checkbox de la fila.
+- **Doble click**: abre la carpeta del plate en el explorador del sistema (Windows: `os.startfile`; macOS: `open`).
+
 **Upscale bloqueado:** cuando el resize resultaría en upscale y "Aplicar solo si origen es mayor"
 está activo, la fila muestra `⚠ Upscale` en rojo y la columna Destino se grísea. No se modifica
 la lógica de cálculo; es solo comunicación visual al usuario.
@@ -424,8 +428,25 @@ _current_target_res(src_w, src_h) con preset=custom y PAR on:
 Cuando el flag global `Transcode_TEST_Mode = True` está activo (actualmente `False`):
 - Aparece un aviso `🧪 TEST MODE` en la sección.
 - Ambos checkboxes quedan deshabilitados.
-- El output del transcode (cuando se implemente) se escribirá en
-  `{seq_path}/test_transcode/` en vez de reemplazar la secuencia original.
+- El output del transcode se escribe en `{seq_path}/test_transcode/` sin mover nada.
+
+#### Estructura de Originals (cuando `move_originals = True`)
+
+Los originales se mueven a una subcarpeta dentro de `_input/Originals/`:
+
+```
+_input/
+├── aPlate_v01/          ← item_path (dst del transcode — recibe los convertidos)
+│   └── *.exr            ← EXRs convertidos
+└── Originals/
+    └── aPlate_v01/      ← originals_dir (item_path.parent / "Originals" / item_path.name)
+        └── *.exr        ← EXRs originales movidos aquí antes del transcode
+```
+
+- Si hay varios plates, cada uno tiene su propia subcarpeta en `_input/Originals/`.
+- Si `Borrar /Originals al terminar` está activo: se borra `_input/Originals/<plate>/`
+  y, si la carpeta `_input/Originals/` queda vacía, también se borra.
+- En caso de fallo del transcode, los EXRs originales se restauran a `item_path`.
 
 ### Solución QSpinBox — `_ArrowSpinBox` (ganadora, implementada)
 
@@ -586,6 +607,9 @@ Basado en `LGA_NKS_CreateV000.py`:
 - Ancho minimo del dialogo: `1300px` (requiere espacio para la tabla de transcode con Origen 400 px + Destino amplio)
 - Titulos de seccion de tabla: color de la seccion sobre fondo `#313131`
 - Referencias (seqref en bin): texto color `#aa9e54`
+- Selection highlight en QSpinBox (dwaa level, custom W/H): `#505060` bg / `#d0d0d0` texto (gris legible, no blanco ni violeta)
+- Espacio entre separador horizontal y fila de botones de acción: constante `_BTN_ROW_TOP_SPACING = 15` (px). Aplicado en páginas media y convert. Buscar `# ✅✅` en el código para ajustar.
+- Diálogo "Guardar preset": QLineEdit con fondo `#272727` (neutro, coherente con el resto de la app)
 
 ---
 

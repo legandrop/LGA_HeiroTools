@@ -863,6 +863,10 @@ QPushButton:hover { background-color: #383838; color: #cccccc; }
 QPushButton:disabled { background-color: #272727; color: #555555; }
 """
 
+# ✅✅ Espacio (px) entre el separador horizontal y la fila de botones de acción.
+# Se aplica en todas las páginas (media y convert) para mantener equilibrio visual.
+_BTN_ROW_TOP_SPACING = 15
+
 
 def _section_label(text):
     lbl = QtWidgets.QLabel(text)
@@ -979,7 +983,7 @@ class _ArrowSpinBox(QtWidgets.QSpinBox):
     _STYLE = (
         "QSpinBox { background:#272727; border:1px solid #444; color:#a7a7a7;"
         " padding:2px 20px 2px 4px;"
-        " selection-background-color:#d8d8d8; selection-color:#333333; }"
+        " selection-background-color:#505060; selection-color:#d0d0d0; }"
         "QSpinBox::up-button, QSpinBox::down-button"
         " { background:transparent; border:none; width:18px; }"
         "QSpinBox::up-arrow, QSpinBox::down-arrow"
@@ -1353,6 +1357,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         layout.addLayout(sel_row)
 
         layout.addWidget(_separator())
+        layout.addSpacing(_BTN_ROW_TOP_SPACING)
 
         # Botones de acción — operan sobre los items con checkbox marcado
         btn_row = QtWidgets.QHBoxLayout()
@@ -1463,6 +1468,21 @@ class ImportShotDialog(QtWidgets.QDialog):
             if chk.isEnabled():
                 chk.setChecked(not chk.isChecked())
         self._update_transcode_btn_state()
+
+    def _on_convert_row_double_clicked(self, row, col):
+        """Doble click en la tabla de transcode: abre la carpeta del item en el explorador."""
+        import subprocess
+        if not hasattr(self, "_convert_rows") or row >= len(self._convert_rows):
+            return
+        item = self._convert_rows[row]
+        path = item.get("path", "")
+        if not path:
+            return
+        import os
+        if os.name == "nt":
+            os.startfile(path)
+        elif os.name == "posix":
+            subprocess.Popen(["open", path])
 
     def _build_table_rows(self):
         """
@@ -1915,6 +1935,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._convert_table.setColumnWidth(7, 130)
         self._convert_checkboxes = {}
         self._convert_table.cellClicked.connect(self._on_convert_row_clicked)
+        self._convert_table.cellDoubleClicked.connect(self._on_convert_row_double_clicked)
         layout.addWidget(self._convert_table)
 
         layout.addWidget(_separator())
@@ -1953,8 +1974,8 @@ class ImportShotDialog(QtWidgets.QDialog):
                 color: #a7a7a7;
                 border: 1px solid #444;
                 padding: 2px 4px;
-                selection-background-color: #d8d8d8;
-                selection-color: #333333;
+                selection-background-color: #505060;
+                selection-color: #d0d0d0;
             }
         """)
         dwaa_row.addWidget(self._convert_dwaa_level)
@@ -2218,6 +2239,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._start_transcode_btn.setToolTip("Selecciona al menos un EXR")
         self._start_transcode_btn.clicked.connect(self._run_transcode)
         btn_row.addWidget(self._start_transcode_btn)
+        layout.addSpacing(_BTN_ROW_TOP_SPACING)
         layout.addLayout(btn_row)
 
         # Aplicar settings guardados (después de que todos los widgets existen)

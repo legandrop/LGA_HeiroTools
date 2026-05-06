@@ -227,9 +227,9 @@ def show_save_preset_dialog(w, h, parent=None):
         "QPushButton:disabled { background-color:#2a2a4a; color:#666; border-color:#444; }"
     )
     _LINE_STYLE = (
-        "QLineEdit { background-color:#222233; border:1px solid #555555;"
+        "QLineEdit { background-color:#272727; border:1px solid #555555;"
         " color:#cccccc; padding:5px 8px; border-radius:3px; }"
-        "QLineEdit:focus { border:1px solid #7070b0; }"
+        "QLineEdit:focus { border:1px solid #666666; }"
     )
 
     dlg = QtWidgets.QDialog(parent)

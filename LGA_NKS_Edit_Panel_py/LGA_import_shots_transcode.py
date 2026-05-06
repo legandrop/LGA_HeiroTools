@@ -129,6 +129,11 @@ def build_manifest_for_sequence(
 def check_existing_outputs(item: dict, test_mode: bool, move_originals: bool):
     """Detecta si ya existen archivos de un transcode previo para la secuencia.
 
+    Estructura esperada (move_originals):
+      _input/
+        Originals/
+          <nombre_carpeta_plate>/  ← misma subcarpeta que item_path dentro de _input
+
     Returns:
         (has_conflict: bool, description: str)
     """
@@ -140,11 +145,11 @@ def check_existing_outputs(item: dict, test_mode: bool, move_originals: bool):
             if count > 0:
                 return True, "test_transcode/ ya contiene %d archivos EXR" % count
     elif move_originals:
-        orig = item_path / "Originals"
+        orig = item_path.parent / "Originals" / item_path.name
         if orig.exists():
             count = sum(1 for _ in orig.glob("*.exr"))
             label = "%d EXR" % count if count else "carpeta vacía"
-            return True, "Originals/ ya existe (%s — transcode anterior)" % label
+            return True, "_input/Originals/%s ya existe (%s — transcode anterior)" % (item_path.name, label)
     else:
         tmp = item_path / "_tc_temp_src"
         if tmp.exists():
@@ -157,7 +162,8 @@ def delete_existing_outputs(item: dict, test_mode: bool, move_originals: bool) -
 
     - TEST mode:      borra *.exr de test_transcode/
     - no-move mode:   borra _tc_temp_src/ completa (era buffer de run fallido)
-    - move_originals: borra *.exr de item_path (archivos convertidos en el run anterior)
+    - move_originals: borra la subcarpeta de Originals del plate y los EXR
+                      convertidos que quedaron en item_path del run anterior
 
     Returns:
         Cantidad de archivos/directorios eliminados.
@@ -175,6 +181,14 @@ def delete_existing_outputs(item: dict, test_mode: bool, move_originals: bool) -
                 except OSError:
                     pass
     elif move_originals:
+        # Borra la subcarpeta de Originals de este plate (_input/Originals/<plate>/)
+        orig_plate = item_path.parent / "Originals" / item_path.name
+        if orig_plate.exists():
+            try:
+                shutil.rmtree(str(orig_plate))
+                deleted += 1
+            except OSError:
+                pass
         # Borra los EXR convertidos que quedaron en item_path del run anterior
         for f in list(item_path.glob("*.exr")):
             try:
@@ -388,13 +402,14 @@ class TranscodeWorker(QRunnable):
                 dst_dir.mkdir(parents=True, exist_ok=True)
 
             elif self.move_originals:
-                originals_dir = item_path / "Originals"
+                # Mueve los EXR a _input/Originals/<nombre_carpeta_plate>/
+                originals_dir = item_path.parent / "Originals" / item_path.name
                 originals_dir.mkdir(parents=True, exist_ok=True)
                 moved = self._move_exrs(item_path, originals_dir)
                 if moved == 0:
                     raise RuntimeError("No se encontraron EXR en: %s" % item_path)
                 self.signals.log_message.emit(
-                    "  %s %d EXR movidos a Originals/" % (self._t(), moved)
+                    "  %s %d EXR movidos a Originals/%s/" % (self._t(), moved, item_path.name)
                 )
                 src_dir = originals_dir
                 dst_dir = item_path
@@ -522,8 +537,14 @@ class TranscodeWorker(QRunnable):
                 if originals_dir and self.delete_originals:
                     shutil.rmtree(str(originals_dir), ignore_errors=True)
                     self.signals.log_message.emit(
-                        "  %s Originals/ eliminado." % self._t()
+                        "  %s Originals/%s eliminado." % (self._t(), item_path.name)
                     )
+                    # Remover la carpeta padre Originals/ si quedó vacía
+                    parent_orig = originals_dir.parent
+                    try:
+                        parent_orig.rmdir()
+                    except Exception:
+                        pass
                 elif temp_src_dir and temp_src_dir.exists():
                     shutil.rmtree(str(temp_src_dir), ignore_errors=True)
 
