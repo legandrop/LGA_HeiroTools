@@ -265,21 +265,32 @@ Ejemplo con `aPlate` y `bPlate` existentes → crear `dPlate`:
 - Visual en el panel (de arriba hacia abajo): `..., dPlate, bPlate, aPlate`
 - `dPlate` queda entre `bPlate` y el siguiente track de mayor rango (`ePlate`, `fgPlate`, `EditRef`, etc.)
 
+**Sistema de coordenadas de Hiero:**
+- `seq.videoTracks()` devuelve bt-order: índice 0 = fondo del panel, índice mayor = tope.
+- `aPlate` tiene el **mayor** trackIndex (está en el tope del panel, arriba de todo).
+- `_IMPORT_TRACK_ORDER = ["aPlate", "bPlate", ..., "_dmp_"]` está en orden visual
+  **top→bottom** (índice 0 = arriba). Por eso un rank bajo en `_IMPORT_TRACK_ORDER`
+  corresponde a un bt-trackIndex **alto** (arriba en el panel).
+
 **Estrategia de inserción — no se re-ordena el stack existente:**
 
 `_create_plate_track` **no cambia el orden de los tracks existentes**. En cambio
 busca los *vecinos canónicos* del nuevo track:
 
-- **Vecino inferior**: track existente con mayor bt-rank que sea `< new_pos`
-  (el que debe quedar justo debajo del nuevo). → insertar en `lower_idx + 1`.
-- **Vecino superior**: track existente con menor bt-rank que sea `> new_pos`
-  (el que debe quedar justo encima). → fallback si no hay vecino inferior.
+- **`lower_idx`**: track con mayor rank en `_IMPORT_TRACK_ORDER` aún `< new_pos`
+  (p. ej. `bPlate` para `dPlate`). En Hiero este track tiene **mayor** bt-trackIndex
+  que el nuevo → está **encima** del nuevo en el panel. El nuevo track se inserta en
+  `insert_at = lower_idx` (ocupa su posición y ese track sube un índice).
+- **`upper_idx`**: track con menor rank en `_IMPORT_TRACK_ORDER` aún `> new_pos`
+  (p. ej. `EditRef` para `dPlate`). Tiene menor bt-trackIndex → está **debajo** del
+  nuevo. Se usa como fallback cuando no hay `lower_idx`.
 
-Esto garantiza que el nuevo track se coloca en la posición correcta dentro de la
-sección de plates sin alterar el orden del resto del stack (p. ej. tracks
-desconocidos o reordenados por el usuario permanecen donde estaban).
+Esto garantiza que el nuevo track se coloca correctamente sin alterar el orden de los
+demás. La lógica sigue el patrón de `LGA_H-Tracks-InsertTest.py`:
+`insert_at = ref_track.trackIndex()` donde `ref_track` es el track encima del cual
+se inserta.
 
-El log confirma la inserción con: `"creado entre '<inferior>' (abajo) y '<superior>' (arriba)"`.
+El log confirma la inserción con: `"creado entre '<lower>' (abajo) y '<upper>' (arriba)  insert_at=N"`.
 
 Cada plate tiene su propia opción de creación independiente. Si hay un `dPlate` y un
 `ePlate` sin track, cada uno muestra `+ Crear track dPlate` y `+ Crear track ePlate`

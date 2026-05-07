@@ -1916,16 +1916,27 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _create_plate_track(self, track_name):
         """
         Crea un nuevo VideoTrack con el nombre dado en self.seq, insertado en
-        la posición alfabética correcta dentro de la sección de plates según
-        _IMPORT_TRACK_ORDER (bt-order: aPlate=abajo, _dmp_=arriba).
+        la posición alfabética correcta dentro de la sección de plates.
 
-        Estrategia: NO se reordena el stack existente. Se buscan los vecinos
-        canónicos del nuevo track (el track existente de mayor bt-rank que deba
-        quedar debajo, y el de menor bt-rank que deba quedar encima) y se
-        inserta entre ellos, preservando el orden de todos los demás tracks.
+        SISTEMA DE COORDENADAS
+        ─────────────────────
+        seq.videoTracks() devuelve bt-order: índice 0 = fondo del panel,
+        índice mayor = tope. aPlate tiene el mayor índice (está arriba).
+        _IMPORT_TRACK_ORDER = ["aPlate", "bPlate", ..., "_dmp_"] está en
+        orden visual TOP→BOTTOM (índice 0 = arriba en el panel).
 
-        Patrón de LGA_NKS_CreateNewTrack: remove all → addTrack en bt-order
-        (cada addTrack apila encima del anterior → el primero queda abajo).
+        BÚSQUEDA DE VECINOS (en términos de _IMPORT_TRACK_ORDER):
+        · lower_idx: track con mayor rank en _IMPORT_TRACK_ORDER aún < new_pos.
+          Este track tiene un MAYOR bt-trackIndex que el nuevo → está ENCIMA
+          del nuevo track en el panel. Es el track "debajo del cual" se inserta
+          el nuevo (el nuevo ocupa su índice y él sube uno).
+        · upper_idx: track con menor rank en _IMPORT_TRACK_ORDER aún > new_pos.
+          Tiene MENOR bt-trackIndex → está DEBAJO del nuevo en el panel.
+
+        INSERCIÓN (patrón LGA_NKS_CreateNewTrack / InsertTest):
+          insert_at = lower_idx   (trackIndex del vecino de arriba)
+          new_list = video_tracks[:insert_at] + [new_track] + video_tracks[insert_at:]
+          for t in new_list: seq.addTrack(t)
 
         Retorna el nuevo hiero.core.VideoTrack, o None en caso de error.
         """
@@ -1962,11 +1973,15 @@ class ImportShotDialog(QtWidgets.QDialog):
                     upper_pos = tp
                     upper_idx = i
 
-            # Punto de inserción en video_tracks (el resto del stack no cambia)
+            # Punto de inserción en video_tracks (el resto del stack no cambia).
+            # videoTracks() es bt-order: índice 0 = fondo, índice mayor = tope.
+            # aPlate tiene el MAYOR índice (está arriba en el panel).
+            # Para insertar dPlate DEBAJO de bPlate se usa insert_at = trackIndex(bPlate)
+            # = lower_idx: el nuevo track ocupa el índice de bPlate y bPlate sube uno.
             if lower_idx is not None:
-                insert_at = lower_idx + 1   # justo encima del vecino inferior
+                insert_at = lower_idx       # el vecino de arriba cede su índice y sube
             elif upper_idx is not None:
-                insert_at = upper_idx       # justo debajo del vecino superior
+                insert_at = upper_idx       # insertar justo antes del vecino inferior
             else:
                 insert_at = 0               # sin vecinos conocidos → fondo
 
