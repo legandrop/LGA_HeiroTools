@@ -8,6 +8,8 @@ Expone:
   place_clip_in_timeline — coloca un clip en el track indicado
   stretch_burnin         — extiende los soft effects del track BurnIn hasta
                            el timelineOut del ultimo clip real del timeline
+  set_viewer_to_shot     — pone In/Out al rango del shot, mueve el playhead a
+                           tc_in y ajusta el zoom con contexto a los lados
   set_debug_print        — inyecta la función debug_print del módulo principal
 """
 
@@ -352,3 +354,95 @@ def stretch_burnin(seq):
     _log("stretch_burnin: %d/%d efectos ajustados hasta frame %d"
          % (adjusted, len(effects), target_out))
     return adjusted
+
+
+# ── vista de timeline post-import ─────────────────────────────────────────────
+
+def _zoom_and_restore(seq, tc_in: int, tc_out: int):
+    """
+    Dispara la acción 'Zoom to Fit' (que encaja el rango In/Out actual del
+    timeline en la ventana) y luego restaura el In/Out exacto del shot.
+
+    Llamada desde un QTimer.singleShot para que la ventana del timeline ya
+    sea la activa cuando se dispare el comando de zoom.
+    """
+    try:
+        action = hiero.ui.findMenuAction("Zoom to Fit")
+        if action:
+            action.trigger()
+            _log("_zoom_and_restore: Zoom to Fit ejecutado")
+        else:
+            _log("_zoom_and_restore: accion 'Zoom to Fit' no encontrada",
+                 level="warning")
+        # Restaurar el In/Out exacto del shot (el padding era solo para el zoom)
+        seq.setInTime(tc_in)
+        seq.setOutTime(tc_out)
+        _log("_zoom_and_restore: in/out restaurados → %d-%d" % (tc_in, tc_out))
+    except Exception as exc:
+        _log("_zoom_and_restore: %s" % exc, level="warning")
+
+
+def set_viewer_to_shot(seq, tc_in: int, tc_out: int):
+    """
+    Ajusta la vista del timeline al shot recien importado:
+
+      1. Pone los puntos In/Out de la secuencia a tc_in / tc_out.
+      2. Mueve el playhead a tc_in.
+      3. Activa la ventana del timeline y programa un 'Zoom to Fit' con padding
+         lateral (shot_dur // 2 en cada lado) para que los shots vecinos sean
+         visibles, luego restaura el In/Out exacto.
+
+    Patron basado en LGA_NKS_PrevNext_Rev.py:
+    - set_in_out_from_clip  → seq.setInTime / seq.setOutTime
+    - move_playhead_to_position → viewer.setTime
+    - ajustar_vista_al_clip → window.activateWindow + QTimer + Zoom to Fit
+    """
+    if not _HIERO_AVAILABLE:
+        return
+
+    # 1. In/Out al rango del shot
+    try:
+        seq.setInTime(tc_in)
+        seq.setOutTime(tc_out)
+        _log("set_viewer_to_shot: in=%d out=%d" % (tc_in, tc_out))
+    except Exception as exc:
+        _log("set_viewer_to_shot: setInTime/setOutTime → %s" % exc, level="warning")
+
+    # 2. Playhead al TC IN
+    try:
+        viewer = hiero.ui.currentViewer()
+        if viewer:
+            viewer.setTime(tc_in)
+            _log("set_viewer_to_shot: playhead → %d" % tc_in)
+    except Exception as exc:
+        _log("set_viewer_to_shot: playhead → %s" % exc, level="warning")
+
+    # 3. Zoom con contexto lateral
+    # Ampliamos el In/Out con padding para que "Zoom to Fit" muestre vecinos;
+    # _zoom_and_restore restaura los valores exactos tras el zoom.
+    try:
+        shot_dur = max(tc_out - tc_in + 1, 1)
+        pad = shot_dur // 2  # 50 % del shot en cada lado → shot ocupa ~50 % de la vista
+
+        te = hiero.ui.getTimelineEditor(seq)
+        window = te.window()
+        window.activateWindow()
+        window.setFocus()
+
+        # Poner rango ampliado antes de disparar el zoom
+        seq.setInTime(max(0, tc_in - pad))
+        seq.setOutTime(tc_out + pad)
+
+        try:
+            from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtCore as _QtCore
+            _QtCore.QTimer.singleShot(
+                50,
+                lambda: _zoom_and_restore(seq, tc_in, tc_out)
+            )
+            _log("set_viewer_to_shot: zoom programado con pad=%d (shot_dur=%d)"
+                 % (pad, shot_dur))
+        except Exception as qt_exc:
+            _log("set_viewer_to_shot: Qt no disponible, zoom omitido → %s"
+                 % qt_exc, level="warning")
+    except Exception as exc:
+        _log("set_viewer_to_shot: zoom → %s" % exc, level="warning")

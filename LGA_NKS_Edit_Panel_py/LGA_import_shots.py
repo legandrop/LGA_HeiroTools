@@ -1,12 +1,14 @@
 """
 ____________________________________________________________________
 
-  LGA_import_shots v1.00 | Lega
+  LGA_import_shots v1.01 | Lega
 
   Importa shots al proyecto de Nuke Studio.
   Analiza la carpeta _input del shot, detecta plates/editrefs/seqrefs
   y versiones en publish, y los coloca en el timeline en la posicion
   alfabeticamente correcta.
+
+  v1.01: Ajusta la vista del timeline al shot importado.
 
 ____________________________________________________________________
 """
@@ -4302,6 +4304,27 @@ class ImportShotDialog(QtWidgets.QDialog):
             debug_print("_do_import: endUndo cerrado")
         else:
             _run_import()
+
+        # ── PASO 5: Ajustar la vista del timeline al shot importado ───────────
+        # Se hace FUERA del bloque de undo (es operación de UI, no de modelo).
+        # El QTimer interno de set_viewer_to_shot dispara el zoom después de
+        # que self.accept() cierre el diálogo y la ventana del timeline
+        # recupere el foco.
+        if placed_items:
+            valid_for_view = [ti for ti in placed_items
+                              if ti.parentTrack() is not None]
+            if valid_for_view:
+                try:
+                    tc_in  = min(int(ti.timelineIn())  for ti in valid_for_view)
+                    tc_out = max(int(ti.timelineOut()) for ti in valid_for_view)
+                    debug_print(
+                        "_do_import PASO 5: set_viewer_to_shot tc_in=%d tc_out=%d"
+                        % (tc_in, tc_out)
+                    )
+                    timeline_mod.set_viewer_to_shot(self.seq, tc_in, tc_out)
+                except Exception as exc:
+                    debug_print("_do_import PASO 5: error → %s" % exc,
+                                level="warning")
 
         if errors:
             QtWidgets.QMessageBox.warning(

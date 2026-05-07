@@ -16,12 +16,16 @@ Se activa al pulsar "Import Now" en la página de Import Preview (PAGE_IMPORT).
 Página Import Preview (PAGE_IMPORT)
   └─ click "Import Now"
        └─ ImportShotDialog._do_import()
-            ├─ Paso 1: push_clips_right()       → hace espacio en el timeline
-            ├─ Paso 2: import_item_to_bin()
-            │           bin_item.setColor()
-            │           place_clip_in_timeline()
-            └─ Paso 3: stretch_burnin()         → extiende BurnIn hasta el último frame
-                        → self.accept()
+            ├─ [dentro del bloque beginUndo]
+            │    ├─ Paso 1: push_clips_right()       → hace espacio en el timeline
+            │    ├─ Paso 2: import_item_to_bin()
+            │    │           bin_item.setColor()
+            │    │           place_clip_in_timeline()
+            │    ├─ Paso 3: stretch_burnin()         → extiende BurnIn hasta el último frame
+            │    └─ Paso 4: te.setSelection()        → selecciona los clips recién colocados
+            ├─ [fuera del bloque de undo — solo UI]
+            │    └─ Paso 5: set_viewer_to_shot()     → In/Out al shot, playhead a TC IN, zoom
+            └─ self.accept()
 ```
 
 ---
@@ -230,6 +234,62 @@ te.setSelection(valid_items)
 
 ---
 
+## Post-import — Vista del timeline (`set_viewer_to_shot`)
+
+Al final de `_do_import()`, **fuera del bloque `with beginUndo`** (es una operación puramente de UI, no requiere undo), se ajusta la vista del timeline al shot recién importado.
+
+`tc_in` y `tc_out` se calculan como el mínimo `timelineIn()` y el máximo `timelineOut()` de los `valid_items` (clips con `parentTrack() != None`).
+
+`timeline_mod.set_viewer_to_shot(seq, tc_in, tc_out)` ejecuta tres pasos:
+
+### 1. In/Out al rango del shot
+
+```python
+seq.setInTime(tc_in)
+seq.setOutTime(tc_out)
+```
+
+Los puntos In/Out del timeline quedan exactamente en los límites del shot.
+
+### 2. Playhead al TC IN
+
+```python
+viewer = hiero.ui.currentViewer()
+viewer.setTime(tc_in)
+```
+
+El playhead queda en el primer frame del shot.
+
+### 3. Zoom con contexto lateral
+
+Se usa la misma técnica que `ajustar_vista_al_clip` de `LGA_NKS_PrevNext_Rev.py`, pero con padding para que los shots vecinos sean visibles:
+
+```
+pad = shot_dur // 2   # 50 % del shot en cada lado → el shot ocupa ~50 % de la vista
+```
+
+Secuencia:
+1. Activar y enfocar la ventana del timeline (`window.activateWindow`, `window.setFocus`).
+2. Poner temporalmente `seq.setInTime(tc_in - pad)` / `seq.setOutTime(tc_out + pad)`.
+3. `QTimer.singleShot(50ms, _zoom_and_restore)` — espera a que el diálogo se cierre y el timeline recupere el foco.
+4. `_zoom_and_restore`: dispara `hiero.ui.findMenuAction("Zoom to Fit").trigger()` y luego restaura el In/Out exacto `tc_in` / `tc_out`.
+
+El resultado es que "Zoom to Fit" encaja el rango ampliado (shot + 50% a cada lado), mostrando el shot a ~50% del ancho visible con contexto de shots vecinos. Los In/Out quedan con los valores exactos del shot una vez completado el zoom.
+
+### Por qué fuera del bloque de undo
+
+`setInTime`, `setOutTime` y `viewer.setTime` son operaciones de estado de UI/viewer, no de modelo de datos. No tienen sentido como parte del undo. Ejecutarlas fuera garantiza que no interfieran con el historial de deshacer del import.
+
+### Referencia de implementación
+
+| Función en PrevNext_Rev.py | Equivalente aquí |
+|---------------------------|------------------|
+| `set_in_out_from_clip(clip)` | `seq.setInTime(tc_in)` / `seq.setOutTime(tc_out)` |
+| `move_playhead_to_position(pos)` | `viewer.setTime(tc_in)` |
+| `ajustar_vista_al_clip()` | activar ventana + `QTimer` + `Zoom to Fit` + restaurar In/Out |
+
+---
+
 ## Versioning de ítems (EXR seqs y MOVs)
 
 ### EXR sequences
@@ -322,9 +382,10 @@ BurnIn no figura en la lista (se trata como índice infinito, siempre en el tope
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `ImportShotDialog._do_import()`, `_item_hiero_color()`, `_item_section_color()`, `_chip_color()`, `_find_insert_frame()`, `_scan_input_folder()`, `_build_track_combo()`, `_get_seq_track_names()`, `_create_plate_track()`, `_refresh_track_combo_options()`, `_on_track_combo_changed()`, `_get_track_for_row()`, `_populate_data_row()` |
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots_timeline.py` | `push_clips_right()`, `place_clip_in_timeline()`, `stretch_burnin()`, `_find_video_track()`, `_get_last_timeline_out()`, `_is_burnin_track()`, `set_debug_print()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots_timeline.py` | `push_clips_right()`, `place_clip_in_timeline()`, `stretch_burnin()`, `set_viewer_to_shot()`, `_zoom_and_restore()`, `_find_video_track()`, `_get_last_timeline_out()`, `_is_burnin_track()`, `set_debug_print()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_bin.py` | `find_or_create_shot_bin()`, `import_item_to_bin()`, `set_debug_print()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_preview.md` | Documentación de la página de preview que precede al import |
+| `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_PrevNext_Rev.py` | Referencia del patrón view: `set_in_out_from_clip`, `move_playhead_to_position`, `ajustar_vista_al_clip` (activar ventana + QTimer + Zoom to Fit) |
 | `+Building_Blocks/Hiero/Timeline/LGA_H-SelectFromPlayhead.py` | Referencia del patrón `setTimelineOut/setTimelineIn` para mover clips |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_CreateV000.py` | Referencia del flujo: `_import_v000_to_bin`, `_set_v000_clip_color`, `bin_item.setColor()` |
 | `+Building_Blocks/LGA_NKS_BurnIn_Extend_To_LastVisible.py` | Referencia del patrón `stretch_burnin`: `get_burnin_effects()` via `subTrackItems()`, `get_last_visible_clip()`, `effect.setTimelineOut()` |
