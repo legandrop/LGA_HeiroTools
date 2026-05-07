@@ -3,7 +3,7 @@ LGA_import_shots_timeline.py
 Helpers de timeline para la importación real de shots.
 
 Expone:
-  push_clips_right       — empuja clips >= from_frame hacia la derecha
+  push_clips_right       — empuja clips que ocupan from_frame o posterior
   place_clip_in_timeline — coloca un clip en el track indicado
   stretch_burnin         — estira el clip BurnIn hasta new_end_frame
   set_debug_print        — inyecta la función debug_print del módulo principal
@@ -43,7 +43,7 @@ def _log(*args, level="info"):
             pass
 
 
-# ── helper privado ────────────────────────────────────────────────────────────
+# ── helpers privados ──────────────────────────────────────────────────────────
 
 def _is_burnin_track(track_name: str) -> bool:
     return track_name.lower().strip() in _BURNIN_TRACK_NAMES
@@ -60,43 +60,81 @@ def _find_video_track(seq, track_name: str):
 
 def push_clips_right(seq, from_frame: int, amount: int) -> int:
     """
-    Mueve todos los clips cuyo timelineIn >= from_frame hacia la derecha
-    por 'amount' frames. Excluye tracks BurnIn y EffectTrackItems.
+    Empuja hacia la derecha todos los clips que tienen contenido en from_frame
+    o en cualquier frame posterior. Excluye tracks BurnIn y EffectTrackItems.
 
-    Patrón basado en LGA_H-SelectFromPlayhead.py:
-    - Recolecta items de todos los video tracks (excepto BurnIn).
-    - Los selecciona en el Timeline Editor para visibilidad de debug.
-    - Los ordena de derecha a izquierda para evitar colisiones.
-    - Mueve con setTimelineOut() primero, luego setTimelineIn()
-      (así el clip no se "colapsa" mientras se desplaza).
+    Criterio de seleccion: tl_out >= from_frame
+    Captura clips que EMPIEZAN en from_frame o despues (tl_in >= from_frame)
+    Y clips que CRUZAN from_frame (tl_in < from_frame, tl_out >= from_frame),
+    que son los del shot siguiente con inicio desalineado entre tracks.
 
-    Retorna el número de items movidos.
+    Patron basado en LGA_H-SelectFromPlayhead.py:
+    - Selecciona los clips en el Timeline Editor para visibilidad de debug.
+    - Ordena de derecha a izquierda para evitar colisiones al expandir.
+    - Mueve: setTimelineOut(out + amount) primero, luego setTimelineIn(in + amount).
+
+    Retorna el numero de items movidos.
     """
     if not _HIERO_AVAILABLE or amount <= 0:
-        _log("push_clips_right: amount=%d, saltando." % amount, level="warning")
+        _log("push_clips_right: amount=%d <= 0, saltando." % amount, level="warning")
         return 0
+
+    _log("push_clips_right: buscando clips con tl_out >= %d para mover %d frames"
+         % (from_frame, amount))
 
     items_to_move = []
 
     for track in seq.videoTracks():
-        if _is_burnin_track(track.name()):
+        track_name = track.name()
+        if _is_burnin_track(track_name):
+            _log("push_clips_right: track '%s' es BurnIn, saltado" % track_name)
             continue
+
+        track_total = 0
+        track_selected = 0
         for item in track.items():
             try:
                 if isinstance(item, hiero.core.EffectTrackItem):
                     continue
-                if int(item.timelineIn()) >= from_frame:
+                track_total += 1
+                tl_in  = int(item.timelineIn())
+                tl_out = int(item.timelineOut())
+
+                if tl_out >= from_frame:
                     items_to_move.append(item)
+                    track_selected += 1
+                    _log("  track='%s' clip='%s' tl=%d-%d → INCLUIDO"
+                         " (tl_out=%d >= from_frame=%d)"
+                         % (track_name, item.name(), tl_in, tl_out,
+                            tl_out, from_frame))
+                else:
+                    _log("  track='%s' clip='%s' tl=%d-%d → omitido"
+                         " (tl_out=%d < from_frame=%d)"
+                         % (track_name, item.name(), tl_in, tl_out,
+                            tl_out, from_frame))
             except Exception as exc:
-                _log("push_clips_right: error leyendo item → %s" % exc, level="warning")
+                _log("push_clips_right: error leyendo item en track '%s' → %s"
+                     % (track_name, exc), level="warning")
+
+        _log("push_clips_right: track='%s' → %d/%d clips seleccionados"
+             % (track_name, track_selected, track_total))
+
+    _log("push_clips_right: total %d clips seleccionados para mover %d frames"
+         % (len(items_to_move), amount))
+
+    if not items_to_move:
+        _log("push_clips_right: sin clips que mover", level="warning")
+        return 0
 
     # Seleccionar en el editor para visibilidad de debug
     try:
         te = hiero.ui.getTimelineEditor(seq)
         if te is not None:
             te.setSelection(items_to_move)
+            _log("push_clips_right: seleccion aplicada en Timeline Editor")
     except Exception as exc:
-        _log("push_clips_right: no se pudo seleccionar en editor → %s" % exc, level="warning")
+        _log("push_clips_right: no se pudo seleccionar en editor → %s" % exc,
+             level="warning")
 
     # Ordenar de derecha a izquierda para evitar colisiones al expandir
     items_to_move.sort(key=lambda x: x.timelineIn(), reverse=True)
@@ -104,19 +142,23 @@ def push_clips_right(seq, from_frame: int, amount: int) -> int:
     moved = 0
     for item in items_to_move:
         try:
-            new_out = item.timelineOut() + amount
-            new_in  = item.timelineIn()  + amount
-            # Mover out primero para que el clip no colapse al achicarse
+            old_in  = int(item.timelineIn())
+            old_out = int(item.timelineOut())
+            new_out = old_out + amount
+            new_in  = old_in  + amount
+            # Mover out primero para que el clip no colapse antes de ajustar in
             item.setTimelineOut(new_out)
             item.setTimelineIn(new_in)
-            _log("  push: '%s' → tl_in=%d" % (item.name(), new_in))
+            _log("  movido: '%s' (track='%s') tl %d-%d -> %d-%d"
+                 % (item.name(), item.parent().name(),
+                    old_in, old_out, new_in, new_out))
             moved += 1
         except Exception as exc:
             _log("push_clips_right: error moviendo '%s' → %s" % (item.name(), exc),
                  level="warning")
 
-    _log("push_clips_right: %d items movidos %d frames desde frame %d"
-         % (moved, amount, from_frame))
+    _log("push_clips_right: resultado: %d/%d clips movidos %d frames"
+         % (moved, len(items_to_move), amount))
     return moved
 
 
@@ -128,10 +170,10 @@ def place_clip_in_timeline(seq, clip, track_name: str,
 
     Retorna (track_item, error_str). error_str es None si OK.
 
-    Políticas:
+    Politicas:
     - El track debe existir; si no existe, retorna error (no crea tracks).
     - Source in/out: 0 .. frame_count-1 (el primer frame EXR mapea a source 0).
-    - setVersionLinkedToBin(True) se llama al final, cuando el item ya está insertado.
+    - setVersionLinkedToBin(True) se llama al final, cuando el item ya esta insertado.
     """
     target_track = _find_video_track(seq, track_name)
     if target_track is None:
@@ -149,7 +191,7 @@ def place_clip_in_timeline(seq, clip, track_name: str,
              % (shot_name, track_name, tl_in, tl_out, frame_count))
         return track_item, None
     except Exception as exc:
-        _log("place_clip_in_timeline: excepción → %s" % exc, level="error")
+        _log("place_clip_in_timeline: excepcion → %s" % exc, level="error")
         return None, str(exc)
 
 

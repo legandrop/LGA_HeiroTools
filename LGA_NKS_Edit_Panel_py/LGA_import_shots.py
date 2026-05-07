@@ -3588,9 +3588,9 @@ class ImportShotDialog(QtWidgets.QDialog):
         if self.frames_to_push > 0:
             push_msg = (
                 "PASO 1: Hacer espacio en el timeline.\n\n"
-                "Se van a mover todos los clips desde el frame %d "
-                "hacia la derecha %d frames."
-                % (self.insert_frame, self.frames_to_push)
+                "Se van a mover todos los clips que ocupan el frame %d o posterior "
+                "(criterio: tl_out >= %d) hacia la derecha %d frames."
+                % (self.insert_frame, self.insert_frame, self.frames_to_push)
             )
             debug_print("_do_import →", push_msg)
             QtWidgets.QMessageBox.information(self, "Import — Paso 1", push_msg)

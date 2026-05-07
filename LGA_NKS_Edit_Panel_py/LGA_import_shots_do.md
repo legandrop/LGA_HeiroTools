@@ -67,7 +67,10 @@ Y se logea con `debug_print`.
 `timeline_mod.push_clips_right(seq, from_frame, amount)`:
 
 - Itera todos los `videoTracks()` de la secuencia, **excluyendo** los tracks BurnIn.
-- Recolecta todos los `TrackItem` (no `EffectTrackItem`) cuyo `timelineIn() >= from_frame`.
+- Recolecta todos los `TrackItem` (no `EffectTrackItem`) cuyo `tl_out >= from_frame`.
+  - Criterio `tl_out >= from_frame` (NO `tl_in >= from_frame`):
+    captura tanto clips que empiezan en `from_frame` o después, como clips que **cruzan** `from_frame` (empiezan antes, terminan después). Estos últimos son los del shot siguiente con inicio desalineado entre tracks, y también deben moverse.
+- Loguea por cada track cuántos clips fueron incluidos/omitidos y por qué.
 - Selecciona los ítems en el Timeline Editor con `hiero.ui.getTimelineEditor(seq).setSelection(items)` para visibilidad de debug.
 - Los ordena de **derecha a izquierda** (por `timelineIn()` descendente) para evitar colisiones.
 - Para cada ítem, mueve:
