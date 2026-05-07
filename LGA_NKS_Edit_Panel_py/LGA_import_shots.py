@@ -3699,6 +3699,37 @@ class ImportShotDialog(QtWidgets.QDialog):
                 debug_print("_do_import → PASO 3: stretch BurnIn")
                 timeline_mod.stretch_burnin(self.seq)
 
+            # ── PASO 4: Seleccionar los clips recién colocados ────────────────
+            # Solo los TrackItems que siguen vivos (parentTrack != None).
+            # Los items desplazados por versiones posteriores en el mismo slot
+            # quedan con parentTrack=None y hacen fallar setSelection.
+            if placed_items:
+                valid_items = []
+                for pitem in placed_items:
+                    try:
+                        if pitem.parentTrack() is not None:
+                            valid_items.append(pitem)
+                    except Exception:
+                        pass
+                debug_print("_do_import PASO 4: %d placed, %d válidos para selección"
+                            % (len(placed_items), len(valid_items)))
+                if valid_items:
+                    try:
+                        te = hiero.ui.getTimelineEditor(self.seq)
+                        if te is not None:
+                            # Usar te.sequence() para garantizar identidad de objeto
+                            # con los TrackItems (Hiero puede tener dos wrappers
+                            # distintos apuntando a la misma secuencia subyacente)
+                            te.setSelection(valid_items)
+                            debug_print("_do_import: seleccionados %d clips del shot nuevo"
+                                        % len(valid_items))
+                        else:
+                            debug_print("_do_import PASO 4: getTimelineEditor devolvió None",
+                                        level="warning")
+                    except Exception as exc:
+                        debug_print("_do_import: no se pudo seleccionar placed_items → %s"
+                                    % exc, level="warning")
+
         # ── Ejecutar todo dentro de un único bloque de undo ───────────────────
         if project:
             debug_print("_do_import: beginUndo abierto")
@@ -3707,18 +3738,6 @@ class ImportShotDialog(QtWidgets.QDialog):
             debug_print("_do_import: endUndo cerrado")
         else:
             _run_import()
-
-        # ── Post-import: seleccionar los clips del shot nuevo ─────────────────
-        if placed_items:
-            try:
-                te = hiero.ui.getTimelineEditor(self.seq)
-                if te is not None:
-                    te.setSelection(placed_items)
-                    debug_print("_do_import: seleccionados %d clips del shot nuevo"
-                                % len(placed_items))
-            except Exception as exc:
-                debug_print("_do_import: no se pudo seleccionar placed_items → %s"
-                            % exc, level="warning")
 
         if errors:
             QtWidgets.QMessageBox.warning(

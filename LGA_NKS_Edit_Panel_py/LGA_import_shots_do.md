@@ -199,14 +199,19 @@ Patrón idéntico al de `LGA_NKS_BurnIn_Extend_To_LastVisible.py` (Building Bloc
 
 ## Post-import — Selección de clips nuevos
 
-Después del bloque de undo (fuera del `with`), se seleccionan en el Timeline Editor los `TrackItem`s recién colocados:
+Al final de `_run_import()`, **dentro del bloque `with beginUndo`**, se seleccionan en el Timeline Editor los `TrackItem`s recién colocados.
+
+Antes de llamar a `setSelection` se filtra `placed_items` para quedarse solo con los que tienen `parentTrack() != None`:
 
 ```python
+valid_items = [ti for ti in placed_items if ti.parentTrack() is not None]
 te = hiero.ui.getTimelineEditor(self.seq)
-te.setSelection(placed_items)
+te.setSelection(valid_items)
 ```
 
-`placed_items` es una lista que se rellena en `_run_import()` con cada `ti` retornado por `place_clip_in_timeline()` que no tuvo error. Esto reemplaza la selección anterior (que quedaba apuntando a los clips empujados).
+**Por qué filtrar:** cuando se importan múltiples versiones del mismo track (ej. comp v014, v013, v012 todas chequeadas), cada `addTrackItem` desplaza al anterior del mismo slot. Los TrackItems desplazados quedan con `parentTrack() == None` y hacen fallar `setSelection` con `"selection must be within the current sequence"`.
+
+**Por qué dentro del bloque de undo:** fuera del bloque — o después de `self.accept()` — Hiero puede activar otra secuencia como "current" en el timeline editor y `setSelection` falla. Dentro del bloque el contexto de secuencia sigue válido, igual que en `push_clips_right` (PASO 1).
 
 ---
 
