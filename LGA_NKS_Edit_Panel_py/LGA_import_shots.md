@@ -28,18 +28,18 @@ sin depender del playhead.
 - **Boton:** Edit Panel → "Import shot" (verde `#2a4d3a`)
 - **Plan de desarrollo:** `C:\Users\leg4-pc\.nuke\Python\Startup\docs\LGA_import_shots_PLAN.md`
 
-### Modulos auxiliares (a extraer a medida que el script crece)
+### Modulos auxiliares
 
-| Archivo | Contenido previsto | Estado |
-|---------|-------------------|--------|
+| Archivo | Contenido | Estado |
+|---------|-----------|--------|
 | `LGA_import_shots_transcode.py` | `TranscodeWorkerSignals`, `TranscodeWorker`, `build_manifest_for_sequence`, `check_existing_outputs`, `delete_existing_outputs`, `show_overwrite_warning` | **implementado** |
 | `LGA_import_shots_settings.py` | Persistencia de settings e INI de presets de resolución. `load_all_settings`, `save_all_settings`, `load_res_presets`, `save_res_presets`, `preset_to_tuple`, `show_save_preset_dialog` | **implementado** |
 | `LGA_import_shots_rename.py` | Lógica de preview/validación/ejecución para Rename. `build_selected_rows`, `compute_preview`, `build_row_ops`, `execute_ops` | **implementado** |
 | `LGA_import_shots_rename_settings.py` | Persistencia INI dedicada de Rename. `load_settings`, `save_settings`, `get_settings_path` | **implementado** |
 | `LGA_import_shots_preview.py` | Lógica de datos del Import Preview. `build_import_preview_data`, `classify_track_type`, `_find_adjacent_clips` | **implementado** |
+| `LGA_import_shots_timeline.py` | Helpers de timeline para el import real. `push_clips_right`, `place_clip_in_timeline`, `stretch_burnin`, `set_debug_print` | **implementado** |
+| `LGA_import_shots_bin.py` | Helpers de bin para el import real. `find_or_create_shot_bin`, `import_item_to_bin`, `set_debug_print` | **implementado** |
 | `LGA_import_shots_scan.py` | Helpers de escaneo de carpetas y metadata | pendiente |
-| `LGA_import_shots_timeline.py` | Helpers de timeline (push, stretch, posicionamiento) | pendiente |
-| `LGA_import_shots_bin.py` | Helpers de bin (find/create, import) | pendiente |
 | `LGA_import_shots_ui.py` | Estilos CSS, widgets helpers, separadores | pendiente |
 
 ### Documentación de secciones
@@ -47,6 +47,7 @@ sin depender del playhead.
 | Sección | MD de referencia |
 |---------|-----------------|
 | Import Preview (PAGE_IMPORT) | [`LGA_import_shots_preview.md`](LGA_import_shots_preview.md) |
+| Import Real (`_do_import`) | [`LGA_import_shots_do.md`](LGA_import_shots_do.md) |
 | Rename (PAGE_RENAME) | [`LGA_import_shots_rename.md`](LGA_import_shots_rename.md) |
 
 ---
@@ -493,51 +494,9 @@ Una linea de texto sobre el log con totales (sin estimaciones):
 
 ---
 
-## Placement (Import)
+## Import real
 
-### Logica de posicionamiento en el timeline
-
-Los shots en el timeline estan siempre ordenados alfabeticamente de izquierda a derecha.
-La herramienta escanea los tracks `aPlate` y `EditRef`, obtiene el listado de shots existentes
-con sus posiciones, y calcula el `insert_frame` correcto para el nuevo shot.
-
-Si hay shots que deben moverse a la derecha, se llama a `_push_clips_right()` que mueve
-todos los clips de todos los tracks (excepto `BurnIn`) desde el punto de insercion.
-
-El track `BurnIn` se **estira** con `_stretch_burnin()` para cubrir el nuevo largo total.
-
-### Colocacion en timeline
-
-```python
-track_item.setTimes(tl_in, tl_out, 0, frame_count - 1)
-track_item.setVersionLinkedToBin(True)   # siempre al final
-```
-
-Los EXR fisicos empiezan en frame `1001`. El source en Hiero empieza en `0`;
-Hiero mapea internamente el rango fisico.
-
-### Bin destino
-
-```
-project.clipsBin() / F <grupo> / <shot_name>
-```
-
-Ejemplo: `F 101/MOR_1012C_010`
-
-El grupo se extrae de la penultima parte del path del shot root.
-Si el bin ya existe se reutiliza; si no, se crea.
-
-### Deteccion de shot existente (criterio doble)
-
-1. Nombre del `TrackItem` coincide exactamente con `shot_name` (case-insensitive)
-2. El path de la media del clip contiene el `shot_root` normalizado
-
-Si cualquiera de los dos se cumple → error, el script se cancela.
-
-### SeqRef
-
-El SeqRef se importa al bin del shot (si no estaba ya). No se coloca en el timeline.
-Se muestra con icono ⚠ en la tabla principal.
+Ver documentación detallada en [`LGA_import_shots_do.md`](LGA_import_shots_do.md).
 
 ---
 
@@ -735,16 +694,9 @@ donde se distribuya la repo.
 
 - **Convert — Transcode de MOV:** plates MOV aparecen en la tabla con checkbox deshabilitado
   y estado "No soportado". Implementar cuando haya herramienta de transcode MOV disponible.
-- **Post-import: pregunta para Create v000 + estructura de tasks (PENDIENTE):**
-  al finalizar el import real, abrir un diálogo pequeño con el mismo estilo visual
-  que `show_save_preset_dialog()` (fondo `#2B2B2B`, frameless, botones `Sí/No`).
-  - Si el usuario elige **No**: terminar flujo sin acciones extra.
-  - Si el usuario elige **Sí**: ejecutar `LGA_NKS_CreateV000.py` existente.
-  - Nota: este reemplaza por completo el enfoque anterior del botón "Create Tasks".
-- **SetShotName:** llamada correcta al script externo post-importacion
-- **CreateV000:** trigger correcto para tasks sin versiones
-- **Modularizacion:** extraer helpers a `LGA_import_shots_scan.py`,
-  `LGA_import_shots_timeline.py`, `LGA_import_shots_bin.py`, `LGA_import_shots_ui.py`
+- **Import real — generalizar:** quitar el flag `_IMPORT_ONLY_COMP` y soportar todos los tracks. Ver `LGA_import_shots_do.md`.
+- **Post-import — SetShotName:** llamada al script externo post-importacion.
+- **Post-import — CreateV000:** dialogo post-import para crear v000 en tasks sin versiones.
 
 ---
 
@@ -755,6 +707,8 @@ donde se distribuya la repo.
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `main()`, `ImportShotDialog`, `_show_page()`, `_build_page_media()`, `_build_page_rename()`, `_update_rename_page()`, `_refresh_rename_preview()`, `_populate_rename_section_header()`, `_on_rename_chk_changed()`, `_update_rename_btn_state()`, `_run_rename()`, `_rn_escape()`, `_swap_sr()`, `_update_rename_summary()`, `_build_page_convert()`, `_update_convert_page()`, `_on_res_preset_changed()`, `_on_keep_ar_changed()`, `_update_match_dim_visibility()`, `_get_representative_res()`, `_on_custom_w_changed()`, `_on_custom_h_changed()`, `_current_target_res()`, `_target_compression()`, `_refresh_convert_destinos()`, `_update_res_combo_labels()`, `_on_dwaa_chk_changed()`, `_on_deana_chk_changed()`, `_apply_deana_if_active()`, `_load_settings_to_ui()`, `_save_all_settings()`, `_rebuild_res_combo()`, `_on_delete_preset()`, `_on_save_preset_clicked()`, `_run_transcode()`, `_start_next_sequence()`, `_on_sequence_started()`, `_poll_transcode_progress()`, `_on_sequence_done()`, `_on_worker_batch_done()`, `_finalize_transcode()`, `_on_transcode_error()`, `_fmt_bd()`, `_fmt_par()`, `_ar_str()`, `_read_exr_metadata()`, `_read_mov_metadata()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_transcode.py` | `TranscodeWorkerSignals` (señales: `log_message`, `sequence_started(row_i, dst_dir, total_frames)`, `sequence_done`, `all_done`, `error`), `TranscodeWorker`, `build_manifest_for_sequence(channels, pixel_aspect_ratio)`, `check_existing_outputs()`, `delete_existing_outputs()`, `show_overwrite_warning()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_settings.py` | `get_settings_path()`, `load_all_settings()`, `save_all_settings()`, `load_res_presets()`, `save_res_presets()`, `preset_to_tuple()`, `show_save_preset_dialog()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots_timeline.py` | `push_clips_right()`, `place_clip_in_timeline()`, `stretch_burnin()`, `set_debug_print()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots_bin.py` | `find_or_create_shot_bin()`, `import_item_to_bin()`, `set_debug_print()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_rename.py` | `build_selected_rows()`, `compute_preview()`, `build_row_ops()`, `execute_ops()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_rename_settings.py` | `get_settings_path()`, `load_settings()`, `save_settings()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_rename.md` | Especificación funcional y técnica de la sección Rename |

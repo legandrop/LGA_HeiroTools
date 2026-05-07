@@ -83,6 +83,16 @@ preview_mod = importlib.import_module(_PREVIEW_HELPER)
 build_import_preview_data = preview_mod.build_import_preview_data
 mix_colors                = preview_mod.mix_colors
 
+_TIMELINE_HELPER = "LGA_NKS_Edit_Panel_py.LGA_import_shots_timeline"
+if _TIMELINE_HELPER in sys.modules:
+    del sys.modules[_TIMELINE_HELPER]
+timeline_mod = importlib.import_module(_TIMELINE_HELPER)
+
+_BIN_HELPER = "LGA_NKS_Edit_Panel_py.LGA_import_shots_bin"
+if _BIN_HELPER in sys.modules:
+    del sys.modules[_BIN_HELPER]
+bin_mod = importlib.import_module(_BIN_HELPER)
+
 # ── tooltip helper ──────────────────────────────────────────────────────────
 _TOOLTIP_HELPER = "LGA_NKS_Shared.LGA_tooltip_helper"
 if _TOOLTIP_HELPER in sys.modules:
@@ -104,6 +114,8 @@ except Exception as _te:
 Transcode_TEST_Mode = False
 # Si True, Rename trabaja sobre copia en carpeta "renamned" y no toca originales.
 Rename_Test_mode = False
+# DEV: limita el import real solo al track _comp_. Borrar al generalizar.
+_IMPORT_ONLY_COMP = True
 
 # ── logging ────────────────────────────────────────────────────────
 DEBUG = True
@@ -178,11 +190,12 @@ def cleanup_logging():
 
 
 def _inject_preview_logger():
-    """Inyecta debug_print en el módulo preview para que use el mismo logger."""
-    try:
-        preview_mod.set_debug_print(debug_print)
-    except Exception:
-        pass
+    """Inyecta debug_print en los módulos auxiliares para que usen el mismo logger."""
+    for mod in (preview_mod, timeline_mod, bin_mod):
+        try:
+            mod.set_debug_print(debug_print)
+        except Exception:
+            pass
 
 
 _inject_preview_logger()
@@ -718,201 +731,6 @@ def _find_insert_frame(seq, shot_name, duration):
     return insert_frame, duration
 
 
-def _push_clips_right(seq, from_frame, amount):
-    """
-    Mueve todos los clips >= from_frame hacia la derecha por 'amount' frames.
-    Excluye tracks BurnIn.
-    """
-    if amount <= 0:
-        return
-    for track in seq.videoTracks():
-        if _is_burnin_track(track.name()):
-            continue
-        items_to_move = []
-        for item in track.items():
-            if isinstance(item, hiero.core.EffectTrackItem):
-                continue
-            try:
-                if int(item.timelineIn()) >= from_frame:
-                    items_to_move.append(item)
-            except Exception:
-                continue
-        # Mover de derecha a izquierda para evitar colisiones
-        items_to_move.sort(key=lambda x: x.timelineIn(), reverse=True)
-        for item in items_to_move:
-            try:
-                tl_in = int(item.timelineIn())
-                tl_out = int(item.timelineOut())
-                src_in = int(item.sourceIn())
-                src_out = int(item.sourceOut())
-                item.setTimes(tl_in + amount, tl_out + amount, src_in, src_out)
-            except Exception as e:
-                debug_print("Error moving clip %s: %s" % (item.name(), e), level="warning")
-
-
-def _stretch_burnin(seq, new_end_frame):
-    """Estira el clip BurnIn para cubrir hasta new_end_frame."""
-    for track in seq.videoTracks():
-        if not _is_burnin_track(track.name()):
-            continue
-        for item in track.items():
-            if isinstance(item, hiero.core.EffectTrackItem):
-                continue
-            try:
-                tl_in = int(item.timelineIn())
-                src_in = int(item.sourceIn())
-                new_out = max(int(item.timelineOut()), new_end_frame)
-                new_src_out = src_in + (new_out - tl_in)
-                item.setTimes(tl_in, new_out, src_in, new_src_out)
-                debug_print("BurnIn stretched to frame %d" % new_out)
-            except Exception as e:
-                debug_print("Could not stretch BurnIn: %s" % e, level="warning")
-        break
-
-
-def _find_or_create_bin(project, bin_path):
-    """Navega/crea la ruta de bin. bin_path ej: 'F 101/MOR_1012C_010'"""
-    current = project.clipsBin()
-    for part in [p for p in bin_path.split("/") if p]:
-        found = None
-        for child in current.items():
-            if isinstance(child, hiero.core.Bin) and child.name() == part:
-                found = child
-                break
-        if not found:
-            found = hiero.core.Bin(part)
-            current.addItem(found)
-        current = found
-    return current
-
-
-def _bin_path_for_shot(shot_root, shot_name):
-    """Construye 'F <grupo>/<shot_name>' desde el shot_root."""
-    parts = Path(shot_root).parts
-    # Estructura: disco / proyecto / grupo / shot
-    # Ej: T: / VFX-MOR / 101 / MOR_1012C_010
-    if len(parts) >= 3:
-        grupo = parts[-2]
-    else:
-        grupo = "Shots"
-    return "F %s/%s" % (grupo, shot_name)
-
-
-def _import_clip_to_bin(target_bin, first_file_path, clip_name):
-    """Importa una secuencia al bin. Retorna (clip, bin_item, error)."""
-    try:
-        clip = hiero.core.Clip(first_file_path)
-        clip.setName(clip_name)
-        bin_item = hiero.core.BinItem(clip)
-        target_bin.addItem(bin_item)
-        debug_print("Imported to bin: %s" % clip_name)
-        return clip, bin_item, None
-    except Exception as e:
-        return None, None, str(e)
-
-
-def _find_video_track(seq, track_name):
-    for track in seq.videoTracks():
-        if track.name() == track_name:
-            return track
-    return None
-
-
-def _place_clip_in_timeline(seq, clip, track_name, tl_in, frame_count, shot_name):
-    """Coloca el clip en el track indicado. Retorna (track_item, error)."""
-    target_track = _find_video_track(seq, track_name)
-    if not target_track:
-        return None, "Track no encontrado: %s" % track_name
-
-    tl_out = tl_in + frame_count - 1
-    try:
-        track_item = target_track.addTrackItem(clip, tl_in)
-        track_item.setName(shot_name)
-        track_item.setTimes(tl_in, tl_out, 0, frame_count - 1)
-        track_item.setVersionLinkedToBin(True)
-        return track_item, None
-    except Exception as e:
-        return None, str(e)
-
-
-def _find_or_create_shot_bin(seq, shot_name):
-    """
-    Busca o crea el bin correcto para el shot:  F <Secuencia>/<ShotName>
-
-    Sigue la misma estructura que LGA_NKS_OrganizeProject.py.
-    Retorna el bin destino (hiero.core.Bin), o None si no se puede resolver.
-    """
-    try:
-        project = hiero.core.projects()[0]
-    except Exception:
-        return None
-
-    clips_bin = project.clipsBin()
-
-    # Encontrar o crear sub-bin de secuencia: "F <seq_name>"
-    try:
-        seq_name = seq.name()
-    except Exception:
-        seq_name = ""
-    seq_bin_name = "F %s" % seq_name if seq_name else "Shots"
-
-    seq_bin = None
-    for item in clips_bin.items():
-        try:
-            if hasattr(item, "name") and item.name() == seq_bin_name:
-                seq_bin = item
-                break
-        except Exception:
-            pass
-
-    if seq_bin is None:
-        seq_bin = hiero.core.Bin(seq_bin_name)
-        clips_bin.addItem(seq_bin)
-
-    # Encontrar o crear sub-bin de shot: "<ShotName>"
-    shot_bin = None
-    for item in seq_bin.items():
-        try:
-            if hasattr(item, "name") and item.name() == shot_name:
-                shot_bin = item
-                break
-        except Exception:
-            pass
-
-    if shot_bin is None:
-        shot_bin = hiero.core.Bin(shot_name)
-        seq_bin.addItem(shot_bin)
-
-    return shot_bin
-
-
-def _import_item_to_bin(item: dict, target_bin):
-    """
-    Importa un ítem (EXR seq o MOV) como hiero.core.Clip y lo agrega al bin.
-
-    Retorna (clip, error_str).  error_str es None si OK.
-    """
-    kind = item.get("kind")
-    path = item.get("path", "")
-
-    try:
-        if kind == "exr_seq":
-            first = item.get("first_file", "")
-            if not first:
-                return None, "Sin first_file para EXR seq: %s" % path
-            clip = hiero.core.Clip(str(first))
-        elif kind == "mov":
-            clip = hiero.core.Clip(str(path))
-        else:
-            return None, "Tipo de ítem no soportado: %s" % kind
-
-        if target_bin is not None:
-            bin_item = hiero.core.BinItem(clip)
-            target_bin.addItem(bin_item)
-
-        return clip, None
-    except Exception as exc:
-        return None, str(exc)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -3725,13 +3543,14 @@ class ImportShotDialog(QtWidgets.QDialog):
         """
         Ejecuta la importación de los ítems chequeados al bin y al timeline.
 
-        Flujo por ítem:
-          1. Crear hiero.core.Clip desde el primer frame real de la secuencia.
-          2. Agregar al bin correcto (F <Secuencia>/<ShotName>).
-          3. Colocar en el track destino vía _place_clip_in_timeline().
+        Flujo:
+          1. Recolectar ítems marcados con track asignado.
+             Si _IMPORT_ONLY_COMP está activo, filtrar solo el track _comp_.
+          2. Hacer espacio: empujar clips desde insert_frame frames_to_push frames.
+          3. Confirmación del usuario antes de importar al bin.
+          4. Importar al bin y colocar en el track del timeline.
         """
-        errors = []
-
+        # ── Recolección de ítems ──────────────────────────────────────────────
         items_by_track = {}
         for row, chk in self._checkboxes.items():
             if not chk.isChecked():
@@ -3749,8 +3568,83 @@ class ImportShotDialog(QtWidgets.QDialog):
             debug_print("_do_import: no hay items con track asignado", level="warning")
             return
 
-        # Localizar el bin destino: F <Secuencia>/<ShotName>
-        target_bin = _find_or_create_shot_bin(self.seq, self.shot_name)
+        # DEV flag: solo procesar el track _comp_
+        if _IMPORT_ONLY_COMP:
+            comp_items = items_by_track.get("_comp_", [])
+            if not comp_items:
+                QtWidgets.QMessageBox.information(
+                    self,
+                    "Import (DEV)",
+                    "Flag _IMPORT_ONLY_COMP activo pero no hay ítem asignado "
+                    "al track _comp_. Nada que importar.",
+                )
+                debug_print("_do_import: _IMPORT_ONLY_COMP activo, sin ítem en _comp_",
+                            level="warning")
+                return
+            items_by_track = {"_comp_": comp_items}
+            debug_print("_do_import: _IMPORT_ONLY_COMP activo — solo se importará _comp_")
+
+        # ── PASO 1: Hacer espacio ─────────────────────────────────────────────
+        if self.frames_to_push > 0:
+            push_msg = (
+                "PASO 1: Hacer espacio en el timeline.\n\n"
+                "Se van a mover todos los clips desde el frame %d "
+                "hacia la derecha %d frames."
+                % (self.insert_frame, self.frames_to_push)
+            )
+            debug_print("_do_import →", push_msg)
+            QtWidgets.QMessageBox.information(self, "Import — Paso 1", push_msg)
+
+            moved = timeline_mod.push_clips_right(
+                self.seq, self.insert_frame, self.frames_to_push
+            )
+            debug_print("_do_import: %d clips movidos %d frames"
+                        % (moved, self.frames_to_push))
+        else:
+            debug_print("_do_import: frames_to_push=0, sin necesidad de hacer espacio")
+
+        # ── PASO 2: Confirmación antes de importar ────────────────────────────
+        for track_name, items in items_by_track.items():
+            for item in items:
+                clip_name   = item.get("name", "?")
+                frame_count = item.get("frame_count", 0)
+                tl_out_est  = self.insert_frame + frame_count - 1
+
+                try:
+                    seq_bin_name = "F %s" % self.seq.name()
+                except Exception:
+                    seq_bin_name = "Shots"
+
+                confirm_msg = (
+                    "PASO 2: Importar al bin y colocar en timeline.\n\n"
+                    "Clip:    %s\n"
+                    "Bin:     %s / %s\n"
+                    "Track:   %s\n"
+                    "Frames:  %d – %d  (%d frames)\n\n"
+                    "¿Continuar?"
+                    % (clip_name,
+                       seq_bin_name, self.shot_name,
+                       track_name,
+                       self.insert_frame, tl_out_est, frame_count)
+                )
+                debug_print("_do_import → confirmación para '%s'" % clip_name)
+
+                reply = QtWidgets.QMessageBox.question(
+                    self,
+                    "Import — Paso 2",
+                    confirm_msg,
+                    QtWidgets.QMessageBox.Ok | QtWidgets.QMessageBox.Cancel,
+                )
+                if reply != QtWidgets.QMessageBox.Ok:
+                    debug_print("_do_import: usuario canceló importación de '%s'"
+                                % clip_name)
+                    return
+                debug_print("_do_import: usuario aceptó importación de '%s'" % clip_name)
+
+        # ── PASO 3: Import al bin + colocación en timeline ────────────────────
+        step3_msg = "PASO 3: Importando al bin y colocando en el timeline."
+        debug_print("_do_import →", step3_msg)
+        QtWidgets.QMessageBox.information(self, "Import — Paso 3", step3_msg)
 
         project = None
         try:
@@ -3761,32 +3655,41 @@ class ImportShotDialog(QtWidgets.QDialog):
         if project:
             project.beginUndo("Import Shot: %s" % self.shot_name)
 
+        errors = []
+        placed = 0
         try:
-            placed = 0
+            target_bin = bin_mod.find_or_create_shot_bin(self.seq, self.shot_name)
+
             for track_name, items in items_by_track.items():
                 for item in items:
-                    clip, err = _import_item_to_bin(item, target_bin)
+                    clip_name   = item.get("name", "?")
+                    frame_count = item.get("frame_count", 0)
+
+                    clip, err = bin_mod.import_item_to_bin(item, target_bin)
                     if err:
-                        errors.append("Import bin: %s — %s" % (item.get("name", "?"), err))
-                        debug_print("_do_import bin error:", err, level="warning")
+                        errors.append("Bin: %s — %s" % (clip_name, err))
+                        debug_print("_do_import: error bin '%s' → %s"
+                                    % (clip_name, err), level="warning")
                         continue
 
-                    frame_count = item.get("frame_count") or (
-                        clip.duration() if clip else 0
-                    )
-                    ti, err2 = _place_clip_in_timeline(
+                    if frame_count == 0 and clip is not None:
+                        try:
+                            frame_count = clip.duration()
+                        except Exception:
+                            pass
+
+                    ti, err2 = timeline_mod.place_clip_in_timeline(
                         self.seq, clip, track_name,
                         self.insert_frame, frame_count, self.shot_name,
                     )
                     if err2:
-                        errors.append("Timeline: %s — %s" % (item.get("name", "?"), err2))
-                        debug_print("_do_import timeline error:", err2, level="warning")
+                        errors.append("Timeline: %s — %s" % (clip_name, err2))
+                        debug_print("_do_import: error timeline '%s' → %s"
+                                    % (clip_name, err2), level="warning")
                     else:
                         placed += 1
-                        debug_print(
-                            "_do_import placed:", item.get("name", "?"),
-                            "track:", track_name, "frame:", self.insert_frame,
-                        )
+                        debug_print("_do_import: colocado '%s' en track '%s' frame %d"
+                                    % (clip_name, track_name, self.insert_frame))
         finally:
             if project:
                 project.endUndo()
