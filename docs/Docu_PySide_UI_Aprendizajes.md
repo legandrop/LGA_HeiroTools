@@ -274,6 +274,49 @@ Ejemplo aplicado: `LGA_import_shots.py` fuerza recarga de
 
 ---
 
+## Undo en Hiero con múltiples proyectos abiertos
+
+### Problema — `project.beginUndo()` no agrupa las operaciones cuando hay 2+ proyectos abiertos
+
+Al ejecutar una operación con `project.beginUndo("nombre")`, si el `project` se obtiene via
+`hiero.core.projects()[0]`, el undo group se abre en el **primero de la lista** — que puede
+no ser el proyecto que contiene la secuencia que se está editando.
+
+Síntoma: la operación funciona correctamente, pero al deshacer hay que presionar Ctrl+Z
+muchas veces (una por cada operación individual). Con un solo proyecto abierto todo anda bien;
+el problema aparece al tener un segundo proyecto abierto simultáneamente.
+
+#### Por qué falla
+
+`hiero.core.projects()` devuelve todos los proyectos abiertos. El índice `[0]` no garantiza
+que sea el proyecto activo ni el que contiene la secuencia en uso. El `beginUndo` se abre en
+ese proyecto ajeno, y las operaciones de timeline quedan como entradas independientes en el
+undo stack del proyecto correcto.
+
+#### Solución
+
+Obtener el proyecto **desde la secuencia** con `seq.project()`:
+
+```python
+# MAL — falla con múltiples proyectos abiertos
+project = hiero.core.projects()[0]
+
+# BIEN — siempre usa el proyecto que contiene la secuencia activa
+project = self.seq.project()
+```
+
+Esto garantiza que el `beginUndo` se abre en el proyecto correcto sin importar cuántos
+proyectos estén abiertos ni en qué orden.
+
+#### Notas
+
+- El mismo error puede ocurrir en cualquier operación que use `projects()[0]` para obtener
+  el contexto de undo: creación de tracks, coloreo de bins, cualquier operación agrupada.
+- En herramientas que no tienen acceso a una secuencia, usar `hiero.ui.activeSequence().project()`
+  como alternativa.
+
+---
+
 ## Referencias
 
 - [LGA_import_shots.py](../LGA_NKS_Edit_Panel_py/LGA_import_shots.py) — clase

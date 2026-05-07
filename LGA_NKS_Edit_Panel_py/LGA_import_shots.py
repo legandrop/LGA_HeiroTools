@@ -1965,7 +1965,7 @@ class ImportShotDialog(QtWidgets.QDialog):
 
             project = None
             try:
-                project = hiero.core.projects()[0]
+                project = self.seq.project()
             except Exception:
                 pass
 
@@ -3818,10 +3818,12 @@ class ImportShotDialog(QtWidgets.QDialog):
             debug_print("_do_import: no hay items con track asignado", level="warning")
             return
 
-        # ── Obtener proyecto ──────────────────────────────────────────────────
+        # ── Obtener proyecto desde la secuencia (no projects()[0]) ──────────────
+        # Con múltiples proyectos abiertos, projects()[0] puede ser el proyecto
+        # equivocado. El beginUndo debe abrirse en el que contiene self.seq.
         project = None
         try:
-            project = hiero.core.projects()[0]
+            project = self.seq.project()
         except Exception:
             pass
 
