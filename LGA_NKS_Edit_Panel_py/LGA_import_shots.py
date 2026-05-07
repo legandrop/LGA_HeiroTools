@@ -1209,6 +1209,143 @@ class _ResPresetDelegate(QtWidgets.QStyledItemDelegate):
 
 
 # ══════════════════════════════════════════════════════════════════
+#  List view y delegate para combo de track
+#  La última opción "＋ Crear track <name>" actúa como botón:
+#  al hacer click se llama al callback y el evento se consume
+#  (el combo no cambia su valor actual).  Mismo patrón que
+#  _ResPresetListView / trash icon del combo de resolución.
+# ══════════════════════════════════════════════════════════════════
+
+_TRACK_CREATE_PREFIX = "+ Crear track "
+
+
+class _TrackComboListView(QtWidgets.QListView):
+    """QListView para el combo de asignación de tracks.
+
+    La opción 'Crear track <name>' se comporta como botón: al hacer click
+    se llama on_create_cb(text) y el evento se consume sin cerrar el popup
+    ni cambiar el valor del combo.
+
+    El QComboBoxPrivateContainer instala un eventFilter en el listview mismo,
+    interceptando MouseButtonRelease antes de que llegue a nuestro override.
+    Por eso instalamos nuestro filtro en el viewport(), que NO está filtrado
+    por el container.  (Mismo patrón que _ResPresetListView.)
+    """
+
+    def __init__(self, on_create_cb, parent=None):
+        super(_TrackComboListView, self).__init__(parent)
+        self._on_create = on_create_cb
+        self._hovered_create_row = -1
+        self.setMouseTracking(True)
+
+    def showEvent(self, event):
+        super(_TrackComboListView, self).showEvent(event)
+        vp = self.viewport()
+        if vp:
+            vp.setMouseTracking(True)
+            vp.installEventFilter(self)
+
+    def hideEvent(self, event):
+        super(_TrackComboListView, self).hideEvent(event)
+        self._hovered_create_row = -1
+
+    @staticmethod
+    def _is_create_option(text):
+        return text.startswith(_TRACK_CREATE_PREFIX)
+
+    def _update_hover(self, pos):
+        m = self.model()
+        if not m:
+            return
+        idx = self.indexAt(pos)
+        row = idx.row() if idx.isValid() else -1
+        new_hover = -1
+        if row >= 0:
+            text = m.data(m.index(row, 0)) or ""
+            if self._is_create_option(text):
+                new_hover = row
+        if new_hover != self._hovered_create_row:
+            old = self._hovered_create_row
+            self._hovered_create_row = new_hover
+            vp = self.viewport()
+            for r in (old, new_hover):
+                if r >= 0:
+                    vp.update(self.visualRect(m.index(r, 0)))
+
+    def eventFilter(self, obj, event):
+        vp = self.viewport()
+        if obj is vp:
+            etype = event.type()
+            if etype == QtCore.QEvent.MouseMove:
+                self._update_hover(event.pos())
+            elif etype == QtCore.QEvent.Leave:
+                old = self._hovered_create_row
+                self._hovered_create_row = -1
+                m = self.model()
+                if m and old >= 0:
+                    self.viewport().update(self.visualRect(m.index(old, 0)))
+            elif etype == QtCore.QEvent.MouseButtonRelease:
+                m = self.model()
+                if m:
+                    idx = self.indexAt(event.pos())
+                    row = idx.row() if idx.isValid() else -1
+                    if row >= 0:
+                        text = m.data(m.index(row, 0)) or ""
+                        if self._is_create_option(text):
+                            self._on_create(text)
+                            return True  # consumir → no seleccionar ni cerrar popup
+        return super(_TrackComboListView, self).eventFilter(obj, event)
+
+
+class _TrackComboDelegate(QtWidgets.QStyledItemDelegate):
+    """Pinta las opciones del combo de track.
+
+    La opción '+ Crear track <name>' se pinta con fondo verde oscuro y texto
+    verde (estilo botón), diferenciándose de las opciones de track normales.
+    En hover el fondo se aclara levemente.
+    """
+
+    _CLR_TEXT        = "#a7a7a7"
+    _CLR_CREATE_TEXT = "#7aba7a"   # verde suave — acción positiva
+    _CLR_CREATE_BG   = "#1a2a1a"   # fondo verde muy oscuro
+    _CLR_CREATE_HOV  = "#253525"   # hover: verde oscuro un poco más claro
+
+    def __init__(self, list_view, parent=None):
+        super(_TrackComboDelegate, self).__init__(parent)
+        self._view = list_view
+
+    @staticmethod
+    def _is_create_option(text):
+        return text.startswith(_TRACK_CREATE_PREFIX)
+
+    def paint(self, painter, option, index):
+        painter.save()
+        text = index.data() or ""
+        is_create = self._is_create_option(text)
+
+        if is_create:
+            hovered = (self._view._hovered_create_row == index.row())
+            bg = QtGui.QColor(self._CLR_CREATE_HOV if hovered
+                              else self._CLR_CREATE_BG)
+        else:
+            bg = (QtGui.QColor("#353535")
+                  if (option.state & QtWidgets.QStyle.State_Selected)
+                  else QtGui.QColor("#2B2B2B"))
+        painter.fillRect(option.rect, bg)
+
+        text_rect = option.rect.adjusted(6, 0, -4, 0)
+        clr = self._CLR_CREATE_TEXT if is_create else self._CLR_TEXT
+        painter.setPen(QtGui.QColor(clr))
+        painter.drawText(text_rect,
+                         QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft, text)
+        painter.restore()
+
+    def sizeHint(self, option, index):
+        sh = super(_TrackComboDelegate, self).sizeHint(option, index)
+        return sh.expandedTo(QtCore.QSize(0, 24))
+
+
+# ══════════════════════════════════════════════════════════════════
 #  Dialogo principal
 # ══════════════════════════════════════════════════════════════════
 
@@ -1825,22 +1962,29 @@ class ImportShotDialog(QtWidgets.QDialog):
             debug_print("_create_plate_track: error → %s" % exc, level="error")
             return None
 
-    def _refresh_track_combo_options(self, created_track_name=None):
+    def _refresh_track_combo_options(self, created_track_name=None, creator_row=None):
         """
         Reconstruye las opciones de todos los combos de track tras añadir un
         track nuevo al timeline.  Preserva la selección actual de cada combo.
-        Si created_track_name no es None, los combos que tenían la opción
-        "Crear track <name>" seleccionada la reemplazan automáticamente por
-        el track real.
+
+        created_track_name: nombre del track recién creado (o None).
+        creator_row: row_id del combo que inició la creación.  Ese combo
+            pasa a mostrar el track recién creado como selección.  Los demás
+            combos que tenían la opción "Crear track <name>" seleccionada
+            (caso de navegación por teclado) también se actualizan.
         """
         new_options = self._get_seq_track_names()
 
         for row_id, combo in self._track_combos.items():
             current_sel = combo.currentText()
 
-            # Si estaba esperando crear este track, usarlo ahora
+            # Determinar la selección destino
             create_opt = self._CREATE_TRACK_PREFIX + (created_track_name or "")
-            if created_track_name and current_sel == create_opt:
+            if created_track_name and row_id == creator_row:
+                # Este combo inició la creación vía botón → asignar el track
+                target_sel = created_track_name
+            elif created_track_name and current_sel == create_opt:
+                # Selección vía teclado: la opción "Crear…" era el valor actual
                 target_sel = created_track_name
             else:
                 target_sel = current_sel
@@ -1867,8 +2011,6 @@ class ImportShotDialog(QtWidgets.QDialog):
                 combo.setCurrentText(target_sel)
             elif target_sel == "— sin track —":
                 combo.setCurrentIndex(0)
-            elif create_option and target_sel == create_opt:
-                combo.setCurrentText(create_option)
             else:
                 combo.setCurrentIndex(0)
 
@@ -1957,8 +2099,17 @@ class ImportShotDialog(QtWidgets.QDialog):
                     break
 
         # ── Construir combo ────────────────────────────────────────────────
+        # La opción "Crear track" actúa como botón vía _TrackComboListView:
+        # el click se consume sin cambiar el valor actual del combo.
+        def _on_create_opt(create_text, _rid=row_id):
+            self._on_track_combo_changed(_rid, create_text)
+
+        _track_list_view = _TrackComboListView(_on_create_opt)
+        _track_delegate  = _TrackComboDelegate(_track_list_view)
+        _track_list_view.setItemDelegate(_track_delegate)
+
         combo = _ArrowComboBox()
-        combo.setView(QtWidgets.QListView())
+        combo.setView(_track_list_view)
         combo.setStyleSheet(
             "QComboBox { background-color:#272727; border:0px; "
             "color:#a7a7a7; padding:1px 4px; }"
@@ -1974,24 +2125,13 @@ class ImportShotDialog(QtWidgets.QDialog):
         for opt in options:
             combo.addItem(opt)
 
-        # Colorear la opción "Crear track" en azul suave para distinguirla
-        if create_option:
-            try:
-                create_idx = combo.count() - 1
-                combo.model().item(create_idx).setForeground(
-                    QtGui.QColor("#7a9ab5")
-                )
-            except Exception:
-                pass
-
-        # Selección inicial (blockSignals para no disparar creación en carga)
+        # Selección inicial: "— sin track —" cuando el track aún no existe.
+        # La opción "Crear track" es un botón, nunca el valor seleccionado.
         combo.blockSignals(True)
         if current_track and current_track in existing_tracks:
             combo.setCurrentText(current_track)
-        elif create_option:
-            combo.setCurrentText(create_option)
         else:
-            combo.setCurrentIndex(0)
+            combo.setCurrentIndex(0)  # "— sin track —"
         combo.blockSignals(False)
 
         combo.currentTextChanged.connect(
@@ -2028,9 +2168,14 @@ class ImportShotDialog(QtWidgets.QDialog):
                 new_t = _do_create()
 
             if new_t is not None:
-                # Refrescar todos los combos con el nuevo track incluido
-                self._refresh_track_combo_options(created_track_name=track_to_create)
-                # El combo del row actual ya fue actualizado a track_to_create
+                # Refrescar todos los combos con el nuevo track incluido.
+                # creator_row indica qué combo inició la acción para asignarle
+                # el track recién creado (su selección estaba en "— sin track —"
+                # porque la opción "Crear" es un botón, no un valor seleccionado).
+                self._refresh_track_combo_options(
+                    created_track_name=track_to_create,
+                    creator_row=changed_row,
+                )
                 self._track_overrides[changed_row] = track_to_create
             else:
                 # Falló la creación: volver a sin track

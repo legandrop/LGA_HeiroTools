@@ -226,7 +226,57 @@ Los mismos colores se usan en los titulos de las secciones.
 | FPS | Frames por segundo | `23.976` |
 | Compresion | Codec | `dwaa` → verde `#6a9960`, `zip`/`piz` → rojo `#a06060`, resto → gris |
 | Frames | Rango y duracion | `1001–1480  (480f - 20.0s)` — count+secs en ámbar `#b09040` |
-| Track | Asignacion de track | dropdown editable para inputs, label para publish |
+| Track | Asignacion de track | dropdown editable para inputs (ver detalle abajo), label para publish |
+
+### Dropdown de asignación de track (columna Track)
+
+Aparece únicamente en filas de input (EXR seq y MOV plate/ref). Implementado con
+`_ArrowComboBox` + `_TrackComboListView` + `_TrackComboDelegate`.
+
+**Opciones en el dropdown:**
+
+1. `— sin track —` — primera opción; indica que el clip no se importará a ningún track.
+2. Tracks existentes en el timeline (sin BurnIn, ordenados visualmente top→bottom).
+3. `+ Crear track <name>` — última opción, solo visible si el track auto-detectado es un
+   plate track (`aPlate`…`ePlate`, `fgPlate`, `bgPlate`) y **aún no existe** en el timeline.
+
+**Comportamiento del botón "Crear track":**
+
+La opción `+ Crear track <name>` **no es un ítem seleccionable** sino un botón integrado
+en el popup del dropdown. Mismo patrón que el ícono 🗑 del combo de resoluciones.
+
+- Click interceptado en el viewport del popup (`_TrackComboListView.eventFilter`).
+- Se llama directamente `_on_track_combo_changed(row_id, "+ Crear track <name>")`.
+- Evento consumido (`return True`) → el combo **no cambia** su valor actual.
+- `_on_track_combo_changed` crea el track en el timeline (con undo) y llama a
+  `_refresh_track_combo_options(created_track_name, creator_row=row_id)`.
+- El combo del row que inició la creación pasa a mostrar el track recién creado.
+- Todos los demás combos se reconstruyen: el nuevo track aparece en su lista de opciones
+  y la opción "Crear…" desaparece de los combos que esperaban ese mismo track.
+
+Cada plate tiene su propia opción de creación independiente. Si hay un `dPlate` y un
+`ePlate` sin track, cada uno muestra `+ Crear track dPlate` y `+ Crear track ePlate`
+respectivamente.
+
+**Estilo visual:**
+
+- La opción `+ Crear track …` se pinta con fondo verde oscuro (`#1a2a1a`) y texto verde
+  suave (`#7aba7a`), diferenciándola de las opciones normales.
+- En hover el fondo se aclara a `#253525`.
+- El combo cerrado siempre muestra `— sin track —` cuando el track no existe (nunca muestra
+  el texto "Crear track").
+
+**Selección inicial:**
+
+- Track auto-detectado existe en timeline → combo muestra ese track.
+- Track auto-detectado no existe (hay opción "Crear…") → combo muestra `— sin track —`.
+- Track `"?"` o sin detectar → `— sin track —`.
+
+**Resolución de conflictos (un solo clip por track):**
+
+- EXR desplaza a MOV existente en el mismo track.
+- MOV cede ante EXR existente.
+- Mismo tipo: gana la versión más alta; en empate gana el primero en cargarse.
 
 ### Deteccion de track por nombre de carpeta (case-insensitive)
 
@@ -704,7 +754,7 @@ donde se distribuya la repo.
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `main()`, `ImportShotDialog`, `_show_page()`, `_build_page_media()`, `_build_page_rename()`, `_update_rename_page()`, `_refresh_rename_preview()`, `_populate_rename_section_header()`, `_on_rename_chk_changed()`, `_update_rename_btn_state()`, `_run_rename()`, `_rn_escape()`, `_swap_sr()`, `_update_rename_summary()`, `_build_page_convert()`, `_update_convert_page()`, `_on_res_preset_changed()`, `_on_keep_ar_changed()`, `_update_match_dim_visibility()`, `_get_representative_res()`, `_on_custom_w_changed()`, `_on_custom_h_changed()`, `_current_target_res()`, `_target_compression()`, `_refresh_convert_destinos()`, `_update_res_combo_labels()`, `_on_dwaa_chk_changed()`, `_on_deana_chk_changed()`, `_apply_deana_if_active()`, `_load_settings_to_ui()`, `_save_all_settings()`, `_rebuild_res_combo()`, `_on_delete_preset()`, `_on_save_preset_clicked()`, `_run_transcode()`, `_start_next_sequence()`, `_on_sequence_started()`, `_poll_transcode_progress()`, `_on_sequence_done()`, `_on_worker_batch_done()`, `_finalize_transcode()`, `_on_transcode_error()`, `_fmt_bd()`, `_fmt_par()`, `_ar_str()`, `_read_exr_metadata()`, `_read_mov_metadata()`, `_find_insert_frame()` (retorna `insert_frame, frames_to_push, prev_shot_name, next_shot_name`), `_collect_timeline_shots()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `main()`, `ImportShotDialog`, `_show_page()`, `_build_page_media()`, `_build_page_rename()`, `_update_rename_page()`, `_refresh_rename_preview()`, `_populate_rename_section_header()`, `_on_rename_chk_changed()`, `_update_rename_btn_state()`, `_run_rename()`, `_rn_escape()`, `_swap_sr()`, `_update_rename_summary()`, `_build_page_convert()`, `_update_convert_page()`, `_on_res_preset_changed()`, `_on_keep_ar_changed()`, `_update_match_dim_visibility()`, `_get_representative_res()`, `_on_custom_w_changed()`, `_on_custom_h_changed()`, `_current_target_res()`, `_target_compression()`, `_refresh_convert_destinos()`, `_update_res_combo_labels()`, `_on_dwaa_chk_changed()`, `_on_deana_chk_changed()`, `_apply_deana_if_active()`, `_load_settings_to_ui()`, `_save_all_settings()`, `_rebuild_res_combo()`, `_on_delete_preset()`, `_on_save_preset_clicked()`, `_run_transcode()`, `_start_next_sequence()`, `_on_sequence_started()`, `_poll_transcode_progress()`, `_on_sequence_done()`, `_on_worker_batch_done()`, `_finalize_transcode()`, `_on_transcode_error()`, `_fmt_bd()`, `_fmt_par()`, `_ar_str()`, `_read_exr_metadata()`, `_read_mov_metadata()`, `_find_insert_frame()` (retorna `insert_frame, frames_to_push, prev_shot_name, next_shot_name`), `_collect_timeline_shots()`, `_build_track_combo()`, `_on_track_combo_changed()`, `_refresh_track_combo_options(created_track_name, creator_row)`, `_create_plate_track()`, `_get_seq_track_names()` — widgets: `_TrackComboListView`, `_TrackComboDelegate` (botón "Crear track" en dropdown de track) |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_transcode.py` | `TranscodeWorkerSignals` (señales: `log_message`, `sequence_started(row_i, dst_dir, total_frames)`, `sequence_done`, `all_done`, `error`), `TranscodeWorker`, `build_manifest_for_sequence(channels, pixel_aspect_ratio)`, `check_existing_outputs()`, `delete_existing_outputs()`, `show_overwrite_warning()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_settings.py` | `get_settings_path()`, `load_all_settings()`, `save_all_settings()`, `load_res_presets()`, `save_res_presets()`, `preset_to_tuple()`, `show_save_preset_dialog()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_timeline.py` | `push_clips_right()`, `place_clip_in_timeline()`, `stretch_burnin()`, `set_debug_print()` |
