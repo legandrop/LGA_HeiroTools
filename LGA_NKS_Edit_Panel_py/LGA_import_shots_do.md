@@ -22,9 +22,9 @@ Página Import Preview (PAGE_IMPORT)
             │    │           bin_item.setColor()
             │    │           place_clip_in_timeline()
             │    ├─ Paso 3: stretch_burnin()         → extiende BurnIn hasta el último frame
-            │    └─ Paso 4: te.setSelection()        → selecciona los clips recién colocados
+            │    └─ Paso 4: seq.setInTime/setOutTime → In/Out del timeline al rango del shot
             ├─ [fuera del bloque de undo — solo UI]
-            │    └─ Paso 5: set_viewer_to_shot()     → In/Out al shot, playhead a TC IN, zoom
+            │    └─ Paso 5: set_viewer_to_shot()     → playhead a TC IN + zoom con contexto
             └─ self.accept()
 ```
 
@@ -216,51 +216,40 @@ Patrón idéntico al de `LGA_NKS_BurnIn_Extend_To_LastVisible.py` (Building Bloc
 
 ---
 
-## Post-import — Selección de clips nuevos
+## Post-import — In/Out del timeline (PASO 4, dentro del undo)
 
-Al final de `_run_import()`, **dentro del bloque `with beginUndo`**, se seleccionan en el Timeline Editor los `TrackItem`s recién colocados.
+Al final de `_run_import()`, **dentro del bloque `with beginUndo`**, se establecen los puntos In/Out de la secuencia al rango exacto del shot recién importado.
 
-Antes de llamar a `setSelection` se filtra `placed_items` para quedarse solo con los que tienen `parentTrack() != None`:
+`tc_in` y `tc_out` se calculan como el mínimo `timelineIn()` y el máximo `timelineOut()` de los `valid_items` (clips con `parentTrack() != None`). Esto excluye los TrackItems desplazados por versiones posteriores del mismo slot, que quedan con `parentTrack() == None`.
 
 ```python
 valid_items = [ti for ti in placed_items if ti.parentTrack() is not None]
-te = hiero.ui.getTimelineEditor(self.seq)
-te.setSelection(valid_items)
+tc_in  = min(int(ti.timelineIn())  for ti in valid_items)
+tc_out = max(int(ti.timelineOut()) for ti in valid_items)
+self.seq.setInTime(tc_in)
+self.seq.setOutTime(tc_out)
 ```
 
-**Por qué filtrar:** cuando se importan múltiples versiones del mismo track (ej. comp v014, v013, v012 todas chequeadas), cada `addTrackItem` desplaza al anterior del mismo slot. Los TrackItems desplazados quedan con `parentTrack() == None` y hacen fallar `setSelection` con `"selection must be within the current sequence"`.
+Los valores `tc_in` / `tc_out` también se guardan en variables `nonlocal` (`_view_tc_in`, `_view_tc_out`) para que el PASO 5, que se ejecuta fuera del bloque de undo, no tenga que recalcularlos.
 
-**Por qué dentro del bloque de undo:** fuera del bloque — o después de `self.accept()` — Hiero puede activar otra secuencia como "current" en el timeline editor y `setSelection` falla. Dentro del bloque el contexto de secuencia sigue válido, igual que en `push_clips_right` (PASO 1).
+**Por qué dentro del bloque de undo:** `setInTime` / `setOutTime` modifican el modelo de la secuencia. Al incluirlos en el undo, un Ctrl+Z revierte el import completo, incluyendo el cambio de In/Out.
 
 ---
 
-## Post-import — Vista del timeline (`set_viewer_to_shot`)
+## Post-import — Vista del timeline (`set_viewer_to_shot`, PASO 5)
 
-Al final de `_do_import()`, **fuera del bloque `with beginUndo`** (es una operación puramente de UI, no requiere undo), se ajusta la vista del timeline al shot recién importado.
+Al final de `_do_import()`, **fuera del bloque `with beginUndo`**, se ajusta la vista del timeline con las coordenadas `_view_tc_in` / `_view_tc_out` calculadas en el PASO 4.
 
-`tc_in` y `tc_out` se calculan como el mínimo `timelineIn()` y el máximo `timelineOut()` de los `valid_items` (clips con `parentTrack() != None`).
+`timeline_mod.set_viewer_to_shot(seq, tc_in, tc_out)` ejecuta dos operaciones de UI pura (no undoables):
 
-`timeline_mod.set_viewer_to_shot(seq, tc_in, tc_out)` ejecuta tres pasos:
-
-### 1. In/Out al rango del shot
-
-```python
-seq.setInTime(tc_in)
-seq.setOutTime(tc_out)
-```
-
-Los puntos In/Out del timeline quedan exactamente en los límites del shot.
-
-### 2. Playhead al TC IN
+### 1. Playhead al TC IN
 
 ```python
 viewer = hiero.ui.currentViewer()
 viewer.setTime(tc_in)
 ```
 
-El playhead queda en el primer frame del shot.
-
-### 3. Zoom con contexto lateral
+### 2. Zoom con contexto lateral
 
 Se usa la misma técnica que `ajustar_vista_al_clip` de `LGA_NKS_PrevNext_Rev.py`, pero con padding para que los shots vecinos sean visibles:
 
@@ -274,17 +263,15 @@ Secuencia:
 3. `QTimer.singleShot(50ms, _zoom_and_restore)` — espera a que el diálogo se cierre y el timeline recupere el foco.
 4. `_zoom_and_restore`: dispara `hiero.ui.findMenuAction("Zoom to Fit").trigger()` y luego restaura el In/Out exacto `tc_in` / `tc_out`.
 
-El resultado es que "Zoom to Fit" encaja el rango ampliado (shot + 50% a cada lado), mostrando el shot a ~50% del ancho visible con contexto de shots vecinos. Los In/Out quedan con los valores exactos del shot una vez completado el zoom.
+El resultado: "Zoom to Fit" encaja el rango ampliado (shot + 50% a cada lado), mostrando el shot a ~50% del ancho visible con shots vecinos a la vista. El In/Out restaurado queda con los valores exactos del shot.
 
-### Por qué fuera del bloque de undo
-
-`setInTime`, `setOutTime` y `viewer.setTime` son operaciones de estado de UI/viewer, no de modelo de datos. No tienen sentido como parte del undo. Ejecutarlas fuera garantiza que no interfieran con el historial de deshacer del import.
+**Por qué fuera del bloque de undo:** `viewer.setTime` y las operaciones de zoom son estado puro de UI/viewer. No deben ser undoables.
 
 ### Referencia de implementación
 
 | Función en PrevNext_Rev.py | Equivalente aquí |
 |---------------------------|------------------|
-| `set_in_out_from_clip(clip)` | `seq.setInTime(tc_in)` / `seq.setOutTime(tc_out)` |
+| `set_in_out_from_clip(clip)` | `seq.setInTime/setOutTime` en PASO 4 (dentro del undo) |
 | `move_playhead_to_position(pos)` | `viewer.setTime(tc_in)` |
 | `ajustar_vista_al_clip()` | activar ventana + `QTimer` + `Zoom to Fit` + restaurar In/Out |
 

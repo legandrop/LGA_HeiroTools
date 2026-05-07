@@ -384,31 +384,27 @@ def _zoom_and_restore(seq, tc_in: int, tc_out: int):
 
 def set_viewer_to_shot(seq, tc_in: int, tc_out: int):
     """
-    Ajusta la vista del timeline al shot recien importado:
+    Ajusta la vista del timeline al shot recien importado (operaciones de UI pura):
 
-      1. Pone los puntos In/Out de la secuencia a tc_in / tc_out.
-      2. Mueve el playhead a tc_in.
-      3. Activa la ventana del timeline y programa un 'Zoom to Fit' con padding
+      1. Mueve el playhead a tc_in.
+      2. Activa la ventana del timeline y programa un 'Zoom to Fit' con padding
          lateral (shot_dur // 2 en cada lado) para que los shots vecinos sean
-         visibles, luego restaura el In/Out exacto.
+         visibles, luego restaura el In/Out exacto del shot.
+
+    El In/Out del timeline ya fue establecido dentro del bloque beginUndo del
+    import (PASO 4), por lo que undo revierte ese cambio automaticamente.
+
+    Esta funcion solo hace operaciones de vista: mover el playhead y ajustar el
+    zoom. No deben estar en el bloque de undo.
 
     Patron basado en LGA_NKS_PrevNext_Rev.py:
-    - set_in_out_from_clip  → seq.setInTime / seq.setOutTime
     - move_playhead_to_position → viewer.setTime
     - ajustar_vista_al_clip → window.activateWindow + QTimer + Zoom to Fit
     """
     if not _HIERO_AVAILABLE:
         return
 
-    # 1. In/Out al rango del shot
-    try:
-        seq.setInTime(tc_in)
-        seq.setOutTime(tc_out)
-        _log("set_viewer_to_shot: in=%d out=%d" % (tc_in, tc_out))
-    except Exception as exc:
-        _log("set_viewer_to_shot: setInTime/setOutTime → %s" % exc, level="warning")
-
-    # 2. Playhead al TC IN
+    # 1. Playhead al TC IN
     try:
         viewer = hiero.ui.currentViewer()
         if viewer:
@@ -417,7 +413,7 @@ def set_viewer_to_shot(seq, tc_in: int, tc_out: int):
     except Exception as exc:
         _log("set_viewer_to_shot: playhead → %s" % exc, level="warning")
 
-    # 3. Zoom con contexto lateral
+    # 2. Zoom con contexto lateral
     # Ampliamos el In/Out con padding para que "Zoom to Fit" muestre vecinos;
     # _zoom_and_restore restaura los valores exactos tras el zoom.
     try:

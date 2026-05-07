@@ -1,13 +1,16 @@
 """
 ____________________________________________________________________
 
-  LGA_import_shots v1.01 | Lega
+  LGA_import_shots v1.02 | Lega
 
   Importa shots al proyecto de Nuke Studio.
   Analiza la carpeta _input del shot, detecta plates/editrefs/seqrefs
   y versiones en publish, y los coloca en el timeline en la posicion
   alfabeticamente correcta.
 
+  v1.02: In/Out del timeline dentro del bloque de undo; el undo del
+         import revierte tambien el cambio de In/Out. Elimina la
+         seleccion de clips post-import (reemplazada por la vista).
   v1.01: Ajusta la vista del timeline al shot importado.
 
 ____________________________________________________________________
@@ -4167,10 +4170,12 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         errors = []
         placed = 0
-        placed_items = []  # TrackItems colocados; se seleccionan al final
+        placed_items = []  # TrackItems colocados exitosamente
+        _view_tc_in  = None  # tc_in calculado dentro del undo → leído en PASO 5
+        _view_tc_out = None
 
         def _run_import():
-            nonlocal placed
+            nonlocal placed, _view_tc_in, _view_tc_out
 
             # ── PASO 1: Hacer espacio ─────────────────────────────────────────
             # effective_insert_frame es el min(tl_in) de los clips empujados;
@@ -4265,36 +4270,24 @@ class ImportShotDialog(QtWidgets.QDialog):
                 debug_print("_do_import → PASO 3: stretch BurnIn")
                 timeline_mod.stretch_burnin(self.seq)
 
-            # ── PASO 4: Seleccionar los clips recién colocados ────────────────
-            # Solo los TrackItems que siguen vivos (parentTrack != None).
-            # Los items desplazados por versiones posteriores en el mismo slot
-            # quedan con parentTrack=None y hacen fallar setSelection.
+            # ── PASO 4: In/Out del timeline al rango del shot ─────────────────
+            # Dentro del bloque de undo para que Ctrl+Z revierta también este
+            # cambio junto con el import.
             if placed_items:
-                valid_items = []
-                for pitem in placed_items:
-                    try:
-                        if pitem.parentTrack() is not None:
-                            valid_items.append(pitem)
-                    except Exception:
-                        pass
-                debug_print("_do_import PASO 4: %d placed, %d válidos para selección"
-                            % (len(placed_items), len(valid_items)))
+                valid_items = [ti for ti in placed_items
+                               if ti.parentTrack() is not None]
                 if valid_items:
                     try:
-                        te = hiero.ui.getTimelineEditor(self.seq)
-                        if te is not None:
-                            # Usar te.sequence() para garantizar identidad de objeto
-                            # con los TrackItems (Hiero puede tener dos wrappers
-                            # distintos apuntando a la misma secuencia subyacente)
-                            te.setSelection(valid_items)
-                            debug_print("_do_import: seleccionados %d clips del shot nuevo"
-                                        % len(valid_items))
-                        else:
-                            debug_print("_do_import PASO 4: getTimelineEditor devolvió None",
-                                        level="warning")
+                        tc_in  = min(int(ti.timelineIn())  for ti in valid_items)
+                        tc_out = max(int(ti.timelineOut()) for ti in valid_items)
+                        self.seq.setInTime(tc_in)
+                        self.seq.setOutTime(tc_out)
+                        _view_tc_in  = tc_in
+                        _view_tc_out = tc_out
+                        debug_print("_do_import PASO 4: in=%d out=%d" % (tc_in, tc_out))
                     except Exception as exc:
-                        debug_print("_do_import: no se pudo seleccionar placed_items → %s"
-                                    % exc, level="warning")
+                        debug_print("_do_import PASO 4: error → %s" % exc,
+                                    level="warning")
 
         # ── Ejecutar todo dentro de un único bloque de undo ───────────────────
         if project:
@@ -4305,26 +4298,20 @@ class ImportShotDialog(QtWidgets.QDialog):
         else:
             _run_import()
 
-        # ── PASO 5: Ajustar la vista del timeline al shot importado ───────────
-        # Se hace FUERA del bloque de undo (es operación de UI, no de modelo).
-        # El QTimer interno de set_viewer_to_shot dispara el zoom después de
-        # que self.accept() cierre el diálogo y la ventana del timeline
-        # recupere el foco.
-        if placed_items:
-            valid_for_view = [ti for ti in placed_items
-                              if ti.parentTrack() is not None]
-            if valid_for_view:
-                try:
-                    tc_in  = min(int(ti.timelineIn())  for ti in valid_for_view)
-                    tc_out = max(int(ti.timelineOut()) for ti in valid_for_view)
-                    debug_print(
-                        "_do_import PASO 5: set_viewer_to_shot tc_in=%d tc_out=%d"
-                        % (tc_in, tc_out)
-                    )
-                    timeline_mod.set_viewer_to_shot(self.seq, tc_in, tc_out)
-                except Exception as exc:
-                    debug_print("_do_import PASO 5: error → %s" % exc,
-                                level="warning")
+        # ── PASO 5: Playhead al TC IN + zoom (operaciones de UI pura) ────────
+        # Fuera del bloque de undo: no tienen semántica de modelo, no se revierten.
+        # El In/Out ya fue establecido en PASO 4 dentro del undo.
+        # El QTimer interno dispara el zoom después de que self.accept() cierre
+        # el diálogo y la ventana del timeline recupere el foco.
+        if _view_tc_in is not None and _view_tc_out is not None:
+            try:
+                debug_print(
+                    "_do_import PASO 5: set_viewer_to_shot tc_in=%d tc_out=%d"
+                    % (_view_tc_in, _view_tc_out)
+                )
+                timeline_mod.set_viewer_to_shot(self.seq, _view_tc_in, _view_tc_out)
+            except Exception as exc:
+                debug_print("_do_import PASO 5: error → %s" % exc, level="warning")
 
         if errors:
             QtWidgets.QMessageBox.warning(
