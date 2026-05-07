@@ -195,6 +195,51 @@ Debajo de todos los tracks, si hay ítems sin track asignado:
 
 ---
 
+## Handle automático para EditRef
+
+Los tracks de tipo `editref` (`EditRef`, `EditRefClean`, etc.) suelen tener menos frames que el plate master porque el edit no incluye los frames de handle que sí están en el plate.
+
+### Cálculo
+
+```
+master_dur  = max(frame_count) de todos los clips asignados a tracks
+editref_dur = frame_count del clip editref
+diff        = master_dur - editref_dur
+handle_in   = diff // 2
+handle_out  = diff - handle_in   (== handle_in si diff es par; handle_in + 1 si impar)
+```
+
+Solo se calcula si `editref_dur < master_dur`. Si el editref tiene igual o más frames que el master, no se aplica offset.
+
+Si la diferencia es impar (`diff % 2 != 0`), el handle es asimétrico: `handle_in` y `handle_out` difieren en 1 frame. Se muestra una advertencia naranja en el label.
+
+Con dos tracks editref distintos (`EditRef` y `EditRefClean`), se calcula un handle independiente para cada uno.
+
+### Efecto en el preview
+
+En la columna **Shot Nuevo**, el chip del editref no empieza en TC 0 sino con un spacer proporcional a `handle_in / shot_dur * K` delante. Visualmente el clip aparece corrido a la derecha dentro de la celda.
+
+### Label informativo (debajo de la tabla)
+
+`_update_import_handle_label()` escribe en `self._import_handle_lbl` (color `#aa9e54` para el valor, `#e08033` para advertencias impares):
+
+- Un track editref: `EditRef handle: 5 f`
+- Dos tracks: `EditRef handle: 5 f  |  EditRefClean handle: 3 f`
+- Handle impar: `EditRef handle: 4 f  (in 4 / out 5)  ⚠ diferencia impar — handle asimétrico`
+
+El label es invisible cuando no hay editrefs en la lista de importación.
+
+### Efecto en el import real
+
+En `_do_import._run_import()`, antes de llamar a `place_clip_in_timeline`, se suma `handle_in` al `effective_insert_frame` para los tracks editref:
+
+```python
+if classify_track_type(track_name) == "editref":
+    clip_tl_in = effective_insert_frame + handle_info["handle_in"]
+```
+
+---
+
 ## Reglas de inclusión de tracks
 
 `build_import_preview_data()` itera todos los `videoTracks()` de la secuencia activa.

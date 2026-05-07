@@ -82,6 +82,7 @@ if _PREVIEW_HELPER in sys.modules:
 preview_mod = importlib.import_module(_PREVIEW_HELPER)
 build_import_preview_data = preview_mod.build_import_preview_data
 mix_colors                = preview_mod.mix_colors
+classify_track_type       = preview_mod.classify_track_type
 
 _TIMELINE_HELPER = "LGA_NKS_Edit_Panel_py.LGA_import_shots_timeline"
 if _TIMELINE_HELPER in sys.modules:
@@ -2791,6 +2792,43 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._update_rename_summary()
         self._update_rename_btn_state()
 
+    def _update_import_handle_label(self):
+        """Actualiza el label de handle auto-calculado debajo de la tabla de import preview."""
+        if not hasattr(self, "_import_handle_lbl"):
+            return
+        info = getattr(self, "_handle_info", {})
+        if not info:
+            self._import_handle_lbl.setText("")
+            self._import_handle_lbl.setVisible(False)
+            return
+
+        parts = []
+        for tname in sorted(info.keys()):
+            h = info[tname]
+            h_in  = h["handle_in"]
+            h_out = h["handle_out"]
+            if h["half_frame"]:
+                text = (
+                    '<span style="color:#888888">%s handle: </span>'
+                    '<span style="color:#aa9e54">%d f</span>'
+                    '<span style="color:#888888"> &nbsp;(in <b>%d</b> / out <b>%d</b>) &nbsp;</span>'
+                    '<span style="color:#e08033">⚠ diferencia impar — handle asimétrico</span>'
+                    % (tname, h_in, h_in, h_out)
+                )
+            else:
+                text = (
+                    '<span style="color:#888888">%s handle: </span>'
+                    '<span style="color:#aa9e54">%d f</span>'
+                    % (tname, h_in)
+                )
+            parts.append(text)
+
+        separator = '<span style="color:#555555"> &nbsp;&nbsp;|&nbsp;&nbsp; </span>'
+        self._import_handle_lbl.setText(
+            "<html><body>" + separator.join(parts) + "</body></html>"
+        )
+        self._import_handle_lbl.setVisible(True)
+
     def _update_rename_summary(self):
         """Recalcula y actualiza el label de resumen de la tabla de rename."""
         blocked_n = 0
@@ -3419,6 +3457,13 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         layout.addWidget(self._import_table, 1)
 
+        self._import_handle_lbl = QtWidgets.QLabel("")
+        self._import_handle_lbl.setTextFormat(QtCore.Qt.RichText)
+        self._import_handle_lbl.setWordWrap(True)
+        self._import_handle_lbl.setStyleSheet("padding:3px 6px; background: transparent;")
+        self._import_handle_lbl.setVisible(False)
+        layout.addWidget(self._import_handle_lbl)
+
         layout.addWidget(_separator())
         layout.addSpacing(_BTN_ROW_TOP_SPACING)
 
@@ -3627,15 +3672,16 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _build_new_cell(
         self, new_items: list, bar_color: str, shot_dur: int,
         track_type: str = "other",
+        handle_in: int = 0,
     ) -> QtWidgets.QWidget:
         """
         Celda de Shot Nuevo.
 
-        shot_dur = duración del clip nuevo más largo entre todos los tracks.
+        shot_dur  = duración del clip nuevo más largo entre todos los tracks.
+        handle_in = frames de offset inicial para editrefs (handle automático).
 
-        Todos los clips empiezan en TC 0 (sin offset).
-        El clip con más frames llena el 100 % de la celda.
-        El color del chip puede sobreescribirse para versiones v000.
+        Sin handle: el clip empieza en TC 0.
+        Con handle: se antepone un spacer de handle_in frames antes del chip.
         """
         K  = 1000
         w  = QtWidgets.QWidget()
@@ -3650,13 +3696,28 @@ class ImportShotDialog(QtWidgets.QDialog):
         clip_dur   = item0.get("frame_count") or 0
         new_name   = item0.get("name") or item0.get("version_name") or ""
         chip_color = self._chip_color(new_name, bar_color, track_type)
-        chip_K     = max(1, int(min(1.0, clip_dur / shot_dur) * K)) if clip_dur > 0 else 0
-        trail_K    = K - chip_K
+
+        if handle_in > 0:
+            offset_K = int(min(1.0, handle_in / shot_dur) * K)
+            chip_K   = max(1, int(min(1.0, clip_dur / shot_dur) * K)) if clip_dur > 0 else 0
+            total    = offset_K + chip_K
+            if total > K:
+                offset_K = int(offset_K * K // total)
+                chip_K   = K - offset_K
+            trail_K = max(0, K - offset_K - chip_K)
+        else:
+            offset_K = 0
+            chip_K   = max(1, int(min(1.0, clip_dur / shot_dur) * K)) if clip_dur > 0 else 0
+            trail_K  = K - chip_K
 
         debug_print(
-            "[new_cell] '%s' dur=%d shot_dur=%d color=%s → chip_K=%d trail_K=%d"
-            % (new_name, clip_dur, shot_dur, chip_color, chip_K, trail_K)
+            "[new_cell] '%s' dur=%d shot_dur=%d handle_in=%d color=%s "
+            "→ off_K=%d chip_K=%d trail_K=%d"
+            % (new_name, clip_dur, shot_dur, handle_in, chip_color,
+               offset_K, chip_K, trail_K)
         )
+        if offset_K > 0:
+            lo.addStretch(offset_K)
         if chip_K > 0:
             lbl = self._make_chip_label(
                 new_name, chip_color, is_new=True,
@@ -3755,6 +3816,38 @@ class ImportShotDialog(QtWidgets.QDialog):
             enriched = dict(item)
             enriched["_color"] = self._item_section_color(row_data)
             unassigned.append(enriched)
+
+        # ── Calcular handle automático por track editref ──────────────────────
+        # master_dur = frame_count del clip más largo de TODOS los tracks asignados.
+        # Para cada track editref: handle = (master_dur - editref_dur) / 2
+        # Si la diferencia es impar: handle_in = diff//2, handle_out = diff - handle_in
+        master_dur = max(
+            (item.get("frame_count") or 0
+             for items in items_by_track.values() for item in items),
+            default=0,
+        )
+        self._handle_info = {}   # {track_name: {handle_in, handle_out, half_frame, ...}}
+        for tname, items in items_by_track.items():
+            if classify_track_type(tname) == "editref" and items:
+                editref_dur = items[0].get("frame_count") or 0
+                if master_dur > 0 and editref_dur > 0 and editref_dur < master_dur:
+                    diff       = master_dur - editref_dur
+                    handle_in  = diff // 2
+                    handle_out = diff - handle_in
+                    self._handle_info[tname] = {
+                        "handle_in":   handle_in,
+                        "handle_out":  handle_out,
+                        "half_frame":  (diff % 2 != 0),
+                        "editref_dur": editref_dur,
+                        "master_dur":  master_dur,
+                    }
+                    debug_print(
+                        "_update_import_page: handle '%s' master=%d editref=%d "
+                        "→ in=%d out=%d%s"
+                        % (tname, master_dur, editref_dur, handle_in, handle_out,
+                           " (impar)" if diff % 2 != 0 else "")
+                    )
+        self._update_import_handle_label()
 
         # 2. Construir datos del preview
         data = build_import_preview_data(
@@ -3886,10 +3979,16 @@ class ImportShotDialog(QtWidgets.QDialog):
                 track_type=ttype,
             ))
 
-            # Col 3: Shot Nuevo
+            # Col 3: Shot Nuevo — editrefs reciben el handle_in como offset
+            editref_handle_in = 0
+            if ttype == "editref":
+                editref_handle_in = getattr(self, "_handle_info", {}).get(
+                    tname, {}
+                ).get("handle_in", 0)
             table.setCellWidget(row_i, 3, self._build_new_cell(
                 new_items, bar_color, new_shot_dur,
                 track_type=ttype,
+                handle_in=editref_handle_in,
             ))
 
             # Col 4: Shot Siguiente
@@ -4086,13 +4185,23 @@ class ImportShotDialog(QtWidgets.QDialog):
                         except Exception:
                             pass
 
+                    # Aplicar handle offset para editrefs
+                    clip_tl_in = effective_insert_frame
+                    if classify_track_type(track_name) == "editref":
+                        handle_info = getattr(self, "_handle_info", {}).get(track_name)
+                        if handle_info:
+                            clip_tl_in += handle_info["handle_in"]
+                            debug_print(
+                                "_do_import: handle editref '%s' → offset +%d → tl_in=%d"
+                                % (track_name, handle_info["handle_in"], clip_tl_in)
+                            )
+
                     debug_print("_do_import: colocando '%s' en track '%s' tl=%d dur=%d"
-                                % (clip_name, track_name,
-                                   effective_insert_frame, frame_count))
+                                % (clip_name, track_name, clip_tl_in, frame_count))
 
                     ti, err2 = timeline_mod.place_clip_in_timeline(
                         self.seq, clip, track_name,
-                        effective_insert_frame, frame_count, self.shot_name,
+                        clip_tl_in, frame_count, self.shot_name,
                     )
                     if err2:
                         errors.append("Timeline: %s — %s" % (clip_name, err2))
@@ -4103,8 +4212,8 @@ class ImportShotDialog(QtWidgets.QDialog):
                         placed_items.append(ti)
                         debug_print("_do_import: OK — '%s' en track '%s' tl=%d-%d"
                                     % (clip_name, track_name,
-                                       effective_insert_frame,
-                                       effective_insert_frame + frame_count - 1))
+                                       clip_tl_in,
+                                       clip_tl_in + frame_count - 1))
 
             # ── PASO 3: Estirar BurnIn hasta el final del timeline ────────────
             if placed > 0:

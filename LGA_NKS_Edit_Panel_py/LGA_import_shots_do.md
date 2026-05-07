@@ -149,7 +149,21 @@ En este orden:
 - Llama `track.addTrackItem(clip, tl_in)`.
 - Ajusta: `track_item.setTimes(tl_in, tl_out, 0, frame_count - 1)`
 - Finalmente: `track_item.setVersionLinkedToBin(True)`.
-- `tl_in` = `effective_insert_frame` (no `self.insert_frame`).
+- `tl_in` = `effective_insert_frame` para plates/publish; `effective_insert_frame + handle_in` para editrefs.
+
+### Handle offset para editrefs
+
+Antes de llamar a `place_clip_in_timeline`, si el track es de tipo `editref` y `self._handle_info` tiene datos para ese track, se suma `handle_info["handle_in"]` al `effective_insert_frame`:
+
+```python
+clip_tl_in = effective_insert_frame
+if classify_track_type(track_name) == "editref":
+    handle_info = self._handle_info.get(track_name)
+    if handle_info:
+        clip_tl_in += handle_info["handle_in"]
+```
+
+`_handle_info` lo calcula `_update_import_page()` justo antes de construir el preview. Ver documentación en `LGA_import_shots_preview.md — Handle automático para EditRef`.
 
 ---
 
@@ -173,7 +187,8 @@ En ambos casos se llama `self.accept()` para cerrar el diálogo.
 
 | Política | Detalle |
 |----------|---------|
-| `tl_in` | `effective_insert_frame` (min tl_in de los clips empujados, no `self.insert_frame`) |
+| `tl_in` plates/publish | `effective_insert_frame` (min tl_in de los clips empujados) |
+| `tl_in` editrefs | `effective_insert_frame + handle_in` (handle calculado automáticamente) |
 | Source in/out | Siempre `0 .. frame_count-1`. Los EXR físicos empiezan en `1001`; Hiero mapea internamente. |
 | `setVersionLinkedToBin(True)` | Solo después de que el TrackItem ya está insertado y sus tiempos ajustados. |
 | Track no encontrado | Error por clip, continua con los demás. No crea tracks automáticamente. |
