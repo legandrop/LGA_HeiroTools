@@ -58,7 +58,7 @@ def _find_video_track(seq, track_name: str):
 
 # ── funciones públicas ────────────────────────────────────────────────────────
 
-def push_clips_right(seq, from_frame: int, amount: int) -> int:
+def push_clips_right(seq, from_frame: int, amount: int):
     """
     Empuja hacia la derecha todos los clips que tienen contenido en from_frame
     o en cualquier frame posterior. Excluye tracks BurnIn y EffectTrackItems.
@@ -73,11 +73,16 @@ def push_clips_right(seq, from_frame: int, amount: int) -> int:
     - Ordena de derecha a izquierda para evitar colisiones al expandir.
     - Mueve: setTimelineOut(out + amount) primero, luego setTimelineIn(in + amount).
 
-    Retorna el numero de items movidos.
+    Retorna (moved_count, effective_insert_frame) donde:
+      moved_count           — numero de clips movidos
+      effective_insert_frame — min(tl_in de todos los clips seleccionados) ANTES
+                               de moverlos. Es el frame real donde debe empezar
+                               el nuevo shot para quedar adyacente al siguiente.
+                               Si no hay clips que mover, retorna from_frame.
     """
     if not _HIERO_AVAILABLE or amount <= 0:
         _log("push_clips_right: amount=%d <= 0, saltando." % amount, level="warning")
-        return 0
+        return 0, from_frame
 
     _log("push_clips_right: buscando clips con tl_out >= %d para mover %d frames"
          % (from_frame, amount))
@@ -123,8 +128,16 @@ def push_clips_right(seq, from_frame: int, amount: int) -> int:
          % (len(items_to_move), amount))
 
     if not items_to_move:
-        _log("push_clips_right: sin clips que mover", level="warning")
-        return 0
+        _log("push_clips_right: sin clips que mover, effective_insert_frame=%d"
+             % from_frame, level="warning")
+        return 0, from_frame
+
+    # Calcular el effective_insert_frame ANTES de mover:
+    # es el tl_in mas pequenio de todos los clips seleccionados.
+    # El nuevo shot debe empezar aqui para quedar pegado al shot siguiente.
+    effective_insert_frame = min(int(item.timelineIn()) for item in items_to_move)
+    _log("push_clips_right: effective_insert_frame=%d (min tl_in de %d clips)"
+         % (effective_insert_frame, len(items_to_move)))
 
     # Seleccionar en el editor para visibilidad de debug
     try:
@@ -158,8 +171,9 @@ def push_clips_right(seq, from_frame: int, amount: int) -> int:
                  level="warning")
 
     _log("push_clips_right: resultado: %d/%d clips movidos %d frames"
-         % (moved, len(items_to_move), amount))
-    return moved
+         " | effective_insert_frame=%d"
+         % (moved, len(items_to_move), amount, effective_insert_frame))
+    return moved, effective_insert_frame
 
 
 def place_clip_in_timeline(seq, clip, track_name: str,

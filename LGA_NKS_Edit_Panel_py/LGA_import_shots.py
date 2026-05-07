@@ -3604,6 +3604,10 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         try:
             # ── PASO 1: Hacer espacio ─────────────────────────────────────────
+            # effective_insert_frame es el min(tl_in) de los clips empujados;
+            # es donde debe comenzar el nuevo shot para quedar adyacente al siguiente.
+            effective_insert_frame = self.insert_frame
+
             if self.frames_to_push > 0:
                 push_msg = (
                     "PASO 1: Hacer espacio en el timeline.\n\n"
@@ -3614,14 +3618,16 @@ class ImportShotDialog(QtWidgets.QDialog):
                 debug_print("_do_import →", push_msg)
                 QtWidgets.QMessageBox.information(self, "Import — Paso 1", push_msg)
 
-                moved = timeline_mod.push_clips_right(
+                moved, effective_insert_frame = timeline_mod.push_clips_right(
                     self.seq, self.insert_frame, self.frames_to_push
                 )
                 debug_print("_do_import: %d clips movidos %d frames"
-                            % (moved, self.frames_to_push))
+                            " | effective_insert_frame=%d"
+                            % (moved, self.frames_to_push, effective_insert_frame))
             else:
                 debug_print(
-                    "_do_import: frames_to_push=0, sin necesidad de hacer espacio")
+                    "_do_import: frames_to_push=0, sin necesidad de hacer espacio"
+                    " | effective_insert_frame=%d" % effective_insert_frame)
 
             # ── PASO 2: Confirmación antes de importar ────────────────────────
             try:
@@ -3633,7 +3639,7 @@ class ImportShotDialog(QtWidgets.QDialog):
                 for item in items:
                     clip_name   = item.get("name", "") or item.get("version_name", "?")
                     frame_count = item.get("frame_count", 0) or 0
-                    tl_out_est  = self.insert_frame + frame_count - 1
+                    tl_out_est  = effective_insert_frame + frame_count - 1
 
                     confirm_msg = (
                         "PASO 2: Importar al bin y colocar en timeline.\n\n"
@@ -3645,7 +3651,7 @@ class ImportShotDialog(QtWidgets.QDialog):
                         % (clip_name,
                            seq_bin_name, self.shot_name,
                            track_name,
-                           self.insert_frame, tl_out_est, frame_count)
+                           effective_insert_frame, tl_out_est, frame_count)
                     )
                     debug_print("_do_import → confirmación para '%s'" % clip_name)
 
@@ -3693,11 +3699,11 @@ class ImportShotDialog(QtWidgets.QDialog):
 
                     debug_print("_do_import: colocando '%s' en track '%s' tl=%d dur=%d"
                                 % (clip_name, track_name,
-                                   self.insert_frame, frame_count))
+                                   effective_insert_frame, frame_count))
 
                     ti, err2 = timeline_mod.place_clip_in_timeline(
                         self.seq, clip, track_name,
-                        self.insert_frame, frame_count, self.shot_name,
+                        effective_insert_frame, frame_count, self.shot_name,
                     )
                     if err2:
                         errors.append("Timeline: %s — %s" % (clip_name, err2))
@@ -3707,8 +3713,8 @@ class ImportShotDialog(QtWidgets.QDialog):
                         placed += 1
                         debug_print("_do_import: OK — '%s' en track '%s' tl=%d-%d"
                                     % (clip_name, track_name,
-                                       self.insert_frame,
-                                       self.insert_frame + frame_count - 1))
+                                       effective_insert_frame,
+                                       effective_insert_frame + frame_count - 1))
 
         finally:
             if project:
