@@ -110,6 +110,8 @@ FRAME RANGE                         RESOLUTION
 HANDLE                              TASK
 [ ▼ ][ 4 ][ ▲ ]                    [ comp ] [ roto ] [ cleanup ]
 
+[ ] Create folder structure for selected tasks if missing
+
 OUTPUT
 Path: ...
 Name: ...
@@ -263,6 +265,50 @@ Los conflictos de timeline se validan durante la creacion de cada task con `_tim
 
 **Implementacion:** `_build_task_box()`, `_select_default_task()`, `_selected_tasks()`, `_build_outputs()`
 
+
+---
+
+## Seccion: Create folder structure
+
+Checkbox sin etiqueta de seccion, ubicado entre TASK y OUTPUT.
+
+Texto: `"Create folder structure for selected tasks if missing"`
+
+Estado por defecto: **desactivado**.
+
+Si esta activado, antes de crear los EXRs se verifica y crea (si no existen) los subdirectorios estandar para cada task seleccionada bajo el `shot_root`:
+
+```
+{shot_root}/
+├── Comp/
+│   ├── 0_assets/
+│   ├── 1_projects/
+│   ├── 2_prerenders/
+│   ├── 3_review/
+│   └── 4_publish/
+├── Roto/
+│   ├── 0_assets/
+│   ├── 1_projects/
+│   ├── 2_prerenders/
+│   ├── 3_review/
+│   └── 4_publish/
+└── Cleanup/
+    ├── 0_assets/
+    ├── 1_projects/
+    ├── 2_prerenders/
+    ├── 3_review/
+    └── 4_publish/
+```
+
+Solo se crean las carpetas de las tasks seleccionadas al momento de ejecutar `Create v000`. Las carpetas ya existentes no se tocan. Los errores al crear carpetas se loguean como warnings sin bloquear la creacion de EXRs.
+
+**Constantes relacionadas:**
+
+```python
+TASK_SUBFOLDERS = ("0_assets", "1_projects", "2_prerenders", "3_review", "4_publish")
+```
+
+**Implementacion:** `_build_folder_structure_section()`, `_ensure_task_folder_structure()`, `_create_v000_for_params()`
 
 ---
 
@@ -566,7 +612,7 @@ C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-Trac
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py` | `setup_debug_logging()`, `debug_print()`, `cleanup_logging()`, `open_create_v000_dialog()`, `_collect_context()`, `_collect_range_sources()`, `_build_outputs()`, `_preview_in_out()`, `_zoom_timeline_to_preview_range()`, `_create_v000_for_params()`, `_set_v000_clip_color()`, `_disable_timeline_item()`, `_create_black_exr_sequence()`, `_colorize_path()`, `CreateV000Dialog` |
+| `LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py` | `setup_debug_logging()`, `debug_print()`, `cleanup_logging()`, `open_create_v000_dialog()`, `_collect_context()`, `_collect_range_sources()`, `_build_outputs()`, `_preview_in_out()`, `_zoom_timeline_to_preview_range()`, `_create_v000_for_params()`, `_set_v000_clip_color()`, `_disable_timeline_item()`, `_create_black_exr_sequence()`, `_colorize_path()`, `_ensure_task_folder_structure()`, `_build_folder_structure_section()`, `CreateV000Dialog` |
 | `docs\Docu_Logging_System.md` | Valores por defecto y patron de `QueueHandler` / `QueueListener` |
 | `LGA_NKS_ViewerTL_Panel_py\LGA_NKS_InOut_Editref.py` | Referencia para `seq.setInTime()` y `seq.setOutTime()` |
 | `LGA_NKS_ViewerTL_Panel_py\LGA_NKS_PrevNext_Rev.py` | Referencia para mover playhead, enfocar timeline y ejecutar `Zoom to Fit` con `QTimer.singleShot()` |

@@ -56,6 +56,7 @@ TASK_FOLDER = {
     "roto": "Roto",
     "cleanup": "Cleanup",
 }
+TASK_SUBFOLDERS = ("0_assets", "1_projects", "2_prerenders", "3_review", "4_publish")
 RANGE_SOURCE_EDITREF = "editref"
 TASK_COLORS = {
     "comp":    "#3381e0",
@@ -765,6 +766,22 @@ def _collect_range_sources(seq, current_time):
     return editrefs + plates, plates
 
 
+def _ensure_task_folder_structure(shot_root, task):
+    """Creates the standard subfolder tree for a task if any folder is missing."""
+    task_root = Path(shot_root.replace("\\", "/")) / TASK_FOLDER[task]
+    created = []
+    errors = []
+    for subfolder in TASK_SUBFOLDERS:
+        path = task_root / subfolder
+        if not path.exists():
+            try:
+                path.mkdir(parents=True)
+                created.append(str(path))
+            except Exception as exc:
+                errors.append((str(path), str(exc)))
+    return created, errors
+
+
 def _oiio_tool_path():
     if not sys.platform.startswith("win"):
         return None
@@ -1262,6 +1279,12 @@ class CreateV000Dialog(QtWidgets.QDialog):
         layout.addWidget(self._build_separator())
         layout.addSpacing(5)
 
+        layout.addWidget(self._build_folder_structure_section())
+
+        layout.addSpacing(5)
+        layout.addWidget(self._build_separator())
+        layout.addSpacing(5)
+
         layout.addWidget(self._section_label("OUTPUT"))
         self.output_text = QtWidgets.QTextEdit()
         self.output_text.setReadOnly(True)
@@ -1594,6 +1617,42 @@ class CreateV000Dialog(QtWidgets.QDialog):
 
         container = QtWidgets.QWidget()
         container.setLayout(layout)
+        return container
+
+    def _build_folder_structure_section(self):
+        container = QtWidgets.QWidget()
+        row = QtWidgets.QHBoxLayout(container)
+        row.setContentsMargins(0, 0, 0, 0)
+
+        self.create_folders_chk = QtWidgets.QCheckBox(
+            "Create folder structure for selected tasks if missing"
+        )
+        self.create_folders_chk.setChecked(False)
+        self.create_folders_chk.setStyleSheet(
+            """
+            QCheckBox {
+                color: #a7a7a7;
+                padding: 2px;
+            }
+            QCheckBox::indicator {
+                width: 14px;
+                height: 14px;
+            }
+            QCheckBox::indicator:unchecked {
+                background-color: #272727;
+                border: 1px solid #555555;
+                border-radius: 2px;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #443a91;
+                border: 1px solid #774dcb;
+                border-radius: 2px;
+            }
+            """
+        )
+
+        row.addWidget(self.create_folders_chk)
+        row.addStretch()
         return container
 
     def _select_default_task(self):
@@ -2119,6 +2178,20 @@ class CreateV000Dialog(QtWidgets.QDialog):
                 return False
             integration_mode = choice
         debug_print("Create v000 integration mode:", integration_mode)
+
+        if self.create_folders_chk.isChecked():
+            created_dirs, dir_errors = _ensure_task_folder_structure(
+                params["shot_root"], params["task"]
+            )
+            if created_dirs:
+                debug_print(
+                    "Created %d folder(s): %s" % (len(created_dirs), ", ".join(created_dirs))
+                )
+            if dir_errors:
+                for err_path, err_msg in dir_errors:
+                    debug_print(
+                        "Failed to create folder %s: %s" % (err_path, err_msg), level="warning"
+                    )
 
         success, status, message = _create_black_exr_sequence(params, replace=replace_existing)
         debug_print("EXR creation result:", status, message)
