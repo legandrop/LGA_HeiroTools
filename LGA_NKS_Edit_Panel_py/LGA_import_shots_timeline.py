@@ -52,7 +52,9 @@ def _is_burnin_track(track_name: str) -> bool:
 
 
 def _find_video_track(seq, track_name: str):
-    for track in seq.videoTracks():
+    """Retorna el track de video más alto (top del stack) que coincide con track_name.
+    Hiero devuelve videoTracks() de abajo hacia arriba; reversed() da top-to-bottom."""
+    for track in reversed(list(seq.videoTracks())):
         if track.name() == track_name:
             return track
     return None

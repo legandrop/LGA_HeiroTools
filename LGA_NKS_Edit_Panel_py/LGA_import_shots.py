@@ -525,6 +525,14 @@ def _scan_input_folder(shot_root):
     except Exception:
         loose = []
 
+    # Agrupar MOVs por "clave de track" para detectar versiones, igual que EXR seqs.
+    # Regla de agrupación:
+    #   - Track nombrado (EditRef, EditRefClean, aPlate, …) → clave = "track:<track>"
+    #     Todas las versiones de un EditRef van al mismo grupo.
+    #   - Track None (seqref) o desconocido ("?") → clave = "name:<base_sin_version>"
+    #     Se agrupan por nombre base; archivos sin relación no se mezclan.
+    mov_groups = {}  # clave → [entry_dict, ...]
+
     for f in loose:
         ext = f.suffix.lower()
         if ext in MOV_EXTENSIONS:
@@ -543,7 +551,7 @@ def _scan_input_folder(shot_root):
             else:
                 track = "?"           # desconocido, usuario decide
             mw, mh, mfps, mcodec, mnb = _read_mov_metadata(str(f))
-            items.append({
+            entry = {
                 "name": f.stem,
                 "path": str(f),
                 "kind": "mov",
@@ -555,9 +563,17 @@ def _scan_input_folder(shot_root):
                 "first_file": str(f),
                 "width": mw, "height": mh, "fps": mfps, "compression": mcodec,
                 "bitdepth": None, "channels": None,
-                "is_latest": True,
+                "is_latest": True,           # se actualiza en el paso de versioning
+                "has_multiple_versions": False,
                 "version_num": _version_number(f.stem),
-            })
+            }
+            if track and track != "?":
+                group_key = "track:" + track
+            else:
+                base = re.sub(r"[_\-]v\d+$", "", f.stem, flags=re.IGNORECASE).lower()
+                group_key = "name:" + base
+            mov_groups.setdefault(group_key, []).append(entry)
+
         elif ext in IMAGE_EXTENSIONS:
             items.append({
                 "name": f.name,
@@ -571,6 +587,17 @@ def _scan_input_folder(shot_root):
                 "is_latest": True,
                 "version_num": -1,
             })
+
+    # Aplicar versioning a cada grupo de MOVs (mismo patrón que EXR seqs)
+    for group_key, group in mov_groups.items():
+        group.sort(key=lambda x: x["version_num"])
+        max_ver = max(x["version_num"] for x in group)
+        has_multiple = len(group) > 1
+        for entry in group:
+            # Si ningún archivo tiene número de versión (max_ver == -1), todos son "latest"
+            entry["is_latest"] = (entry["version_num"] == max_ver or max_ver == -1)
+            entry["has_multiple_versions"] = has_multiple
+        items.extend(group)
 
     # Ordenar: plates por track-name luego version, movs, otros
     def _sort_key(x):
@@ -1605,10 +1632,10 @@ class ImportShotDialog(QtWidgets.QDialog):
         bar_item.setFlags(QtCore.Qt.NoItemFlags)
         table.setItem(row_i, 0, bar_item)
 
-        # Col 1: checkbox
+        # Col 1: checkbox — marcado por defecto solo para la versión más reciente
         chk = QtWidgets.QCheckBox()
         chk.setStyleSheet("color:#a7a7a7; padding:2px;")
-        chk.setChecked(True)
+        chk.setChecked(is_latest)
         chk.stateChanged.connect(self._update_action_btns)
         self._checkboxes[row_i] = chk
         container = QtWidgets.QWidget()
@@ -1889,7 +1916,7 @@ class ImportShotDialog(QtWidgets.QDialog):
                     ename = existing_item.get("name") or "?"
 
                     if is_exr and not existing_is_exr:
-                        # EXR actual gana → desplaza el MOV existente
+                        # EXR actual gana sobre MOV existente
                         existing_combo.blockSignals(True)
                         existing_combo.setCurrentIndex(0)  # "— sin track —"
                         existing_combo.blockSignals(False)
@@ -1898,13 +1925,35 @@ class ImportShotDialog(QtWidgets.QDialog):
                             "[track_conflict] EXR '%s' desplaza MOV '%s' del track '%s'"
                             % (iname, ename, current_track)
                         )
-                    else:
-                        # Existente gana → actual queda sin asignar
+                    elif not is_exr and existing_is_exr:
+                        # MOV actual cede ante EXR existente
                         debug_print(
-                            "[track_conflict] '%s' cede track '%s' (ya ocupado por '%s')"
+                            "[track_conflict] MOV '%s' cede track '%s' (EXR '%s' tiene prioridad)"
                             % (iname, current_track, ename)
                         )
                         current_track = None
+                    else:
+                        # Mismo tipo (EXR vs EXR, o MOV vs MOV):
+                        # gana la versión más alta; en empate gana el existente.
+                        cur_ver = item.get("version_num", -1)
+                        ext_ver = existing_item.get("version_num", -1)
+                        if cur_ver > ext_ver:
+                            # Actual es más reciente → desplaza al existente
+                            existing_combo.blockSignals(True)
+                            existing_combo.setCurrentIndex(0)
+                            existing_combo.blockSignals(False)
+                            self._track_overrides[existing_row] = "— sin track —"
+                            debug_print(
+                                "[track_conflict] '%s' (v%d) desplaza '%s' (v%d) del track '%s'"
+                                % (iname, cur_ver, ename, ext_ver, current_track)
+                            )
+                        else:
+                            # Existente es más reciente o igual → actual cede
+                            debug_print(
+                                "[track_conflict] '%s' (v%d) cede track '%s' (ya tiene '%s' v%d)"
+                                % (iname, cur_ver, current_track, ename, ext_ver)
+                            )
+                            current_track = None
                     break
 
         # ── Construir combo ────────────────────────────────────────────────

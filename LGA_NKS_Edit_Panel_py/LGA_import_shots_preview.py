@@ -258,6 +258,9 @@ def build_import_preview_data(
     )
 
     seen_track_names = set()
+    # Track names that ya recibieron new_items; cuando hay dos tracks con el mismo
+    # nombre solo el primero (mas alto visualmente) recibe los ítems nuevos.
+    assigned_track_names = set()
 
     for track in video_tracks:
         try:
@@ -267,7 +270,12 @@ def build_import_preview_data(
 
         seen_track_names.add(tname)
         before, after = _find_adjacent_clips(track, prev_shot_name, next_shot_name)
-        new_items     = items_by_track.get(tname, [])
+
+        if tname in items_by_track and tname not in assigned_track_names:
+            new_items = items_by_track[tname]
+            assigned_track_names.add(tname)
+        else:
+            new_items = []
 
         _log(
             "  track='%s' | before=%s | new_items=%d | after=%s"

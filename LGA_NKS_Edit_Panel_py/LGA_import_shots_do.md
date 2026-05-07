@@ -144,7 +144,7 @@ En este orden:
 ### Colocación en timeline
 
 `timeline_mod.place_clip_in_timeline(seq, clip, track_name, tl_in, frame_count, shot_name)`:
-- Busca el track por nombre. Si no existe, retorna error (no crea tracks automáticamente).
+- Busca el track por nombre con `_find_video_track(seq, track_name)`. Cuando existen varios tracks con el mismo nombre, siempre se usa el **más alto visualmente** (iteración top-to-bottom via `reversed(seq.videoTracks())`). Si no existe ninguno, retorna error.
 - `tl_out = tl_in + frame_count - 1`
 - Llama `track.addTrackItem(clip, tl_in)`.
 - Ajusta: `track_item.setTimes(tl_in, tl_out, 0, frame_count - 1)`
@@ -215,6 +215,36 @@ te.setSelection(valid_items)
 
 ---
 
+## Versioning de ítems (EXR seqs y MOVs)
+
+### EXR sequences
+
+`_scan_input_folder` agrupa las carpetas por `base_key` (nombre sin `_vNN`). Dentro de cada grupo, la entrada con el `version_num` más alto tiene `is_latest=True`; las demás tienen `is_latest=False`.
+
+### MOV files
+
+El mismo patrón se aplica a los MOV sueltos de `_input/`. Se agrupan en `mov_groups` con estas claves:
+
+| Tipo de track | Clave de agrupación |
+|---------------|---------------------|
+| Track nombrado (EditRef, EditRefClean, aPlate, …) | `"track:<track_name>"` |
+| Track None (seqref) o desconocido (`"?"`) | `"name:<base_sin_version>"` |
+
+Regla de `is_latest` dentro de cada grupo:
+- Si el grupo tiene versiones (`version_num != -1`): solo la de mayor `version_num` tiene `is_latest=True`.
+- Si ningún archivo tiene versión (`max_ver == -1`): todos tienen `is_latest=True` (no hay versioning real).
+
+Ejemplo:
+- `editref_v001.mov` → `is_latest=False`
+- `editref_v002.mov` → `is_latest=True`
+- `editref.mov` + `editrefclean.mov` → ambos `is_latest=True` (tracks distintos)
+
+### Checkbox inicial
+
+El checkbox de cada fila de la tabla se inicializa con `chk.setChecked(is_latest)`. Las versiones no-latest aparecen desmarcadas por defecto, pero son visibles para referencia.
+
+---
+
 ## Combo de track — tracks existentes + opción "Crear"
 
 ### Fuente de opciones
@@ -222,7 +252,7 @@ te.setSelection(valid_items)
 `_build_track_combo()` ya **no** usa una lista hardcodeada. Las opciones son:
 
 1. `"— sin track —"` (siempre primero)
-2. Tracks de video existentes en `self.seq`, en orden visual top-to-bottom (excluyendo BurnIn), obtenidos por `_get_seq_track_names()`.
+2. Tracks de video existentes en `self.seq`, en orden visual top-to-bottom (excluyendo BurnIn), obtenidos por `_get_seq_track_names()`. Los nombres duplicados se deduplican: si el timeline tiene dos tracks llamados "EditRef", el dropdown solo muestra "EditRef" una vez.
 3. `"+ Crear track <name>"` (solo al final, solo si el track auto-detectado del ítem es un `*Plate` y todavía no existe en el timeline).
 
 La opción "?" fue eliminada. Los ítems que antes recibían `track="?"` ahora muestran `"— sin track —"` como valor inicial.
@@ -232,6 +262,17 @@ La opción "?" fue eliminada. Los ítems que antes recibían `track="?"` ahora m
 - Si el track auto-detectado existe en el timeline → se pre-selecciona.
 - Si no existe y es un plate → se pre-selecciona `"+ Crear track <name>"` (con `blockSignals=True`, sin crear nada todavía).
 - En cualquier otro caso → `"— sin track —"`.
+
+### Conflicto entre ítems del mismo track
+
+Cuando dos ítems quieren el mismo track al cargar la tabla:
+
+| Situación | Resultado |
+|-----------|-----------|
+| EXR actual vs MOV existente | EXR gana, MOV queda en `"— sin track —"` |
+| MOV actual vs EXR existente | MOV cede, queda en `"— sin track —"` |
+| Mismo tipo, `version_num` actual > existente | Actual gana, existente queda en `"— sin track —"` |
+| Mismo tipo, `version_num` actual ≤ existente | Actual cede, queda en `"— sin track —"` |
 
 ### Creación de track desde el combo
 
@@ -265,8 +306,8 @@ BurnIn no figura en la lista (se trata como índice infinito, siempre en el tope
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `ImportShotDialog._do_import()`, `_item_hiero_color()`, `_item_section_color()`, `_chip_color()`, `_find_insert_frame()`, `_build_track_combo()`, `_get_seq_track_names()`, `_create_plate_track()`, `_refresh_track_combo_options()`, `_on_track_combo_changed()`, `_get_track_for_row()` |
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots_timeline.py` | `push_clips_right()`, `place_clip_in_timeline()`, `stretch_burnin()`, `_get_last_timeline_out()`, `_is_burnin_track()`, `set_debug_print()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `ImportShotDialog._do_import()`, `_item_hiero_color()`, `_item_section_color()`, `_chip_color()`, `_find_insert_frame()`, `_scan_input_folder()`, `_build_track_combo()`, `_get_seq_track_names()`, `_create_plate_track()`, `_refresh_track_combo_options()`, `_on_track_combo_changed()`, `_get_track_for_row()`, `_populate_data_row()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots_timeline.py` | `push_clips_right()`, `place_clip_in_timeline()`, `stretch_burnin()`, `_find_video_track()`, `_get_last_timeline_out()`, `_is_burnin_track()`, `set_debug_print()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_bin.py` | `find_or_create_shot_bin()`, `import_item_to_bin()`, `set_debug_print()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_preview.md` | Documentación de la página de preview que precede al import |
 | `+Building_Blocks/Hiero/Timeline/LGA_H-SelectFromPlayhead.py` | Referencia del patrón `setTimelineOut/setTimelineIn` para mover clips |

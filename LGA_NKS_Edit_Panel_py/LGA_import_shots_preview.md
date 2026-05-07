@@ -203,6 +203,14 @@ Hiero devuelve los tracks de abajo hacia arriba. Se aplica `reversed()` para mos
 
 Se incluyen **TODOS** los tracks del timeline sin excepción. Un track puede aparecer con las 3 columnas vacías (solo como contexto visual). Si un ítem está asignado a un track que no existe en el timeline, ese track se añade al final de la lista.
 
+### Tracks duplicados (mismo nombre)
+
+Cuando existen dos o más tracks con el mismo nombre en el timeline (ej. dos tracks llamados "EditRef"), solo el **primero encontrado** — el más alto visualmente, ya que se itera top-to-bottom — recibe los `new_items` del ítem asignado. Los tracks duplicados subsiguientes muestran `new_items = []`.
+
+Esto evita que un ítem aparezca duplicado en la preview cuando el timeline tiene nombres de track repetidos.
+
+La lógica se implementa con el set `assigned_track_names`: una vez que un `track_name` recibió ítems, las apariciones posteriores del mismo nombre son tratadas como contexto vacío.
+
 ---
 
 ## Clasificación de clips: before / after
@@ -229,7 +237,9 @@ Con la lógica anterior (por `insert_frame`), si en un track no existía el shot
 La página principal (Media) aplica la regla de **un solo clip por track** en dos momentos:
 
 **En carga inicial** (`_build_track_combo`):
-- Si el track auto-detectado ya está ocupado, se aplica prioridad: EXR desplaza a MOV. Si el existente gana, el ítem actual queda en `"— sin track —"`.
+- Prioridad entre tipos distintos: **EXR desplaza a MOV**; MOV cede ante EXR existente.
+- Prioridad entre el mismo tipo (EXR vs EXR, o MOV vs MOV): **gana la versión más alta** (`version_num`). Si el ítem actual tiene mayor `version_num` que el que ya ocupa el track, desplaza al existente. Si es menor o igual, el actual cede.
+- El ítem desplazado queda en `"— sin track —"` y su checkbox se inicializa con `is_latest` (desmarcado si no es la última versión).
 - Los conflictos se loguean con `debug_print`.
 
 **Por interacción del usuario** (`_on_track_combo_changed`):
@@ -313,8 +323,8 @@ Orquesta la importación completa:
 
 | Archivo | Función / Clase |
 |---------|----------------|
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots_preview.py` | `build_import_preview_data`, `_find_adjacent_clips`, `_clip_display_name`, `classify_track_type`, `mix_colors`, `set_debug_print`, `_log` |
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `ImportShotDialog._build_page_import`, `_update_import_page`, `_populate_import_table`, `_build_before_cell`, `_build_new_cell`, `_build_after_cell`, `_build_burnin_row`, `_is_burnin_track`, `_chip_color`, `_make_chip_label`, `_build_track_combo`, `_on_track_combo_changed`, `_inject_preview_logger`, `_track_bar_color`, `_item_section_color` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots_preview.py` | `build_import_preview_data` (incl. `assigned_track_names` para dedup de tracks duplicados), `_find_adjacent_clips`, `_clip_display_name`, `classify_track_type`, `mix_colors`, `set_debug_print`, `_log` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `ImportShotDialog._build_page_import`, `_update_import_page`, `_populate_import_table`, `_populate_data_row`, `_build_before_cell`, `_build_new_cell`, `_build_after_cell`, `_build_burnin_row`, `_is_burnin_track`, `_chip_color`, `_make_chip_label`, `_build_track_combo`, `_on_track_combo_changed`, `_get_track_for_row`, `_inject_preview_logger`, `_track_bar_color`, `_item_section_color`, `_scan_input_folder` |
 | `LGA_NKS_Shared/LGA_tooltip_helper.py` | `apply_tooltip_stylesheet`, `set_clip_tooltip`, `set_rich_tooltip`, `make_tooltip_html` |
 | `LGA_NKS_Shared/LGA_tooltip_helper.md` | Documentación de uso del helper de tooltips |
 
