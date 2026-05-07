@@ -17,9 +17,10 @@ Página Import Preview (PAGE_IMPORT)
   └─ click "Import Now"
        └─ ImportShotDialog._do_import()
             ├─ Paso 1: push_clips_right()       → hace espacio en el timeline
-            └─ Paso 2: import_item_to_bin()
-                        bin_item.setColor()
-                        place_clip_in_timeline()
+            ├─ Paso 2: import_item_to_bin()
+            │           bin_item.setColor()
+            │           place_clip_in_timeline()
+            └─ Paso 3: stretch_burnin()         → extiende BurnIn hasta el último frame
                         → self.accept()
 ```
 
@@ -180,9 +181,24 @@ En ambos casos se llama `self.accept()` para cerrar el diálogo.
 
 ---
 
+## Paso 3 — Estirar BurnIn (`stretch_burnin`)
+
+Se ejecuta al final del import, solo si al menos un clip fue colocado exitosamente.
+
+`timeline_mod.stretch_burnin(seq)`:
+
+- Localiza el track BurnIn por nombre normalizado (`burnin`, `burn in`, `burn_in`).
+- Recolecta los **soft effects** (`EffectTrackItem`) vía `track.subTrackItems()` — NO `track.items()`.
+- Calcula `target_out = max(timelineOut)` de todos los clips reales del timeline (excluye `EffectTrackItem`).
+- Para cada efecto: si su `timelineOut` ≠ `target_out`, llama `effect.setTimelineOut(target_out)`.
+- Loguea cuántos efectos fueron ajustados.
+
+Patrón idéntico al de `LGA_NKS_BurnIn_Extend_To_LastVisible.py` (Building Blocks).
+
+---
+
 ## Pendiente
 
-- **`stretch_burnin`:** llamar después del push para estirar el track BurnIn.
 - **Post-import — SetShotName:** llamar `LGA_NKS_SetShotName` para renombrar los clips.
 - **Post-import — CreateV000:** dialogo para crear v000 en tasks sin versiones.
 
@@ -193,9 +209,10 @@ En ambos casos se llama `self.accept()` para cerrar el diálogo.
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `ImportShotDialog._do_import()`, `_item_hiero_color()`, `_item_section_color()`, `_chip_color()`, `_find_insert_frame()`, `_inject_preview_logger()` |
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots_timeline.py` | `push_clips_right()`, `place_clip_in_timeline()`, `stretch_burnin()`, `_is_burnin_track()`, `set_debug_print()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots_timeline.py` | `push_clips_right()`, `place_clip_in_timeline()`, `stretch_burnin()`, `_get_last_timeline_out()`, `_is_burnin_track()`, `set_debug_print()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_bin.py` | `find_or_create_shot_bin()`, `import_item_to_bin()`, `set_debug_print()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_preview.md` | Documentación de la página de preview que precede al import |
 | `+Building_Blocks/Hiero/Timeline/LGA_H-SelectFromPlayhead.py` | Referencia del patrón `setTimelineOut/setTimelineIn` para mover clips |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_CreateV000.py` | Referencia del flujo: `_import_v000_to_bin`, `_set_v000_clip_color`, `bin_item.setColor()` |
+| `+Building_Blocks/LGA_NKS_BurnIn_Extend_To_LastVisible.py` | Referencia del patrón `stretch_burnin`: `get_burnin_effects()` via `subTrackItems()`, `get_last_visible_clip()`, `effect.setTimelineOut()` |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_OrganizeProject.py` | Estructura de bins `F <seq_name>/<shot_name>` |

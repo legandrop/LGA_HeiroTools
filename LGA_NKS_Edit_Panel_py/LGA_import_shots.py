@@ -3680,6 +3680,11 @@ class ImportShotDialog(QtWidgets.QDialog):
                                        effective_insert_frame,
                                        effective_insert_frame + frame_count - 1))
 
+            # ── PASO 3: Estirar BurnIn hasta el final del timeline ────────────
+            if placed > 0:
+                debug_print("_do_import → PASO 3: stretch BurnIn")
+                timeline_mod.stretch_burnin(self.seq)
+
         finally:
             if project:
                 project.endUndo()

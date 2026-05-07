@@ -3,9 +3,11 @@ LGA_import_shots_timeline.py
 Helpers de timeline para la importación real de shots.
 
 Expone:
-  push_clips_right       — empuja clips que ocupan from_frame o posterior
+  push_clips_right       — empuja clips que ocupan from_frame o posterior;
+                           retorna (moved_count, effective_insert_frame)
   place_clip_in_timeline — coloca un clip en el track indicado
-  stretch_burnin         — estira el clip BurnIn hasta new_end_frame
+  stretch_burnin         — extiende los soft effects del track BurnIn hasta
+                           el timelineOut del ultimo clip real del timeline
   set_debug_print        — inyecta la función debug_print del módulo principal
 """
 
@@ -209,27 +211,103 @@ def place_clip_in_timeline(seq, clip, track_name: str,
         return None, str(exc)
 
 
-def stretch_burnin(seq, new_end_frame: int):
+def _get_last_timeline_out(seq) -> int | None:
     """
-    Estira el clip BurnIn para cubrir hasta new_end_frame (inclusive).
-    Opera sobre el primer clip del primer track BurnIn encontrado.
-    """
-    if not _HIERO_AVAILABLE:
-        return
+    Retorna el mayor timelineOut de todos los clips reales del timeline
+    (excluye EffectTrackItem y tracks BurnIn).
 
+    Identica a get_last_visible_clip() en LGA_NKS_BurnIn_Extend_To_LastVisible.py.
+    """
+    last_out = None
     for track in seq.videoTracks():
-        if not _is_burnin_track(track.name()):
-            continue
         for item in track.items():
             if isinstance(item, hiero.core.EffectTrackItem):
                 continue
             try:
-                tl_in   = int(item.timelineIn())
-                src_in  = int(item.sourceIn())
-                new_out = max(int(item.timelineOut()), new_end_frame)
-                new_src_out = src_in + (new_out - tl_in)
-                item.setTimes(tl_in, new_out, src_in, new_src_out)
-                _log("stretch_burnin: estirado hasta frame %d" % new_out)
-            except Exception as exc:
-                _log("stretch_burnin: error → %s" % exc, level="warning")
-        break  # solo el primer track BurnIn
+                tl_out = int(item.timelineOut())
+                if last_out is None or tl_out > last_out:
+                    last_out = tl_out
+            except Exception:
+                pass
+    return last_out
+
+
+def stretch_burnin(seq):
+    """
+    Extiende todos los soft effects del track BurnIn hasta el timelineOut
+    del ultimo clip real del timeline (el maximo entre todos los tracks).
+
+    Patron identico a LGA_NKS_BurnIn_Extend_To_LastVisible.py:
+    - Localiza el track cuyo nombre normalizado es 'burnin'.
+    - Recolecta EffectTrackItems via track.subTrackItems() (no track.items()).
+    - Calcula target_out = max(timelineOut) de todos los clips reales del timeline.
+    - Llama effect.setTimelineOut(target_out) en cada efecto que no llegue ahi.
+
+    No recibe new_end_frame; lo calcula internamente para garantizar que
+    el BurnIn cubre exactamente hasta el ultimo frame del timeline.
+
+    Retorna el numero de efectos ajustados (0 si no habia nada que ajustar).
+    """
+    if not _HIERO_AVAILABLE:
+        _log("stretch_burnin: Hiero no disponible", level="warning")
+        return 0
+
+    # Encontrar el track BurnIn
+    burnin_track = None
+    for track in seq.videoTracks():
+        if _is_burnin_track(track.name()):
+            burnin_track = track
+            break
+
+    if burnin_track is None:
+        _log("stretch_burnin: no se encontro track BurnIn en la secuencia")
+        return 0
+
+    # Recolectar los EffectTrackItems via subTrackItems (identico al Building Block)
+    effects = []
+    try:
+        for group in (burnin_track.subTrackItems() or []):
+            if not group:
+                continue
+            for item in group:
+                if isinstance(item, hiero.core.EffectTrackItem):
+                    effects.append(item)
+    except Exception as exc:
+        _log("stretch_burnin: error leyendo subTrackItems → %s" % exc,
+             level="warning")
+        return 0
+
+    if not effects:
+        _log("stretch_burnin: el track BurnIn no tiene soft effects")
+        return 0
+
+    # Calcular el frame objetivo: maximo timelineOut del timeline
+    target_out = _get_last_timeline_out(seq)
+    if target_out is None:
+        _log("stretch_burnin: no se encontro ningun clip real en el timeline",
+             level="warning")
+        return 0
+
+    _log("stretch_burnin: target_out=%d (%d efectos a revisar)"
+         % (target_out, len(effects)))
+
+    adjusted = 0
+    for effect in effects:
+        try:
+            effect_name = effect.name() if hasattr(effect, "name") else "<efecto>"
+            old_out = int(effect.timelineOut())
+            if old_out == target_out:
+                _log("stretch_burnin: '%s' ya en frame %d, sin cambio"
+                     % (effect_name, target_out))
+                continue
+            effect.setTimelineOut(target_out)
+            _log("stretch_burnin: '%s' %d → %d"
+                 % (effect_name, old_out, target_out))
+            adjusted += 1
+        except Exception as exc:
+            _log("stretch_burnin: error ajustando efecto → %s" % exc,
+                 level="warning")
+
+    _log("stretch_burnin: %d/%d efectos ajustados hasta frame %d"
+         % (adjusted, len(effects), target_out))
+    return adjusted
