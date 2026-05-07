@@ -188,7 +188,7 @@ Debajo de todos los tracks, si hay ítems sin track asignado:
 2. **Chip por ítem** — en la columna **Shot Nuevo** (col 3) únicamente:
    - Cols 2 y 4 permanecen vacías.
    - El chip usa `new_shot_dur` como referencia: si el ítem tiene tantos frames o más que el clip nuevo más largo, ocupa el 100%. Si tiene menos, ocupa el porcentaje proporcional.
-   - Col 1 muestra el nombre del ítem (label de texto, estilo de track name).
+   - Col 1 permanece vacía (el nombre ya está en el chip de col 3).
    - Color según su sección de origen (plates → `_CLR_PLATES`, refs → `_CLR_REFS`, publish → color de task).
    - Tooltip con nombre completo y duración.
    - Estos ítems **no se importan al timeline** al pulsar "Import Now".

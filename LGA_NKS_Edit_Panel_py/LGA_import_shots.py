@@ -3690,17 +3690,8 @@ class ImportShotDialog(QtWidgets.QDialog):
                 bar2.setFlags(QtCore.Qt.NoItemFlags)
                 table.setItem(row_i, 0, bar2)
 
-                # Col 1: nombre del ítem (misma estructura que las filas de track)
-                unassigned_lbl = QtWidgets.QLabel("  " + iname)
-                unassigned_lbl.setAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft)
-                unassigned_lbl.setStyleSheet(
-                    "color: %s; font-size: 10px; padding: 0px 4px; background: transparent;"
-                    % mix_colors(icolor, "#ffffff", 0.45)
-                )
-                table.setCellWidget(row_i, 1, unassigned_lbl)
-
-                # Cols 2 y 4: vacías (fondo transparente)
-                for empty_col in (2, 4):
+                # Cols 1, 2 y 4: vacías (fondo transparente)
+                for empty_col in (1, 2, 4):
                     empty_w = QtWidgets.QWidget()
                     empty_w.setStyleSheet("background: transparent;")
                     table.setCellWidget(row_i, empty_col, empty_w)
