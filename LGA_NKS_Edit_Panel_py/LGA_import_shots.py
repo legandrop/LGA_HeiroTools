@@ -114,8 +114,6 @@ except Exception as _te:
 Transcode_TEST_Mode = False
 # Si True, Rename trabaja sobre copia en carpeta "renamned" y no toca originales.
 Rename_Test_mode = False
-# DEV: limita el import real solo al track _comp_. Borrar al generalizar.
-_IMPORT_ONLY_COMP = True
 
 # ── logging ────────────────────────────────────────────────────────
 DEBUG = True
@@ -3542,19 +3540,37 @@ class ImportShotDialog(QtWidgets.QDialog):
 
     # ── Importación real ─────────────────────────────────────────
 
+    def _item_hiero_color(self, row_data: dict) -> str:
+        """
+        Devuelve el color hex para el BinItem/TrackItem en Hiero.
+
+        Misma lógica que _chip_color en el preview:
+        - Plates  → _CLR_PLATES
+        - Refs    → _CLR_REFS
+        - Publish → color de tarea; gris oscuro (#474747) si es v000
+        """
+        bar_color = self._item_section_color(row_data)
+        section = row_data.get("section", "")
+        if section == "publish":
+            task = row_data.get("item", {}).get("task", "")
+            clip_name = (row_data.get("item", {}).get("name", "")
+                         or row_data.get("item", {}).get("version_name", ""))
+            track_type = task if task in ("comp", "roto", "cleanup") else "other"
+            return self._chip_color(clip_name, bar_color, track_type)
+        return bar_color
+
     def _do_import(self):
         """
         Ejecuta la importación de los ítems chequeados al bin y al timeline.
 
         Flujo:
-          1. Recolectar ítems marcados con track asignado.
-             Si _IMPORT_ONLY_COMP está activo, filtrar solo el track _comp_.
-          2. Abrir bloque de undo (cubre los pasos 3, 4 y 5).
+          1. Recolectar ítems marcados con track asignado (junto con su color).
+          2. Abrir bloque de undo.
           3. Hacer espacio: empujar clips cuyo tl_out >= insert_frame.
-          4. Confirmación del usuario antes de importar al bin.
-          5. Importar al bin y colocar en el track del timeline.
+          4. Importar al bin, colorear BinItem y colocar en el timeline.
         """
         # ── Recolección de ítems ──────────────────────────────────────────────
+        # items_by_track: {track_name: [(item_dict, hex_color), ...]}
         items_by_track = {}
         for row, chk in self._checkboxes.items():
             if not chk.isChecked():
@@ -3566,27 +3582,12 @@ class ImportShotDialog(QtWidgets.QDialog):
             item  = row_data.get("item", {})
             if not item or not track:
                 continue
-            items_by_track.setdefault(track, []).append(item)
+            color = self._item_hiero_color(row_data)
+            items_by_track.setdefault(track, []).append((item, color))
 
         if not items_by_track:
             debug_print("_do_import: no hay items con track asignado", level="warning")
             return
-
-        # DEV flag: solo procesar el track _comp_
-        if _IMPORT_ONLY_COMP:
-            comp_items = items_by_track.get("_comp_", [])
-            if not comp_items:
-                QtWidgets.QMessageBox.information(
-                    self,
-                    "Import (DEV)",
-                    "Flag _IMPORT_ONLY_COMP activo pero no hay ítem asignado "
-                    "al track _comp_. Nada que importar.",
-                )
-                debug_print("_do_import: _IMPORT_ONLY_COMP activo, sin ítem en _comp_",
-                            level="warning")
-                return
-            items_by_track = {"_comp_": comp_items}
-            debug_print("_do_import: _IMPORT_ONLY_COMP activo — solo se importará _comp_")
 
         # ── Abrir undo (cubre push + import) ─────────────────────────────────
         project = None
@@ -3600,7 +3601,6 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         errors = []
         placed = 0
-        user_cancelled = False
 
         try:
             # ── PASO 1: Hacer espacio ─────────────────────────────────────────
@@ -3609,15 +3609,10 @@ class ImportShotDialog(QtWidgets.QDialog):
             effective_insert_frame = self.insert_frame
 
             if self.frames_to_push > 0:
-                push_msg = (
-                    "PASO 1: Hacer espacio en el timeline.\n\n"
-                    "Se van a mover todos los clips que ocupan el frame %d o posterior "
-                    "(criterio: tl_out >= %d) hacia la derecha %d frames."
-                    % (self.insert_frame, self.insert_frame, self.frames_to_push)
+                debug_print(
+                    "_do_import → PASO 1: push tl_out>=%d por %d frames"
+                    % (self.insert_frame, self.frames_to_push)
                 )
-                debug_print("_do_import →", push_msg)
-                QtWidgets.QMessageBox.information(self, "Import — Paso 1", push_msg)
-
                 moved, effective_insert_frame = timeline_mod.push_clips_right(
                     self.seq, self.insert_frame, self.frames_to_push
                 )
@@ -3629,55 +3624,13 @@ class ImportShotDialog(QtWidgets.QDialog):
                     "_do_import: frames_to_push=0, sin necesidad de hacer espacio"
                     " | effective_insert_frame=%d" % effective_insert_frame)
 
-            # ── PASO 2: Confirmación antes de importar ────────────────────────
-            try:
-                seq_bin_name = "F %s" % self.seq.name()
-            except Exception:
-                seq_bin_name = "Shots"
-
-            for track_name, items in items_by_track.items():
-                for item in items:
-                    clip_name   = item.get("name", "") or item.get("version_name", "?")
-                    frame_count = item.get("frame_count", 0) or 0
-                    tl_out_est  = effective_insert_frame + frame_count - 1
-
-                    confirm_msg = (
-                        "PASO 2: Importar al bin y colocar en timeline.\n\n"
-                        "Clip:    %s\n"
-                        "Bin:     %s / %s\n"
-                        "Track:   %s\n"
-                        "Frames:  %d – %d  (%d frames)\n\n"
-                        "¿Continuar?"
-                        % (clip_name,
-                           seq_bin_name, self.shot_name,
-                           track_name,
-                           effective_insert_frame, tl_out_est, frame_count)
-                    )
-                    debug_print("_do_import → confirmación para '%s'" % clip_name)
-
-                    reply = QtWidgets.QMessageBox.question(
-                        self,
-                        "Import — Paso 2",
-                        confirm_msg,
-                        QtWidgets.QMessageBox.Ok | QtWidgets.QMessageBox.Cancel,
-                    )
-                    if reply != QtWidgets.QMessageBox.Ok:
-                        debug_print("_do_import: usuario canceló importación de '%s'"
-                                    % clip_name)
-                        user_cancelled = True
-                        return   # el finally cerrará el undo
-                    debug_print(
-                        "_do_import: usuario aceptó importación de '%s'" % clip_name)
-
-            # ── PASO 3: Import al bin + colocación en timeline ────────────────
-            step3_msg = "PASO 3: Importando al bin y colocando en el timeline."
-            debug_print("_do_import →", step3_msg)
-            QtWidgets.QMessageBox.information(self, "Import — Paso 3", step3_msg)
+            # ── PASO 2: Import al bin + colorear + colocación en timeline ─────
+            debug_print("_do_import → PASO 2: import al bin y colocación en timeline")
 
             target_bin = bin_mod.find_or_create_shot_bin(self.seq, self.shot_name)
 
-            for track_name, items in items_by_track.items():
-                for item in items:
+            for track_name, entries in items_by_track.items():
+                for item, clip_color in entries:
                     clip_name   = item.get("name", "") or item.get("version_name", "?")
                     frame_count = item.get("frame_count", 0) or 0
 
@@ -3687,6 +3640,17 @@ class ImportShotDialog(QtWidgets.QDialog):
                         debug_print("_do_import: error bin '%s' → %s"
                                     % (clip_name, err), level="warning")
                         continue
+
+                    # Colorear BinItem con el mismo color del chip del preview
+                    try:
+                        bin_item = clip.binItem()
+                        if bin_item is not None:
+                            bin_item.setColor(QtGui.QColor(clip_color))
+                            debug_print("_do_import: color BinItem '%s' → %s"
+                                        % (clip_name, clip_color))
+                    except Exception as exc:
+                        debug_print("_do_import: color BinItem fallo (no critico) → %s"
+                                    % exc, level="warning")
 
                     # Preferir frame_count del item; fallback: duration que detectó Hiero
                     if frame_count == 0 and clip is not None:
@@ -3719,11 +3683,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         finally:
             if project:
                 project.endUndo()
-                debug_print("_do_import: endUndo cerrado%s"
-                            % (" (cancelado por usuario)" if user_cancelled else ""))
-
-        if user_cancelled:
-            return
+                debug_print("_do_import: endUndo cerrado")
 
         if errors:
             QtWidgets.QMessageBox.warning(

@@ -16,30 +16,48 @@ Se activa al pulsar "Import Now" en la página de Import Preview (PAGE_IMPORT).
 Página Import Preview (PAGE_IMPORT)
   └─ click "Import Now"
        └─ ImportShotDialog._do_import()
-            ├─ [DEV] filtro _IMPORT_ONLY_COMP
             ├─ Paso 1: push_clips_right()       → hace espacio en el timeline
-            ├─ Paso 2: confirmación del usuario → QMessageBox.question
-            └─ Paso 3: import_item_to_bin()
+            └─ Paso 2: import_item_to_bin()
+                        bin_item.setColor()
                         place_clip_in_timeline()
                         → self.accept()
 ```
 
 ---
 
-## Flag de desarrollo: `_IMPORT_ONLY_COMP`
+## Recolección de ítems
 
 ```python
-_IMPORT_ONLY_COMP = True  # DEV: solo importa el track _comp_. Borrar al generalizar.
+# items_by_track: {track_name: [(item_dict, hex_color), ...]}
 ```
 
-Definido a nivel de módulo en `LGA_import_shots.py`, cerca de `Transcode_TEST_Mode`.
+Para cada fila chequeada con track asignado:
+- Se obtiene `row_data` de `_table_rows[row]`
+- Se extrae `item = row_data.get("item", {})` y `track` del dropdown
+- Se calcula el color con `_item_hiero_color(row_data)` (ver abajo)
+- Se almacena la tupla `(item, color)` en `items_by_track[track]`
 
-Cuando está activo:
-- De todos los ítems chequeados con track asignado, se conserva **únicamente** el asignado al track `_comp_`.
-- Si no hay ítem en `_comp_`, se muestra un `QMessageBox.information` y el import se cancela sin modificar el timeline.
-- Permite desarrollar y debuggear el flujo completo con un solo track antes de generalizarlo.
+---
 
-**Para generalizar:** cambiar a `False` y eliminar el bloque de filtrado en `_do_import()`.
+## Color por ítem: `_item_hiero_color`
+
+```python
+def _item_hiero_color(self, row_data: dict) -> str:
+```
+
+Devuelve el color hex que se aplica al `BinItem` en Hiero. Misma lógica que `_chip_color` en el preview:
+
+| Sección | Color |
+|---------|-------|
+| `"plates"` | `_CLR_PLATES` = `#42616d` |
+| `"refs"` | `_CLR_REFS` = `#aa9e54` |
+| `"publish"` / comp | `_CLR_COMP` = `#3381e0` |
+| `"publish"` / roto | `_CLR_ROTO` = `#2abf7e` |
+| `"publish"` / cleanup | `_CLR_CLEANUP` = `#27c8c3` |
+| `"publish"` / dmp | `_CLR_DMP` = `#e08033` |
+| Publish v000 | `#474747` (gris oscuro) |
+
+La regla v000: si el track_type es `comp`, `roto` o `cleanup` y el nombre del clip contiene `_v000`, `_v00`, etc. (regex `[._]v0{2,}(?:\b|_|$)`), el color es `#474747`.
 
 ---
 
@@ -49,73 +67,42 @@ Cuando está activo:
 
 Solo si `self.frames_to_push > 0`. Este valor lo calcula `_find_insert_frame()` al abrir el diálogo: si el nuevo shot va al final del timeline, no hay nada que empujar.
 
-### Mensaje de debug
-
-Antes de ejecutar el push se muestra un `QMessageBox.information` con el texto:
-
-```
-PASO 1: Hacer espacio en el timeline.
-
-Se van a mover todos los clips desde el frame {insert_frame}
-hacia la derecha {frames_to_push} frames.
-```
-
-Y se logea con `debug_print`.
-
 ### Implementación
 
-`timeline_mod.push_clips_right(seq, from_frame, amount)`:
+`timeline_mod.push_clips_right(seq, from_frame, amount)` → `(moved_count, effective_insert_frame)`:
 
 - Itera todos los `videoTracks()` de la secuencia, **excluyendo** los tracks BurnIn.
 - Recolecta todos los `TrackItem` (no `EffectTrackItem`) cuyo `tl_out >= from_frame`.
-  - Criterio `tl_out >= from_frame` (NO `tl_in >= from_frame`):
-    captura tanto clips que empiezan en `from_frame` o después, como clips que **cruzan** `from_frame` (empiezan antes, terminan después). Estos últimos son los del shot siguiente con inicio desalineado entre tracks, y también deben moverse.
-- Loguea por cada track cuántos clips fueron incluidos/omitidos y por qué.
-- Selecciona los ítems en el Timeline Editor con `hiero.ui.getTimelineEditor(seq).setSelection(items)` para visibilidad de debug.
+  - Criterio `tl_out >= from_frame`: captura tanto clips que empiezan en `from_frame` o después, como clips que **cruzan** `from_frame` (empiezan antes, terminan después). Estos últimos son los del shot siguiente con inicio desalineado entre tracks.
+- Calcula `effective_insert_frame = min(tl_in de todos los clips seleccionados)` **antes de moverlos**. Este es el frame real donde debe empezar el nuevo shot para quedar adyacente al siguiente sin gap ni overlap.
+- Selecciona los ítems en el Timeline Editor con `hiero.ui.getTimelineEditor(seq).setSelection(items)`.
 - Los ordena de **derecha a izquierda** (por `timelineIn()` descendente) para evitar colisiones.
 - Para cada ítem, mueve:
   ```python
   item.setTimelineOut(item.timelineOut() + amount)  # out primero
   item.setTimelineIn(item.timelineIn()  + amount)   # luego in
   ```
-  Se mueve `out` primero para que el clip no colapse si Hiero valida `out >= in` al aplicar `setTimelineIn`.
+  Se mueve `out` primero para que el clip no colapse si Hiero valida `out >= in`.
+- Retorna `(moved_count, effective_insert_frame)`.
+
+### Por qué `effective_insert_frame` ≠ `self.insert_frame`
+
+`self.insert_frame` se calcula desde el TCIN del clip del shot siguiente en el track más a la derecha (bPlate en el ejemplo). Pero otros tracks pueden tener clips del shot siguiente que empiezan **antes** de ese frame. El `effective_insert_frame` es el mínimo de todos, garantizando que el nuevo clip quede pegado al slot siguiente sin importar qué track lo define.
+
+Ejemplo:
+- `insert_frame` = 548 (desde bPlate)
+- `_comp_` y `aPlate` del shot siguiente empiezan en 480
+- `effective_insert_frame` = 480
+- Después del push de 484f: _comp_/aPlate del shot sig. quedan en 964
+- Nuevo clip: 480–963 → adyacente ✓
 
 ### Tracks BurnIn
 
-Los tracks BurnIn se **excluyen** del push. Se estiran por separado con `stretch_burnin()` (no implementado aún en el flujo actual; se agregará cuando el import esté generalizado).
-
-La detección de BurnIn: `track_name.lower().strip() in {"burnin", "burn in", "burn_in"}`.
+Se **excluyen** del push. Se estiran por separado con `stretch_burnin()` (pendiente de implementar en el flujo de import generalizado).
 
 ---
 
-## Paso 2 — Confirmación del usuario
-
-Se muestra un `QMessageBox.question` por cada ítem que se va a importar:
-
-```
-PASO 2: Importar al bin y colocar en timeline.
-
-Clip:    <nombre del clip>
-Bin:     F <seq_name> / <shot_name>
-Track:   <track_name>
-Frames:  <insert_frame> – <insert_frame + frame_count - 1>  (<frame_count> frames)
-
-¿Continuar?
-```
-
-Botones: **OK** / **Cancelar**. Si el usuario cancela, el import se aborta sin deshacer el push ya realizado.
-
----
-
-## Bloque de undo
-
-`project.beginUndo("Import Shot: <shot_name>")` se abre **antes del Paso 1** (push), de manera que todo el flujo —push de clips, import al bin y colocación en timeline— queda dentro de un único bloque de undo.
-
-`project.endUndo()` se cierra siempre en el bloque `finally`, independientemente de si el usuario canceló en el Paso 2, ocurrió un error, o el import fue exitoso. Si el usuario cancela en el Paso 2, el push de Paso 1 queda en el undo stack y puede deshacerse con Ctrl+Z.
-
----
-
-## Paso 3 — Import al bin y colocación en timeline
+## Paso 2 — Import al bin, color y colocación en timeline
 
 ### Bin destino
 
@@ -124,20 +111,32 @@ clipsBin / F <seq_name> / <shot_name>
 ```
 
 `bin_mod.find_or_create_shot_bin(seq, shot_name)` busca o crea la estructura.
-Si los bins no existen se crean en cascada.
 
 ### Import al bin
 
-`bin_mod.import_item_to_bin(item, target_bin)`:
-- Determina `kind` desde el campo del dict. Los publish items tienen `kind="exr_seq"` garantizado por `_scan_publish_folders`.
+`bin_mod.import_item_to_bin(item, target_bin)` → `(clip, error_str)`:
 - `kind == "exr_seq"` → `hiero.core.Clip(str(item["first_file"]))` — Hiero detecta la secuencia completa automáticamente desde el primer frame.
 - `kind == "mov"` → `hiero.core.Clip(str(item["path"]))`
-- Llama `clip.setName(name)` para asignar el nombre de display.
-- Crea `hiero.core.BinItem(clip)` y lo agrega al bin.
-- Llama `clip.rescan()` y loguea el rango detectado por Hiero antes y después (patrón de `_import_v000_to_bin` en CreateV000).
-- Retorna `(clip, error_str)`.
+- Llama `clip.setName(name)`, crea `hiero.core.BinItem(clip)` y lo agrega al bin.
+- Llama `clip.rescan()` y loguea el rango detectado.
+- Los publish items tienen `kind="exr_seq"` garantizado por `_scan_publish_folders`.
 
-**Normalización de campos en publish items:** `_scan_publish_folders` añade `"kind": "exr_seq"` y `"name": vd.name` a cada dict, para que sean compatibles con `import_item_to_bin` sin lógica especial.
+### Color del BinItem
+
+Inmediatamente después de importar al bin, se colorea el `BinItem`:
+
+```python
+bin_item = clip.binItem()
+bin_item.setColor(QtGui.QColor(clip_color))
+```
+
+Donde `clip_color` es el hex calculado por `_item_hiero_color()` al momento de la recolección. Esto hace que el clip aparezca con el mismo color que el chip del preview tanto en el bin como en el timeline.
+
+### `frame_count` por ítem
+
+En este orden:
+1. `item.get("frame_count")` — campo que setea `_scan_input_folder` / `_scan_publish_folders`.
+2. Fallback: `clip.mediaSource().duration()` (después del rescan, Hiero tiene el rango real).
 
 ### Colocación en timeline
 
@@ -146,10 +145,20 @@ Si los bins no existen se crean en cascada.
 - `tl_out = tl_in + frame_count - 1`
 - Llama `track.addTrackItem(clip, tl_in)`.
 - Ajusta: `track_item.setTimes(tl_in, tl_out, 0, frame_count - 1)`
-- Finalmente: `track_item.setVersionLinkedToBin(True)` (siempre al final, cuando el item ya está insertado y sus tiempos están ajustados).
-- Retorna `(track_item, error_str)`.
+- Finalmente: `track_item.setVersionLinkedToBin(True)`.
+- `tl_in` = `effective_insert_frame` (no `self.insert_frame`).
 
-### Manejo de errores
+---
+
+## Bloque de undo
+
+`project.beginUndo("Import Shot: <shot_name>")` se abre **antes del Paso 1** (push), de manera que todo el flujo —push de clips, import al bin y colocación en timeline— queda dentro de un único bloque de undo.
+
+`project.endUndo()` se cierra siempre en el bloque `finally`.
+
+---
+
+## Manejo de errores
 
 Los errores de bin o timeline se acumulan en una lista `errors`. Al finalizar:
 - Si hay errores: `QMessageBox.warning` con la lista.
@@ -159,62 +168,20 @@ En ambos casos se llama `self.accept()` para cerrar el diálogo.
 
 ---
 
-## `frame_count` por ítem
-
-El `frame_count` se obtiene en este orden:
-1. `item.get("frame_count")` — campo que setea `_scan_input_folder` / `_scan_publish_folders`.
-2. Fallback: `clip.mediaSource().duration()` (después del rescan en `import_item_to_bin`, Hiero tiene el rango real).
-
----
-
-## Logging
-
-Prefijos de log usados por `_do_import()`:
-- `"_do_import: _IMPORT_ONLY_COMP activo — solo se importará _comp_"`
-- `"_do_import → PASO 1: ..."`
-- `"_do_import: %d clips movidos %d frames"`
-- `"_do_import → confirmación para '<clip>'"`
-- `"_do_import: usuario aceptó/canceló importación de '<clip>'"`
-- `"_do_import → PASO 3: Importando al bin..."`
-- `"_do_import: error bin '<clip>' → <msg>"`
-- `"_do_import: error timeline '<clip>' → <msg>"`
-- `"_do_import: colocado '<clip>' en track '<track>' frame <N>"`
-
-Módulos auxiliares usan `set_debug_print()` inyectado desde `_inject_preview_logger()`.
-
-Archivo de log: `logs/debugPy_ImportShots.log`.
-
----
-
-## Bin destino — estructura
-
-```
-project.clipsBin()
-  └── F <seq_name>          ← creado si no existe
-        └── <shot_name>     ← creado si no existe
-              └── <clip>    ← BinItem del clip importado
-```
-
-Ejemplo: `F MOR_101 / MOR_1012C_010`.
-
-La misma estructura que usa `LGA_NKS_OrganizeProject.py`.
-
----
-
 ## Colocación en timeline — políticas
 
 | Política | Detalle |
 |----------|---------|
+| `tl_in` | `effective_insert_frame` (min tl_in de los clips empujados, no `self.insert_frame`) |
 | Source in/out | Siempre `0 .. frame_count-1`. Los EXR físicos empiezan en `1001`; Hiero mapea internamente. |
 | `setVersionLinkedToBin(True)` | Solo después de que el TrackItem ya está insertado y sus tiempos ajustados. |
 | Track no encontrado | Error por clip, continua con los demás. No crea tracks automáticamente. |
-| Nombre del TrackItem | `shot_name` (solo el código del shot, sin nombre completo del archivo). |
+| Nombre del TrackItem | `shot_name` (solo el código del shot). |
 
 ---
 
 ## Pendiente
 
-- **Generalizar:** quitar `_IMPORT_ONLY_COMP` y procesar todos los tracks.
 - **`stretch_burnin`:** llamar después del push para estirar el track BurnIn.
 - **Post-import — SetShotName:** llamar `LGA_NKS_SetShotName` para renombrar los clips.
 - **Post-import — CreateV000:** dialogo para crear v000 en tasks sin versiones.
@@ -225,10 +192,10 @@ La misma estructura que usa `LGA_NKS_OrganizeProject.py`.
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `ImportShotDialog._do_import()`, `_find_insert_frame()`, `_IMPORT_ONLY_COMP`, `_inject_preview_logger()` |
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots_timeline.py` | `push_clips_right()`, `place_clip_in_timeline()`, `stretch_burnin()`, `_is_burnin_track()`, `_find_video_track()`, `set_debug_print()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `ImportShotDialog._do_import()`, `_item_hiero_color()`, `_item_section_color()`, `_chip_color()`, `_find_insert_frame()`, `_inject_preview_logger()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots_timeline.py` | `push_clips_right()`, `place_clip_in_timeline()`, `stretch_burnin()`, `_is_burnin_track()`, `set_debug_print()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_bin.py` | `find_or_create_shot_bin()`, `import_item_to_bin()`, `set_debug_print()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_preview.md` | Documentación de la página de preview que precede al import |
 | `+Building_Blocks/Hiero/Timeline/LGA_H-SelectFromPlayhead.py` | Referencia del patrón `setTimelineOut/setTimelineIn` para mover clips |
-| `LGA_NKS_Edit_Panel_py/LGA_NKS_CreateV000.py` | Referencia del flujo de import al bin (`hiero.core.Clip`, `BinItem`, `addTrackItem`, `setTimes`, `setVersionLinkedToBin`) |
+| `LGA_NKS_Edit_Panel_py/LGA_NKS_CreateV000.py` | Referencia del flujo: `_import_v000_to_bin`, `_set_v000_clip_color`, `bin_item.setColor()` |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_OrganizeProject.py` | Estructura de bins `F <seq_name>/<shot_name>` |
