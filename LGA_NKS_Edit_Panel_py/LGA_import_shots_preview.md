@@ -51,7 +51,7 @@ Cada columna representa un **shot completo** con su propio eje de tiempo indepen
 
 - **Shot Anterior**: ventana temporal de los clips que existen completamente antes de `insert_frame`. El clip más largo define 100% del ancho. Clips más cortos se posicionan con offset proporcional a su `tl_in`.
 - **Shot Nuevo**: todos los clips comienzan en TC 0 (sin offset). El clip con más frames = 100%. Otros se escalan proporcionalmente.
-- **Shot Siguiente**: mismo principio que Shot Anterior, para los clips que comienzan en o después de `insert_frame` (incluyendo el rango completo de clips que cruzaban `insert_frame`).
+- **Shot Siguiente**: mismo principio que Shot Anterior, para los clips que pertenecen al shot siguiente (`item.name() == next_shot_name`).
 
 Entre columnas hay 2-4 px de separador (padding de celdas).
 
@@ -207,26 +207,20 @@ Se incluyen **TODOS** los tracks del timeline sin excepción. Un track puede apa
 
 ## Clasificación de clips: before / after
 
-`_find_adjacent_clips(track, insert_frame)` clasifica cada `TrackItem` (ignorando `EffectTrackItem`) en tres categorías:
+`_find_adjacent_clips(track, prev_shot_name, next_shot_name)` busca en el track los clips cuyo `item.name()` coincide exactamente con el nombre del shot anterior o siguiente.
 
-| Condición | Bucket | Nombre usado |
-|-----------|--------|--------------|
-| `tl_out < insert_frame` | **before** (enteramente antes) | `_clip_display_name(item)` |
-| `tl_in >= insert_frame` | **after** (enteramente después) | `_clip_display_name(item)` |
-| `tl_in < insert_frame <= tl_out` | **solo after**, rango COMPLETO (`tl_in` original) | `_clip_display_name(item)` |
+| Condición | Bucket |
+|-----------|--------|
+| `item.name() == prev_shot_name` | **before** |
+| `item.name() == next_shot_name` | **after** |
+| cualquier otro nombre | ignorado |
 
-Los clips que cruzan `insert_frame` **NO van al bucket before**. Esto preserva la semántica: la columna "Shot Anterior" muestra los clips del shot anterior completo. Los clips cruzados pertenecen al shot siguiente y se muestran con su `tl_in` real (no desde `insert_frame`), lo que refleja correctamente su posición dentro de la ventana temporal del shot siguiente.
+La búsqueda es **por nombre de shot**, no por posición de frames. Esto garantiza que si un track no tiene clip para el shot vecino (aunque tenga clips de otros shots más lejanos), el bucket queda `None` correctamente.
 
-**Ejemplo con insert_frame=548:**
-- `_comp_`: `TEST_013_010_aPlate_v01` TL 0-479 (480f) → **before**
-- `_comp_`: `TEST_013_030_Chroma_AutoDia_comp_v000` TL 480-715 (236f) cruza → **after (rango completo, tl_in=480)**
-- `bPlate`: `TEST_013_030_Chroma_AutoDia_aPlate_v01` TL 548-613 (66f), tl_in=548 ≥ insert → **after (enteramente después)**
+**Por qué por nombre y no por posición:**  
+Con la lógica anterior (por `insert_frame`), si en un track no existía el shot siguiente pero sí había un clip de `MOR_1010_050` mucho más adelante, ese clip era clasificado incorrectamente como `after`. Con la búsqueda por nombre, solo el clip que pertenece al shot contiguo real aparece en el preview.
 
-**Resultado:**
-- `before_shot_dur = 480` (de `TEST_013_010`)
-- `aPlate` before: chip 100%; `bPlate` before: chip ~25% con ~12% offset
-- `after_shot_dur = 236` (ventana 480-715)
-- `_comp_`/`aPlate` after: chip 100%; `bPlate` after: chip ~28% con ~29% offset
+`prev_shot_name` y `next_shot_name` los calcula `_find_insert_frame()` como parte del mismo ordenamiento alfabético que determina el punto de inserción, y se propagan hasta aquí via `ImportShotDialog` → `build_import_preview_data`.
 
 ---
 
@@ -268,6 +262,8 @@ def build_import_preview_data(
     seq,
     shot_name: str,
     insert_frame: int,
+    prev_shot_name,        # nombre exacto del shot anterior (o None)
+    next_shot_name,        # nombre exacto del shot siguiente (o None)
     items_by_track: dict[str, list[dict]],
     unassigned_items: list[dict],
 ) -> dict:

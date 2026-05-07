@@ -124,18 +124,14 @@ def _clip_display_name(item) -> str:
     return fallback
 
 
-def _find_adjacent_clips(track, insert_frame: int):
+def _find_adjacent_clips(track, prev_shot_name, next_shot_name):
     """
-    Dado un track de Hiero y un frame de inserción, devuelve el clip
-    inmediatamente anterior y el inmediatamente posterior.
+    Dado un track de Hiero y los nombres exactos del shot anterior y siguiente,
+    devuelve el clip que pertenece a cada uno (o None si no existe en ese track).
 
-    Maneja tres casos:
-      - Clip que termina antes de insert_frame  → candidato "before"
-      - Clip que empieza en o después           → candidato "after"
-      - Clip que cruza insert_frame (tl_in < insert_frame <= tl_out)
-        → contribuye a AMBOS buckets:
-            before: porción tl_in .. insert_frame-1
-            after:  porción insert_frame .. tl_out  (la mitad derecha del mismo clip)
+    Busca por item.name() — el shot name del TrackItem — en lugar de por posición
+    de frames. Esto evita que clips lejanos de otros shots sean clasificados
+    incorrectamente como vecinos cuando el track tiene un gap en ese slot.
 
     Retorna:
         (before, after)  — cada uno es dict|None con keys:
@@ -144,78 +140,44 @@ def _find_adjacent_clips(track, insert_frame: int):
     before = None
     after  = None
 
-    all_items = []
     for item in track.items():
         if not _HIERO_AVAILABLE:
             break
         try:
             if isinstance(item, hiero.core.EffectTrackItem):
                 continue
-            tl_in  = int(item.timelineIn())
-            tl_out = int(item.timelineOut())
-            name   = _clip_display_name(item)
+            shot_name = item.name()
+            tl_in     = int(item.timelineIn())
+            tl_out    = int(item.timelineOut())
+            disp_name = _clip_display_name(item)
         except Exception as exc:
             _log("_find_adjacent_clips: excepción leyendo item → %s" % exc)
             continue
 
-        all_items.append((name, tl_in, tl_out))
         _log(
-            "_find_adjacent_clips: examinando clip '%s' TL %d-%d "
-            "(dur=%d) vs insert_frame=%d"
-            % (name, tl_in, tl_out, tl_out - tl_in + 1, insert_frame)
+            "_find_adjacent_clips: examinando clip '%s' (shot='%s') TL %d-%d"
+            % (disp_name, shot_name, tl_in, tl_out)
         )
 
-        if tl_out < insert_frame:
-            # ── Clip enteramente antes ────────────────────────────────────
+        if prev_shot_name and shot_name == prev_shot_name:
             duration = tl_out - tl_in + 1
-            if before is None or tl_out > before["tl_out"]:
-                _log(
-                    "_find_adjacent_clips: → before candidate '%s' dur=%d"
-                    % (name, duration)
-                )
-                before = {
-                    "name": name, "tl_in": tl_in, "tl_out": tl_out,
-                    "duration": duration,
-                }
+            _log("_find_adjacent_clips: → before '%s' dur=%d" % (disp_name, duration))
+            before = {
+                "name": disp_name, "tl_in": tl_in, "tl_out": tl_out,
+                "duration": duration,
+            }
 
-        elif tl_in >= insert_frame:
-            # ── Clip enteramente después ──────────────────────────────────
+        elif next_shot_name and shot_name == next_shot_name:
             duration = tl_out - tl_in + 1
-            if after is None or tl_in < after["tl_in"]:
-                _log(
-                    "_find_adjacent_clips: → after candidate '%s' dur=%d"
-                    % (name, duration)
-                )
-                after = {
-                    "name": name, "tl_in": tl_in, "tl_out": tl_out,
-                    "duration": duration,
-                }
-
-        else:
-            # ── Clip que CRUZA insert_frame ───────────────────────────────
-            # El clip abarca antes Y después del punto de inserción.
-            # Regla: NO contribuye al bucket "before".
-            # Solo contribuye al bucket "after" con su rango COMPLETO (tl_in real),
-            # para que la columna "Shot Siguiente" lo muestre desde su inicio real.
-            full_dur = tl_out - tl_in + 1
-            _log(
-                "_find_adjacent_clips: clip '%s' CRUZA insert_frame=%d "
-                "(tl_in=%d, tl_out=%d, dur=%d) → "
-                "solo va a after (rango completo)"
-                % (name, insert_frame, tl_in, tl_out, full_dur)
-            )
-
-            # Candidato after con rango completo (tl_in original)
-            if after is None or tl_in < after.get("tl_in", 999999):
-                after = {
-                    "name": name, "tl_in": tl_in, "tl_out": tl_out,
-                    "duration": full_dur,
-                }
+            _log("_find_adjacent_clips: → after '%s' dur=%d" % (disp_name, duration))
+            after = {
+                "name": disp_name, "tl_in": tl_in, "tl_out": tl_out,
+                "duration": duration,
+            }
 
     _log(
-        "_find_adjacent_clips: track items=%d → before=%s | after=%s"
+        "_find_adjacent_clips: → before=%s | after=%s"
         % (
-            len(all_items),
             ("'%s' %df" % (before["name"], before["duration"])) if before else "None",
             ("'%s' %df" % (after["name"],  after["duration"]))  if after  else "None",
         )
@@ -229,6 +191,8 @@ def build_import_preview_data(
     seq,
     shot_name: str,
     insert_frame: int,
+    prev_shot_name,
+    next_shot_name,
     items_by_track: dict[str, list[dict]],
     unassigned_items: list[dict],
 ) -> dict:
@@ -236,11 +200,13 @@ def build_import_preview_data(
     Construye la estructura de datos para el preview de importación.
 
     Args:
-        seq:             hiero.core.Sequence activa
-        shot_name:       nombre del shot que se importa
-        insert_frame:    frame de inserción calculado por _find_insert_frame()
-        items_by_track:  dict track_name → [item_dict] de los ítems chequeados
-                         (ya deduplicados: solo la última versión por track)
+        seq:              hiero.core.Sequence activa
+        shot_name:        nombre del shot que se importa
+        insert_frame:     frame de inserción calculado por _find_insert_frame()
+        prev_shot_name:   nombre exacto del shot anterior en el timeline (o None)
+        next_shot_name:   nombre exacto del shot siguiente en el timeline (o None)
+        items_by_track:   dict track_name → [item_dict] de los ítems chequeados
+                          (ya deduplicados: solo la última versión por track)
         unassigned_items: ítems chequeados sin track asignado, cada uno con
                           un campo extra "_color" con su color de barra
 
@@ -284,9 +250,11 @@ def build_import_preview_data(
 
     _log(
         "build_import_preview_data: seq='%s', insert_frame=%d, "
+        "prev_shot='%s', next_shot='%s', "
         "tracks_en_timeline=%d, tracks_con_items=%d, unassigned=%d"
-        % (seq.name(), insert_frame, len(video_tracks),
-           len(items_by_track), len(unassigned_items))
+        % (seq.name(), insert_frame,
+           prev_shot_name or "", next_shot_name or "",
+           len(video_tracks), len(items_by_track), len(unassigned_items))
     )
 
     seen_track_names = set()
@@ -298,7 +266,7 @@ def build_import_preview_data(
             continue
 
         seen_track_names.add(tname)
-        before, after = _find_adjacent_clips(track, insert_frame)
+        before, after = _find_adjacent_clips(track, prev_shot_name, next_shot_name)
         new_items     = items_by_track.get(tname, [])
 
         _log(

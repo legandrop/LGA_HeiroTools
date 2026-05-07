@@ -705,31 +705,38 @@ def _shot_exists_in_timeline(seq, shot_name, shot_root):
 def _find_insert_frame(seq, shot_name, duration):
     """
     Determina el frame donde insertar el shot nuevo basandose en orden alfabetico.
-    Retorna (insert_frame, frames_to_push).
+    Retorna (insert_frame, frames_to_push, prev_shot_name, next_shot_name).
+    prev_shot_name y next_shot_name son los nombres exactos de los shots vecinos
+    en el timeline (o None si no existen), para que el preview los busque por nombre.
     """
     shots = _collect_timeline_shots(seq)
     if not shots:
-        return 0, 0
+        return 0, 0, None, None
 
     # Ordenar los shots existentes alfabeticamente por nombre
     shots_alpha = sorted(shots, key=lambda x: x["shot_name"].lower())
 
     # Encontrar donde encaja el nuevo shot
     insert_before = None
-    for s in shots_alpha:
+    insert_before_idx = None
+    for i, s in enumerate(shots_alpha):
         if shot_name.lower() < s["shot_name"].lower():
             insert_before = s
+            insert_before_idx = i
             break
 
     if insert_before is None:
         # El nuevo shot va al final
         last = max(shots, key=lambda x: x["timeline_out"])
         insert_frame = last["timeline_out"] + 1
-        return insert_frame, 0
+        prev_shot_name = shots_alpha[-1]["shot_name"] if shots_alpha else None
+        return insert_frame, 0, prev_shot_name, None
 
     # Insertar antes de insert_before: usamos su timeline_in actual
     insert_frame = insert_before["timeline_in"]
-    return insert_frame, duration
+    next_shot_name = insert_before["shot_name"]
+    prev_shot_name = shots_alpha[insert_before_idx - 1]["shot_name"] if insert_before_idx > 0 else None
+    return insert_frame, duration, prev_shot_name, next_shot_name
 
 
 
@@ -1176,15 +1183,18 @@ class ImportShotDialog(QtWidgets.QDialog):
     PAGE_IMPORT  = "import"
 
     def __init__(self, shot_root, shot_name, seq, insert_frame, frames_to_push,
+                 prev_shot_name, next_shot_name,
                  input_items, publish_items, parent=None):
         super(ImportShotDialog, self).__init__(parent)
-        self.shot_root      = shot_root
-        self.shot_name      = shot_name
-        self.seq            = seq
-        self.insert_frame   = insert_frame
-        self.frames_to_push = frames_to_push
-        self.input_items    = input_items
-        self.publish_items  = publish_items
+        self.shot_root       = shot_root
+        self.shot_name       = shot_name
+        self.seq             = seq
+        self.insert_frame    = insert_frame
+        self.frames_to_push  = frames_to_push
+        self.prev_shot_name  = prev_shot_name
+        self.next_shot_name  = next_shot_name
+        self.input_items     = input_items
+        self.publish_items   = publish_items
 
         self._track_overrides = {}
         self._create_v000_tasks = set()
@@ -3341,6 +3351,8 @@ class ImportShotDialog(QtWidgets.QDialog):
             self.seq,
             self.shot_name,
             self.insert_frame,
+            self.prev_shot_name,
+            self.next_shot_name,
             items_by_track,
             unassigned,
         )
@@ -4638,15 +4650,18 @@ def main():
     if max_frames == 0:
         max_frames = 100  # fallback si no hay EXR todavia
 
-    insert_frame, frames_to_push = _find_insert_frame(seq, shot_name, max_frames)
-    debug_print("Insert frame: %d  push: %d  duration: %d" % (
-        insert_frame, frames_to_push, max_frames))
+    insert_frame, frames_to_push, prev_shot_name, next_shot_name = _find_insert_frame(
+        seq, shot_name, max_frames)
+    debug_print("Insert frame: %d  push: %d  duration: %d  prev='%s'  next='%s'" % (
+        insert_frame, frames_to_push, max_frames,
+        prev_shot_name or "", next_shot_name or ""))
 
     # Abrir dialogo
     parent = hiero.ui.mainWindow() if hasattr(hiero.ui, "mainWindow") else None
     dlg = ImportShotDialog(
         shot_root, shot_name, seq,
         insert_frame, frames_to_push,
+        prev_shot_name, next_shot_name,
         input_items, publish_items,
         parent=parent,
     )

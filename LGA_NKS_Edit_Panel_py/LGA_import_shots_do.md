@@ -221,7 +221,7 @@ te.setSelection(placed_items)
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `ImportShotDialog._do_import()`, `_item_hiero_color()`, `_item_section_color()`, `_chip_color()`, `_find_insert_frame()`, `_inject_preview_logger()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `ImportShotDialog._do_import()`, `_item_hiero_color()`, `_item_section_color()`, `_chip_color()`, `_find_insert_frame()` (retorna `insert_frame, frames_to_push, prev_shot_name, next_shot_name`), `_inject_preview_logger()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_timeline.py` | `push_clips_right()`, `place_clip_in_timeline()`, `stretch_burnin()`, `_get_last_timeline_out()`, `_is_burnin_track()`, `set_debug_print()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_bin.py` | `find_or_create_shot_bin()`, `import_item_to_bin()`, `set_debug_print()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_preview.md` | Documentación de la página de preview que precede al import |
