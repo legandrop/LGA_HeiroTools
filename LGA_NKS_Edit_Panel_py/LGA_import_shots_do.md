@@ -215,6 +215,45 @@ te.setSelection(valid_items)
 
 ---
 
+## Combo de track — tracks existentes + opción "Crear"
+
+### Fuente de opciones
+
+`_build_track_combo()` ya **no** usa una lista hardcodeada. Las opciones son:
+
+1. `"— sin track —"` (siempre primero)
+2. Tracks de video existentes en `self.seq`, en orden visual top-to-bottom (excluyendo BurnIn), obtenidos por `_get_seq_track_names()`.
+3. `"+ Crear track <name>"` (solo al final, solo si el track auto-detectado del ítem es un `*Plate` y todavía no existe en el timeline).
+
+La opción "?" fue eliminada. Los ítems que antes recibían `track="?"` ahora muestran `"— sin track —"` como valor inicial.
+
+### Selección inicial
+
+- Si el track auto-detectado existe en el timeline → se pre-selecciona.
+- Si no existe y es un plate → se pre-selecciona `"+ Crear track <name>"` (con `blockSignals=True`, sin crear nada todavía).
+- En cualquier otro caso → `"— sin track —"`.
+
+### Creación de track desde el combo
+
+Cuando el usuario elige `"+ Crear track <name>"` manualmente (señal `currentTextChanged`):
+1. `_on_track_combo_changed` detecta el prefijo `_CREATE_TRACK_PREFIX`.
+2. Llama `_create_plate_track(track_name)` dentro de un `with project.beginUndo(...)`.
+3. `_create_plate_track` crea `hiero.core.VideoTrack(track_name)`, calcula la posición de inserción usando `_IMPORT_TRACK_ORDER` (bottom-to-top), y re-agrega todos los tracks en orden correcto.
+4. Llama `_refresh_track_combo_options(created_track_name)` para actualizar las opciones de **todos** los combos y seleccionar automáticamente el track recién creado en el combo actual.
+
+### `_IMPORT_TRACK_ORDER`
+
+Constante de módulo que define el orden canónico bottom-to-top (index 0 = fondo del stack):
+
+```
+aPlate, bPlate, cPlate, dPlate, ePlate, fgPlate, bgPlate,
+EditRef, EditRefClean, _comp_, _roto_, _cleanup_, _dmp_
+```
+
+BurnIn no figura en la lista (se trata como índice infinito, siempre en el tope).
+
+---
+
 ## Pendiente
 
 - **Post-import — SetShotName:** llamar `LGA_NKS_SetShotName` para renombrar los clips.
@@ -226,7 +265,7 @@ te.setSelection(valid_items)
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `ImportShotDialog._do_import()`, `_item_hiero_color()`, `_item_section_color()`, `_chip_color()`, `_find_insert_frame()` (retorna `insert_frame, frames_to_push, prev_shot_name, next_shot_name`), `_inject_preview_logger()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `ImportShotDialog._do_import()`, `_item_hiero_color()`, `_item_section_color()`, `_chip_color()`, `_find_insert_frame()`, `_build_track_combo()`, `_get_seq_track_names()`, `_create_plate_track()`, `_refresh_track_combo_options()`, `_on_track_combo_changed()`, `_get_track_for_row()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_timeline.py` | `push_clips_right()`, `place_clip_in_timeline()`, `stretch_burnin()`, `_get_last_timeline_out()`, `_is_burnin_track()`, `set_debug_print()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_bin.py` | `find_or_create_shot_bin()`, `import_item_to_bin()`, `set_debug_print()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_preview.md` | Documentación de la página de preview que precede al import |

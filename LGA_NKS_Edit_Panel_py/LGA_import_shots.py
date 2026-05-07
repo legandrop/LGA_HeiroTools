@@ -245,6 +245,16 @@ _CLR_STATUS_UPSCALE  = "#a06060" # estado Upscale (bloq) — rojo suave
 # ── constantes de track ────────────────────────────────────────────
 BURNIN_TRACK_NAMES = {"burnin", "burn in", "burn_in"}
 
+# Orden canónico de tracks de video, de abajo hacia arriba en el stack de Hiero
+# (= de arriba hacia abajo tal como los devuelve reversed(seq.videoTracks())).
+# Se usa para ordenar el dropdown y para determinar la posición de inserción
+# cuando se crea un track nuevo desde el combo.
+_IMPORT_TRACK_ORDER = [
+    "aPlate", "bPlate", "cPlate", "dPlate", "ePlate",
+    "fgPlate", "bgPlate", "EditRef", "EditRefClean",
+    "_comp_", "_roto_", "_cleanup_", "_dmp_",
+]
+
 PLATE_KEYWORDS = [
     ("seqref",       None),           # None = solo bin
     ("editrefclean", "EditRefClean"),
@@ -1706,9 +1716,148 @@ class ImportShotDialog(QtWidgets.QDialog):
             lbl.setStyleSheet("color:#888888; padding:2px 6px;")
             table.setCellWidget(row_i, 8, lbl)
 
+    # ── helpers de tracks del timeline ───────────────────────────────────────
+
+    _CREATE_TRACK_PREFIX = "+ Crear track "
+
+    def _get_seq_track_names(self):
+        """
+        Retorna los nombres de los video tracks existentes en self.seq,
+        en orden visual top-to-bottom (= reversed(videoTracks())), excluyendo BurnIn.
+        Se ordena por _IMPORT_TRACK_ORDER; tracks desconocidos van al final.
+        """
+        if not self.seq:
+            return []
+        try:
+            names = []
+            for track in reversed(list(self.seq.videoTracks())):  # top→bottom visual
+                name = track.name()
+                if not _is_burnin_track(name):
+                    names.append(name)
+            # Ordenar según _IMPORT_TRACK_ORDER (top-to-bottom visual = reversed bt-order)
+            # _IMPORT_TRACK_ORDER está en bt-order (aPlate=abajo, BurnIn=arriba),
+            # así que el orden visual es reversed → _IMPORT_TRACK_ORDER reversed.
+            visual_order = list(reversed(_IMPORT_TRACK_ORDER))
+            def sort_key(n):
+                try:
+                    return visual_order.index(n)
+                except ValueError:
+                    return len(visual_order)
+            names.sort(key=sort_key)
+            return names
+        except Exception:
+            return []
+
+    def _create_plate_track(self, track_name):
+        """
+        Crea un nuevo VideoTrack con el nombre dado en self.seq, en la posición
+        correcta según _IMPORT_TRACK_ORDER (bottom-to-top reference).
+
+        Patrón de LGA_NKS_CreateNewTrack: se remueven todos los tracks y se
+        reinsertan en el orden correcto; seq.addTrack() apila de abajo hacia arriba.
+
+        Retorna el nuevo hiero.core.VideoTrack, o None en caso de error.
+        """
+        if not self.seq:
+            return None
+        try:
+            new_track = hiero.core.VideoTrack(track_name)
+            video_tracks = list(self.seq.videoTracks())  # bottom-to-top (index 0 = bottom)
+
+            # Posición del nuevo track en el orden canónico bt
+            def bt_order_idx(name):
+                if _is_burnin_track(name):
+                    return len(_IMPORT_TRACK_ORDER) + 1  # BurnIn siempre encima
+                try:
+                    return _IMPORT_TRACK_ORDER.index(name)
+                except ValueError:
+                    return len(_IMPORT_TRACK_ORDER)      # desconocido: justo bajo BurnIn
+
+            new_pos = bt_order_idx(track_name)
+
+            # Punto de inserción: antes del primer track que deba ir encima del nuevo
+            insert_at = len(video_tracks)
+            for i, t in enumerate(video_tracks):
+                if bt_order_idx(t.name()) > new_pos:
+                    insert_at = i
+                    break
+
+            new_bt_list = video_tracks[:insert_at] + [new_track] + video_tracks[insert_at:]
+
+            # Remover todos y reinsertar (cada addTrack va arriba del anterior)
+            for t in video_tracks:
+                self.seq.removeTrack(t)
+            for t in new_bt_list:
+                self.seq.addTrack(t)
+
+            debug_print("_create_plate_track: '%s' creado en posición bt=%d"
+                        % (track_name, insert_at))
+            return new_track
+
+        except Exception as exc:
+            debug_print("_create_plate_track: error → %s" % exc, level="error")
+            return None
+
+    def _refresh_track_combo_options(self, created_track_name=None):
+        """
+        Reconstruye las opciones de todos los combos de track tras añadir un
+        track nuevo al timeline.  Preserva la selección actual de cada combo.
+        Si created_track_name no es None, los combos que tenían la opción
+        "Crear track <name>" seleccionada la reemplazan automáticamente por
+        el track real.
+        """
+        new_options = self._get_seq_track_names()
+
+        for row_id, combo in self._track_combos.items():
+            current_sel = combo.currentText()
+
+            # Si estaba esperando crear este track, usarlo ahora
+            create_opt = self._CREATE_TRACK_PREFIX + (created_track_name or "")
+            if created_track_name and current_sel == create_opt:
+                target_sel = created_track_name
+            else:
+                target_sel = current_sel
+
+            # Calcular la opción "Crear" para este row (si aplica)
+            row_item = self._table_rows[row_id].get("item", {})
+            auto_track = row_item.get("track") if row_item else None
+            create_option = None
+            if (auto_track and _is_plate_track(auto_track)
+                    and auto_track not in new_options):
+                create_option = self._CREATE_TRACK_PREFIX + auto_track
+
+            options = ["— sin track —"] + new_options
+            if create_option:
+                options.append(create_option)
+
+            combo.blockSignals(True)
+            combo.clear()
+            for opt in options:
+                combo.addItem(opt)
+
+            # Restaurar selección
+            if target_sel in new_options:
+                combo.setCurrentText(target_sel)
+            elif target_sel == "— sin track —":
+                combo.setCurrentIndex(0)
+            elif create_option and target_sel == create_opt:
+                combo.setCurrentText(create_option)
+            else:
+                combo.setCurrentIndex(0)
+
+            combo.blockSignals(False)
+
+    # ── construcción de combo de track ───────────────────────────────────────
+
     def _build_track_combo(self, item: dict, row_id: int):
         """
         Construye el combo de track para un ítem de input (exr_seq o mov).
+
+        Opciones:
+          - "— sin track —"
+          - Tracks existentes en self.seq (visual top-to-bottom, sin BurnIn)
+          - "＋ Crear track <name>" al final, solo si el track auto-detectado
+            es un *plate y no existe todavía en el timeline.
 
         Reglas de conflicto (un solo clip por track):
           - Si el track auto-detectado ya está asignado a otro row:
@@ -1717,16 +1866,21 @@ class ImportShotDialog(QtWidgets.QDialog):
           - El desplazado queda en "— sin track —" automáticamente.
         """
         current_track = item.get("track")
+        # Tratar "?" como sin asignar
+        if current_track == "?":
+            current_track = None
         is_exr = (item.get("kind") == "exr_seq")
 
-        track_options = [
-            "aPlate", "bPlate", "cPlate", "dPlate", "ePlate",
-            "fgPlate", "bgPlate", "EditRef", "EditRefClean",
-            "_comp_", "_roto_", "_cleanup_",
-        ]
+        existing_tracks = self._get_seq_track_names()
+
+        # Opción "Crear track" si el auto-detectado es plate y no existe aún
+        create_option = None
+        if (current_track and _is_plate_track(current_track)
+                and current_track not in existing_tracks):
+            create_option = self._CREATE_TRACK_PREFIX + current_track
 
         # ── Resolución de conflictos en carga inicial ──────────────────────
-        if current_track and current_track not in ("— sin track —", "?"):
+        if current_track and current_track != "— sin track —":
             for existing_row, existing_combo in list(self._track_combos.items()):
                 if existing_combo.currentText() == current_track:
                     existing_item = self._table_rows[existing_row].get("item", {})
@@ -1765,16 +1919,31 @@ class ImportShotDialog(QtWidgets.QDialog):
             "border:1px solid #444444; color:#a7a7a7; "
             "selection-background-color:#272727; selection-color:#a7a7a7; outline:none; }"
         )
-        track_options_display = ["— sin track —", "?"] + track_options
-        for opt in track_options_display:
+        options = ["— sin track —"] + existing_tracks
+        if create_option:
+            options.append(create_option)
+        for opt in options:
             combo.addItem(opt)
 
-        if current_track == "?":
-            combo.setCurrentText("?")
-        elif current_track and current_track in track_options:
+        # Colorear la opción "Crear track" en azul suave para distinguirla
+        if create_option:
+            try:
+                create_idx = combo.count() - 1
+                combo.model().item(create_idx).setForeground(
+                    QtGui.QColor("#7a9ab5")
+                )
+            except Exception:
+                pass
+
+        # Selección inicial (blockSignals para no disparar creación en carga)
+        combo.blockSignals(True)
+        if current_track and current_track in existing_tracks:
             combo.setCurrentText(current_track)
+        elif create_option:
+            combo.setCurrentText(create_option)
         else:
             combo.setCurrentIndex(0)
+        combo.blockSignals(False)
 
         combo.currentTextChanged.connect(
             lambda txt, rid=row_id: self._on_track_combo_changed(rid, txt)
@@ -1782,11 +1951,54 @@ class ImportShotDialog(QtWidgets.QDialog):
         return combo
 
     def _on_track_combo_changed(self, changed_row: int, new_track: str):
-        """Registra el track elegido y desasigna cualquier otro clip que ya tuviera ese track."""
+        """
+        Registra el track elegido y desasigna cualquier otro clip que ya
+        tuviera ese track asignado.
+
+        Si la selección es "Crear track <name>", crea el track en el timeline
+        y refresca todos los combos para que usen el nombre real.
+        """
+        # ── Detectar selección "Crear track" ──────────────────────────────
+        if new_track.startswith(self._CREATE_TRACK_PREFIX):
+            track_to_create = new_track[len(self._CREATE_TRACK_PREFIX):]
+            debug_print("_on_track_combo_changed: creando track '%s'" % track_to_create)
+
+            project = None
+            try:
+                project = hiero.core.projects()[0]
+            except Exception:
+                pass
+
+            def _do_create():
+                return self._create_plate_track(track_to_create)
+
+            if project:
+                with project.beginUndo("Crear track: %s" % track_to_create):
+                    new_t = _do_create()
+            else:
+                new_t = _do_create()
+
+            if new_t is not None:
+                # Refrescar todos los combos con el nuevo track incluido
+                self._refresh_track_combo_options(created_track_name=track_to_create)
+                # El combo del row actual ya fue actualizado a track_to_create
+                self._track_overrides[changed_row] = track_to_create
+            else:
+                # Falló la creación: volver a sin track
+                combo = self._track_combos.get(changed_row)
+                if combo:
+                    combo.blockSignals(True)
+                    combo.setCurrentIndex(0)
+                    combo.blockSignals(False)
+                self._track_overrides[changed_row] = "— sin track —"
+
+            self._update_action_btns()
+            return
+
+        # ── Flujo normal ──────────────────────────────────────────────────
         self._track_overrides[changed_row] = new_track
 
-        # Si el nuevo valor es "sin asignar" no hay conflicto que resolver
-        if not new_track or new_track in ("— sin track —", "?"):
+        if not new_track or new_track == "— sin track —":
             self._update_action_btns()
             return
 
@@ -1805,13 +2017,17 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _get_track_for_row(self, row):
         if row in self._track_combos:
             txt = self._track_combos[row].currentText()
-            if txt in ("— sin track —", "?"):
+            if not txt or txt == "— sin track —":
+                return None
+            # Si por algún motivo quedó una opción "Crear track" sin resolver, ignorar
+            if txt.startswith(self._CREATE_TRACK_PREFIX):
                 return None
             return txt
         row_data = self._table_rows[row]
         if row_data.get("type") == "section_header":
             return None
-        return row_data["item"].get("track")
+        track = row_data["item"].get("track")
+        return track if track and track != "?" else None
 
     def _update_action_btns(self):
         any_checked = any(chk.isChecked() for chk in self._checkboxes.values())
