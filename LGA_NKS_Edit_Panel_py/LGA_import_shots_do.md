@@ -240,16 +240,25 @@ Los valores `tc_in` / `tc_out` también se guardan en variables `nonlocal` (`_vi
 
 Al final de `_do_import()`, **fuera del bloque `with beginUndo`**, se ajusta la vista del timeline con las coordenadas `_view_tc_in` / `_view_tc_out` calculadas en el PASO 4.
 
-`timeline_mod.set_viewer_to_shot(seq, tc_in, tc_out)` ejecuta dos operaciones de UI pura (no undoables):
+`timeline_mod.set_viewer_to_shot(seq, tc_in, tc_out)` ejecuta tres operaciones de UI pura (no undoables):
 
-### 1. Playhead al TC IN
+### 1. Deseleccionar todos los clips
+
+```python
+te = hiero.ui.getTimelineEditor(seq)
+te.selectNone()
+```
+
+Limpia cualquier selección que haya quedado de operaciones anteriores (por ejemplo, `push_clips_right` selecciona los clips que empuja).
+
+### 2. Playhead al TC IN
 
 ```python
 viewer = hiero.ui.currentViewer()
 viewer.setTime(tc_in)
 ```
 
-### 2. Zoom con contexto lateral
+### 3. Zoom con contexto lateral
 
 Se usa la misma técnica que `ajustar_vista_al_clip` de `LGA_NKS_PrevNext_Rev.py`, pero con padding para que los shots vecinos sean visibles:
 
@@ -271,6 +280,7 @@ El resultado: "Zoom to Fit" encaja el rango ampliado (shot + 50% a cada lado), m
 
 | Función en PrevNext_Rev.py | Equivalente aquí |
 |---------------------------|------------------|
+| `timeline_editor.selectNone()` | `te.selectNone()` |
 | `set_in_out_from_clip(clip)` | `seq.setInTime/setOutTime` en PASO 4 (dentro del undo) |
 | `move_playhead_to_position(pos)` | `viewer.setTime(tc_in)` |
 | `ajustar_vista_al_clip()` | activar ventana + `QTimer` + `Zoom to Fit` + restaurar In/Out |

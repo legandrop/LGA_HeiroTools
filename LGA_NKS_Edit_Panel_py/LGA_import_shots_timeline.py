@@ -386,25 +386,36 @@ def set_viewer_to_shot(seq, tc_in: int, tc_out: int):
     """
     Ajusta la vista del timeline al shot recien importado (operaciones de UI pura):
 
-      1. Mueve el playhead a tc_in.
-      2. Activa la ventana del timeline y programa un 'Zoom to Fit' con padding
+      1. Deselecciona todos los clips del timeline.
+      2. Mueve el playhead a tc_in.
+      3. Activa la ventana del timeline y programa un 'Zoom to Fit' con padding
          lateral (shot_dur // 2 en cada lado) para que los shots vecinos sean
          visibles, luego restaura el In/Out exacto del shot.
 
     El In/Out del timeline ya fue establecido dentro del bloque beginUndo del
     import (PASO 4), por lo que undo revierte ese cambio automaticamente.
 
-    Esta funcion solo hace operaciones de vista: mover el playhead y ajustar el
-    zoom. No deben estar en el bloque de undo.
+    Esta funcion solo hace operaciones de vista. No deben estar en el bloque de undo.
 
     Patron basado en LGA_NKS_PrevNext_Rev.py:
-    - move_playhead_to_position → viewer.setTime
-    - ajustar_vista_al_clip → window.activateWindow + QTimer + Zoom to Fit
+    - timeline_editor.selectNone() → deseleccionar clips
+    - move_playhead_to_position    → viewer.setTime
+    - ajustar_vista_al_clip        → window.activateWindow + QTimer + Zoom to Fit
     """
     if not _HIERO_AVAILABLE:
         return
 
-    # 1. Playhead al TC IN
+    te = hiero.ui.getTimelineEditor(seq)
+
+    # 1. Deseleccionar todos los clips
+    try:
+        if te is not None:
+            te.selectNone()
+            _log("set_viewer_to_shot: selectNone ejecutado")
+    except Exception as exc:
+        _log("set_viewer_to_shot: selectNone → %s" % exc, level="warning")
+
+    # 2. Playhead al TC IN
     try:
         viewer = hiero.ui.currentViewer()
         if viewer:
@@ -413,17 +424,17 @@ def set_viewer_to_shot(seq, tc_in: int, tc_out: int):
     except Exception as exc:
         _log("set_viewer_to_shot: playhead → %s" % exc, level="warning")
 
-    # 2. Zoom con contexto lateral
+    # 3. Zoom con contexto lateral
     # Ampliamos el In/Out con padding para que "Zoom to Fit" muestre vecinos;
     # _zoom_and_restore restaura los valores exactos tras el zoom.
     try:
         shot_dur = max(tc_out - tc_in + 1, 1)
         pad = shot_dur // 2  # 50 % del shot en cada lado → shot ocupa ~50 % de la vista
 
-        te = hiero.ui.getTimelineEditor(seq)
-        window = te.window()
-        window.activateWindow()
-        window.setFocus()
+        if te is not None:
+            window = te.window()
+            window.activateWindow()
+            window.setFocus()
 
         # Poner rango ampliado antes de disparar el zoom
         seq.setInTime(max(0, tc_in - pad))
