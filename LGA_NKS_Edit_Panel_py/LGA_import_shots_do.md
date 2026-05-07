@@ -73,18 +73,20 @@ Solo si `self.frames_to_push > 0`. Este valor lo calcula `_find_insert_frame()` 
 `timeline_mod.push_clips_right(seq, from_frame, amount)` → `(moved_count, effective_insert_frame)`:
 
 - Itera todos los `videoTracks()` de la secuencia, **excluyendo** los tracks BurnIn.
-- Recolecta todos los `TrackItem` (no `EffectTrackItem`) cuyo `tl_out >= from_frame`.
+- Recolecta dos grupos:
+  - **TrackItems** (`track.items()`, excluyendo `EffectTrackItem`) cuyo `tl_out >= from_frame`.
+  - **EffectTrackItems** (soft effects, `track.subTrackItems()`) cuyo `tl_out >= from_frame`.
   - Criterio `tl_out >= from_frame`: captura tanto clips que empiezan en `from_frame` o después, como clips que **cruzan** `from_frame` (empiezan antes, terminan después). Estos últimos son los del shot siguiente con inicio desalineado entre tracks.
-- Calcula `effective_insert_frame = min(tl_in de todos los clips seleccionados)` **antes de moverlos**. Este es el frame real donde debe empezar el nuevo shot para quedar adyacente al siguiente sin gap ni overlap.
-- Selecciona los ítems en el Timeline Editor con `hiero.ui.getTimelineEditor(seq).setSelection(items)`.
-- Los ordena de **derecha a izquierda** (por `timelineIn()` descendente) para evitar colisiones.
+- Calcula `effective_insert_frame = min(tl_in de los TrackItems seleccionados)` **antes de moverlos**. Este es el frame real donde debe empezar el nuevo shot para quedar adyacente al siguiente sin gap ni overlap.
+- Selecciona los **TrackItems** en el Timeline Editor con `hiero.ui.getTimelineEditor(seq).setSelection(items)` (nota: `setSelection` no acepta `EffectTrackItem`).
+- Combina TrackItems + EffectTrackItems y los ordena de **derecha a izquierda** (por `timelineIn()` descendente) para evitar colisiones.
 - Para cada ítem, mueve:
   ```python
   item.setTimelineOut(item.timelineOut() + amount)  # out primero
   item.setTimelineIn(item.timelineIn()  + amount)   # luego in
   ```
   Se mueve `out` primero para que el clip no colapse si Hiero valida `out >= in`.
-- Retorna `(moved_count, effective_insert_frame)`.
+- Retorna `(moved_count, effective_insert_frame)` donde `moved_count` cuenta solo TrackItems.
 
 ### Por qué `effective_insert_frame` ≠ `self.insert_frame`
 
@@ -153,9 +155,7 @@ En este orden:
 
 ## Bloque de undo
 
-`project.beginUndo("Import Shot: <shot_name>")` se abre **antes del Paso 1** (push), de manera que todo el flujo —push de clips, import al bin y colocación en timeline— queda dentro de un único bloque de undo.
-
-`project.endUndo()` se cierra siempre en el bloque `finally`.
+Se usa `with project.beginUndo("Import Shot: <shot_name>"):` envolviendo toda la operación (push + import al bin + colocación en timeline). El patrón `with` es el correcto en la API de Hiero: garantiza que el bloque se abre y se cierra como un único paso de undo, sin importar si ocurren excepciones.
 
 ---
 
@@ -194,6 +194,19 @@ Se ejecuta al final del import, solo si al menos un clip fue colocado exitosamen
 - Loguea cuántos efectos fueron ajustados.
 
 Patrón idéntico al de `LGA_NKS_BurnIn_Extend_To_LastVisible.py` (Building Blocks).
+
+---
+
+## Post-import — Selección de clips nuevos
+
+Después del bloque de undo (fuera del `with`), se seleccionan en el Timeline Editor los `TrackItem`s recién colocados:
+
+```python
+te = hiero.ui.getTimelineEditor(self.seq)
+te.setSelection(placed_items)
+```
+
+`placed_items` es una lista que se rellena en `_run_import()` con cada `ti` retornado por `place_clip_in_timeline()` que no tuvo error. Esto reemplaza la selección anterior (que quedaba apuntando a los clips empujados).
 
 ---
 

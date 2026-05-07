@@ -62,8 +62,8 @@ def _find_video_track(seq, track_name: str):
 
 def push_clips_right(seq, from_frame: int, amount: int):
     """
-    Empuja hacia la derecha todos los clips que tienen contenido en from_frame
-    o en cualquier frame posterior. Excluye tracks BurnIn y EffectTrackItems.
+    Empuja hacia la derecha todos los clips y soft effects que tienen contenido
+    en from_frame o en cualquier frame posterior. Excluye tracks BurnIn.
 
     Criterio de seleccion: tl_out >= from_frame
     Captura clips que EMPIEZAN en from_frame o despues (tl_in >= from_frame)
@@ -71,13 +71,14 @@ def push_clips_right(seq, from_frame: int, amount: int):
     que son los del shot siguiente con inicio desalineado entre tracks.
 
     Patron basado en LGA_H-SelectFromPlayhead.py:
-    - Selecciona los clips en el Timeline Editor para visibilidad de debug.
-    - Ordena de derecha a izquierda para evitar colisiones al expandir.
+    - Recolecta TrackItems via track.items() y EffectTrackItems via subTrackItems().
+    - Selecciona los TrackItems en el Timeline Editor para visibilidad de debug.
+    - Ordena todos de derecha a izquierda para evitar colisiones al expandir.
     - Mueve: setTimelineOut(out + amount) primero, luego setTimelineIn(in + amount).
 
     Retorna (moved_count, effective_insert_frame) donde:
-      moved_count           — numero de clips movidos
-      effective_insert_frame — min(tl_in de todos los clips seleccionados) ANTES
+      moved_count           — numero de TrackItems movidos (no cuenta soft effects)
+      effective_insert_frame — min(tl_in de los TrackItems seleccionados) ANTES
                                de moverlos. Es el frame real donde debe empezar
                                el nuevo shot para quedar adyacente al siguiente.
                                Si no hay clips que mover, retorna from_frame.
@@ -89,7 +90,8 @@ def push_clips_right(seq, from_frame: int, amount: int):
     _log("push_clips_right: buscando clips con tl_out >= %d para mover %d frames"
          % (from_frame, amount))
 
-    items_to_move = []
+    items_to_move   = []   # TrackItems (clips normales)
+    effects_to_move = []   # EffectTrackItems (soft effects) en tracks no-BurnIn
 
     for track in seq.videoTracks():
         track_name = track.name()
@@ -99,6 +101,8 @@ def push_clips_right(seq, from_frame: int, amount: int):
 
         track_total = 0
         track_selected = 0
+
+        # ── TrackItems (clips normales) ───────────────────────────────────────
         for item in track.items():
             try:
                 if isinstance(item, hiero.core.EffectTrackItem):
@@ -123,25 +127,51 @@ def push_clips_right(seq, from_frame: int, amount: int):
                 _log("push_clips_right: error leyendo item en track '%s' → %s"
                      % (track_name, exc), level="warning")
 
+        # ── EffectTrackItems (soft effects) via subTrackItems ─────────────────
+        try:
+            for group in (track.subTrackItems() or []):
+                for effect in group:
+                    if not isinstance(effect, hiero.core.EffectTrackItem):
+                        continue
+                    try:
+                        tl_out = int(effect.timelineOut())
+                        if tl_out >= from_frame:
+                            effects_to_move.append(effect)
+                            effect_name = (effect.name()
+                                           if hasattr(effect, "name") else "<efecto>")
+                            _log("  track='%s' efecto='%s' tl_out=%d → INCLUIDO"
+                                 " (soft effect)"
+                                 % (track_name, effect_name, tl_out))
+                    except Exception as exc:
+                        _log("push_clips_right: error leyendo efecto en track '%s' → %s"
+                             % (track_name, exc), level="warning")
+        except Exception as exc:
+            _log("push_clips_right: error iterando subTrackItems de '%s' → %s"
+                 % (track_name, exc), level="warning")
+
         _log("push_clips_right: track='%s' → %d/%d clips seleccionados"
              % (track_name, track_selected, track_total))
 
-    _log("push_clips_right: total %d clips seleccionados para mover %d frames"
-         % (len(items_to_move), amount))
+    _log("push_clips_right: total %d clips y %d soft effects para mover %d frames"
+         % (len(items_to_move), len(effects_to_move), amount))
 
-    if not items_to_move:
-        _log("push_clips_right: sin clips que mover, effective_insert_frame=%d"
+    if not items_to_move and not effects_to_move:
+        _log("push_clips_right: sin items que mover, effective_insert_frame=%d"
              % from_frame, level="warning")
         return 0, from_frame
 
     # Calcular el effective_insert_frame ANTES de mover:
-    # es el tl_in mas pequenio de todos los clips seleccionados.
+    # es el tl_in mas pequenio de los TrackItems seleccionados.
     # El nuevo shot debe empezar aqui para quedar pegado al shot siguiente.
-    effective_insert_frame = min(int(item.timelineIn()) for item in items_to_move)
+    if items_to_move:
+        effective_insert_frame = min(int(item.timelineIn()) for item in items_to_move)
+    else:
+        effective_insert_frame = from_frame
     _log("push_clips_right: effective_insert_frame=%d (min tl_in de %d clips)"
          % (effective_insert_frame, len(items_to_move)))
 
-    # Seleccionar en el editor para visibilidad de debug
+    # Seleccionar TrackItems en el editor para visibilidad de debug
+    # (setSelection solo acepta TrackItems, no EffectTrackItems)
     try:
         te = hiero.ui.getTimelineEditor(seq)
         if te is not None:
@@ -151,11 +181,12 @@ def push_clips_right(seq, from_frame: int, amount: int):
         _log("push_clips_right: no se pudo seleccionar en editor → %s" % exc,
              level="warning")
 
-    # Ordenar de derecha a izquierda para evitar colisiones al expandir
-    items_to_move.sort(key=lambda x: x.timelineIn(), reverse=True)
+    # Combinar y ordenar de derecha a izquierda para evitar colisiones al expandir
+    all_to_move = items_to_move + effects_to_move
+    all_to_move.sort(key=lambda x: x.timelineIn(), reverse=True)
 
     moved = 0
-    for item in items_to_move:
+    for item in all_to_move:
         try:
             old_in  = int(item.timelineIn())
             old_out = int(item.timelineOut())
@@ -164,17 +195,25 @@ def push_clips_right(seq, from_frame: int, amount: int):
             # Mover out primero para que el clip no colapse antes de ajustar in
             item.setTimelineOut(new_out)
             item.setTimelineIn(new_in)
-            _log("  movido: '%s' (track='%s') tl %d-%d -> %d-%d"
-                 % (item.name(), item.parent().name(),
-                    old_in, old_out, new_in, new_out))
-            moved += 1
+            try:
+                item_name = item.name()
+            except Exception:
+                item_name = "<item>"
+            _log("  movido: '%s' tl %d-%d -> %d-%d"
+                 % (item_name, old_in, old_out, new_in, new_out))
+            if not isinstance(item, hiero.core.EffectTrackItem):
+                moved += 1
         except Exception as exc:
-            _log("push_clips_right: error moviendo '%s' → %s" % (item.name(), exc),
+            try:
+                item_name = item.name()
+            except Exception:
+                item_name = "<item>"
+            _log("push_clips_right: error moviendo '%s' → %s" % (item_name, exc),
                  level="warning")
 
-    _log("push_clips_right: resultado: %d/%d clips movidos %d frames"
+    _log("push_clips_right: resultado: %d clips + %d soft effects movidos %d frames"
          " | effective_insert_frame=%d"
-         % (moved, len(items_to_move), amount, effective_insert_frame))
+         % (moved, len(effects_to_move), amount, effective_insert_frame))
     return moved, effective_insert_frame
 
 
