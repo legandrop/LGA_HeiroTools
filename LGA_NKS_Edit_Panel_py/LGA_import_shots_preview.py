@@ -89,6 +89,41 @@ def classify_track_type(track_name: str) -> str:
 
 # ── helpers de búsqueda en track ─────────────────────────────────────────────
 
+def _clip_display_name(item) -> str:
+    """
+    Devuelve el nombre de display de un TrackItem de Hiero a partir del
+    nombre del archivo fuente, eliminando el número de frame y la extensión.
+
+    Ejemplos:
+      "TEST_013_010_aPlate_v01_%04d.exr"  → "TEST_013_010_aPlate_v01"
+      "TEST_013_010_aPlate_v01_1001.exr"  → "TEST_013_010_aPlate_v01"
+      "TEST_013_020_EditRef.mov"           → "TEST_013_020_EditRef"
+
+    Esto es más informativo que item.name() que devuelve solo el shot/basename.
+    Si la extracción falla, se usa item.name() como fallback.
+    """
+    try:
+        fileinfos = item.source().mediaSource().fileinfos()
+        if fileinfos:
+            import os as _os
+            basename = _os.path.basename(fileinfos[0].filename())
+            # Paso 1: quitar patrones tipo _%04d.exr  (EXR sequences con printf format)
+            name = re.sub(r'[_.]%\d*[dD]\.[^.]+$', '', basename)
+            # Paso 2: quitar patrones tipo _1001.exr  (frame number explícito, ≥4 dígitos)
+            name = re.sub(r'[_.]\d{4,}\.[^.]+$', '', name)
+            # Paso 3: quitar extensión restante  (.mov, .mxf, .mp4, etc.)
+            name = re.sub(r'\.[^.]+$', '', name)
+            if name:
+                _log("_clip_display_name: '%s' → '%s'" % (basename, name))
+                return name
+    except Exception as exc:
+        _log("_clip_display_name: error extrayendo nombre de archivo → %s" % exc)
+    # Fallback
+    fallback = item.name()
+    _log("_clip_display_name: usando fallback item.name() = '%s'" % fallback)
+    return fallback
+
+
 def _find_adjacent_clips(track, insert_frame: int):
     """
     Dado un track de Hiero y un frame de inserción, devuelve el clip
@@ -118,7 +153,7 @@ def _find_adjacent_clips(track, insert_frame: int):
                 continue
             tl_in  = int(item.timelineIn())
             tl_out = int(item.timelineOut())
-            name   = item.name()
+            name   = _clip_display_name(item)
         except Exception as exc:
             _log("_find_adjacent_clips: excepción leyendo item → %s" % exc)
             continue

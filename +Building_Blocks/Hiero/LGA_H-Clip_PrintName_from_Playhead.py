@@ -39,7 +39,7 @@ def print_clip_info_at_playhead_on_exr_track():
     current_time = viewer.time()
     print(f"Tiempo actual del playhead: {current_time}")
 
-    exr_track = next((t for t in sequence.videoTracks() if t.name() == "EXR"), None)
+    exr_track = next((t for t in sequence.videoTracks() if t.name() == "aPlate"), None)
     if not exr_track:
         print("No se encontró un track llamado 'EXR'.")
         return
