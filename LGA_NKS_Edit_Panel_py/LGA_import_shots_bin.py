@@ -113,6 +113,12 @@ def import_item_to_bin(item: dict, target_bin):
       path       : ruta al archivo MOV (solo si kind == "mov")
       name       : nombre de display del clip
 
+    Patron basado en LGA_NKS_CreateV000._import_v000_to_bin:
+    - Crea hiero.core.Clip desde first_file (deteccion automatica de secuencia).
+    - Asigna el nombre con clip.setName().
+    - Agrega al bin con BinItem.
+    - Llama clip.rescan() y loguea el rango detectado por Hiero.
+
     Retorna (clip, error_str). error_str es None si OK.
     """
     if not _HIERO_AVAILABLE:
@@ -120,7 +126,9 @@ def import_item_to_bin(item: dict, target_bin):
 
     kind = item.get("kind")
     path = item.get("path", "")
-    name = item.get("name", "")
+    name = item.get("name", "") or item.get("version_name", "") or "clip"
+
+    _log("import_item_to_bin: kind='%s' name='%s'" % (kind, name))
 
     try:
         if kind == "exr_seq":
@@ -129,22 +137,45 @@ def import_item_to_bin(item: dict, target_bin):
                 msg = "Sin first_file para EXR seq: %s" % path
                 _log("import_item_to_bin: %s" % msg, level="error")
                 return None, msg
+            _log("import_item_to_bin: creando Clip desde '%s'" % first)
             clip = hiero.core.Clip(str(first))
+
         elif kind == "mov":
+            _log("import_item_to_bin: creando Clip desde '%s'" % path)
             clip = hiero.core.Clip(str(path))
+
         else:
-            msg = "Tipo de ítem no soportado: '%s'" % kind
+            msg = "Tipo de item no soportado: kind='%s' para '%s'" % (kind, name)
             _log("import_item_to_bin: %s" % msg, level="error")
             return None, msg
 
+        # Asignar nombre al clip
+        clip.setName(name)
+
+        # Agregar al bin
         if target_bin is not None:
             bin_item = hiero.core.BinItem(clip)
             target_bin.addItem(bin_item)
-            _log("import_item_to_bin: '%s' importado al bin" % name)
+            _log("import_item_to_bin: '%s' agregado al bin" % name)
+
+        # Rescan para que Hiero lea el rango real de disco (patron de CreateV000)
+        try:
+            ms = clip.mediaSource()
+            before_first = int(ms.startTime())
+            before_last  = int(ms.startTime() + ms.duration() - 1)
+            clip.rescan()
+            ms = clip.mediaSource()
+            after_first = int(ms.startTime())
+            after_last  = int(ms.startTime() + ms.duration() - 1)
+            _log("import_item_to_bin: rescan '%s' rango %d-%d → %d-%d"
+                 % (name, before_first, before_last, after_first, after_last))
+        except Exception as re:
+            _log("import_item_to_bin: rescan fallo (no critico) → %s" % re,
+                 level="warning")
 
         return clip, None
 
     except Exception as exc:
-        _log("import_item_to_bin: excepción importando '%s' → %s" % (name, exc),
+        _log("import_item_to_bin: excepcion importando '%s' → %s" % (name, exc),
              level="error")
         return None, str(exc)

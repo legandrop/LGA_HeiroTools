@@ -107,9 +107,15 @@ Botones: **OK** / **Cancelar**. Si el usuario cancela, el import se aborta sin d
 
 ---
 
-## Paso 3 — Import al bin y colocación en timeline
+## Bloque de undo
 
-Todo el paso 3 está envuelto en `project.beginUndo() / endUndo("Import Shot: <shot_name>")`.
+`project.beginUndo("Import Shot: <shot_name>")` se abre **antes del Paso 1** (push), de manera que todo el flujo —push de clips, import al bin y colocación en timeline— queda dentro de un único bloque de undo.
+
+`project.endUndo()` se cierra siempre en el bloque `finally`, independientemente de si el usuario canceló en el Paso 2, ocurrió un error, o el import fue exitoso. Si el usuario cancela en el Paso 2, el push de Paso 1 queda en el undo stack y puede deshacerse con Ctrl+Z.
+
+---
+
+## Paso 3 — Import al bin y colocación en timeline
 
 ### Bin destino
 
@@ -123,10 +129,15 @@ Si los bins no existen se crean en cascada.
 ### Import al bin
 
 `bin_mod.import_item_to_bin(item, target_bin)`:
-- `kind == "exr_seq"` → `hiero.core.Clip(str(item["first_file"]))`
+- Determina `kind` desde el campo del dict. Los publish items tienen `kind="exr_seq"` garantizado por `_scan_publish_folders`.
+- `kind == "exr_seq"` → `hiero.core.Clip(str(item["first_file"]))` — Hiero detecta la secuencia completa automáticamente desde el primer frame.
 - `kind == "mov"` → `hiero.core.Clip(str(item["path"]))`
+- Llama `clip.setName(name)` para asignar el nombre de display.
 - Crea `hiero.core.BinItem(clip)` y lo agrega al bin.
+- Llama `clip.rescan()` y loguea el rango detectado por Hiero antes y después (patrón de `_import_v000_to_bin` en CreateV000).
 - Retorna `(clip, error_str)`.
+
+**Normalización de campos en publish items:** `_scan_publish_folders` añade `"kind": "exr_seq"` y `"name": vd.name` a cada dict, para que sean compatibles con `import_item_to_bin` sin lógica especial.
 
 ### Colocación en timeline
 
@@ -152,7 +163,7 @@ En ambos casos se llama `self.accept()` para cerrar el diálogo.
 
 El `frame_count` se obtiene en este orden:
 1. `item.get("frame_count")` — campo que setea `_scan_input_folder` / `_scan_publish_folders`.
-2. Fallback: `clip.duration()` (después de importar al bin, Hiero ya conoce el clip).
+2. Fallback: `clip.mediaSource().duration()` (después del rescan en `import_item_to_bin`, Hiero tiene el rango real).
 
 ---
 

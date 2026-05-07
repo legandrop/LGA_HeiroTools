@@ -623,6 +623,9 @@ def _scan_publish_folders(shot_root):
                 "width": w, "height": h, "fps": fps, "compression": comp,
                 "bitdepth": bd, "channels": ch, "pixel_aspect_ratio": par,
                 "path": str(vd),
+                # Campos normalizados para compatibilidad con import_item_to_bin:
+                "kind": "exr_seq",   # publish items son siempre EXR sequences
+                "name": vd.name,     # nombre de la versión (ej. TEST_013_020_comp_v02)
             })
 
     return results
@@ -3546,9 +3549,10 @@ class ImportShotDialog(QtWidgets.QDialog):
         Flujo:
           1. Recolectar ítems marcados con track asignado.
              Si _IMPORT_ONLY_COMP está activo, filtrar solo el track _comp_.
-          2. Hacer espacio: empujar clips desde insert_frame frames_to_push frames.
-          3. Confirmación del usuario antes de importar al bin.
-          4. Importar al bin y colocar en el track del timeline.
+          2. Abrir bloque de undo (cubre los pasos 3, 4 y 5).
+          3. Hacer espacio: empujar clips cuyo tl_out >= insert_frame.
+          4. Confirmación del usuario antes de importar al bin.
+          5. Importar al bin y colocar en el track del timeline.
         """
         # ── Recolección de ítems ──────────────────────────────────────────────
         items_by_track = {}
@@ -3584,86 +3588,92 @@ class ImportShotDialog(QtWidgets.QDialog):
             items_by_track = {"_comp_": comp_items}
             debug_print("_do_import: _IMPORT_ONLY_COMP activo — solo se importará _comp_")
 
-        # ── PASO 1: Hacer espacio ─────────────────────────────────────────────
-        if self.frames_to_push > 0:
-            push_msg = (
-                "PASO 1: Hacer espacio en el timeline.\n\n"
-                "Se van a mover todos los clips que ocupan el frame %d o posterior "
-                "(criterio: tl_out >= %d) hacia la derecha %d frames."
-                % (self.insert_frame, self.insert_frame, self.frames_to_push)
-            )
-            debug_print("_do_import →", push_msg)
-            QtWidgets.QMessageBox.information(self, "Import — Paso 1", push_msg)
-
-            moved = timeline_mod.push_clips_right(
-                self.seq, self.insert_frame, self.frames_to_push
-            )
-            debug_print("_do_import: %d clips movidos %d frames"
-                        % (moved, self.frames_to_push))
-        else:
-            debug_print("_do_import: frames_to_push=0, sin necesidad de hacer espacio")
-
-        # ── PASO 2: Confirmación antes de importar ────────────────────────────
-        for track_name, items in items_by_track.items():
-            for item in items:
-                clip_name   = item.get("name", "?")
-                frame_count = item.get("frame_count", 0)
-                tl_out_est  = self.insert_frame + frame_count - 1
-
-                try:
-                    seq_bin_name = "F %s" % self.seq.name()
-                except Exception:
-                    seq_bin_name = "Shots"
-
-                confirm_msg = (
-                    "PASO 2: Importar al bin y colocar en timeline.\n\n"
-                    "Clip:    %s\n"
-                    "Bin:     %s / %s\n"
-                    "Track:   %s\n"
-                    "Frames:  %d – %d  (%d frames)\n\n"
-                    "¿Continuar?"
-                    % (clip_name,
-                       seq_bin_name, self.shot_name,
-                       track_name,
-                       self.insert_frame, tl_out_est, frame_count)
-                )
-                debug_print("_do_import → confirmación para '%s'" % clip_name)
-
-                reply = QtWidgets.QMessageBox.question(
-                    self,
-                    "Import — Paso 2",
-                    confirm_msg,
-                    QtWidgets.QMessageBox.Ok | QtWidgets.QMessageBox.Cancel,
-                )
-                if reply != QtWidgets.QMessageBox.Ok:
-                    debug_print("_do_import: usuario canceló importación de '%s'"
-                                % clip_name)
-                    return
-                debug_print("_do_import: usuario aceptó importación de '%s'" % clip_name)
-
-        # ── PASO 3: Import al bin + colocación en timeline ────────────────────
-        step3_msg = "PASO 3: Importando al bin y colocando en el timeline."
-        debug_print("_do_import →", step3_msg)
-        QtWidgets.QMessageBox.information(self, "Import — Paso 3", step3_msg)
-
+        # ── Abrir undo (cubre push + import) ─────────────────────────────────
         project = None
         try:
             project = hiero.core.projects()[0]
         except Exception:
             pass
-
         if project:
             project.beginUndo("Import Shot: %s" % self.shot_name)
+            debug_print("_do_import: beginUndo abierto")
 
         errors = []
         placed = 0
+        user_cancelled = False
+
         try:
+            # ── PASO 1: Hacer espacio ─────────────────────────────────────────
+            if self.frames_to_push > 0:
+                push_msg = (
+                    "PASO 1: Hacer espacio en el timeline.\n\n"
+                    "Se van a mover todos los clips que ocupan el frame %d o posterior "
+                    "(criterio: tl_out >= %d) hacia la derecha %d frames."
+                    % (self.insert_frame, self.insert_frame, self.frames_to_push)
+                )
+                debug_print("_do_import →", push_msg)
+                QtWidgets.QMessageBox.information(self, "Import — Paso 1", push_msg)
+
+                moved = timeline_mod.push_clips_right(
+                    self.seq, self.insert_frame, self.frames_to_push
+                )
+                debug_print("_do_import: %d clips movidos %d frames"
+                            % (moved, self.frames_to_push))
+            else:
+                debug_print(
+                    "_do_import: frames_to_push=0, sin necesidad de hacer espacio")
+
+            # ── PASO 2: Confirmación antes de importar ────────────────────────
+            try:
+                seq_bin_name = "F %s" % self.seq.name()
+            except Exception:
+                seq_bin_name = "Shots"
+
+            for track_name, items in items_by_track.items():
+                for item in items:
+                    clip_name   = item.get("name", "") or item.get("version_name", "?")
+                    frame_count = item.get("frame_count", 0) or 0
+                    tl_out_est  = self.insert_frame + frame_count - 1
+
+                    confirm_msg = (
+                        "PASO 2: Importar al bin y colocar en timeline.\n\n"
+                        "Clip:    %s\n"
+                        "Bin:     %s / %s\n"
+                        "Track:   %s\n"
+                        "Frames:  %d – %d  (%d frames)\n\n"
+                        "¿Continuar?"
+                        % (clip_name,
+                           seq_bin_name, self.shot_name,
+                           track_name,
+                           self.insert_frame, tl_out_est, frame_count)
+                    )
+                    debug_print("_do_import → confirmación para '%s'" % clip_name)
+
+                    reply = QtWidgets.QMessageBox.question(
+                        self,
+                        "Import — Paso 2",
+                        confirm_msg,
+                        QtWidgets.QMessageBox.Ok | QtWidgets.QMessageBox.Cancel,
+                    )
+                    if reply != QtWidgets.QMessageBox.Ok:
+                        debug_print("_do_import: usuario canceló importación de '%s'"
+                                    % clip_name)
+                        user_cancelled = True
+                        return   # el finally cerrará el undo
+                    debug_print(
+                        "_do_import: usuario aceptó importación de '%s'" % clip_name)
+
+            # ── PASO 3: Import al bin + colocación en timeline ────────────────
+            step3_msg = "PASO 3: Importando al bin y colocando en el timeline."
+            debug_print("_do_import →", step3_msg)
+            QtWidgets.QMessageBox.information(self, "Import — Paso 3", step3_msg)
+
             target_bin = bin_mod.find_or_create_shot_bin(self.seq, self.shot_name)
 
             for track_name, items in items_by_track.items():
                 for item in items:
-                    clip_name   = item.get("name", "?")
-                    frame_count = item.get("frame_count", 0)
+                    clip_name   = item.get("name", "") or item.get("version_name", "?")
+                    frame_count = item.get("frame_count", 0) or 0
 
                     clip, err = bin_mod.import_item_to_bin(item, target_bin)
                     if err:
@@ -3672,11 +3682,18 @@ class ImportShotDialog(QtWidgets.QDialog):
                                     % (clip_name, err), level="warning")
                         continue
 
+                    # Preferir frame_count del item; fallback: duration que detectó Hiero
                     if frame_count == 0 and clip is not None:
                         try:
-                            frame_count = clip.duration()
+                            frame_count = clip.mediaSource().duration()
+                            debug_print("_do_import: frame_count desde Hiero = %d"
+                                        % frame_count)
                         except Exception:
                             pass
+
+                    debug_print("_do_import: colocando '%s' en track '%s' tl=%d dur=%d"
+                                % (clip_name, track_name,
+                                   self.insert_frame, frame_count))
 
                     ti, err2 = timeline_mod.place_clip_in_timeline(
                         self.seq, clip, track_name,
@@ -3688,11 +3705,19 @@ class ImportShotDialog(QtWidgets.QDialog):
                                     % (clip_name, err2), level="warning")
                     else:
                         placed += 1
-                        debug_print("_do_import: colocado '%s' en track '%s' frame %d"
-                                    % (clip_name, track_name, self.insert_frame))
+                        debug_print("_do_import: OK — '%s' en track '%s' tl=%d-%d"
+                                    % (clip_name, track_name,
+                                       self.insert_frame,
+                                       self.insert_frame + frame_count - 1))
+
         finally:
             if project:
                 project.endUndo()
+                debug_print("_do_import: endUndo cerrado%s"
+                            % (" (cancelado por usuario)" if user_cancelled else ""))
+
+        if user_cancelled:
+            return
 
         if errors:
             QtWidgets.QMessageBox.warning(
