@@ -1915,11 +1915,17 @@ class ImportShotDialog(QtWidgets.QDialog):
 
     def _create_plate_track(self, track_name):
         """
-        Crea un nuevo VideoTrack con el nombre dado en self.seq, en la posición
-        correcta según _IMPORT_TRACK_ORDER (bottom-to-top reference).
+        Crea un nuevo VideoTrack con el nombre dado en self.seq, insertado en
+        la posición alfabética correcta dentro de la sección de plates según
+        _IMPORT_TRACK_ORDER (bt-order: aPlate=abajo, _dmp_=arriba).
 
-        Patrón de LGA_NKS_CreateNewTrack: se remueven todos los tracks y se
-        reinsertan en el orden correcto; seq.addTrack() apila de abajo hacia arriba.
+        Estrategia: NO se reordena el stack existente. Se buscan los vecinos
+        canónicos del nuevo track (el track existente de mayor bt-rank que deba
+        quedar debajo, y el de menor bt-rank que deba quedar encima) y se
+        inserta entre ellos, preservando el orden de todos los demás tracks.
+
+        Patrón de LGA_NKS_CreateNewTrack: remove all → addTrack en bt-order
+        (cada addTrack apila encima del anterior → el primero queda abajo).
 
         Retorna el nuevo hiero.core.VideoTrack, o None en caso de error.
         """
@@ -1927,9 +1933,8 @@ class ImportShotDialog(QtWidgets.QDialog):
             return None
         try:
             new_track = hiero.core.VideoTrack(track_name)
-            video_tracks = list(self.seq.videoTracks())  # bottom-to-top (index 0 = bottom)
+            video_tracks = list(self.seq.videoTracks())
 
-            # Posición del nuevo track en el orden canónico bt
             def bt_order_idx(name):
                 if _is_burnin_track(name):
                     return len(_IMPORT_TRACK_ORDER) + 1  # BurnIn siempre encima
@@ -1940,23 +1945,46 @@ class ImportShotDialog(QtWidgets.QDialog):
 
             new_pos = bt_order_idx(track_name)
 
-            # Punto de inserción: antes del primer track que deba ir encima del nuevo
-            insert_at = len(video_tracks)
+            # Vecino inferior: track existente con mayor bt-rank que sea < new_pos.
+            # Es el que debe quedar inmediatamente debajo del nuevo en el stack.
+            lower_idx = None          # índice en video_tracks
+            lower_pos = -1
+            # Vecino superior: track existente con menor bt-rank que sea > new_pos.
+            upper_idx = None
+            upper_pos = len(_IMPORT_TRACK_ORDER) + 2
+
             for i, t in enumerate(video_tracks):
-                if bt_order_idx(t.name()) > new_pos:
-                    insert_at = i
-                    break
+                tp = bt_order_idx(t.name())
+                if tp < new_pos and tp > lower_pos:
+                    lower_pos = tp
+                    lower_idx = i
+                if tp > new_pos and tp < upper_pos:
+                    upper_pos = tp
+                    upper_idx = i
 
-            new_bt_list = video_tracks[:insert_at] + [new_track] + video_tracks[insert_at:]
+            # Punto de inserción en video_tracks (el resto del stack no cambia)
+            if lower_idx is not None:
+                insert_at = lower_idx + 1   # justo encima del vecino inferior
+            elif upper_idx is not None:
+                insert_at = upper_idx       # justo debajo del vecino superior
+            else:
+                insert_at = 0               # sin vecinos conocidos → fondo
 
-            # Remover todos y reinsertar (cada addTrack va arriba del anterior)
+            new_bt_list = (video_tracks[:insert_at]
+                           + [new_track]
+                           + video_tracks[insert_at:])
+
+            # Remover todos y reinsertar con el nuevo track intercalado
             for t in video_tracks:
                 self.seq.removeTrack(t)
             for t in new_bt_list:
                 self.seq.addTrack(t)
 
-            debug_print("_create_plate_track: '%s' creado en posición bt=%d"
-                        % (track_name, insert_at))
+            below = video_tracks[lower_idx].name() if lower_idx is not None else "—"
+            above = video_tracks[upper_idx].name() if upper_idx is not None else "—"
+            debug_print("_create_plate_track: '%s' creado entre '%s' (abajo) y "
+                        "'%s' (arriba)  insert_at=%d"
+                        % (track_name, below, above, insert_at))
             return new_track
 
         except Exception as exc:

@@ -254,6 +254,33 @@ en el popup del dropdown. Mismo patrón que el ícono 🗑 del combo de resoluci
 - Todos los demás combos se reconstruyen: el nuevo track aparece en su lista de opciones
   y la opción "Crear…" desaparece de los combos que esperaban ese mismo track.
 
+**Posición de inserción del track creado (`_create_plate_track`):**
+
+El nuevo track se inserta en la posición **alfabética correcta dentro de la sección
+de plates**, según `_IMPORT_TRACK_ORDER` (bt-order: `aPlate` = fondo del stack,
+`_dmp_` = tope del stack; visualmente en el panel: `_dmp_` arriba, `aPlate` abajo).
+
+Ejemplo con `aPlate` y `bPlate` existentes → crear `dPlate`:
+- bt-order resultante: `[aPlate, bPlate, dPlate, ...]`
+- Visual en el panel (de arriba hacia abajo): `..., dPlate, bPlate, aPlate`
+- `dPlate` queda entre `bPlate` y el siguiente track de mayor rango (`ePlate`, `fgPlate`, `EditRef`, etc.)
+
+**Estrategia de inserción — no se re-ordena el stack existente:**
+
+`_create_plate_track` **no cambia el orden de los tracks existentes**. En cambio
+busca los *vecinos canónicos* del nuevo track:
+
+- **Vecino inferior**: track existente con mayor bt-rank que sea `< new_pos`
+  (el que debe quedar justo debajo del nuevo). → insertar en `lower_idx + 1`.
+- **Vecino superior**: track existente con menor bt-rank que sea `> new_pos`
+  (el que debe quedar justo encima). → fallback si no hay vecino inferior.
+
+Esto garantiza que el nuevo track se coloca en la posición correcta dentro de la
+sección de plates sin alterar el orden del resto del stack (p. ej. tracks
+desconocidos o reordenados por el usuario permanecen donde estaban).
+
+El log confirma la inserción con: `"creado entre '<inferior>' (abajo) y '<superior>' (arriba)"`.
+
 Cada plate tiene su propia opción de creación independiente. Si hay un `dPlate` y un
 `ePlate` sin track, cada uno muestra `+ Crear track dPlate` y `+ Crear track ePlate`
 respectivamente.
