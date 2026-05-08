@@ -1612,15 +1612,10 @@ class ImportShotDialog(QtWidgets.QDialog):
         buttons_row.setContentsMargins(0, 0, 0, 0)
         buttons_row.setSpacing(6)
 
-        show_btn = QtWidgets.QPushButton("Show Windows")
-        show_btn.setStyleSheet(_BTN_SMALL)
-        show_btn.clicked.connect(self._show_import_shot_windows)
-
         open_queue_btn = QtWidgets.QPushButton("Open Queue")
         open_queue_btn.setStyleSheet(_BTN_SMALL)
         open_queue_btn.clicked.connect(self._show_transcode_queue_window)
 
-        buttons_row.addWidget(show_btn)
         buttons_row.addWidget(open_queue_btn)
 
         box = QtWidgets.QWidget()
@@ -1674,25 +1669,6 @@ class ImportShotDialog(QtWidgets.QDialog):
             )
         except Exception as exc:
             debug_print("show transcode queue window error: %s" % exc, level="warning")
-
-    def _show_import_shot_windows(self):
-        app = QtWidgets.QApplication.instance()
-        if not app:
-            return
-        shown = 0
-        for widget in app.topLevelWidgets():
-            try:
-                if widget.objectName() != "LGA_ImportShotDialog":
-                    continue
-                widget.show()
-                if hasattr(widget, "showNormal") and widget.isMinimized():
-                    widget.showNormal()
-                widget.raise_()
-                widget.activateWindow()
-                shown += 1
-            except Exception as exc:
-                debug_print("show import shot window error: %s" % exc, level="warning")
-        debug_print("show import shot windows count=%d" % shown)
 
     def _focus_import_shot_window(self, window_id, shot_name):
         app = QtWidgets.QApplication.instance()
