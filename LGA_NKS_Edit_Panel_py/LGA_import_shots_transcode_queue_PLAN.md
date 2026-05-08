@@ -205,6 +205,9 @@ Objetivo: dar visibilidad completa del orden global de jobs.
   doble click en header/nombre de shot trae al frente la ventana existente,
   si la ventana del shot ya no existe, registrar en log y no hacer nada en primera version,
   actualizar tabla por senales del manager,
+  agregar checkbox inferior Mantener arriba,
+  implementar Mantener arriba con QtCore.Qt.WindowStaysOnTopHint,
+  mantener la ventana no modal para no bloquear Hiero,
   mantener primera version solo lectura
 }
 ```

@@ -292,6 +292,20 @@ Primera version recomendada:
 - Sin reordenar jobs.
 - Sin cancelar jobs desde esta ventana.
 - Doble click en shot solo trae al frente ventanas existentes.
+- Checkbox inferior `Mantener arriba`, apagado por defecto.
+
+El checkbox `Mantener arriba` debe hacer que la ventana quede sobre el resto usando
+`QtCore.Qt.WindowStaysOnTopHint`, pero la ventana debe seguir siendo **no modal**:
+
+```python
+queue_dialog.setModal(False)
+```
+
+Esto permite que la cola permanezca visible sin bloquear el uso de Hiero/Nuke Studio ni
+de las ventanas de `Import Shot`.
+
+Al cambiar el flag de always-on-top puede ser necesario preservar geometria, aplicar los
+window flags, y hacer `hide()` / `show()` para que Qt actualice el comportamiento.
 
 Cancelacion y reordenamiento pueden agregarse despues si hacen falta.
 
