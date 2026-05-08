@@ -583,8 +583,10 @@ class TranscodeWorker(QRunnable):
             )
             manifest["workers"] = workers
             manifest["exrmetrics_threads"] = exrmetrics_threads
-            hdr_resize = bool(manifest.get("resize"))  # activo solo cuando hay resize
-            manifest["hdr_resize"] = hdr_resize
+            has_resize = bool(manifest.get("resize"))
+            # hdr_resize y ocio_round_trip NO se fuerzan desde aquí.
+            # LGA_EXR_Convert los auto-detecta: si el material es AP0 y hay resize,
+            # activa hdr_resize automáticamente sin intervención manual.
 
             frame_count = len(manifest["tasks"])
             if frame_count == 0:
@@ -598,10 +600,10 @@ class TranscodeWorker(QRunnable):
                 "%dx%d · %s" % (tw, th, resize_filter)
                 if manifest["resize"] else "resolución original"
             )
-            hdr_resize_info = " | hdr_resize=ON" if hdr_resize else ""
+            mode_info = " | hdr_mode=auto" if has_resize else ""
             self.signals.log_message.emit(
                 "  %s %d frames | %s%s | comp: %s%s | CPU: %s | workers: %d | exrmetrics threads: %d" % (
-                    self._t(), frame_count, resize_info, hdr_resize_info,
+                    self._t(), frame_count, resize_info, mode_info,
                     compression,
                     (":%d" % dwa_level) if compression.lower().startswith("dwa") else "",
                     cpu_preset or "custom",

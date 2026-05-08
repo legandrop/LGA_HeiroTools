@@ -10,6 +10,8 @@ import os
 import subprocess
 import sys
 import time
+import dataclasses
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -19,6 +21,7 @@ BASE_DIR = Path(__file__).resolve().parent
 SHARED_DIR = BASE_DIR
 OPENEXR_DIR = SHARED_DIR / "OpenEXR_Win"
 OIIO_DIR = SHARED_DIR / "OIIO_Win"
+OCIO_AP0_AP1_CONFIG = SHARED_DIR / "OCIO" / "aces_ap0_ap1.ocio"
 EXRMETRICS = OPENEXR_DIR / "exrmetrics.exe"
 OIIOTOOL = OIIO_DIR / "oiiotool.exe"
 
@@ -39,7 +42,8 @@ class ConvertOptions:
     engine: str = "auto"
     overwrite: bool = False
     dry_run: bool = False
-    hdr_resize: bool = False  # ✅✅ HDR resize toggle — cambiar a True para activar rangecompress + highlightcomp=1 + rangeexpand (probado OK con AP0)
+    hdr_resize: bool = False  # ✅✅ Opción A — cambiar a True para activar rangecompress + highlightcomp=1 + rangeexpand (probado OK con AP0)
+    ocio_round_trip: bool = True  # ✅✅ Opción B — AP0→ACEScg→resize:highlightcomp=1→AP0 sin rangecompress (en prueba)
 
 
 @dataclass(frozen=True)
@@ -135,6 +139,7 @@ def load_manifest(path: Path, cli: argparse.Namespace) -> tuple[list[FrameTask],
         overwrite=bool(cli.overwrite or data.get("overwrite", False)),
         dry_run=bool(cli.dry_run or data.get("dry_run", False)),
         hdr_resize=bool(cli.hdr_resize or data.get("hdr_resize", False)),
+        ocio_round_trip=bool(cli.ocio_round_trip or data.get("ocio_round_trip", False)),
     )
     return tasks, options
 
@@ -161,6 +166,7 @@ def tasks_from_cli(cli: argparse.Namespace) -> tuple[list[FrameTask], ConvertOpt
         overwrite=cli.overwrite,
         dry_run=cli.dry_run,
         hdr_resize=bool(cli.hdr_resize),
+        ocio_round_trip=bool(cli.ocio_round_trip),
     )
     return tasks, options
 
@@ -217,7 +223,9 @@ def build_oiiotool_command(task: FrameTask, options: ConvertOptions) -> tuple[li
         compression = f"{compression}:quality={options.dwa_level}"
 
     args = [str(OIIOTOOL)]
-    if options.ocio_config:
+    if options.ocio_round_trip and options.resize:
+        args.extend(["--colorconfig", str(OCIO_AP0_AP1_CONFIG)])
+    elif options.ocio_config:
         args.extend(["--colorconfig", options.ocio_config])
 
     args.append(str(task.src))
@@ -226,17 +234,21 @@ def build_oiiotool_command(task: FrameTask, options: ConvertOptions) -> tuple[li
         args.extend(["--ch", "R,G,B"])
 
     if options.resize:
+        if options.ocio_round_trip:
+            args.extend(["--colorconvert", "ACES - ACES2065-1", "ACES - ACEScg"])
         if options.hdr_resize:
             args.append("--rangecompress")
         resize = options.resize
         filter_part = f":filter={options.resize_filter}" if options.resize_filter else ":filter=lanczos3"
-        if options.hdr_resize:
+        if options.hdr_resize or options.ocio_round_trip:
             resize = f"{resize}{filter_part}:highlightcomp=1"
         elif options.resize_filter:
             resize = f"{resize}:filter={options.resize_filter}"
         args.extend(["--resize", resize])
         if options.hdr_resize:
             args.append("--rangeexpand")
+        if options.ocio_round_trip:
+            args.extend(["--colorconvert", "ACES - ACEScg", "ACES - ACES2065-1"])
 
     if options.ocio_src and options.ocio_dst:
         args.extend(["--colorconvert", options.ocio_src, options.ocio_dst])
@@ -310,11 +322,47 @@ def frame_result(
     }
 
 
+_AP0_RX = 0.7347
+_AP0_RY = 0.2653
+_AP0_TOLERANCE = 0.01
+
+
+def _detect_ap0(frame_path: Path) -> bool:
+    """Detecta si un frame EXR está en AP0 (ACES2065-1) leyendo sus chromaticities."""
+    try:
+        result = run_command(
+            [str(OIIOTOOL), "--info", "-v", str(frame_path)],
+            env=tool_env(OIIO_DIR),
+            timeout=10,
+        )
+        output = result.stdout + result.stderr
+        if "acesImageContainerFlag" in output:
+            return True
+        m = re.search(r"chromaticities[:\s]+([\d. eE+-]+)", output)
+        if m:
+            vals = [float(v) for v in m.group(1).split()]
+            if len(vals) >= 2:
+                return abs(vals[0] - _AP0_RX) < _AP0_TOLERANCE and abs(vals[1] - _AP0_RY) < _AP0_TOLERANCE
+    except Exception:
+        pass
+    return False
+
+
 def run_tasks(tasks: list[FrameTask], options: ConvertOptions) -> dict[str, Any]:
+    # Auto-activar hdr_resize si el material es AP0 y hay resize — sin intervención manual
+    if options.resize and not options.hdr_resize and not options.ocio_round_trip:
+        if _detect_ap0(tasks[0].src):
+            options = dataclasses.replace(options, hdr_resize=True)
+            print("[LGA_EXR_Convert] AUTO hdr_resize=ON: AP0 detectado + resize activo", file=sys.stderr)
+        else:
+            print("[LGA_EXR_Convert] hdr_resize=OFF: material no es AP0", file=sys.stderr)
+    elif options.hdr_resize and options.resize:
+        print("[LGA_EXR_Convert] hdr_resize=ON (manual)", file=sys.stderr)
+    elif options.ocio_round_trip and options.resize:
+        print("[LGA_EXR_Convert] ocio_round_trip=ON (manual)", file=sys.stderr)
+
     engine = select_engine(options)
     validate_tools(engine, options)
-    if options.hdr_resize and options.resize:
-        print("[LGA_EXR_Convert] hdr_resize=ON: rangecompress + highlightcomp=1 + rangeexpand activos", file=sys.stderr)
     started = time.perf_counter()
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=options.workers) as executor:
@@ -339,6 +387,7 @@ def run_tasks(tasks: list[FrameTask], options: ConvertOptions) -> dict[str, Any]
             "resize": options.resize,
             "resize_filter": options.resize_filter,
             "hdr_resize": options.hdr_resize,
+            "ocio_round_trip": options.ocio_round_trip,
             "ocio_config": options.ocio_config,
             "ocio_src": options.ocio_src,
             "ocio_dst": options.ocio_dst,
@@ -372,6 +421,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing outputs.")
     parser.add_argument("--dry-run", action="store_true", help="Print planned work without converting.")
     parser.add_argument("--hdr-resize", action="store_true", help="HDR-safe resize: rangecompress → resize:highlightcomp=1 → rangeexpand. Evita ringing negativo en AP0/HDR.")
+    parser.add_argument("--ocio-round-trip", action="store_true", help="OCIO round-trip resize: AP0→ACEScg→resize:highlightcomp=1→AP0. Alternativa a hdr-resize sin rangecompress.")
     parser.add_argument("--log-json", type=Path, help="Optional path for full JSON report.")
     return parser.parse_args(argv)
 

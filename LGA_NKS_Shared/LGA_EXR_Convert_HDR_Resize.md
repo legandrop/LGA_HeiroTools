@@ -66,7 +66,7 @@ oiiotool input.exr --rangecompress --resize 2048x1152:filter=lanczos3:highlightc
 
 ---
 
-### Opción B — AP0 → ACEScg → resize → ACEScg → AP0 (round-trip OCIO)
+### Opción B — AP0 → ACEScg → resize → AP0 (round-trip OCIO)
 **Estado: [ ] sin probar**
 
 Recomendación de ACESCentral (Thomas Mansencal y otros). ACEScg/AP1 tiene primarias
@@ -77,11 +77,45 @@ Flujo:
 AP0 input → colorconvert AP0→ACEScg → rangecompress → resize:highlightcomp=1 → rangeexpand → colorconvert ACEScg→AP0 → dwaa
 ```
 
-Requiere OCIO config con los colorspaces correctos. Los nombres de colorspace
-varían por config (ej. "ACES - ACES2065-1" / "ACES - ACEScg" en configs ACES standard).
+#### OCIO config para esta opción
+
+Se creó un config mínimo sin LUT, solo matrices:
+```
+LGA_NKS_Shared/OCIO/aces_ap0_ap1.ocio
+```
+
+- Solo 2 colorspaces: `"ACES - ACES2065-1"` y `"ACES - ACEScg"`
+- Transformación puramente matricial (AP1→AP0: ACES TB-2014-004)
+- Sin archivos LUT — completamente self-contained
+- Compatible con oiiotool OCIO 2.1.2 ✅ (verificado)
+
+**Por qué NO usar los configs de Nuke 17:**
+Los configs `fn-nuke_*` de Nuke 17 son OCIO v2.4 — incompatibles con nuestro
+oiiotool (OCIO 2.1.2). Error explícito al intentar cargarlos.
+
+**Por qué NO copiar el ACES 1.2 de Nuke 15:**
+La carpeta `aces_1.2` pesa 430 MB (LUTs de cámaras que no necesitamos).
+`ACES - ACEScg` en ese config usa un shaper LUT `.spi1d`. Para AP0↔ACEScg
+no necesitamos LUTs — es matriz pura. El config mínimo es la solución correcta.
+
+Comando oiiotool completo:
+```
+oiiotool input.exr
+  --colorconfig "LGA_NKS_Shared/OCIO/aces_ap0_ap1.ocio"
+  --colorconvert "ACES - ACES2065-1" "ACES - ACEScg"
+  --rangecompress
+  --resize 2048x1152:filter=lanczos3:highlightcomp=1
+  --rangeexpand
+  --colorconvert "ACES - ACEScg" "ACES - ACES2065-1"
+  --compression dwaa:quality=45 --nosoftwareattrib
+  -o output.exr
+```
+
+**Nota sobre `--resize:hdr=1`** (ChatGPT lo menciona): este flag NO existe en
+oiiotool. El correcto es `highlightcomp=1`, que ya probamos en Opción A.
 
 **No implementado todavía** en LGA_EXR_Convert.py. Requiere agregar
-`ocio_src_pre` / `ocio_dst_pre` separados del OCIO de salida.
+`ocio_src_pre` / `ocio_dst_pre` separados del OCIO de salida actual.
 
 ---
 
@@ -114,8 +148,9 @@ No implementado en LGA_EXR_Convert.py.
 | # | Opción | Fecha | Resultado | Notas |
 |---|--------|-------|-----------|-------|
 | 1 | A — rangecompress + highlightcomp=1 | 2026-05-08 | ✅ OK | Eliminó los pixeles negativos en material AP0 con highlights extremos |
-| 2 | B — round-trip AP0→ACEScg | — | pendiente | — |
-| 3 | C — filtro gaussian/triangle | — | pendiente | — |
+| 2 | B — round-trip AP0→ACEScg (sin rangecompress) | 2026-05-08 | ❌ Peor que A | Flujo correcto confirmado por log, pero resultado visual inferior a Opción A |
+| 3 | B+A — round-trip AP0→ACEScg + rangecompress | 2026-05-08 | ✅ OK | Similar a A. No supera claramente a A, mayor overhead (~23.5s vs ~21s) |
+| 4 | C — filtro gaussian/triangle | — | pendiente | — |
 
 ---
 
@@ -126,6 +161,24 @@ No implementado en LGA_EXR_Convert.py.
 | `LGA_NKS_Shared/LGA_EXR_Convert.py` | `build_oiiotool_command()` — donde se aplica `hdr_resize`. `ConvertOptions.hdr_resize`. |
 | `LGA_NKS_Shared/LGA_EXR_Convert.MD` | Documentación general de LGA_EXR_Convert |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_transcode.py` | `build_manifest_for_sequence()` — genera el JSON que pasa a LGA_EXR_Convert |
+
+## Decisión final
+
+**Opción A implementada como auto-detección en `LGA_EXR_Convert.py`.**
+
+`hdr_resize` se activa automáticamente cuando:
+1. El primer frame del job tiene chromaticities AP0 (`Rx≈0.7347, Ry≈0.2653`) o `acesImageContainerFlag`
+2. Hay resize (`options.resize is not None`)
+
+Nadie tiene que configurar nada. El manifest no necesita `hdr_resize`. La tool decide sola.
+
+El log de stderr confirma la decisión frame a frame:
+- `AUTO hdr_resize=ON: AP0 detectado + resize activo`
+- `hdr_resize=OFF: material no es AP0`
+
+Los flags `hdr_resize` y `ocio_round_trip` siguen existiendo para override manual vía manifest o CLI.
+
+---
 
 ## Implementación actual (Opción A)
 

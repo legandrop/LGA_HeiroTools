@@ -1,0 +1,35 @@
+ocio_profile_version: 1
+
+description: Minimal OCIO config — AP0 (ACES2065-1) and AP1 (ACEScg) only.
+  Pure matrix transforms, no LUT files needed. For use with oiiotool OCIO 2.1.x.
+  Matrix values from ACES TB-2014-004.
+
+search_path: ""
+strictparsing: false
+
+roles:
+  default: "ACES - ACES2065-1"
+  reference: "ACES - ACES2065-1"
+  scene_linear: "ACES - ACEScg"
+
+colorspaces:
+  - !<ColorSpace>
+    name: "ACES - ACES2065-1"
+    family: ACES
+    description: AP0 linear — reference space. Identity transform.
+    isdata: false
+    allocation: lg2
+    allocationvars: [-8, 5, 0.00390625]
+
+  - !<ColorSpace>
+    name: "ACES - ACEScg"
+    family: ACES
+    description: AP1 linear — ACEScg working space. to_reference = AP1→AP0 matrix.
+    isdata: false
+    allocation: lg2
+    allocationvars: [-8, 5, 0.00390625]
+    to_reference: !<MatrixTransform>
+      matrix: [0.6954522414, 0.1406681165, 0.1638796421, 0,
+               0.0447945634, 0.8596711185, 0.0955343182, 0,
+              -0.0055258826, 0.0040252103, 1.0015006723, 0,
+               0,            0,            0,            1]
