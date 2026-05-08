@@ -1,13 +1,15 @@
 """
 ____________________________________________________________________
 
-  LGA_import_shots v1.02 | Lega
+  LGA_import_shots v1.03 | Lega
 
   Importa shots al proyecto de Nuke Studio.
   Analiza la carpeta _input del shot, detecta plates/editrefs/seqrefs
   y versiones en publish, y los coloca en el timeline en la posicion
   alfabeticamente correcta.
 
+  v1.03: Boton "Import and Create V000" en la pagina de Import Preview.
+         Dialogo no bloqueante (show en lugar de exec_).
   v1.02: In/Out del timeline dentro del bloque de undo; el undo del
          import revierte tambien el cambio de In/Out. Elimina la
          seleccion de clips post-import (reemplazada por la vista).
@@ -3532,6 +3534,16 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._import_now_btn.clicked.connect(self._do_import)
         btn_row.addWidget(self._import_now_btn)
 
+        btn_row.addSpacing(6)
+
+        self._import_and_v000_btn = QtWidgets.QPushButton("Import and Create V000")
+        self._import_and_v000_btn.setStyleSheet(_BTN_PRIMARY)
+        self._import_and_v000_btn.setToolTip(
+            "Importar al timeline y abrir Create V000 al terminar"
+        )
+        self._import_and_v000_btn.clicked.connect(self._do_import_and_v000)
+        btn_row.addWidget(self._import_and_v000_btn)
+
         layout.addLayout(btn_row)
 
         return page
@@ -3911,11 +3923,18 @@ class ImportShotDialog(QtWidgets.QDialog):
         # 3. Poblar la tabla
         self._populate_import_table(data)
 
-        # Habilitar Import Now solo si hay ítems asignados a tracks
+        # Habilitar ambos botones de import solo si hay ítems asignados a tracks
         has_assigned = bool(items_by_track)
-        self._import_now_btn.setEnabled(has_assigned)
-        self._import_now_btn.setToolTip(
+        _import_tip = (
             "Importar al bin y colocar en el timeline"
+            if has_assigned else
+            "No hay ítems con track asignado para importar"
+        )
+        self._import_now_btn.setEnabled(has_assigned)
+        self._import_now_btn.setToolTip(_import_tip)
+        self._import_and_v000_btn.setEnabled(has_assigned)
+        self._import_and_v000_btn.setToolTip(
+            "Importar al timeline y abrir Create V000 al terminar"
             if has_assigned else
             "No hay ítems con track asignado para importar"
         )
@@ -4324,6 +4343,18 @@ class ImportShotDialog(QtWidgets.QDialog):
             debug_print("_do_import: %d ítems importados correctamente" % placed)
 
         self.accept()
+
+        # ── Lanzar Create V000 si fue pedido ──────────────────────────────────
+        # Se ejecuta con QTimer(0) para que el diálogo esté completamente cerrado
+        # antes de que CreateV000 abra su propia ventana.
+        if getattr(self, "_pending_create_v000", False):
+            debug_print("_do_import: lanzando CreateV000 post-import")
+            QtCore.QTimer.singleShot(0, _launch_create_v000)
+
+    def _do_import_and_v000(self):
+        """Marca que CreateV000 debe lanzarse al terminar y ejecuta el import normal."""
+        self._pending_create_v000 = True
+        self._do_import()
 
     def _on_res_preset_changed(self, idx):
         preset = self._res_presets[idx][1] if 0 <= idx < len(self._res_presets) else None
@@ -5186,6 +5217,36 @@ class ImportShotDialog(QtWidgets.QDialog):
 
 
 # ══════════════════════════════════════════════════════════════════
+#  Singleton del diálogo (patrón no-bloqueante, igual que CreateV000)
+# ══════════════════════════════════════════════════════════════════
+
+_import_shot_dialog_instance = None
+
+
+def _clear_import_dialog(*_):
+    """Libera la referencia global al diálogo cuando se cierra."""
+    global _import_shot_dialog_instance
+    _import_shot_dialog_instance = None
+
+
+def _launch_create_v000():
+    """
+    Llama a LGA_NKS_CreateV000.main() tal como lo hace el Edit Panel.
+    Se invoca desde QTimer.singleShot(0, ...) para que el diálogo de import
+    esté completamente cerrado antes de que CreateV000 abra su ventana.
+    """
+    try:
+        _cv0_key = "LGA_NKS_Edit_Panel_py.LGA_NKS_CreateV000"
+        if _cv0_key in sys.modules:
+            del sys.modules[_cv0_key]
+        _cv0 = importlib.import_module(_cv0_key)
+        _cv0.main()
+        debug_print("_launch_create_v000: CreateV000 abierto")
+    except Exception as exc:
+        debug_print("_launch_create_v000: error → %s" % exc, level="warning")
+
+
+# ══════════════════════════════════════════════════════════════════
 #  Entry point
 # ══════════════════════════════════════════════════════════════════
 
@@ -5249,7 +5310,9 @@ def main():
         insert_frame, frames_to_push, max_frames,
         prev_shot_name or "", next_shot_name or ""))
 
-    # Abrir dialogo
+    # Abrir dialogo (no bloqueante — igual que CreateV000)
+    global _import_shot_dialog_instance
+
     parent = hiero.ui.mainWindow() if hasattr(hiero.ui, "mainWindow") else None
     dlg = ImportShotDialog(
         shot_root, shot_name, seq,
@@ -5258,7 +5321,12 @@ def main():
         input_items, publish_items,
         parent=parent,
     )
-    dlg.exec_()
+    dlg.finished.connect(_clear_import_dialog)
+    dlg.destroyed.connect(_clear_import_dialog)
+    _import_shot_dialog_instance = dlg
+    dlg.show()
+    dlg.raise_()
+    dlg.activateWindow()
 
 
 if __name__ == "__main__":
