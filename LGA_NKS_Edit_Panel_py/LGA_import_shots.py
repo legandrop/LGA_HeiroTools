@@ -2937,7 +2937,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         btn_row.addWidget(_oq_btn)
         btn_row.addSpacing(8)
         btn_row.addWidget(_status_lbl, 1)
-        self._rename_back_btn = QtWidgets.QPushButton("← Go Back")
+        self._rename_back_btn = QtWidgets.QPushButton("Go Back")
         self._rename_back_btn.setStyleSheet(_BTN_SECONDARY)
         self._rename_back_btn.clicked.connect(lambda: self._show_page(self.PAGE_MEDIA))
         btn_row.addWidget(self._rename_back_btn)
@@ -3762,7 +3762,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         btn_row.addWidget(_oq_btn)
         btn_row.addSpacing(8)
         btn_row.addWidget(_status_lbl, 1)
-        self._go_back_btn = QtWidgets.QPushButton("← Go Back")
+        self._go_back_btn = QtWidgets.QPushButton("Go Back")
         self._go_back_btn.setStyleSheet(_BTN_SECONDARY)
         self._go_back_btn.clicked.connect(lambda: self._show_page(self.PAGE_MEDIA))
         btn_row.addWidget(self._go_back_btn)
@@ -3870,7 +3870,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         btn_row.addSpacing(8)
         btn_row.addWidget(_status_lbl, 1)
 
-        self._import_back_btn = QtWidgets.QPushButton("← Go Back")
+        self._import_back_btn = QtWidgets.QPushButton("Go Back")
         self._import_back_btn.setStyleSheet(_BTN_SECONDARY)
         self._import_back_btn.clicked.connect(lambda: self._show_page(self.PAGE_MEDIA))
         btn_row.addWidget(self._import_back_btn)
@@ -5405,6 +5405,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._transcode_active = True
         self._start_transcode_btn.setEnabled(False)
         self._go_back_btn.setEnabled(False)
+        self._go_back_btn.setText("Transcoding, wait...")
         self._convert_log.clear()
 
         self._transcode_results_all = []
@@ -5681,6 +5682,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._transcode_active = False
         self._start_transcode_btn.setEnabled(True)
         self._go_back_btn.setEnabled(True)
+        self._go_back_btn.setText("Go Back")
         self._update_transcode_btn_state()
         self._transcode_happened = True  # para triggerar refresh al volver a PAGE_MEDIA
         debug_print("Transcode all_done — %d/%d OK" % (ok_count, total))
