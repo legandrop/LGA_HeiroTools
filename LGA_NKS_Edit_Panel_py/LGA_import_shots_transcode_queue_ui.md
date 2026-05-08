@@ -1,5 +1,5 @@
 > **Regla de documentacion**: este archivo describe la UI prevista para `LGA_import_shots_transcode_queue_ui.py`. No es un historial de cambios.
-> **Estado general**: pendiente de implementacion y test en Hiero.
+> **Estado general**: implementado, pendiente de test en Hiero.
 
 # UI - Open Queue
 

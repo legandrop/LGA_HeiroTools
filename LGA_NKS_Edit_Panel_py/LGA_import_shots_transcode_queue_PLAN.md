@@ -172,7 +172,7 @@ Resultado validado:
 
 ---
 
-## Etapa 4 - Estado global visible en todas las paginas {implementada, pendiente de test en Hiero}
+## Etapa 4 - Estado global visible en todas las paginas {implementada y testeada en Hiero}
 
 Objetivo: agregar una franja de estado global consistente en las paginas importantes del
 dialogo.
@@ -238,7 +238,7 @@ Resultado testeable:
 
 ---
 
-## Etapa 5 - Boton Open Queue y ventana de cola {pendiente}
+## Etapa 5 - Boton Open Queue y ventana de cola {implementada, pendiente de test en Hiero}
 
 Objetivo: dar visibilidad completa del orden global de jobs.
 

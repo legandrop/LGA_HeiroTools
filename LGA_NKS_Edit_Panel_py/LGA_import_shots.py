@@ -74,6 +74,19 @@ def _has_visible_import_shot_dialogs():
     return False
 
 
+def _has_visible_transcode_queue_window():
+    app = QtWidgets.QApplication.instance()
+    if not app:
+        return False
+    for widget in app.topLevelWidgets():
+        try:
+            if widget.objectName() == "LGA_TranscodeQueueWindow" and widget.isVisible():
+                return True
+        except Exception:
+            continue
+    return False
+
+
 # During tool development, force the helper to reload on every panel execution.
 _TRANSCODE_HELPER = "LGA_NKS_Edit_Panel_py.LGA_import_shots_transcode"
 if _TRANSCODE_HELPER in sys.modules:
@@ -106,6 +119,26 @@ _SETTINGS_HELPER = "LGA_NKS_Edit_Panel_py.LGA_import_shots_settings"
 if _SETTINGS_HELPER in sys.modules:
     del sys.modules[_SETTINGS_HELPER]
 settings_mod = importlib.import_module(_SETTINGS_HELPER)
+
+_TRANSCODE_QUEUE_UI_HELPER = "LGA_NKS_Edit_Panel_py.LGA_import_shots_transcode_queue_ui"
+_queue_ui_had_visible_windows = (
+    _has_visible_import_shot_dialogs() or _has_visible_transcode_queue_window()
+)
+_queue_ui_reloaded = False
+if _TRANSCODE_QUEUE_UI_HELPER in sys.modules and not _queue_ui_had_visible_windows:
+    del sys.modules[_TRANSCODE_QUEUE_UI_HELPER]
+    _queue_ui_reloaded = True
+transcode_queue_ui_mod = importlib.import_module(_TRANSCODE_QUEUE_UI_HELPER)
+show_transcode_queue_window = transcode_queue_ui_mod.show_queue_window
+try:
+    transcode_queue_mod.debug_print(
+        "queue UI helper import mode: %s (visible_windows=%s)" % (
+            "reloaded" if _queue_ui_reloaded else "reused/imported",
+            _queue_ui_had_visible_windows,
+        )
+    )
+except Exception:
+    pass
 
 _RENAME_SETTINGS_HELPER = "LGA_NKS_Edit_Panel_py.LGA_import_shots_rename_settings"
 if _RENAME_SETTINGS_HELPER in sys.modules:
@@ -1585,6 +1618,7 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         open_queue_btn = QtWidgets.QPushButton("Open Queue")
         open_queue_btn.setStyleSheet(_BTN_SMALL)
+        open_queue_btn.clicked.connect(self._show_transcode_queue_window)
 
         buttons_row.addWidget(show_btn)
         buttons_row.addWidget(open_queue_btn)
@@ -1630,6 +1664,16 @@ class ImportShotDialog(QtWidgets.QDialog):
             "post": post_lbl,
         })
         return buttons, box
+
+    def _show_transcode_queue_window(self):
+        try:
+            show_transcode_queue_window(
+                self._transcode_manager,
+                parent=None,
+                focus_window_callback=self._focus_import_shot_window,
+            )
+        except Exception as exc:
+            debug_print("show transcode queue window error: %s" % exc, level="warning")
 
     def _show_import_shot_windows(self):
         app = QtWidgets.QApplication.instance()

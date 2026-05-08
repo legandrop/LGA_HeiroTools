@@ -16,7 +16,7 @@ misma sesion de Hiero/Nuke Studio.
 El objetivo es conservar la cola local por ventana/shot, pero agregar una autoridad global
 que decida que secuencia se procesa en cada momento.
 
-> Estado general: **Etapas 1, 2 y 3 implementadas y testeadas en Hiero/Nuke Studio**.
+> Estado general: **Etapas 1, 2, 3, 4 y 4.5 implementadas y testeadas en Hiero/Nuke Studio**. **Etapa 5 implementada, pendiente de test en Hiero**.
 
 ---
 
@@ -260,7 +260,7 @@ Accion:
 
 ---
 
-## Boton Open Queue (pendiente de implementacion y test)
+## Boton Open Queue (implementado, pendiente de test en Hiero)
 
 Junto al texto de estado global se agregara un boton pequeno estilo selector rapido:
 
@@ -279,7 +279,7 @@ Accion:
 
 ---
 
-## Modulo UI de Open Queue (pendiente de implementacion y test)
+## Modulo UI de Open Queue (implementado, pendiente de test en Hiero)
 
 La ventana de cola debe vivir en un modulo propio para mantener separadas las
 responsabilidades:
@@ -328,7 +328,7 @@ ahi vive la cola real.
 
 ---
 
-## Ventana de cola global (pendiente de implementacion y test)
+## Ventana de cola global (implementada, pendiente de test en Hiero)
 
 Detalle visual y tecnico: [`LGA_import_shots_transcode_queue_ui.md`](LGA_import_shots_transcode_queue_ui.md).
 

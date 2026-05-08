@@ -260,6 +260,10 @@ class TranscodeQueueManager(QtCore.QObject):
                 "cancelled": True,
                 "name": seq_name,
                 "job_id": job["job_id"],
+                "window_id": job.get("window_id"),
+                "shot_name": job.get("shot_name"),
+                "frame_count": (job.get("item") or {}).get("frame_count"),
+                "source_fps": (job.get("item") or {}).get("fps"),
             }
             self._results_by_window.setdefault(job["window_id"], []).append(result)
             self.job_cancelled.emit(job["window_id"], job["row_i"], result)
@@ -280,6 +284,10 @@ class TranscodeQueueManager(QtCore.QObject):
                 "error": str(exc),
                 "name": seq_name,
                 "job_id": job["job_id"],
+                "window_id": job.get("window_id"),
+                "shot_name": job.get("shot_name"),
+                "frame_count": (job.get("item") or {}).get("frame_count"),
+                "source_fps": (job.get("item") or {}).get("fps"),
             }
             self._results_by_window.setdefault(job["window_id"], []).append(result)
             self.job_cancelled.emit(job["window_id"], job["row_i"], result)
@@ -331,17 +339,25 @@ class TranscodeQueueManager(QtCore.QObject):
         self.log_message.emit(window_id, msg)
 
     def _on_sequence_started(self, window_id, row_i, dst_dir, total_frames):
+        if self._active_job:
+            self._active_job["dst_dir"] = dst_dir
+            self._active_job["total_frames"] = total_frames
         debug_print(
             "sequence_started window=%s row=%s dst=%s total=%s"
             % (window_id, row_i, dst_dir, total_frames)
         )
         self.sequence_started.emit(window_id, row_i, dst_dir, total_frames)
+        self._emit_queue_changed()
 
     def _on_sequence_done(self, window_id, row_i, ok, stats):
         stats = dict(stats or {})
         if self._active_job:
             stats["job_id"] = self._active_job.get("job_id")
             stats["name"] = self._active_job.get("name")
+            stats["window_id"] = self._active_job.get("window_id")
+            stats["shot_name"] = self._active_job.get("shot_name")
+            stats["frame_count"] = stats.get("frame_count") or (self._active_job.get("item") or {}).get("frame_count")
+            stats["source_fps"] = (self._active_job.get("item") or {}).get("fps")
         debug_print("sequence_done window=%s row=%s ok=%s stats=%s" % (window_id, row_i, ok, stats))
         self.sequence_done.emit(window_id, row_i, ok, stats)
 
@@ -399,6 +415,10 @@ class TranscodeQueueManager(QtCore.QObject):
                 "cancelled": True,
                 "name": job.get("name"),
                 "job_id": job.get("job_id"),
+                "window_id": job.get("window_id"),
+                "shot_name": job.get("shot_name"),
+                "frame_count": (job.get("item") or {}).get("frame_count"),
+                "source_fps": (job.get("item") or {}).get("fps"),
                 "closed_window": True,
             }
             results.append(result)
@@ -440,6 +460,9 @@ class TranscodeQueueManager(QtCore.QObject):
             "status": status,
             "position": position,
             "frame_count": (job.get("item") or {}).get("frame_count"),
+            "source_fps": (job.get("item") or {}).get("fps"),
+            "dst_dir": job.get("dst_dir"),
+            "total_frames": job.get("total_frames"),
         }
 
 
