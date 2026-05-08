@@ -192,29 +192,26 @@ El transcode nunca debe dejar un plate sin EXR fuente recuperable. Antes de toca
 en `item_path` o `_input/Originals/<plate>/`, la herramienta debe aplicar estas guardas:
 
 - Hacer un preflight por job con conteo de EXR en `item_path` y en
-  `_input/Originals/<plate>/`. (implementado, pendiente de test en Hiero)
+  `_input/Originals/<plate>/`. (implementado y testeado en Hiero)
 - Si ambos conteos son `0`, abortar el job antes de borrar o mover archivos y registrar el
-  error con paths absolutos. (implementado, pendiente de test en Hiero)
+  error con paths absolutos. (implementado y testeado en Hiero)
 - No borrar nunca la ultima copia conocida de EXR: si solo existe una fuente valida, primero
-  debe quedar confirmada otra copia o destino valido antes de eliminarla. (implementado,
-  pendiente de test en Hiero)
+  debe quedar confirmada otra copia o destino valido antes de eliminarla. (implementado y testeado en Hiero)
 - En re-transcode con `Originals` existente, restaurar primero los EXR de
   `_input/Originals/<plate>/` a `item_path` y verificar que `item_path` vuelve a tener frames
-  antes de eliminar la carpeta `Originals/<plate>`. (implementado, pendiente de test en Hiero)
+  antes de eliminar la carpeta `Originals/<plate>`. (implementado y testeado en Hiero)
 - Antes de borrar outputs convertidos en `item_path`, confirmar que existe una fuente segura
   en `_input/Originals/<plate>/` o que `item_path` conserva EXR fuente que no seran tocados.
-  (implementado, pendiente de test en Hiero)
+  (implementado y testeado en Hiero)
 - Si `Borrar /Originals al terminar` esta activo, borrar `Originals/<plate>` solo despues de
-  validar que el transcode termino OK y que el output final tiene EXR. (implementado,
-  pendiente de test en Hiero)
+  validar que el transcode termino OK y que el output final tiene EXR. (implementado y testeado en Hiero)
 - Validar rutas antes de cualquier `rmtree`: la ruta resuelta debe estar dentro de
   `_input/Originals/<plate>/` o del output esperado del job, nunca en `_input`, en el shot root
-  ni en una carpeta comun. (implementado, pendiente de test en Hiero)
+  ni en una carpeta comun. (implementado y testeado en Hiero)
 - Si falla una restauracion, move o delete parcial, abortar el job, registrar conteos antes y
-  despues, y no continuar con el siguiente paso destructivo. (implementado, pendiente de test en Hiero)
+  despues, y no continuar con el siguiente paso destructivo. (implementado y testeado en Hiero)
 - Guardar en el log una linea de snapshot por job con `item_path`, `originals_dir`,
-  `item_exr_count`, `originals_exr_count`, accion elegida y resultado. (implementado,
-  pendiente de test en Hiero)
+  `item_exr_count`, `originals_exr_count`, accion elegida y resultado. (implementado y testeado en Hiero)
 
 ### Solución QSpinBox — `_ArrowSpinBox` (ganadora, implementada)
 

@@ -172,7 +172,7 @@ Resultado validado:
 
 ---
 
-## Etapa 4 - Estado global visible en todas las paginas {pendiente}
+## Etapa 4 - Estado global visible en todas las paginas {implementada, pendiente de test en Hiero}
 
 Objetivo: agregar una franja de estado global consistente en las paginas importantes del
 dialogo.
@@ -202,7 +202,7 @@ Resultado testeable:
 
 ---
 
-## Etapa 4.5 - Guardas de filesystem para transcode {implementada, pendiente de test en Hiero}
+## Etapa 4.5 - Guardas de filesystem para transcode {implementada y testeada en Hiero}
 
 Objetivo: evitar que un bug de overwrite, restore o delete deje un plate sin EXR fuente
 recuperable.

@@ -1532,6 +1532,19 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._content_area = QtWidgets.QStackedWidget()
         self._root_layout.addWidget(self._content_area, 1)
 
+        # Footer global de transcode — visible en todas las páginas
+        self._root_layout.addWidget(_separator())
+        _footer_row = QtWidgets.QHBoxLayout()
+        _footer_row.setContentsMargins(0, 2, 0, 2)
+        _footer_row.setSpacing(6)
+        self._global_status_lbl = QtWidgets.QLabel("Transcode: idle")
+        self._global_status_lbl.setStyleSheet("color:#888888; padding:0px;")
+        _footer_row.addWidget(self._global_status_lbl, 1)
+        self._open_queue_btn = QtWidgets.QPushButton("Open Queue")
+        self._open_queue_btn.setStyleSheet(_BTN_SMALL)
+        _footer_row.addWidget(self._open_queue_btn)
+        self._root_layout.addLayout(_footer_row)
+
         self._page_media   = self._build_page_media()
         self._page_rename  = self._build_page_rename()
         self._page_convert = self._build_page_convert()
@@ -1563,6 +1576,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         except Exception as exc:
             debug_print("TranscodeQueueManager open log error: %s" % exc, level="warning")
         debug_print("TranscodeQueueManager conectado window_id=%s" % self._window_id)
+        self._update_global_status_label(mgr.snapshot())
 
     def closeEvent(self, event):
         debug_print(
@@ -5336,22 +5350,53 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._on_transcode_error(msg)
 
     def _on_global_transcode_queue_changed(self, snapshot):
-        """Actualiza etiquetas de fila segun la cola global."""
-        if not hasattr(self, "_convert_table"):
+        """Actualiza etiquetas de fila y footer global segun la cola global."""
+        if hasattr(self, "_convert_table"):
+            for job in snapshot:
+                if job.get("window_id") != self._window_id:
+                    continue
+                row_i = job.get("row_i")
+                if row_i is None or row_i >= self._convert_table.rowCount():
+                    continue
+                status = job.get("status")
+                if status == "queued":
+                    pos = job.get("position") or 0
+                    self._set_convert_status(row_i, "%d en fila" % pos, _CLR_STATUS_PENDING)
+                elif status in ("running", "starting"):
+                    if not (hasattr(self, "_transcode_pbars") and row_i in self._transcode_pbars):
+                        self._set_convert_status(row_i, "Procesando", _CLR_STATUS_PENDING)
+
+        self._update_global_status_label(snapshot)
+
+    def _update_global_status_label(self, snapshot):
+        if not hasattr(self, "_global_status_lbl"):
             return
-        for job in snapshot:
-            if job.get("window_id") != self._window_id:
-                continue
-            row_i = job.get("row_i")
-            if row_i is None or row_i >= self._convert_table.rowCount():
-                continue
-            status = job.get("status")
-            if status == "queued":
-                pos = job.get("position") or 0
-                self._set_convert_status(row_i, "%d en fila" % pos, _CLR_STATUS_PENDING)
-            elif status in ("running", "starting"):
-                if not (hasattr(self, "_transcode_pbars") and row_i in self._transcode_pbars):
-                    self._set_convert_status(row_i, "Procesando", _CLR_STATUS_PENDING)
+        active = next((j for j in snapshot if j.get("status") in ("running", "starting")), None)
+        pending = [j for j in snapshot if j.get("status") == "queued"]
+
+        if not active and not pending:
+            self._global_status_lbl.setText("Transcode: idle")
+            self._global_status_lbl.setStyleSheet("color:#888888; padding:0px;")
+            return
+
+        if active:
+            shot = active.get("shot_name", "")
+            name = active.get("name", "")
+            label = ("%s / %s" % (shot, name)) if shot else name
+            own_pending = sum(1 for j in pending if j.get("window_id") == self._window_id)
+            total_pending = len(pending)
+            if own_pending:
+                suffix = " — esta ventana tiene %d en fila" % own_pending
+            elif total_pending:
+                suffix = " — %d en fila" % total_pending
+            else:
+                suffix = ""
+            text = "Transcode: %s convirtiendo%s" % (label, suffix)
+        else:
+            text = "Transcode: %d en fila" % len(pending)
+
+        self._global_status_lbl.setText(text)
+        self._global_status_lbl.setStyleSheet("color:%s; padding:0px;" % _CLR_STATUS_PENDING)
 
     def _set_convert_status(self, row_i, text, color):
         if not hasattr(self, "_convert_table") or row_i >= self._convert_table.rowCount():
