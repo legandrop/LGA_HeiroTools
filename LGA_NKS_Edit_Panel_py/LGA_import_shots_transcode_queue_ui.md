@@ -169,6 +169,8 @@ Reglas:
 
 - Los jobs activos y pendientes siempre vienen del snapshot del manager.
 - Los completados se agregan al historial de la UI cuando llegan senales del manager.
+- Cuando un job pasa a `Terminado`, `Error` o `Cancelado`, queda en la misma posicion visual
+  en la que estaba; la tabla no mueve completados al final.
 - `Clear Completed` borra solo ese historial visual.
 - `Clear Completed` no modifica el manager ni la cola real.
 

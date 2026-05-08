@@ -316,6 +316,8 @@ Detalle visual y tecnico: [`LGA_import_shots_transcode_queue_ui.md`](LGA_import_
 La ventana `Import Shots - Transcode Queue` muestra una tabla unica, en orden global, con todos los jobs
 activos/pendientes y un historial visual de jobs completados mientras la ventana este
 abierta.
+Los jobs completados conservan su posicion visual original: no se mueven al final al
+terminar.
 
 La UI debe respetar la estetica de `Import Shot`: fondo `#2B2B2B`, tablas oscuras,
 bordes sobrios, tipografia y botones pequenos consistentes con los controles existentes.

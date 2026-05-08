@@ -182,6 +182,7 @@ class TranscodeQueueWindow(QtWidgets.QDialog):
         self.manager = manager
         self.focus_window_callback = focus_window_callback
         self._completed = {}
+        self._row_order = []
         self._progress_timers = {}
         self._progress_bars = {}
         self._progress_dirs = {}
@@ -329,6 +330,8 @@ class TranscodeQueueWindow(QtWidgets.QDialog):
 
     def _clear_completed(self):
         self._completed.clear()
+        live_keys = set(_job_key(j) for j in self._last_snapshot)
+        self._row_order = [k for k in self._row_order if k in live_keys]
         self._render(self._last_snapshot)
 
     def _on_sequence_started(self, window_id, row_i, dst_dir, total_frames):
@@ -374,9 +377,18 @@ class TranscodeQueueWindow(QtWidgets.QDialog):
 
     def _render(self, snapshot):
         self._last_snapshot = [dict(j) for j in (snapshot or [])]
-        live_keys = set(_job_key(j) for j in self._last_snapshot)
-        completed = [j for k, j in self._completed.items() if k not in live_keys]
-        rows = list(self._last_snapshot) + completed
+        live_by_key = {_job_key(j): j for j in self._last_snapshot}
+        all_known = dict(self._completed)
+        all_known.update(live_by_key)
+        for job in self._last_snapshot:
+            key = _job_key(job)
+            if key not in self._row_order:
+                self._row_order.append(key)
+        for key in self._completed:
+            if key not in self._row_order:
+                self._row_order.append(key)
+        self._row_order = [key for key in self._row_order if key in all_known]
+        rows = [all_known[key] for key in self._row_order]
         self._stop_progress_timers()
 
         self.table.setRowCount(len(rows))
