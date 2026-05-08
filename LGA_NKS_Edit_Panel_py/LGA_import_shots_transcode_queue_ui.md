@@ -54,7 +54,7 @@ Shot          Plate                  Duracion      Estado
 TEST_014_010  TEST_014_010_aPlate... 184f - 7.7s  [barra progreso]
 TEST_014_010  TEST_014_010_bPlate... 184f - 7.7s  1 en fila
 TEST_014_020  TEST_014_020_aPlate... 78f - 3.3s   2 en fila
-TEST_014_020  TEST_014_020_bPlate... 484f - 20.2s Terminado
+TEST_014_020  TEST_014_020_bPlate... 484f - 20.2s DONE (18.6s)
 ────────────────────────────────────────────────────────
 [Show All Import Windows] [Clear Completed]            ☐ Keep this window on top
 ```
@@ -76,7 +76,7 @@ La tabla debe usar una estetica similar a la tabla de la seccion Convert:
 | Shot | Nombre del shot como boton plano clickeable |
 | Plate | Nombre de secuencia |
 | Duracion | Frames y segundos, por ejemplo `484f - 20.2s` |
-| Estado | Barra de progreso, `N en fila`, `Terminado`, `Error` o `Cancelado` |
+| Estado | Barra de progreso, `N en fila`, `DONE (Xs)`, `Error` o `Cancelado` |
 
 No se agrega columna `Pos`: la posicion global se comunica dentro de `Estado` con
 `N en fila`. El job activo se identifica por la barra de progreso.
@@ -152,7 +152,7 @@ Estados previstos:
 |---------------|----|
 | running / starting | Barra de progreso identica a la tabla Convert |
 | queued | `N en fila`, mismo estilo que la tabla Convert |
-| done | `Terminado`, verde como estado listo |
+| done | `DONE (Xs)`, verde como estado listo. El tiempo sale de `elapsed_seconds` emitido por el worker |
 | error | `Error`, rojo |
 | cancelled | `Cancelado`, rojo/gris segun convenga visualmente |
 
@@ -162,14 +162,14 @@ La barra de progreso debe reutilizar la logica visual de la tabla Convert todo l
 
 ## Historial Visual
 
-El manager global provee activo y pendientes. Para mostrar `Terminado`, `Error` y
+El manager global provee activo y pendientes. Para mostrar `DONE`, `Error` y
 `Cancelado`, la primera version puede mantener un historial visual dentro de la ventana UI.
 
 Reglas:
 
 - Los jobs activos y pendientes siempre vienen del snapshot del manager.
 - Los completados se agregan al historial de la UI cuando llegan senales del manager.
-- Cuando un job pasa a `Terminado`, `Error` o `Cancelado`, queda en la misma posicion visual
+- Cuando un job pasa a `DONE`, `Error` o `Cancelado`, queda en la misma posicion visual
   en la que estaba; la tabla no mueve completados al final.
 - `Clear Completed` borra solo ese historial visual.
 - `Clear Completed` no modifica el manager ni la cola real.
@@ -191,7 +191,7 @@ Reglas:
 
 `Clear Completed`:
 
-- Borra filas con estado `Terminado`, `Error` o `Cancelado`.
+- Borra filas con estado `DONE`, `Error` o `Cancelado`.
 - No borra jobs activos ni pendientes.
 
 `Keep this window on top`:

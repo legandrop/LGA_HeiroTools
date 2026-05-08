@@ -342,7 +342,7 @@ Columnas sugeridas:
 | Shot | Nombre del shot como boton plano; alterna `SHOTNAME_COLOR` / `SHOTNAME_COLOR_ALT` cuando cambia el shot |
 | Plate | Nombre de secuencia, con el mismo criterio visual que la columna Nombre de la tabla Convert |
 | Duracion | `484f - 20.2s`, con el mismo color de frames/segundos usado en Convert |
-| Estado | Barra de progreso para activo, `N en fila` para pendiente, `Terminado`, `Error`, `Cancelado` |
+| Estado | Barra de progreso para activo, `N en fila` para pendiente, `DONE (Xs)`, `Error`, `Cancelado` |
 
 Primera version recomendada:
 

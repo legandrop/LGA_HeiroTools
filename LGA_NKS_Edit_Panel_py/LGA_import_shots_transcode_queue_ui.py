@@ -160,6 +160,16 @@ def _duration_text(frame_count, fps):
     return "%df" % frames
 
 
+def _elapsed_text(seconds):
+    try:
+        elapsed = float(seconds)
+    except Exception:
+        elapsed = 0.0
+    if elapsed <= 0.0:
+        return ""
+    return "%.1fs" % elapsed
+
+
 def _make_html_label(html):
     lbl = QtWidgets.QLabel(html)
     lbl.setTextFormat(QtCore.Qt.RichText)
@@ -465,7 +475,8 @@ class TranscodeQueueWindow(QtWidgets.QDialog):
             text = "%d en fila" % int(job.get("position") or 0)
             color = _CLR_PENDING
         elif status == "done":
-            text = "Terminado"
+            elapsed = _elapsed_text(job.get("elapsed_seconds"))
+            text = "DONE (%s)" % elapsed if elapsed else "DONE"
             color = _CLR_DONE
         elif status == "cancelled":
             text = "Cancelado"
