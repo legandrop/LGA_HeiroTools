@@ -202,6 +202,38 @@ Resultado testeable:
 
 ---
 
+## Etapa 4.5 - Guardas de filesystem para transcode {implementada, pendiente de test en Hiero}
+
+Objetivo: evitar que un bug de overwrite, restore o delete deje un plate sin EXR fuente
+recuperable.
+
+```text
+{
+  implementar preflight por job con conteos de EXR en item_path y Originals/<plate>,
+  abortar antes de tocar archivos si no existe ninguna fuente EXR,
+  impedir borrar la ultima copia conocida de un plate,
+  restaurar Originals/<plate> a item_path antes de re-transcode y verificar conteo,
+  validar rutas resueltas antes de cualquier delete/rmtree,
+  borrar Originals/<plate> al terminar solo si el output final tiene EXR,
+  registrar snapshots before/after en el log del worker y/o manager,
+  documentar los resultados en LGA_import_shots_transcode.md
+}
+```
+
+Resultado testeable:
+
+```text
+{
+  correr re-transcode con Originals existente,
+  correr overwrite con item_path convertido y Originals fuente,
+  probar caso sin EXR en item_path ni Originals y confirmar que aborta sin borrar nada,
+  probar Borrar /Originals al terminar y confirmar que solo borra despues de output OK,
+  revisar logs con conteos y paths absolutos
+}
+```
+
+---
+
 ## Etapa 5 - Boton Open Queue y ventana de cola {pendiente}
 
 Objetivo: dar visibilidad completa del orden global de jobs.

@@ -5261,9 +5261,18 @@ class ImportShotDialog(QtWidgets.QDialog):
                 proceed  = show_overwrite_warning(seq_name, conflict_desc, parent=self)
                 if not proceed:
                     continue  # saltar esta secuencia, probar la siguiente
-                delete_existing_outputs(
-                    item, flags["test_mode"], flags["move_originals"]
-                )
+                try:
+                    delete_existing_outputs(
+                        item,
+                        flags["test_mode"],
+                        flags["move_originals"],
+                        log_fn=lambda msg: debug_print("transcode cleanup %s" % msg),
+                    )
+                except Exception as exc:
+                    self._set_convert_status(row_i, "✗ Error", _CLR_STATUS_ERROR)
+                    self._append_log("Cleanup abortado: %s" % exc)
+                    debug_print("transcode cleanup failed: %s" % exc)
+                    continue
 
             # Lanzar worker para esta única secuencia
             worker = TranscodeWorker(

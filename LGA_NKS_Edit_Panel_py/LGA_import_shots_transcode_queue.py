@@ -266,9 +266,26 @@ class TranscodeQueueManager(QtCore.QObject):
             debug_print("job cancelled by user id=%s" % job["job_id"], level="warning")
             return False
 
-        deleted = delete_existing_outputs(
-            item, flags.get("test_mode", False), flags.get("move_originals", True)
-        )
+        try:
+            deleted = delete_existing_outputs(
+                item,
+                flags.get("test_mode", False),
+                flags.get("move_originals", True),
+                log_fn=lambda msg: debug_print("conflict cleanup job=%s %s" % (job["job_id"], msg)),
+            )
+        except Exception as exc:
+            result = {
+                "row_i": job["row_i"],
+                "ok": False,
+                "error": str(exc),
+                "name": seq_name,
+                "job_id": job["job_id"],
+            }
+            self._results_by_window.setdefault(job["window_id"], []).append(result)
+            self.job_cancelled.emit(job["window_id"], job["row_i"], result)
+            debug_print("conflict cleanup failed job=%s error=%s" % (job["job_id"], exc), level="error")
+            return False
+
         debug_print("conflict cleanup job=%s deleted=%s" % (job["job_id"], deleted))
         return True
 

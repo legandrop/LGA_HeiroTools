@@ -444,6 +444,8 @@ Eventos minimos:
   resolver conflictos antes de encolar desde la ventana de origen.
 - En re-transcode, si existe `_input/Originals/<plate>/`, esos EXR son la fuente original:
   el overwrite debe restaurarlos a `item_path` antes de relanzar el worker, no borrarlos.
+  Este flujo ya tiene preflight, restore verificado, validacion de rutas y postflight de
+  output implementados; queda pendiente validarlo en Hiero con casos reales.
 - Si se permite cancelar jobs activos mas adelante, habra que agregar soporte explicito
   para terminar subprocess y restaurar originales con seguridad.
 - `QThreadPool.globalInstance()` puede ejecutar otros jobs de la aplicacion; el manager

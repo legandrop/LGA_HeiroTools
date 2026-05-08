@@ -20,6 +20,7 @@ Uso:
 from __future__ import annotations
 
 import json
+import os
 import platform
 import shutil
 import subprocess
@@ -126,6 +127,51 @@ def build_manifest_for_sequence(
 
 # ── Pre-transcode helpers (file-system + UI) ──────────────────────────────────
 
+def _exr_count(path: Path) -> int:
+    return sum(1 for _ in Path(path).glob("*.exr")) if Path(path).exists() else 0
+
+
+def _resolved(path: Path) -> Path:
+    return Path(path).resolve()
+
+
+def _is_inside(child: Path, parent: Path) -> bool:
+    child_s = str(_resolved(child)).lower()
+    parent_s = str(_resolved(parent)).lower().rstrip("\\/")
+    return child_s == parent_s or child_s.startswith(parent_s + "\\") or child_s.startswith(parent_s + "/")
+
+
+def _ensure_safe_child(path: Path, parent: Path, label: str) -> None:
+    if _resolved(path) == _resolved(parent) or not _is_inside(path, parent):
+        raise RuntimeError(
+            "Ruta insegura para %s: path=%s parent=%s" % (label, _resolved(path), _resolved(parent))
+        )
+
+
+def _safe_rmtree(path: Path, parent: Path, label: str, ignore_errors: bool = False) -> None:
+    target = Path(path)
+    if not target.exists():
+        return
+    _ensure_safe_child(target, parent, label)
+    shutil.rmtree(str(target), ignore_errors=ignore_errors)
+
+
+def _safe_remove_exr(path: Path, parent: Path, label: str) -> None:
+    target = Path(path)
+    _ensure_safe_child(target, parent, label)
+    if target.suffix.lower() != ".exr":
+        raise RuntimeError("Delete bloqueado: no es EXR (%s)" % target)
+    target.unlink()
+
+
+def _log_optional(log_fn, message: str) -> None:
+    if log_fn:
+        try:
+            log_fn(message)
+        except Exception:
+            pass
+
+
 def check_existing_outputs(item: dict, test_mode: bool, move_originals: bool):
     """Detecta si ya existen archivos de un transcode previo para la secuencia.
 
@@ -157,7 +203,7 @@ def check_existing_outputs(item: dict, test_mode: bool, move_originals: bool):
     return False, ""
 
 
-def delete_existing_outputs(item: dict, test_mode: bool, move_originals: bool) -> int:
+def delete_existing_outputs(item: dict, test_mode: bool, move_originals: bool, log_fn=None) -> int:
     """Elimina EXRs del destino antes de un re-transcode para limpiar el contador.
 
     - TEST mode:      borra *.exr de test_transcode/
@@ -168,18 +214,15 @@ def delete_existing_outputs(item: dict, test_mode: bool, move_originals: bool) -
     Returns:
         Cantidad de archivos/directorios eliminados.
     """
-    import os
     item_path = Path(item["path"])
     deleted = 0
     if test_mode:
         dst = item_path / "test_transcode"
         if dst.exists():
+            _log_optional(log_fn, "cleanup snapshot test dst=%s dst_exr=%d" % (dst, _exr_count(dst)))
             for f in list(dst.glob("*.exr")):
-                try:
-                    os.remove(str(f))
-                    deleted += 1
-                except OSError:
-                    pass
+                _safe_remove_exr(f, dst, "test_transcode cleanup")
+                deleted += 1
     elif move_originals:
         # Si existe Originals/<plate>/, es un transcode anterior. Para re-transcodear
         # no podemos borrar esos EXR: son la fuente original. Los restauramos a
@@ -187,14 +230,18 @@ def delete_existing_outputs(item: dict, test_mode: bool, move_originals: bool) -
         orig_plate = item_path.parent / "Originals" / item_path.name
         if orig_plate.exists():
             orig_exrs = sorted(orig_plate.glob("*.exr"))
+            item_exr_before = _exr_count(item_path)
+            _log_optional(
+                log_fn,
+                "cleanup snapshot item_path=%s originals_dir=%s item_exr_count=%d originals_exr_count=%d"
+                % (item_path, orig_plate, item_exr_before, len(orig_exrs))
+            )
             if orig_exrs:
+                _ensure_safe_child(orig_plate, item_path.parent / "Originals", "Originals restore")
                 # Borra los EXR convertidos que quedaron en item_path del run anterior.
                 for f in list(item_path.glob("*.exr")):
-                    try:
-                        os.remove(str(f))
-                        deleted += 1
-                    except OSError:
-                        pass
+                    _safe_remove_exr(f, item_path, "converted output cleanup")
+                    deleted += 1
                 # Restaura los originales para que TranscodeWorker pueda moverlos de
                 # nuevo a Originals/<plate>/ y usarlos como source.
                 item_path.mkdir(parents=True, exist_ok=True)
@@ -204,19 +251,30 @@ def delete_existing_outputs(item: dict, test_mode: bool, move_originals: bool) -
                         os.rename(str(f), str(dst))
                     except OSError:
                         shutil.move(str(f), str(dst))
-                try:
-                    shutil.rmtree(str(orig_plate))
-                    deleted += 1
-                except OSError:
-                    pass
+                restored_count = _exr_count(item_path)
+                remaining_orig_count = _exr_count(orig_plate)
+                _log_optional(
+                    log_fn,
+                    "restore snapshot item_path=%s originals_dir=%s restored_item_exr_count=%d remaining_originals_exr_count=%d"
+                    % (item_path, orig_plate, restored_count, remaining_orig_count)
+                )
+                if restored_count < len(orig_exrs) or remaining_orig_count != 0:
+                    raise RuntimeError(
+                        "Restore inseguro: item_path=%s restored=%d expected=%d remaining_originals=%d"
+                        % (item_path, restored_count, len(orig_exrs), remaining_orig_count)
+                    )
+                _safe_rmtree(orig_plate, item_path.parent / "Originals", "empty Originals plate")
+                deleted += 1
             else:
                 # Carpeta vacia: limpiarla, pero conservar los EXR actuales de
                 # item_path como unica fuente disponible para el re-transcode.
-                try:
-                    shutil.rmtree(str(orig_plate))
-                    deleted += 1
-                except OSError:
-                    pass
+                if item_exr_before <= 0:
+                    raise RuntimeError(
+                        "Overwrite abortado: no hay EXR en item_path ni en Originals. item_path=%s originals_dir=%s"
+                        % (item_path, orig_plate)
+                    )
+                _safe_rmtree(orig_plate, item_path.parent / "Originals", "empty Originals plate")
+                deleted += 1
             try:
                 orig_plate.parent.rmdir()
             except Exception:
@@ -225,11 +283,20 @@ def delete_existing_outputs(item: dict, test_mode: bool, move_originals: bool) -
         # Borra la carpeta temporal de buffer si quedó de un run fallido
         tmp = item_path / "_tc_temp_src"
         if tmp.exists():
-            try:
-                shutil.rmtree(str(tmp))
-                deleted += 1
-            except OSError:
-                pass
+            tmp_count = _exr_count(tmp)
+            item_count = _exr_count(item_path)
+            _log_optional(
+                log_fn,
+                "cleanup snapshot item_path=%s temp_src=%s item_exr_count=%d temp_exr_count=%d"
+                % (item_path, tmp, item_count, tmp_count)
+            )
+            if tmp_count <= 0 and item_count <= 0:
+                raise RuntimeError(
+                    "Cleanup abortado: no hay EXR en item_path ni en _tc_temp_src. item_path=%s temp=%s"
+                    % (item_path, tmp)
+                )
+            _safe_rmtree(tmp, item_path, "_tc_temp_src cleanup")
+            deleted += 1
     return deleted
 
 
@@ -424,15 +491,47 @@ class TranscodeWorker(QRunnable):
             if self.test_mode:
                 src_dir = item_path
                 dst_dir = item_path / "test_transcode"
+                src_count = _exr_count(src_dir)
+                self.signals.log_message.emit(
+                    "  %s preflight item_path=%s item_exr_count=%d mode=test" % (
+                        self._t(), item_path, src_count
+                    )
+                )
+                if src_count <= 0:
+                    raise RuntimeError("No se encontraron EXR fuente en: %s" % item_path)
                 dst_dir.mkdir(parents=True, exist_ok=True)
 
             elif self.move_originals:
                 # Mueve los EXR a _input/Originals/<nombre_carpeta_plate>/
                 originals_dir = item_path.parent / "Originals" / item_path.name
+                originals_parent = originals_dir.parent
+                _ensure_safe_child(originals_dir, originals_parent, "Originals plate dir")
+                item_count = _exr_count(item_path)
+                originals_count = _exr_count(originals_dir)
+                self.signals.log_message.emit(
+                    "  %s preflight item_path=%s originals_dir=%s item_exr_count=%d originals_exr_count=%d"
+                    % (self._t(), item_path, originals_dir, item_count, originals_count)
+                )
+                if item_count <= 0 and originals_count <= 0:
+                    raise RuntimeError(
+                        "Preflight abortado: no hay EXR fuente en item_path ni Originals. item_path=%s originals_dir=%s"
+                        % (item_path, originals_dir)
+                    )
+                if originals_count > 0:
+                    raise RuntimeError(
+                        "Preflight abortado: Originals/%s ya contiene EXR. Debe resolverse por overwrite antes del worker."
+                        % item_path.name
+                    )
                 originals_dir.mkdir(parents=True, exist_ok=True)
                 moved = self._move_exrs(item_path, originals_dir)
                 if moved == 0:
                     raise RuntimeError("No se encontraron EXR en: %s" % item_path)
+                moved_count = _exr_count(originals_dir)
+                if moved_count < moved:
+                    raise RuntimeError(
+                        "Move inseguro: movidos=%d pero Originals tiene %d EXR. originals_dir=%s"
+                        % (moved, moved_count, originals_dir)
+                    )
                 self.signals.log_message.emit(
                     "  %s %d EXR movidos a Originals/%s/" % (self._t(), moved, item_path.name)
                 )
@@ -442,6 +541,22 @@ class TranscodeWorker(QRunnable):
             else:
                 # Sin move_originals: usar carpeta temporal como buffer
                 temp_src_dir = item_path / "_tc_temp_src"
+                _ensure_safe_child(temp_src_dir, item_path, "_tc_temp_src")
+                item_count = _exr_count(item_path)
+                temp_count = _exr_count(temp_src_dir)
+                self.signals.log_message.emit(
+                    "  %s preflight item_path=%s temp_src=%s item_exr_count=%d temp_exr_count=%d"
+                    % (self._t(), item_path, temp_src_dir, item_count, temp_count)
+                )
+                if item_count <= 0 and temp_count <= 0:
+                    raise RuntimeError(
+                        "Preflight abortado: no hay EXR fuente en item_path ni _tc_temp_src. item_path=%s temp=%s"
+                        % (item_path, temp_src_dir)
+                    )
+                if temp_count > 0:
+                    raise RuntimeError(
+                        "Preflight abortado: _tc_temp_src ya contiene EXR. Debe resolverse por overwrite antes del worker."
+                    )
                 temp_src_dir.mkdir(parents=True, exist_ok=True)
                 moved = self._move_exrs(item_path, temp_src_dir)
                 if moved == 0:
@@ -559,8 +674,30 @@ class TranscodeWorker(QRunnable):
 
             # ── 6. Post-transcode: originales / restauración ──────────
             if ok and not self.test_mode:
+                final_count = _exr_count(dst_dir)
+                self.signals.log_message.emit(
+                    "  %s postflight dst_dir=%s output_exr_count=%d expected_ok_count=%d" % (
+                        self._t(), dst_dir, final_count, ok_count
+                    )
+                )
+                if final_count <= 0 or (ok_count and final_count < ok_count):
+                    ok = False
+                    report["ok"] = False
+                    report["error"] = (
+                        "Postflight abortado: output incompleto. dst_dir=%s output_exr_count=%d expected=%d"
+                        % (dst_dir, final_count, ok_count)
+                    )
+                    self.signals.log_message.emit("  %s ✗ %s" % (self._t(), report["error"]))
+
+            if ok and not self.test_mode:
                 if originals_dir and self.delete_originals:
-                    shutil.rmtree(str(originals_dir), ignore_errors=True)
+                    final_count = _exr_count(dst_dir)
+                    if final_count <= 0:
+                        raise RuntimeError(
+                            "Delete Originals bloqueado: output sin EXR. dst_dir=%s originals_dir=%s"
+                            % (dst_dir, originals_dir)
+                        )
+                    _safe_rmtree(originals_dir, originals_dir.parent, "delete Originals after success", ignore_errors=True)
                     self.signals.log_message.emit(
                         "  %s Originals/%s eliminado." % (self._t(), item_path.name)
                     )
@@ -577,11 +714,18 @@ class TranscodeWorker(QRunnable):
                 # Restaurar originales en caso de fallo
                 restore_from = originals_dir or temp_src_dir
                 if restore_from and restore_from.exists():
-                    restored = self._move_exrs(restore_from, item_path)
+                    before_restore = _exr_count(restore_from)
+                    restored = self._restore_exrs(restore_from, item_path)
+                    item_after_restore = _exr_count(item_path)
                     try:
                         restore_from.rmdir()
                     except Exception:
                         pass
+                    if before_restore > 0 and item_after_restore <= 0:
+                        raise RuntimeError(
+                            "Restore fallido: source=%s item_path=%s restored=%d item_exr_count=%d"
+                            % (restore_from, item_path, restored, item_after_restore)
+                        )
                     self.signals.log_message.emit(
                         "  %s ↩ %d originales restaurados." % (self._t(), restored)
                     )
@@ -613,14 +757,16 @@ class TranscodeWorker(QRunnable):
             # Intentar restaurar si hay carpeta de buffer
             restore_from = originals_dir or temp_src_dir
             if restore_from and restore_from.exists() and not self.test_mode:
-                restored = self._move_exrs(restore_from, item_path)
+                before_restore = _exr_count(restore_from)
+                restored = self._restore_exrs(restore_from, item_path)
+                item_after_restore = _exr_count(item_path)
                 try:
                     restore_from.rmdir()
                 except Exception:
                     pass
                 self.signals.log_message.emit(
-                    "  %s ↩ %d originales restaurados (tras excepción)." % (
-                        self._t(), restored
+                    "  %s ↩ %d originales restaurados (tras excepción). item_exr_count=%d source_before=%d" % (
+                        self._t(), restored, item_after_restore, before_restore
                     )
                 )
             stats = {"ok": False, "error": err_msg, "elapsed_seconds": elapsed,
@@ -655,3 +801,29 @@ class TranscodeWorker(QRunnable):
                 shutil.move(str(f), str(dst))
             moved += 1
         return moved
+
+    @staticmethod
+    def _restore_exrs(src_dir: Path, dst_dir: Path) -> int:
+        """
+        Restaura EXR fuente a dst_dir.
+
+        Si hay outputs parciales en dst_dir, los elimina solo despues de confirmar que
+        src_dir contiene EXR. Esto evita que un fallo del conversor bloquee el restore
+        por archivos con el mismo nombre.
+        """
+        src_path = Path(src_dir)
+        dst_path = Path(dst_dir)
+        source_count = _exr_count(src_path)
+        if source_count <= 0:
+            return 0
+        dst_path.mkdir(parents=True, exist_ok=True)
+        for f in list(dst_path.glob("*.exr")):
+            _safe_remove_exr(f, dst_path, "partial output cleanup before restore")
+        restored = TranscodeWorker._move_exrs(src_path, dst_path)
+        restored_count = _exr_count(dst_path)
+        if restored_count < source_count:
+            raise RuntimeError(
+                "Restore incompleto: source=%s dst=%s restored_count=%d expected=%d"
+                % (src_path, dst_path, restored_count, source_count)
+            )
+        return restored
