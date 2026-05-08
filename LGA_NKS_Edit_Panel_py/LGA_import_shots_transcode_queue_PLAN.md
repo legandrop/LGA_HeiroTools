@@ -186,7 +186,9 @@ dialogo.
   cubrir PAGE_CONVERT,
   cubrir PAGE_IMPORT,
   conectar el texto a senales del manager,
-  mostrar idle/running/queued con texto claro
+  mostrar idle/running/queued con texto claro,
+  convertir el shot activo en boton plano con SHOTNAME_COLOR,
+  al clickear el shot activo traer al frente su ventana de Import Shot
 }
 ```
 
@@ -248,6 +250,7 @@ Objetivo: dar visibilidad completa del orden global de jobs.
   mostrar jobs agrupados por nombre de shot,
   mostrar header por shot,
   doble click en header/nombre de shot trae al frente la ventana existente,
+  copiar/reutilizar la implementacion del boton de shot activo del estado global,
   si la ventana del shot ya no existe, registrar en log y no hacer nada en primera version,
   actualizar tabla por senales del manager,
   agregar checkbox inferior Mantener arriba,

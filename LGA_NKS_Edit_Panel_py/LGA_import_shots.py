@@ -1568,14 +1568,84 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._update_global_status_label(mgr.snapshot())
 
     def _make_footer_pair(self):
-        """Crea (Open Queue btn, status label) para integrar en la fila de botones de una página."""
+        """Crea (Open Queue btn, status widget) para integrar en la fila de botones de una pagina."""
         btn = QtWidgets.QPushButton("Open Queue")
         btn.setStyleSheet(_BTN_SMALL)
-        lbl = QtWidgets.QLabel("")
-        lbl.setTextFormat(QtCore.Qt.RichText)
-        lbl.setStyleSheet("padding:0px;")
-        self._status_labels.append(lbl)
-        return btn, lbl
+        box = QtWidgets.QWidget()
+        box.setStyleSheet("QWidget { background: transparent; }")
+        row = QtWidgets.QHBoxLayout(box)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(0)
+
+        pre_lbl = QtWidgets.QLabel("")
+        pre_lbl.setStyleSheet("color:#a7a7a7; padding:0px;")
+
+        shot_btn = QtWidgets.QPushButton("")
+        shot_btn.setFlat(True)
+        shot_btn.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
+        shot_btn.setStyleSheet(
+            "QPushButton { background: transparent; border:0px; padding:0px;"
+            " margin:0px; color:%s; text-align:left; }"
+            "QPushButton:hover { color:#d08ad0; text-decoration: underline; }"
+            "QPushButton:pressed { color:#9f529f; }" % SHOTNAME_COLOR
+        )
+        shot_btn.clicked.connect(
+            lambda _checked=False, b=shot_btn: self._focus_import_shot_window(
+                str(b.property("window_id") or ""),
+                str(b.property("shot_name") or b.text() or ""),
+            )
+        )
+
+        post_lbl = QtWidgets.QLabel("")
+        post_lbl.setStyleSheet("color:#a7a7a7; padding:0px;")
+
+        row.addWidget(pre_lbl)
+        row.addWidget(shot_btn)
+        row.addWidget(post_lbl)
+        row.addStretch(1)
+
+        shot_btn.setVisible(False)
+        self._status_labels.append({
+            "box": box,
+            "pre": pre_lbl,
+            "shot": shot_btn,
+            "post": post_lbl,
+        })
+        return btn, box
+
+    def _focus_import_shot_window(self, window_id, shot_name):
+        app = QtWidgets.QApplication.instance()
+        if not app:
+            return
+        target = None
+        shot_key = (shot_name or "").strip().lower()
+        for widget in app.topLevelWidgets():
+            try:
+                if widget.objectName() != "LGA_ImportShotDialog" or not widget.isVisible():
+                    continue
+                if window_id and str(widget.property("window_id") or "") == window_id:
+                    target = widget
+                    break
+                if shot_key and str(widget.property("shot_name") or "").strip().lower() == shot_key:
+                    target = widget
+                    break
+            except Exception:
+                continue
+        if not target:
+            debug_print(
+                "focus import shot window failed window_id=%s shot=%s" % (window_id, shot_name),
+                level="warning",
+            )
+            return
+        try:
+            target.show()
+            if hasattr(target, "showNormal") and target.isMinimized():
+                target.showNormal()
+            target.raise_()
+            target.activateWindow()
+            debug_print("focus import shot window window_id=%s shot=%s" % (window_id, shot_name))
+        except Exception as exc:
+            debug_print("focus import shot window error: %s" % exc, level="warning")
 
     def closeEvent(self, event):
         debug_print(
@@ -5385,26 +5455,35 @@ class ImportShotDialog(QtWidgets.QDialog):
         active = next((j for j in snapshot if j.get("status") in ("running", "starting")), None)
         pending = [j for j in snapshot if j.get("status") == "queued"]
 
+        pre_text = ""
+        shot_text = ""
+        post_text = ""
+        window_id = ""
         if not active and not pending:
-            text = ""
+            pass
         elif active:
-            shot = active.get("shot_name", "")
-            shot_html = (
-                "<span style='color:%s;'>%s</span>" % (SHOTNAME_COLOR, shot) if shot else ""
-            )
+            shot_text = active.get("shot_name", "")
+            window_id = active.get("window_id", "")
             pending_count = len(pending)
+            pre_text = "Convirtiendo plates del shot " if shot_text else "Convirtiendo plates"
             if pending_count:
-                text = "Convirtiendo plates del shot %s. Plates restantes: %d" % (
-                    shot_html, pending_count
-                )
-            else:
-                text = "Convirtiendo plates del shot %s" % shot_html
+                post_text = ". Plates restantes: %d" % pending_count if shot_text else " restantes: %d" % pending_count
         else:
-            text = "%d plates en fila" % len(pending)
+            pre_text = "%d plates en fila" % len(pending)
 
-        for lbl in self._status_labels:
+        for parts in self._status_labels:
             try:
-                lbl.setText(text)
+                if isinstance(parts, dict):
+                    parts["pre"].setText(pre_text)
+                    parts["shot"].setText(shot_text)
+                    parts["shot"].setProperty("window_id", window_id)
+                    parts["shot"].setProperty("shot_name", shot_text)
+                    parts["shot"].setVisible(bool(shot_text))
+                    parts["post"].setText(post_text)
+                else:
+                    # Compatibilidad con labels creados por una version anterior del dialogo.
+                    text = pre_text + shot_text + post_text
+                    parts.setText(text)
             except Exception:
                 pass
 

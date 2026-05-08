@@ -230,9 +230,11 @@ Convirtiendo plates del shot SHOT_A. Plates restantes: 3
 Convirtiendo plates del shot SHOT_A
 ```
 
-El nombre del shot se muestra con `SHOTNAME_COLOR` (`#B56AB5`). "Plates restantes" es el
-conteo global de jobs pendientes en la cola; cuando no hay pendientes solo aparece el nombre del shot.
-El texto se vacía al terminar todos los jobs.
+El nombre del shot se muestra con `SHOTNAME_COLOR` (`#B56AB5`) y funciona como boton plano:
+sin fondo ni borde, visualmente se lee como texto coloreado, pero al clickearlo trae al
+frente la ventana de `Import Shot` del shot que esta convirtiendo en ese momento.
+"Plates restantes" es el conteo global de jobs pendientes en la cola; cuando no hay
+pendientes solo aparece el nombre del shot. El texto se vacia al terminar todos los jobs.
 
 El estado global debe actualizarse por senales del manager, no por polling local de cada
 ventana.
@@ -272,6 +274,10 @@ con el nombre del shot y debajo sus jobs en orden de cola.
 Al hacer doble click sobre el header/nombre de shot:
 
 - Si la ventana de `Import Shot` para ese shot sigue abierta, debe traerse al frente.
+- La implementacion debe copiar/reutilizar el comportamiento ya implementado en el estado
+  global visible: boton plano con `SHOTNAME_COLOR` que busca la ventana por `window_id`
+  o `shot_name`, llama `show()`, `showNormal()` si estaba minimizada, `raise_()` y
+  `activateWindow()`.
 - Si la ventana ya fue cerrada, la primera version puede dejar el doble click sin accion
   y registrar el evento en log.
 - Abrir/reconstruir una ventana cerrada desde la cola queda como mejora futura, porque
