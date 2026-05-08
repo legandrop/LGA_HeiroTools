@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_CreateV000 v1.05 | Lega
+  LGA_NKS_CreateV000 v1.06 | Lega
 
   Crea una secuencia EXR negra v000 para el shot activo en Hiero/Nuke Studio.
   Permite elegir frame range, resolucion, handle persistente y una o varias
@@ -15,6 +15,17 @@ ____________________________________________________________________
   crear solo los EXRs, crear/importar al bin sin insertar, o reemplazar los
   clips solapados por la nueva v000.
 
+  v1.06: Checkbox "Create folder structure for selected tasks if missing": crea
+         0_assets/1_projects/2_prerenders/3_review/4_publish para cada task
+         seleccionada si las carpetas faltan. Estado activado por defecto,
+         persistente en CreateV000.ini (clave create_folders).
+         Auto-creacion de tracks faltantes: si el track de la task no existe en
+         el timeline, se crea en la posicion correcta (BurnIn > comp > roto >
+         cleanup > plates) usando el workaround remove-all/re-add.
+         Undo unificado: toda la operacion de Hiero (creacion de track, import
+         al bin, coloreo, rescan, colocacion en timeline) queda en un unico
+         beginUndo, deshacible con un solo Ctrl+Z.
+         Click en fila de la tabla de frame range activa/desactiva el checkbox.
   v1.05: La ventana principal ahora abre no modal para permitir usar Hiero en segundo plano.
   v1.04: La tabla de rangos ahora detecta la isla del shot por solape, shot_root y shot_code.
          Fix: key estable para clips aceptados, guard de iteracion y logs acotados.
@@ -1459,6 +1470,13 @@ class CreateV000Dialog(QtWidgets.QDialog):
         sep.setStyleSheet("color: #444444; margin: 0px;")
         return sep
 
+    def _on_plate_row_clicked(self, row, col):
+        if col == 0:
+            return
+        if row < len(self.plate_checks):
+            check, _ = self.plate_checks[row]
+            check.setChecked(not check.isChecked())
+
     def _build_plates_table(self):
         table = QtWidgets.QTableWidget()
         table.setColumnCount(5)
@@ -1471,6 +1489,7 @@ class CreateV000Dialog(QtWidgets.QDialog):
         table.setShowGrid(False)
         table.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         table.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
+        table.cellClicked.connect(self._on_plate_row_clicked)
         table.setStyleSheet(
             """
             QTableWidget {
