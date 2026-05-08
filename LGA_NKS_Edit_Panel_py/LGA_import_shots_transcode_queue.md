@@ -212,15 +212,16 @@ SHOT_C / aPlate -> 2 en fila
 ## Estado global visible (pendiente de implementacion y test)
 
 Todas las paginas importantes de todas las ventanas muestran en la fila inferior de botones,
-alineados a la izquierda, el boton `Open Queue` seguido del texto de estado global.
+alineados a la izquierda, los botones `Show Windows` y `Open Queue` seguidos del texto de
+estado global.
 Los botones de accion principales quedan a la derecha.
 
 Ubicacion implementada:
 
-- Pagina media: `[Open Queue] [estado] ... [Rename] [Transcode Plates] [Import]`
-- Pagina rename: `[Open Queue] [estado] ... [← Go Back] [Rename]`
-- Pagina convert: `[Open Queue] [estado] ... [← Go Back] [Start Transcode]`
-- Pagina import: `[Open Queue] [estado] ... [← Go Back] [Import Now] [Import and Create V000]`
+- Pagina media: `[Show Windows] [Open Queue] [estado] ... [Rename] [Transcode Plates] [Import]`
+- Pagina rename: `[Show Windows] [Open Queue] [estado] ... [← Go Back] [Rename]`
+- Pagina convert: `[Show Windows] [Open Queue] [estado] ... [← Go Back] [Start Transcode]`
+- Pagina import: `[Show Windows] [Open Queue] [estado] ... [← Go Back] [Import Now] [Import and Create V000]`
 
 Textos implementados:
 
@@ -238,6 +239,24 @@ pendientes solo aparece el nombre del shot. El texto se vacia al terminar todos 
 
 El estado global debe actualizarse por senales del manager, no por polling local de cada
 ventana.
+
+---
+
+## Boton Show Windows (implementado, pendiente de test en Hiero)
+
+Junto a `Open Queue` se muestra un boton pequeno:
+
+```text
+Show Windows
+```
+
+Accion:
+
+- Busca todas las ventanas abiertas de `Import Shot` por `objectName() == "LGA_ImportShotDialog"`.
+- Las trae de vuelta a pantalla con `show()`.
+- Si alguna esta minimizada, llama `showNormal()`.
+- Luego llama `raise_()` y `activateWindow()`.
+- Es no modal y no bloquea Hiero.
 
 ---
 

@@ -58,6 +58,10 @@ sin depender del playhead.
 
 ## Acceso
 
+La ventana usa decoracion nativa con boton de minimizar habilitado y sin boton de ayuda
+contextual `?`. Sigue siendo no modal para permitir trabajar con varias ventanas de
+Import Shot abiertas al mismo tiempo.
+
 **Boton del panel:** "Import shot" en el Edit Panel (verde, posicion: antes de "Set Shot Name").
 
 Llama a `main()` al ejecutarse como script externo desde el panel.
@@ -78,6 +82,27 @@ dlg.show()
 ```
 
 Cada ventana queda marcada con propiedades Qt (`shot_name` y `shot_root`). Si el usuario elige una carpeta cuyo `shot_name` ya tiene una ventana de Import Shot visible, la herramienta muestra un aviso con estilo propio, trae la ventana existente al frente y aborta la segunda apertura.
+
+---
+
+## Footer global
+
+Todas las secciones principales de la herramienta muestran una fila inferior compartida:
+
+```text
+[Show Windows] [Open Queue] [estado global] ... [botones de accion de la seccion]
+```
+
+- `Show Windows`: trae al frente todas las ventanas abiertas de `Import Shot`. Si alguna
+  esta minimizada, la restaura con `showNormal()` antes de `raise_()` y `activateWindow()`.
+- `Open Queue`: abre o trae al frente la ventana global de cola de transcode.
+- `estado global`: muestra actividad de la cola global de transcode cuando hay jobs activos
+  o pendientes.
+- Si hay un shot convirtiendo, el nombre del shot aparece en `SHOTNAME_COLOR` como boton
+  plano; al clickearlo trae al frente la ventana de ese shot.
+
+El footer es UI general de `Import Shot`, aunque el estado y `Open Queue` usen datos del
+manager global de transcode. Su layout se reutiliza en Media, Rename, Convert e Import.
 
 ---
 

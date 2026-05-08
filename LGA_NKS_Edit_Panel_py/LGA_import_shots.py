@@ -1513,6 +1513,10 @@ class ImportShotDialog(QtWidgets.QDialog):
         self.setProperty("shot_root", shot_root)
         self.setProperty("window_id", self._window_id)
         self.setModal(False)
+        flags = self.windowFlags()
+        flags &= ~QtCore.Qt.WindowContextHelpButtonHint
+        flags |= QtCore.Qt.WindowMinimizeButtonHint
+        self.setWindowFlags(flags)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
         self.finished.connect(self._on_dialog_finished)
         self.destroyed.connect(
@@ -1568,9 +1572,23 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._update_global_status_label(mgr.snapshot())
 
     def _make_footer_pair(self):
-        """Crea (Open Queue btn, status widget) para integrar en la fila de botones de una pagina."""
-        btn = QtWidgets.QPushButton("Open Queue")
-        btn.setStyleSheet(_BTN_SMALL)
+        """Crea (footer buttons, status widget) para integrar en la fila inferior."""
+        buttons = QtWidgets.QWidget()
+        buttons.setStyleSheet("QWidget { background: transparent; }")
+        buttons_row = QtWidgets.QHBoxLayout(buttons)
+        buttons_row.setContentsMargins(0, 0, 0, 0)
+        buttons_row.setSpacing(6)
+
+        show_btn = QtWidgets.QPushButton("Show Windows")
+        show_btn.setStyleSheet(_BTN_SMALL)
+        show_btn.clicked.connect(self._show_import_shot_windows)
+
+        open_queue_btn = QtWidgets.QPushButton("Open Queue")
+        open_queue_btn.setStyleSheet(_BTN_SMALL)
+
+        buttons_row.addWidget(show_btn)
+        buttons_row.addWidget(open_queue_btn)
+
         box = QtWidgets.QWidget()
         box.setStyleSheet("QWidget { background: transparent; }")
         row = QtWidgets.QHBoxLayout(box)
@@ -1611,7 +1629,26 @@ class ImportShotDialog(QtWidgets.QDialog):
             "shot": shot_btn,
             "post": post_lbl,
         })
-        return btn, box
+        return buttons, box
+
+    def _show_import_shot_windows(self):
+        app = QtWidgets.QApplication.instance()
+        if not app:
+            return
+        shown = 0
+        for widget in app.topLevelWidgets():
+            try:
+                if widget.objectName() != "LGA_ImportShotDialog":
+                    continue
+                widget.show()
+                if hasattr(widget, "showNormal") and widget.isMinimized():
+                    widget.showNormal()
+                widget.raise_()
+                widget.activateWindow()
+                shown += 1
+            except Exception as exc:
+                debug_print("show import shot window error: %s" % exc, level="warning")
+        debug_print("show import shot windows count=%d" % shown)
 
     def _focus_import_shot_window(self, window_id, shot_name):
         app = QtWidgets.QApplication.instance()

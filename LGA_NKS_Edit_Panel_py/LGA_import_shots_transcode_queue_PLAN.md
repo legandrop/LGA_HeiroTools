@@ -180,6 +180,8 @@ dialogo.
 ```text
 {
   agregar label global alineado a la izquierda en la fila inferior,
+  agregar boton Show Windows a la izquierda de Open Queue,
+  Show Windows trae al frente todas las ventanas Import Shot abiertas,
   mantener botones principales alineados a la derecha,
   cubrir PAGE_MEDIA,
   cubrir PAGE_RENAME,
