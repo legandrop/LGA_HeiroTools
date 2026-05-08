@@ -73,7 +73,7 @@ _import_shot_dialog_instance = dlg    # mantiene referencia viva
 dlg.show()
 ```
 
-Si el usuario abre un segundo shot mientras la primera ventana está abierta, se abren dos instancias independientes (el singleton solo evita GC, no impide múltiples aperturas).
+Cada ventana queda marcada con propiedades Qt (`shot_name` y `shot_root`). Si el usuario elige una carpeta cuyo `shot_name` ya tiene una ventana de Import Shot visible, la herramienta muestra un aviso con estilo propio, trae la ventana existente al frente y aborta la segunda apertura.
 
 ---
 
@@ -139,6 +139,7 @@ main()
     |
     ├── hiero.ui.activeSequence()           -> sequence activa
     ├── QFileDialog.getExistingDirectory()  -> shot_root elegido por usuario
+    ├── _visible_import_dialog_for_shot()   -> evita dos ventanas abiertas del mismo shot
     ├── _shot_exists_in_timeline()          -> verificacion de duplicado (aborta si existe)
     ├── _scan_input_folder()                -> lista de media en _input/
     ├── _scan_publish_folders()             -> versiones en {Task}/4_publish/
@@ -692,6 +693,7 @@ Basado en `LGA_NKS_CreateV000.py`:
 - Selection highlight en QSpinBox (dwaa level, custom W/H): `#505060` bg / `#d0d0d0` texto (gris legible, no blanco ni violeta)
 - Espacio entre separador horizontal y fila de botones de acción: constante `_BTN_ROW_TOP_SPACING = 15` (px). Aplicado en páginas media y convert. Buscar `# ✅✅` en el código para ajustar.
 - Diálogo "Guardar preset": QLineEdit con fondo `#272727` (neutro, coherente con el resto de la app)
+- Avisos de duplicado (ventana ya abierta / shot ya existente en timeline): usan `_show_tool_message()` con `QDialog` propio, sin iconos, fondo `#2B2B2B` y botón primario de la tool.
 
 ---
 
@@ -819,7 +821,7 @@ donde se distribuya la repo.
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `main()`, `_import_shot_dialog_instance`, `_clear_import_dialog()`, `_launch_create_v000()`, `ImportShotDialog`, `_do_import_and_v000()`, `_show_page()`, `_build_page_media()`, `_build_page_rename()`, `_update_rename_page()`, `_refresh_rename_preview()`, `_populate_rename_section_header()`, `_on_rename_chk_changed()`, `_update_rename_btn_state()`, `_run_rename()`, `_rn_escape()`, `_swap_sr()`, `_update_rename_summary()`, `_build_page_convert()`, `_update_convert_page()`, `_on_res_preset_changed()`, `_on_keep_ar_changed()`, `_update_match_dim_visibility()`, `_get_representative_res()`, `_on_custom_w_changed()`, `_on_custom_h_changed()`, `_current_target_res()`, `_target_compression()`, `_refresh_convert_destinos()`, `_update_res_combo_labels()`, `_on_dwaa_chk_changed()`, `_on_deana_chk_changed()`, `_apply_deana_if_active()`, `_load_settings_to_ui()`, `_save_all_settings()`, `_rebuild_res_combo()`, `_on_delete_preset()`, `_on_save_preset_clicked()`, `_run_transcode()`, `_start_next_sequence()`, `_on_sequence_started()`, `_poll_transcode_progress()`, `_on_sequence_done()`, `_on_worker_batch_done()`, `_finalize_transcode()`, `_on_transcode_error()`, `_fmt_bd()`, `_fmt_par()`, `_ar_str()`, `_read_exr_metadata()`, `_read_mov_metadata()`, `_find_insert_frame()` (retorna `insert_frame, frames_to_push, prev_shot_name, next_shot_name`), `_collect_timeline_shots()`, `_build_track_combo()`, `_on_track_combo_changed()`, `_refresh_track_combo_options(created_track_name, creator_row)`, `_create_plate_track()`, `_get_seq_track_names()` — widgets: `_TrackComboListView`, `_TrackComboDelegate` (botón "Crear track" en dropdown de track) |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `main()`, `_import_shot_dialog_instance`, `_clear_import_dialog()`, `_visible_import_dialog_for_shot()`, `_show_tool_message()`, `_launch_create_v000()`, `ImportShotDialog`, `_do_import_and_v000()`, `_show_page()`, `_build_page_media()`, `_build_page_rename()`, `_update_rename_page()`, `_refresh_rename_preview()`, `_populate_rename_section_header()`, `_on_rename_chk_changed()`, `_update_rename_btn_state()`, `_run_rename()`, `_rn_escape()`, `_swap_sr()`, `_update_rename_summary()`, `_build_page_convert()`, `_update_convert_page()`, `_on_res_preset_changed()`, `_on_keep_ar_changed()`, `_update_match_dim_visibility()`, `_get_representative_res()`, `_on_custom_w_changed()`, `_on_custom_h_changed()`, `_current_target_res()`, `_target_compression()`, `_refresh_convert_destinos()`, `_update_res_combo_labels()`, `_on_dwaa_chk_changed()`, `_on_deana_chk_changed()`, `_apply_deana_if_active()`, `_load_settings_to_ui()`, `_save_all_settings()`, `_rebuild_res_combo()`, `_on_delete_preset()`, `_on_save_preset_clicked()`, `_run_transcode()`, `_start_next_sequence()`, `_on_sequence_started()`, `_poll_transcode_progress()`, `_on_sequence_done()`, `_on_worker_batch_done()`, `_finalize_transcode()`, `_on_transcode_error()`, `_fmt_bd()`, `_fmt_par()`, `_ar_str()`, `_read_exr_metadata()`, `_read_mov_metadata()`, `_find_insert_frame()` (retorna `insert_frame, frames_to_push, prev_shot_name, next_shot_name`), `_collect_timeline_shots()`, `_build_track_combo()`, `_on_track_combo_changed()`, `_refresh_track_combo_options(created_track_name, creator_row)`, `_create_plate_track()`, `_get_seq_track_names()` — widgets: `_TrackComboListView`, `_TrackComboDelegate` (botón "Crear track" en dropdown de track) |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_transcode.py` | `TranscodeWorkerSignals` (señales: `log_message`, `sequence_started(row_i, dst_dir, total_frames)`, `sequence_done`, `all_done`, `error`), `TranscodeWorker`, `build_manifest_for_sequence(channels, pixel_aspect_ratio)`, `check_existing_outputs()`, `delete_existing_outputs()`, `show_overwrite_warning()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_settings.py` | `get_settings_path()`, `load_all_settings()`, `save_all_settings()`, `load_res_presets()`, `save_res_presets()`, `preset_to_tuple()`, `show_save_preset_dialog()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_timeline.py` | `push_clips_right()`, `place_clip_in_timeline()`, `stretch_burnin()`, `set_viewer_to_shot()`, `_zoom_and_restore()`, `set_debug_print()` |

@@ -1,13 +1,15 @@
 """
 ____________________________________________________________________
 
-  LGA_import_shots v1.03 | Lega
+  LGA_import_shots v1.04 | Lega
 
   Importa shots al proyecto de Nuke Studio.
   Analiza la carpeta _input del shot, detecta plates/editrefs/seqrefs
   y versiones en publish, y los coloca en el timeline en la posicion
   alfabeticamente correcta.
 
+  v1.04: Evita abrir dos ventanas de Import Shot para el mismo shot.
+         Los avisos de duplicado usan dialogos propios sin iconos, con estilo de la tool.
   v1.03: Boton "Import and Create V000" en la pagina de Import Preview.
          Dialogo no bloqueante (show en lugar de exec_).
   v1.02: In/Out del timeline dentro del bloque de undo; el undo del
@@ -874,6 +876,52 @@ QPushButton:disabled { background-color: #272727; color: #555555; }
 _BTN_ROW_TOP_SPACING = 15
 
 
+def _show_tool_message(parent, title, message):
+    dialog = QtWidgets.QDialog(parent)
+    dialog.setWindowTitle(title)
+    dialog.setModal(True)
+    dialog.setMinimumWidth(440)
+    dialog.setStyleSheet(
+        _DIALOG_STYLE
+        + """
+        QLabel#ToolMessageTitle {
+            color: #CCCCCC;
+            font-size: 15px;
+            font-weight: bold;
+        }
+        QLabel#ToolMessageBody {
+            color: #A7A7A7;
+            font-size: 12px;
+            line-height: 1.35;
+        }
+        """
+    )
+
+    layout = QtWidgets.QVBoxLayout(dialog)
+    layout.setContentsMargins(18, 16, 18, 16)
+    layout.setSpacing(12)
+
+    title_lbl = QtWidgets.QLabel(title)
+    title_lbl.setObjectName("ToolMessageTitle")
+    layout.addWidget(title_lbl)
+
+    body_lbl = QtWidgets.QLabel(message)
+    body_lbl.setObjectName("ToolMessageBody")
+    body_lbl.setWordWrap(True)
+    layout.addWidget(body_lbl)
+
+    btn_row = QtWidgets.QHBoxLayout()
+    btn_row.addStretch()
+    ok_btn = QtWidgets.QPushButton("OK")
+    ok_btn.setMinimumWidth(90)
+    ok_btn.setStyleSheet(_BTN_PRIMARY)
+    ok_btn.clicked.connect(dialog.accept)
+    btn_row.addWidget(ok_btn)
+    layout.addLayout(btn_row)
+
+    return dialog.exec_()
+
+
 def _section_label(text):
     lbl = QtWidgets.QLabel(text)
     lbl.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 4px;")
@@ -1408,6 +1456,8 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         self.setWindowTitle("Import Shot — %s" % shot_name)
         self.setObjectName("LGA_ImportShotDialog")
+        self.setProperty("shot_name", shot_name)
+        self.setProperty("shot_root", shot_root)
         self.setModal(False)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
         self.setMinimumWidth(1300)
@@ -5229,6 +5279,25 @@ def _clear_import_dialog(*_):
     _import_shot_dialog_instance = None
 
 
+def _visible_import_dialog_for_shot(shot_name):
+    app = QtWidgets.QApplication.instance()
+    if not app:
+        return None
+
+    shot_key = (shot_name or "").strip().lower()
+    for widget in app.topLevelWidgets():
+        try:
+            if (
+                widget.objectName() == "LGA_ImportShotDialog"
+                and widget.isVisible()
+                and str(widget.property("shot_name") or "").strip().lower() == shot_key
+            ):
+                return widget
+        except Exception:
+            continue
+    return None
+
+
 def _launch_create_v000():
     """
     Llama a LGA_NKS_CreateV000.main() tal como lo hace el Edit Panel.
@@ -5275,9 +5344,22 @@ def main():
     shot_name = _get_shot_name_from_folder(shot_root)
     debug_print("Shot root: %s  shot_name: %s" % (shot_root, shot_name))
 
+    existing_dialog = _visible_import_dialog_for_shot(shot_name)
+    if existing_dialog:
+        _show_tool_message(
+            None,
+            "Import Shot",
+            "Ya hay una ventana de Import Shot abierta para '%s'.\n\n"
+            "No se puede abrir otra ventana para el mismo shot." % shot_name,
+        )
+        existing_dialog.raise_()
+        existing_dialog.activateWindow()
+        debug_print("Aborted — import dialog already open: %s" % shot_name, level="warning")
+        return
+
     # Verificar si ya existe
     if _shot_exists_in_timeline(seq, shot_name, shot_root):
-        QtWidgets.QMessageBox.critical(
+        _show_tool_message(
             None,
             "Import Shot",
             "El shot '%s' ya existe en el timeline.\n\n"
