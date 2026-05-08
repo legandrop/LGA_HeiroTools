@@ -216,6 +216,7 @@ Formato:
 ```ini
 [Settings]
 handle = 4
+create_folders = true
 ```
 
 ---
@@ -268,13 +269,78 @@ Los conflictos de timeline se validan durante la creacion de cada task con `_tim
 
 ---
 
+## Auto-creacion de tracks faltantes
+
+Si el track de destino para una task seleccionada no existe en el timeline, la herramienta lo crea automaticamente en la posicion correcta **antes** de crear los EXRs y la estructura de carpetas. No se muestra ningún dialogo de confirmacion.
+
+### Orden de tracks en el panel (top to bottom)
+
+```
+BurnIn
+_comp_
+_roto_
+_cleanup_
+(tracks de plates)
+```
+
+En la API de Hiero, `videoTracks()` devuelve de abajo hacia arriba (index 0 = fondo). El orden visual es el inverso del indice.
+
+### Workaround de insercion
+
+Hiero no tiene `insertTrack(track, index)`. El workaround es:
+
+1. Obtener la lista actual: `video_tracks = list(seq.videoTracks())`
+2. Calcular `insert_at = above_track.trackIndex()` (el track que debe quedar justo por encima del nuevo)
+3. Construir `new_list = video_tracks[:insert_at] + [new_track] + video_tracks[insert_at:]`
+4. Remover todos los tracks y re-agregar en el nuevo orden
+
+Todo envuelto en `project.beginUndo()` para soporte de Ctrl+Z.
+
+### Logica de posicionamiento
+
+Para determinar el `above_track` (el track que debe quedar justo encima del nuevo):
+
+| Task nueva | Candidatos (en orden de preferencia) |
+|------------|--------------------------------------|
+| `_comp_`   | `BurnIn`                             |
+| `_roto_`   | `_comp_`, `BurnIn`                   |
+| `_cleanup_`| `_roto_`, `_comp_`, `BurnIn`         |
+
+Se usa el primer candidato encontrado. Si ninguno existe, el nuevo track se agrega al tope.
+
+Los nombres de track se obtienen via `track_for_task()` (de `LGA_NKS_TaskSelectionDialog`) y `BURNIN_TRACK_NAME`, sin hardcodear strings.
+
+### Flujo de creacion en `_create_v000_for_params()`
+
+```
+1. Verificar si existen EXRs → confirm replace
+2. Buscar track destino → marcar track_needs_creation si no existe
+   (un track nuevo no tiene items, por eso el overlap check se omite)
+3. Si track existe → verificar overlaps → dialog de opciones
+4. Si checkbox activo → _ensure_task_folder_structure()  [op. de disco, fuera del undo]
+5. _create_black_exr_sequence()                          [op. de disco, fuera del undo]
+6. with project.beginUndo("Create v000 <task>"):         [UNICO bloque de undo]
+     a. Si track_needs_creation → _insert_task_track()
+     b. Importar al bin
+     c. Colorear bin item
+     d. Rescan clip range
+     e. Colocar / reemplazar en timeline
+     f. Deshabilitar track item
+```
+
+Un solo Ctrl+Z deshace todo lo que Hiero registró en el paso 6.
+
+**Implementacion:** `_insert_task_track()`, `_get_above_neighbor_for_task()`, `_create_v000_for_params()`
+
+---
+
 ## Seccion: Create folder structure
 
 Checkbox sin etiqueta de seccion, ubicado entre TASK y OUTPUT.
 
 Texto: `"Create folder structure for selected tasks if missing"`
 
-Estado por defecto: **desactivado**.
+Estado por defecto: **activado**. El estado se guarda persistentemente en `CreateV000.ini` bajo la clave `create_folders` (valores `true`/`false`). Cualquier cambio del usuario se persiste inmediatamente al hacer clic.
 
 Si esta activado, antes de crear los EXRs se verifica y crea (si no existen) los subdirectorios estandar para cada task seleccionada bajo el `shot_root`:
 
@@ -308,7 +374,7 @@ Solo se crean las carpetas de las tasks seleccionadas al momento de ejecutar `Cr
 TASK_SUBFOLDERS = ("0_assets", "1_projects", "2_prerenders", "3_review", "4_publish")
 ```
 
-**Implementacion:** `_build_folder_structure_section()`, `_ensure_task_folder_structure()`, `_create_v000_for_params()`
+**Implementacion:** `_build_folder_structure_section()`, `_ensure_task_folder_structure()`, `_read_create_folders_setting()`, `_write_create_folders_setting()`, `_create_v000_for_params()`
 
 ---
 
@@ -526,6 +592,8 @@ CONFIG_SUBDIR_NAME = "HieroTools"
 CONFIG_FILE_NAME = "CreateV000.ini"
 CONFIG_SECTION = "Settings"
 CONFIG_HANDLE_KEY = "handle"
+CONFIG_CREATE_FOLDERS_KEY = "create_folders"
+BURNIN_TRACK_NAME = "BurnIn"
 TASKS       = ("comp", "roto", "cleanup")
 TASK_FOLDER = {"comp": "Comp", "roto": "Roto", "cleanup": "Cleanup"}
 
@@ -612,7 +680,8 @@ C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-Trac
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py` | `setup_debug_logging()`, `debug_print()`, `cleanup_logging()`, `open_create_v000_dialog()`, `_collect_context()`, `_collect_range_sources()`, `_build_outputs()`, `_preview_in_out()`, `_zoom_timeline_to_preview_range()`, `_create_v000_for_params()`, `_set_v000_clip_color()`, `_disable_timeline_item()`, `_create_black_exr_sequence()`, `_colorize_path()`, `_ensure_task_folder_structure()`, `_build_folder_structure_section()`, `CreateV000Dialog` |
+| `LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py` | `setup_debug_logging()`, `debug_print()`, `cleanup_logging()`, `open_create_v000_dialog()`, `_collect_context()`, `_collect_range_sources()`, `_build_outputs()`, `_preview_in_out()`, `_zoom_timeline_to_preview_range()`, `_create_v000_for_params()`, `_set_v000_clip_color()`, `_disable_timeline_item()`, `_create_black_exr_sequence()`, `_colorize_path()`, `_ensure_task_folder_structure()`, `_build_folder_structure_section()`, `_read_create_folders_setting()`, `_write_create_folders_setting()`, `_insert_task_track()`, `_get_above_neighbor_for_task()`, `CreateV000Dialog` |
+| `+Building_Blocks\Hiero\LGA_H-Tracks-InsertTest.py` | Referencia del workaround remove-all/re-add para insertar tracks en posicion especifica |
 | `docs\Docu_Logging_System.md` | Valores por defecto y patron de `QueueHandler` / `QueueListener` |
 | `LGA_NKS_ViewerTL_Panel_py\LGA_NKS_InOut_Editref.py` | Referencia para `seq.setInTime()` y `seq.setOutTime()` |
 | `LGA_NKS_ViewerTL_Panel_py\LGA_NKS_PrevNext_Rev.py` | Referencia para mover playhead, enfocar timeline y ejecutar `Zoom to Fit` con `QTimer.singleShot()` |

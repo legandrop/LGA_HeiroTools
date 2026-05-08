@@ -50,6 +50,8 @@ CONFIG_SUBDIR_NAME = "HieroTools"
 CONFIG_FILE_NAME = "CreateV000.ini"
 CONFIG_SECTION = "Settings"
 CONFIG_HANDLE_KEY = "handle"
+CONFIG_CREATE_FOLDERS_KEY = "create_folders"
+BURNIN_TRACK_NAME = "BurnIn"
 TASKS = ("comp", "roto", "cleanup")
 TASK_FOLDER = {
     "comp": "Comp",
@@ -253,16 +255,48 @@ def _write_handle_setting(handle_value):
     try:
         if not os.path.isdir(config_dir):
             os.makedirs(config_dir)
-
         config = configparser.ConfigParser()
-        config[CONFIG_SECTION] = {
-            CONFIG_HANDLE_KEY: str(_clamp_handle(handle_value)),
-        }
+        if os.path.isfile(config_file):
+            config.read(config_file, encoding="utf-8")
+        if not config.has_section(CONFIG_SECTION):
+            config[CONFIG_SECTION] = {}
+        config[CONFIG_SECTION][CONFIG_HANDLE_KEY] = str(_clamp_handle(handle_value))
         with open(config_file, "w", encoding="utf-8") as file_handle:
             config.write(file_handle)
         return None
     except Exception as exc:
         return "Failed to write Create v000 settings: %s" % exc
+
+
+def _read_create_folders_setting():
+    config_file = _config_path()
+    if not os.path.isfile(config_file):
+        return True
+    config = configparser.ConfigParser()
+    try:
+        config.read(config_file, encoding="utf-8")
+        value = config.get(CONFIG_SECTION, CONFIG_CREATE_FOLDERS_KEY, fallback="true")
+        return value.lower() not in ("false", "0", "no")
+    except Exception:
+        return True
+
+
+def _write_create_folders_setting(value):
+    config_file = _config_path()
+    config_dir = os.path.dirname(config_file)
+    try:
+        if not os.path.isdir(config_dir):
+            os.makedirs(config_dir)
+        config = configparser.ConfigParser()
+        if os.path.isfile(config_file):
+            config.read(config_file, encoding="utf-8")
+        if not config.has_section(CONFIG_SECTION):
+            config[CONFIG_SECTION] = {}
+        config[CONFIG_SECTION][CONFIG_CREATE_FOLDERS_KEY] = "true" if value else "false"
+        with open(config_file, "w", encoding="utf-8") as fh:
+            config.write(fh)
+    except Exception as exc:
+        debug_print("Failed to write create_folders setting: %s" % exc)
 
 
 def _read_handle_setting():
@@ -764,6 +798,61 @@ def _collect_range_sources(seq, current_time):
             plates.append(source)
 
     return editrefs + plates, plates
+
+
+def _get_above_neighbor_for_task(seq, task):
+    """Returns the track that should be just above the given task track in the panel.
+
+    Panel order top-to-bottom: BurnIn > _comp_ > _roto_ > _cleanup_ > plates.
+    For each task, candidates are the task tracks that come before it in TASKS order,
+    then BurnIn. Returns the first one found, or None if none exist.
+    """
+    if task not in TASKS:
+        return None
+    task_idx = TASKS.index(task)
+    candidates = [track_for_task(TASKS[i]) for i in range(task_idx - 1, -1, -1)]
+    candidates.append(BURNIN_TRACK_NAME)
+    for name in candidates:
+        t = _find_video_track(seq, name)
+        if t is not None:
+            return t
+    return None
+
+
+def _insert_task_track(seq, task):
+    """Creates and inserts a VideoTrack for the task at the correct timeline position.
+
+    Must be called inside a project.beginUndo() block — undo is managed by the caller.
+    Uses the remove-all/re-add workaround since Hiero has no insertTrack() API.
+    Panel order: BurnIn > _comp_ > _roto_ > _cleanup_ > plates.
+    Returns (track, error_string). error_string is None on success.
+    """
+    track_name = track_for_task(task)
+    if not track_name:
+        return None, "Unknown task: %s" % task
+
+    new_track = hiero.core.VideoTrack(track_name)
+    above_track = _get_above_neighbor_for_task(seq, task)
+    video_tracks = list(seq.videoTracks())
+
+    if above_track is not None:
+        insert_at = above_track.trackIndex()
+        new_list = video_tracks[:insert_at] + [new_track] + video_tracks[insert_at:]
+    else:
+        new_list = video_tracks + [new_track]
+
+    try:
+        for t in video_tracks:
+            seq.removeTrack(t)
+        for t in new_list:
+            seq.addTrack(t)
+    except Exception as exc:
+        return None, "Failed to create track %s: %s" % (track_name, exc)
+
+    created_track = _find_video_track(seq, track_name)
+    if not created_track:
+        return None, "Track not found after creation: %s" % track_name
+    return created_track, None
 
 
 def _ensure_task_folder_structure(shot_root, task):
@@ -1627,28 +1716,10 @@ class CreateV000Dialog(QtWidgets.QDialog):
         self.create_folders_chk = QtWidgets.QCheckBox(
             "Create folder structure for selected tasks if missing"
         )
-        self.create_folders_chk.setChecked(False)
-        self.create_folders_chk.setStyleSheet(
-            """
-            QCheckBox {
-                color: #a7a7a7;
-                padding: 2px;
-            }
-            QCheckBox::indicator {
-                width: 14px;
-                height: 14px;
-            }
-            QCheckBox::indicator:unchecked {
-                background-color: #272727;
-                border: 1px solid #555555;
-                border-radius: 2px;
-            }
-            QCheckBox::indicator:checked {
-                background-color: #443a91;
-                border: 1px solid #774dcb;
-                border-radius: 2px;
-            }
-            """
+        self.create_folders_chk.setStyleSheet("color: #a7a7a7; padding: 2px;")
+        self.create_folders_chk.setChecked(_read_create_folders_setting())
+        self.create_folders_chk.stateChanged.connect(
+            lambda state: _write_create_folders_setting(bool(state))
         )
 
         row.addWidget(self.create_folders_chk)
@@ -2163,20 +2234,18 @@ class CreateV000Dialog(QtWidgets.QDialog):
         integration_mode = "timeline"
         target_track_name = track_for_task(params["task"])
         target_track = _find_video_track(seq, target_track_name)
-        if not target_track:
-            message = "Target track not found: %s" % target_track_name
-            self._set_warning(message)
-            QtWidgets.QMessageBox.warning(self, "Create v000", message)
-            return False
+        track_needs_creation = target_track is None
 
-        overlaps = _timeline_overlaps(target_track, params["timeline_in"], params["timeline_out"])
-        if overlaps:
-            debug_print("Timeline overlaps detected:", len(overlaps), "track:", target_track_name)
-            choice = self._task_overlap_dialog(params["task"], overlaps)
-            if not choice:
-                debug_print("Create v000 skipped by user at overlap dialog:", params["task"])
-                return False
-            integration_mode = choice
+        # Overlap check only applies when the track already exists; a new track has no items
+        if not track_needs_creation:
+            overlaps = _timeline_overlaps(target_track, params["timeline_in"], params["timeline_out"])
+            if overlaps:
+                debug_print("Timeline overlaps detected:", len(overlaps), "track:", target_track_name)
+                choice = self._task_overlap_dialog(params["task"], overlaps)
+                if not choice:
+                    debug_print("Create v000 skipped by user at overlap dialog:", params["task"])
+                    return False
+                integration_mode = choice
         debug_print("Create v000 integration mode:", integration_mode)
 
         if self.create_folders_chk.isChecked():
@@ -2205,7 +2274,15 @@ class CreateV000Dialog(QtWidgets.QDialog):
         import_message = ""
         if integration_mode != "exrs_only":
             try:
-                with project.beginUndo("Import Create v000"):
+                with project.beginUndo("Create v000 %s" % params["task"]):
+                    if track_needs_creation:
+                        target_track, create_err = _insert_task_track(seq, params["task"])
+                        if create_err:
+                            raise RuntimeError(
+                                "Could not create track %s: %s" % (target_track_name, create_err)
+                            )
+                        debug_print("Track created:", target_track_name)
+
                     clip, bin_item, import_error = _import_v000_to_bin(project, params)
                     if import_error:
                         raise RuntimeError(import_error)
