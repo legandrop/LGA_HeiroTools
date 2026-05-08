@@ -70,6 +70,12 @@ check_existing_outputs  = _transcode_mod.check_existing_outputs
 delete_existing_outputs = _transcode_mod.delete_existing_outputs
 show_overwrite_warning  = _transcode_mod.show_overwrite_warning
 
+_TRANSCODE_QUEUE_HELPER = "LGA_NKS_Edit_Panel_py.LGA_import_shots_transcode_queue"
+if _TRANSCODE_QUEUE_HELPER in sys.modules:
+    del sys.modules[_TRANSCODE_QUEUE_HELPER]
+transcode_queue_mod = importlib.import_module(_TRANSCODE_QUEUE_HELPER)
+get_transcode_queue_manager = transcode_queue_mod.get_manager
+
 _SETTINGS_HELPER = "LGA_NKS_Edit_Panel_py.LGA_import_shots_settings"
 if _SETTINGS_HELPER in sys.modules:
     del sys.modules[_SETTINGS_HELPER]
@@ -1453,11 +1459,18 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._imp_settings    = settings_mod.load_all_settings()
         self._res_presets_raw = settings_mod.load_res_presets()
         self._res_presets     = self._build_full_presets()
+        self._window_id       = "%s-%x" % (
+            re.sub(r"[^A-Za-z0-9_.-]+", "_", shot_name or "shot"),
+            id(self),
+        )
+        self._transcode_active = False
+        self._transcode_manager = get_transcode_queue_manager()
 
         self.setWindowTitle("Import Shot — %s" % shot_name)
         self.setObjectName("LGA_ImportShotDialog")
         self.setProperty("shot_name", shot_name)
         self.setProperty("shot_root", shot_root)
+        self.setProperty("window_id", self._window_id)
         self.setModal(False)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
         self.setMinimumWidth(1300)
@@ -1483,9 +1496,23 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._content_area.addWidget(self._page_convert)
         self._content_area.addWidget(self._page_import)
 
+        self._connect_transcode_manager()
+
         self._show_page(self.PAGE_MEDIA)
 
     # ── header ───────────────────────────────────────────────────
+
+    def _connect_transcode_manager(self):
+        """Conecta esta ventana al manager global de transcode."""
+        mgr = self._transcode_manager
+        mgr.queue_changed.connect(self._on_global_transcode_queue_changed)
+        mgr.log_message.connect(self._on_manager_transcode_log)
+        mgr.sequence_started.connect(self._on_manager_sequence_started)
+        mgr.sequence_done.connect(self._on_manager_sequence_done)
+        mgr.job_cancelled.connect(self._on_manager_job_cancelled)
+        mgr.batch_done.connect(self._on_manager_batch_done)
+        mgr.fatal_error.connect(self._on_manager_transcode_error)
+        debug_print("TranscodeQueueManager conectado window_id=%s" % self._window_id)
 
     def _build_header(self):
         row = QtWidgets.QHBoxLayout()
@@ -5027,6 +5054,10 @@ class ImportShotDialog(QtWidgets.QDialog):
         """Habilita Start Transcode si hay al menos un EXR habilitado y chequeado."""
         if not hasattr(self, "_convert_checkboxes") or not hasattr(self, "_start_transcode_btn"):
             return
+        if getattr(self, "_transcode_active", False):
+            self._start_transcode_btn.setEnabled(False)
+            self._start_transcode_btn.setToolTip("Transcode en curso")
+            return
         has_exr = any(
             chk.isChecked() and chk.isEnabled()
             for chk in self._convert_checkboxes.values()
@@ -5085,11 +5116,21 @@ class ImportShotDialog(QtWidgets.QDialog):
         }
 
         # Deshabilitar botones mientras hay trabajo en curso
+        self._transcode_active = True
         self._start_transcode_btn.setEnabled(False)
         self._go_back_btn.setEnabled(False)
         self._convert_log.clear()
 
-        self._start_next_sequence()
+        self._transcode_results_all = []
+        self._transcode_manager.enqueue_jobs(
+            self._window_id,
+            self.shot_name,
+            job_sequences,
+            self._transcode_global_opts,
+            self._transcode_flags,
+            str(SHARED_DIR),
+            ui_parent=self,
+        )
 
     def _start_next_sequence(self):
         """Saca la siguiente secuencia de la cola, la verifica y lanza su worker.
@@ -5140,6 +5181,64 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _on_transcode_log(self, msg):
         """Agrega una línea al panel de log de transcode."""
         self._convert_log.appendPlainText(msg)
+
+    def _on_manager_transcode_log(self, window_id, msg):
+        if window_id != self._window_id:
+            return
+        self._on_transcode_log(msg)
+
+    def _on_manager_sequence_started(self, window_id, row_i, dst_dir_str, total_frames):
+        if window_id != self._window_id:
+            return
+        self._on_sequence_started(row_i, dst_dir_str, total_frames)
+
+    def _on_manager_sequence_done(self, window_id, row_i, ok, stats):
+        if window_id != self._window_id:
+            return
+        self._on_sequence_done(row_i, ok, stats)
+
+    def _on_manager_job_cancelled(self, window_id, row_i, result):
+        if window_id != self._window_id:
+            return
+        if not hasattr(self, "_transcode_results_all"):
+            self._transcode_results_all = []
+        self._transcode_results_all.append(result)
+        self._set_convert_status(row_i, "Cancelado", _CLR_STATUS_UPSCALE)
+
+    def _on_manager_batch_done(self, window_id, results):
+        if window_id != self._window_id:
+            return
+        self._transcode_results_all = list(results or [])
+        self._finalize_transcode()
+
+    def _on_manager_transcode_error(self, window_id, msg):
+        if window_id != self._window_id:
+            return
+        self._on_transcode_error(msg)
+
+    def _on_global_transcode_queue_changed(self, snapshot):
+        """Actualiza etiquetas de fila segun la cola global."""
+        if not hasattr(self, "_convert_table"):
+            return
+        for job in snapshot:
+            if job.get("window_id") != self._window_id:
+                continue
+            row_i = job.get("row_i")
+            if row_i is None or row_i >= self._convert_table.rowCount():
+                continue
+            status = job.get("status")
+            if status == "queued":
+                pos = job.get("position") or 0
+                self._set_convert_status(row_i, "%d en fila" % pos, _CLR_STATUS_PENDING)
+            elif status in ("running", "starting"):
+                if not (hasattr(self, "_transcode_pbars") and row_i in self._transcode_pbars):
+                    self._set_convert_status(row_i, "Procesando", _CLR_STATUS_PENDING)
+
+    def _set_convert_status(self, row_i, text, color):
+        if not hasattr(self, "_convert_table") or row_i >= self._convert_table.rowCount():
+            return
+        html = "<span style='color:%s;'>%s</span>" % (color, text)
+        self._convert_table.setCellWidget(row_i, 7, _cell_html_label(html))
 
     # Estilo de la barra de progreso de transcode
     _PBAR_STYLE = """
@@ -5224,17 +5323,24 @@ class ImportShotDialog(QtWidgets.QDialog):
         results  = self._transcode_results_all
         total    = len(results)
         ok_count = sum(1 for r in results if r.get("ok"))
+        cancelled_count = sum(1 for r in results if r.get("cancelled"))
         if total == 0:
             summary = "⚠ Todas las secuencias fueron canceladas"
         elif ok_count == total:
             summary = "✓ Transcode completo: %d/%d OK" % (ok_count, total)
+        elif cancelled_count and ok_count + cancelled_count == total:
+            summary = "⚠ Transcode: %d/%d OK, %d canceladas" % (
+                ok_count, total, cancelled_count
+            )
         else:
             summary = "⚠ Transcode: %d/%d OK, %d con errores" % (
-                ok_count, total, total - ok_count
+                ok_count, total, total - ok_count - cancelled_count
             )
         self._on_transcode_log(summary)
+        self._transcode_active = False
         self._start_transcode_btn.setEnabled(True)
         self._go_back_btn.setEnabled(True)
+        self._update_transcode_btn_state()
         self._transcode_happened = True  # para triggerar refresh al volver a PAGE_MEDIA
         debug_print("Transcode all_done — %d/%d OK" % (ok_count, total))
 
@@ -5244,6 +5350,10 @@ class ImportShotDialog(QtWidgets.QDialog):
         debug_print("Transcode error fatal: %s" % msg, level="error")
         if hasattr(self, "_sequence_queue"):
             self._sequence_queue.clear()
+        if not hasattr(self, "_transcode_results_all"):
+            self._transcode_results_all = []
+        if not self._transcode_results_all:
+            self._transcode_results_all.append({"ok": False, "error": msg})
         self._finalize_transcode()
 
     # ══════════════════════════════════════════════════════════

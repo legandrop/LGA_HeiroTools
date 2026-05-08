@@ -11,7 +11,7 @@ secundaria antes de validar que el manager global ejecuta los transcodes correct
 
 ---
 
-## Etapa 1 - Manager global minimo con una sola ventana {pendiente}
+## Etapa 1 - Manager global minimo con una sola ventana {implementada, pendiente de test en Hiero}
 
 Objetivo: reemplazar la cola local por un manager global, manteniendo el caso de uso actual
 con una sola ventana.
@@ -225,4 +225,3 @@ Resultado testeable:
   documentar ajustes finales
 }
 ```
-
