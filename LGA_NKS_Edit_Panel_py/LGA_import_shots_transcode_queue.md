@@ -260,6 +260,21 @@ Accion:
 
 La ventana `Open Queue` deberia mostrar una tabla simple con todos los jobs conocidos.
 
+La UI debe respetar la estetica de `Import Shot`: fondo `#2B2B2B`, tablas oscuras,
+bordes sobrios, tipografia y botones pequenos consistentes con los controles existentes.
+No debe sentirse como una ventana nativa generica separada del resto de la herramienta.
+
+Los jobs deben agruparse visualmente por `shot_name`. Cada grupo debe mostrar un header
+con el nombre del shot y debajo sus jobs en orden de cola.
+
+Al hacer doble click sobre el header/nombre de shot:
+
+- Si la ventana de `Import Shot` para ese shot sigue abierta, debe traerse al frente.
+- Si la ventana ya fue cerrada, la primera version puede dejar el doble click sin accion
+  y registrar el evento en log.
+- Abrir/reconstruir una ventana cerrada desde la cola queda como mejora futura, porque
+  requiere conservar o reconstruir el contexto completo del shot.
+
 Columnas sugeridas:
 
 | Columna | Contenido |
@@ -276,6 +291,7 @@ Primera version recomendada:
 - Solo lectura.
 - Sin reordenar jobs.
 - Sin cancelar jobs desde esta ventana.
+- Doble click en shot solo trae al frente ventanas existentes.
 
 Cancelacion y reordenamiento pueden agregarse despues si hacen falta.
 

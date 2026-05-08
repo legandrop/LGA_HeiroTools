@@ -257,6 +257,9 @@ import atexit
 atexit.register(cleanup_logging)
 
 
+# ── color del shotname en columnas Nombre de las tres tablas ─────
+SHOTNAME_COLOR = "#B56AB5"  # ✅✅ cambiar aquí para ajustar el magenta en todas las tablas
+
 # ── colores (igual que CreateV000) ────────────────────────────────
 PATH_SHOT_COLOR = "#c56cf0"
 PATH_SEP_COLOR  = "#bbbbbb"
@@ -1955,11 +1958,25 @@ class ImportShotDialog(QtWidgets.QDialog):
         else:
             name_color = "#CCCCCC" if is_latest else "#888888"
             tooltip    = ""
-        name_item = QtWidgets.QTableWidgetItem(name)
-        name_item.setForeground(QtGui.QColor(name_color))
-        if tooltip:
-            name_item.setToolTip(tooltip)
-        table.setItem(row_i, 2, name_item)
+        shot_pfx_len = len(self.shot_name) if name.startswith(self.shot_name) else 0
+        if shot_pfx_len:
+            shot_clr = SHOTNAME_COLOR if is_latest else mix_colors(SHOTNAME_COLOR, "#272727", 0.55)
+            rest_esc = _rn_escape(name[shot_pfx_len:])
+            name_html = (
+                "<span style='color:%s;'>%s</span>"
+                "<span style='color:%s;'>%s</span>"
+                % (shot_clr, _rn_escape(name[:shot_pfx_len]), name_color, rest_esc)
+            )
+            name_lbl = _cell_html_label(name_html)
+            if tooltip:
+                name_lbl.setToolTip(tooltip)
+            table.setCellWidget(row_i, 2, name_lbl)
+        else:
+            name_item = QtWidgets.QTableWidgetItem(name)
+            name_item.setForeground(QtGui.QColor(name_color))
+            if tooltip:
+                name_item.setToolTip(tooltip)
+            table.setItem(row_i, 2, name_item)
 
         # Col 3: Tipo
         if source == "publish" or item.get("kind") == "exr_seq":
@@ -2872,6 +2889,8 @@ class ImportShotDialog(QtWidgets.QDialog):
             getattr(self, "_rename_selected_rows", []),
             self._collect_rename_settings_from_ui() if hasattr(self, "_rename_sr1_search") else getattr(self, "_rename_settings", {}),
             colors,
+            shot_name=self.shot_name,
+            shotname_color=SHOTNAME_COLOR,
         )
 
         # Construir display_rows: secciones intercaladas igual que la tabla principal
@@ -5025,11 +5044,25 @@ class ImportShotDialog(QtWidgets.QDialog):
             self._convert_table.setCellWidget(i, 1, chk_container)
 
             # Col 2: Nombre
-            name_item = QtWidgets.QTableWidgetItem(it.get("name", ""))
-            name_item.setForeground(QtGui.QColor(name_color))
-            if is_mov:
-                name_item.setToolTip("Transcode de MOV pendiente de implementación")
-            self._convert_table.setItem(i, 2, name_item)
+            tc_name = it.get("name", "")
+            tc_pfx_len = len(self.shot_name) if (not is_mov and tc_name.startswith(self.shot_name)) else 0
+            if tc_pfx_len:
+                tc_name_html = (
+                    "<span style='color:%s;'>%s</span>"
+                    "<span style='color:%s;'>%s</span>"
+                    % (SHOTNAME_COLOR, _rn_escape(tc_name[:tc_pfx_len]),
+                       name_color, _rn_escape(tc_name[tc_pfx_len:]))
+                )
+                tc_name_lbl = _cell_html_label(tc_name_html)
+                if is_mov:
+                    tc_name_lbl.setToolTip("Transcode de MOV pendiente de implementación")
+                self._convert_table.setCellWidget(i, 2, tc_name_lbl)
+            else:
+                name_item = QtWidgets.QTableWidgetItem(tc_name)
+                name_item.setForeground(QtGui.QColor(name_color))
+                if is_mov:
+                    name_item.setToolTip("Transcode de MOV pendiente de implementación")
+                self._convert_table.setItem(i, 2, name_item)
 
             # Col 3: Origen "WxH [AR] · bd · Nch · comp · #f - Xs"
             sw, sh = it.get("width"), it.get("height")

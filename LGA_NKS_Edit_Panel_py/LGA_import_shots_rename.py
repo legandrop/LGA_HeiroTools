@@ -255,7 +255,8 @@ def build_selected_rows(selected_items: list[dict]) -> list[dict]:
     return rows
 
 
-def compute_preview(rows: list[dict], settings: dict, stage_colors: dict[int, str]) -> list[dict]:
+def compute_preview(rows: list[dict], settings: dict, stage_colors: dict[int, str],
+                    shot_name: str = "", shotname_color: str = "") -> list[dict]:
     sr1 = settings.get("sr1", {})
     sr2 = settings.get("sr2", {})
     delimiter = settings.get("delimiter", {})
@@ -337,6 +338,15 @@ def compute_preview(rows: list[dict], settings: dict, stage_colors: dict[int, st
             clr = stage_colors.get(st)
             if clr:
                 ren_colors[i] = clr
+
+        # Shotname prefix como capa base (S&R tiene prioridad al mergear encima)
+        if shot_name and shotname_color:
+            if original.startswith(shot_name):
+                sn_base = {i: shotname_color for i in range(len(shot_name))}
+                orig_colors = {**sn_base, **orig_colors}
+            if renamed.startswith(shot_name):
+                sn_base = {i: shotname_color for i in range(len(shot_name))}
+                ren_colors = {**sn_base, **ren_colors}
 
         folder_warning = None
         blocked = False
