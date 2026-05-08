@@ -245,6 +245,9 @@ Objetivo: dar visibilidad completa del orden global de jobs.
 ```text
 {
   agregar boton pequeno Open Queue junto al estado global,
+  crear LGA_import_shots_transcode_queue_ui.py,
+  implementar recarga de desarrollo del modulo UI solo cuando no haya ventanas vivas,
+  exponer show_queue_window(manager, parent=None, focus_window_callback=None),
   usar estilo de botones pequenos existentes,
   respetar estetica visual de Import Shot,
   crear ventana flotante no bloqueante,

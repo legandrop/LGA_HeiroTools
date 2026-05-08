@@ -279,6 +279,55 @@ Accion:
 
 ---
 
+## Modulo UI de Open Queue (pendiente de implementacion y test)
+
+La ventana de cola debe vivir en un modulo propio para mantener separadas las
+responsabilidades:
+
+```text
+LGA_NKS_Edit_Panel_py/LGA_import_shots_transcode_queue_ui.py
+```
+
+Responsabilidades del modulo UI:
+
+- Crear y mostrar la ventana no modal `TranscodeQueueWindow`.
+- Recibir el manager global existente; no crear ni reemplazar el manager.
+- Leer el snapshot actual del manager y conectarse a sus senales.
+- Renderizar la cola, agrupada por `shot_name`.
+- Reutilizar la logica de foco de ventanas existente para traer al frente una ventana de
+  `Import Shot` por `window_id` o `shot_name`.
+- Mantener el checkbox `Mantener arriba`.
+- No ejecutar transcodes, no modificar archivos y no decidir el orden de la cola.
+
+Contrato propuesto desde `LGA_import_shots.py`:
+
+```python
+show_queue_window(manager, parent=None, focus_window_callback=None)
+```
+
+Esto significa: el boton `Open Queue` no conoce los detalles de la UI; solo llama esa
+funcion, pasandole el manager y una funcion para enfocar ventanas de Import Shot. La clase
+interna recomendada para la ventana es `TranscodeQueueWindow`.
+
+### Recarga de desarrollo del modulo UI
+
+Durante desarrollo, `LGA_import_shots.py` debe poder recargar
+`LGA_import_shots_transcode_queue_ui.py` para probar cambios sin reiniciar Hiero, pero solo
+cuando sea seguro:
+
+- Si no hay ventanas `Import Shot` visibles y no hay ventana `Open Queue` visible, puede
+  borrar el modulo UI de `sys.modules` e importarlo de cero.
+- Si hay alguna ventana `Import Shot` visible o una ventana `Open Queue` visible, debe
+  reutilizar el modulo UI ya cargado.
+
+La razon es similar a la del manager, aunque con menos riesgo de datos: recargar la UI con
+ventanas vivas puede dejar widgets creados por clases viejas, senales duplicadas o una
+ventana flotante desconectada del estado actual. El manager global sigue teniendo su propia
+regla mas estricta: nunca recargarse mientras haya ventanas `Import Shot` abiertas, porque
+ahi vive la cola real.
+
+---
+
 ## Ventana de cola global (pendiente de implementacion y test)
 
 La ventana `Open Queue` deberia mostrar una tabla simple con todos los jobs conocidos.

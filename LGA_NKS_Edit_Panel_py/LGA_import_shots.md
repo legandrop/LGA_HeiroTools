@@ -96,6 +96,8 @@ Todas las secciones principales de la herramienta muestran una fila inferior com
 - `Show Windows`: trae al frente todas las ventanas abiertas de `Import Shot`. Si alguna
   esta minimizada, la restaura con `showNormal()` antes de `raise_()` y `activateWindow()`.
 - `Open Queue`: abre o trae al frente la ventana global de cola de transcode.
+  La UI de esa ventana vive en `LGA_import_shots_transcode_queue_ui.py`; durante desarrollo
+  ese modulo se recarga solo si no hay ventanas `Import Shot` ni `Open Queue` visibles.
 - `estado global`: muestra actividad de la cola global de transcode cuando hay jobs activos
   o pendientes.
 - Si hay un shot convirtiendo, el nombre del shot aparece en `SHOTNAME_COLOR` como boton
