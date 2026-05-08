@@ -242,7 +242,7 @@ ventana.
 
 ---
 
-## Boton Show Windows (implementado, pendiente de test en Hiero)
+## Boton Show Windows (implementado y testeado en Hiero)
 
 Junto a `Open Queue` se muestra un boton pequeno:
 
@@ -332,7 +332,7 @@ ahi vive la cola real.
 
 Detalle visual y tecnico: [`LGA_import_shots_transcode_queue_ui.md`](LGA_import_shots_transcode_queue_ui.md).
 
-La ventana `Open Queue` muestra una tabla unica, en orden global, con todos los jobs
+La ventana `Import Shots - Transcode Queue` muestra una tabla unica, en orden global, con todos los jobs
 activos/pendientes y un historial visual de jobs completados mientras la ventana este
 abierta.
 
@@ -367,11 +367,11 @@ Primera version recomendada:
 - Sin reordenar jobs.
 - Sin cancelar jobs desde esta ventana.
 - Click en shot solo trae al frente ventanas existentes.
-- Boton `Show Windows`.
+- Boton `Show All Import Windows`.
 - Boton `Clear Completed`, que limpia solo el historial visual de completados.
-- Checkbox inferior `Keep on top`, persistente entre sesiones.
+- Checkbox `Keep this window on top`, persistente entre sesiones y alineado a la derecha de la fila inferior.
 
-El checkbox `Keep on top` debe hacer que la ventana quede sobre el resto usando
+El checkbox `Keep this window on top` debe hacer que la ventana quede sobre el resto usando
 `QtCore.Qt.WindowStaysOnTopHint`, pero la ventana debe seguir siendo **no modal**:
 
 ```python

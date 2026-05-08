@@ -264,12 +264,12 @@ Objetivo: dar visibilidad completa del orden global de jobs.
   usar barra de progreso identica a la tabla de transcode para el job activo,
   mostrar N en fila en Estado para jobs pendientes,
   conservar historial visual de jobs terminados mientras la ventana este abierta,
-  agregar boton Show Windows,
+  agregar boton Show All Import Windows,
   agregar boton Clear Completed,
   Clear Completed borra solo filas completadas del historial visual,
-  agregar checkbox inferior Keep on top,
-  persistir Keep on top en ImportShots.ini,
-  implementar Keep on top con QtCore.Qt.WindowStaysOnTopHint,
+  agregar checkbox Keep this window on top alineado a la derecha de la fila inferior,
+  persistir Keep this window on top en ImportShots.ini,
+  implementar Keep this window on top con QtCore.Qt.WindowStaysOnTopHint,
   mantener la ventana no modal para no bloquear Hiero,
   mantener primera version solo lectura
 }

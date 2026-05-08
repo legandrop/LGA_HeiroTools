@@ -8,7 +8,7 @@ ____________________________________________________________________
   ordenada globalmente, sin modificar la cola ni ejecutar transcodes.
 
   v0.01: UI inicial de Open Queue. Tabla Shot/Plate/Duracion/Estado,
-         Show Windows, Clear Completed y Keep on top persistente.
+         Show All Import Windows, Clear Completed y Keep this window on top persistente.
 
 ____________________________________________________________________
 """
@@ -189,7 +189,7 @@ class TranscodeQueueWindow(QtWidgets.QDialog):
         self._keep_on_top = _load_keep_on_top()
 
         self.setObjectName("LGA_TranscodeQueueWindow")
-        self.setWindowTitle("Open Queue")
+        self.setWindowTitle("Import Shots - Transcode Queue")
         self.setModal(False)
         self.setMinimumSize(720, 360)
         self.setStyleSheet(
@@ -210,7 +210,7 @@ class TranscodeQueueWindow(QtWidgets.QDialog):
         layout.setContentsMargins(14, 12, 14, 12)
         layout.setSpacing(10)
 
-        title = QtWidgets.QLabel("Open Queue")
+        title = QtWidgets.QLabel("Import Shots - Transcode Queue")
         title.setStyleSheet("color:%s; font-size:13px; font-weight:bold;" % _CLR_TEXT)
         layout.addWidget(title)
 
@@ -235,14 +235,8 @@ class TranscodeQueueWindow(QtWidgets.QDialog):
             pass
         layout.addWidget(self.table, 1)
 
-        sep = QtWidgets.QFrame()
-        sep.setFrameShape(QtWidgets.QFrame.HLine)
-        sep.setFixedHeight(1)
-        sep.setStyleSheet("background:#444444;")
-        layout.addWidget(sep)
-
         btn_row = QtWidgets.QHBoxLayout()
-        self.show_windows_btn = QtWidgets.QPushButton("Show Windows")
+        self.show_windows_btn = QtWidgets.QPushButton("Show All Import Windows")
         self.show_windows_btn.setStyleSheet(_BTN_SMALL)
         self.show_windows_btn.clicked.connect(self._show_import_shot_windows)
         self.clear_btn = QtWidgets.QPushButton("Clear Completed")
@@ -251,12 +245,12 @@ class TranscodeQueueWindow(QtWidgets.QDialog):
         btn_row.addWidget(self.show_windows_btn)
         btn_row.addWidget(self.clear_btn)
         btn_row.addStretch(1)
-        layout.addLayout(btn_row)
 
-        self.keep_chk = QtWidgets.QCheckBox("Keep on top")
+        self.keep_chk = QtWidgets.QCheckBox("Keep this window on top")
         self.keep_chk.setChecked(bool(self._keep_on_top))
         self.keep_chk.stateChanged.connect(lambda _state: self._set_keep_on_top(self.keep_chk.isChecked()))
-        layout.addWidget(self.keep_chk)
+        btn_row.addWidget(self.keep_chk)
+        layout.addLayout(btn_row)
 
     def _connect_manager(self):
         self.manager.queue_changed.connect(self._render)

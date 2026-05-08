@@ -1,7 +1,7 @@
 > **Regla de documentacion**: este archivo describe la UI prevista para `LGA_import_shots_transcode_queue_ui.py`. No es un historial de cambios.
 > **Estado general**: implementado, pendiente de test en Hiero.
 
-# UI - Open Queue
+# UI - Import Shots - Transcode Queue
 
 Ventana flotante no modal para visualizar la cola global de transcode de `Import Shot`.
 
@@ -23,8 +23,8 @@ Funcion publica prevista:
 show_queue_window(manager, parent=None, focus_window_callback=None)
 ```
 
-`Open Queue` en `LGA_import_shots.py` debe llamar a esta funcion. La UI recibe el manager
-global existente; no crea otro manager ni decide el orden de la cola.
+El boton `Open Queue` en `LGA_import_shots.py` debe llamar a esta funcion. La UI recibe el
+manager global existente; no crea otro manager ni decide el orden de la cola.
 
 ---
 
@@ -48,7 +48,7 @@ La ventana debe ser solo lectura en la primera version:
 Estructura general:
 
 ```text
-Open Queue
+Import Shots - Transcode Queue
 ────────────────────────────────────────────────────────
 Shot          Plate                  Duracion      Estado
 TEST_014_010  TEST_014_010_aPlate... 184f - 7.7s  [barra progreso]
@@ -56,8 +56,7 @@ TEST_014_010  TEST_014_010_bPlate... 184f - 7.7s  1 en fila
 TEST_014_020  TEST_014_020_aPlate... 78f - 3.3s   2 en fila
 TEST_014_020  TEST_014_020_bPlate... 484f - 20.2s Terminado
 ────────────────────────────────────────────────────────
-[Show Windows] [Clear Completed]
-☐ Keep on top
+[Show All Import Windows] [Clear Completed]            ☐ Keep this window on top
 ```
 
 La tabla debe usar una estetica similar a la tabla de la seccion Convert:
@@ -178,11 +177,10 @@ Reglas:
 ## Botones Inferiores
 
 ```text
-[Show Windows] [Clear Completed]
-☐ Keep on top
+[Show All Import Windows] [Clear Completed]            ☐ Keep this window on top
 ```
 
-`Show Windows`:
+`Show All Import Windows`:
 
 - Reutiliza la logica ya implementada en `ImportShotDialog`.
 - Trae al frente todas las ventanas `Import Shot` abiertas.
@@ -192,12 +190,12 @@ Reglas:
 - Borra filas con estado `Terminado`, `Error` o `Cancelado`.
 - No borra jobs activos ni pendientes.
 
-`Keep on top`:
+`Keep this window on top`:
 
 - Persistente entre sesiones.
 - Usa `QtCore.Qt.WindowStaysOnTopHint`.
 - No debe volver modal la ventana.
-- Texto visible: `Keep on top`.
+- Texto visible: `Keep this window on top`.
 
 Persistencia propuesta en `ImportShots.ini`:
 
@@ -214,7 +212,7 @@ keep_on_top = true
 vivas:
 
 - No hay ventanas `Import Shot` visibles.
-- No hay ventana `Open Queue` visible.
+- No hay ventana `Import Shots - Transcode Queue` visible.
 
 Si alguna existe, debe reutilizar el modulo ya cargado para evitar widgets creados por una
 clase vieja, senales duplicadas o una ventana desconectada del manager actual.
