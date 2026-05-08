@@ -1,0 +1,222 @@
+> **Regla de documentacion**: este archivo describe el estado actual del codigo. No es un historial de cambios, changelog ni bitacora temporal.
+> **Regla de documentacion**: este archivo debe incluir una seccion de referencias tecnicas con rutas completas a los archivos mas importantes relacionados, y para cada archivo nombrar las funciones, clases o metodos clave vinculados a este tema.
+
+## Sub-vista Convert
+
+Conversion de EXR sequences para los items marcados.
+
+- Solo opera sobre `exr_seq`. Los MOVs marcados se listan con un aviso
+  `"<nombre>.mov no sera convertido"` y se excluyen del proceso.
+- Si no hay ningun EXR marcado (solo MOVs u otros), el boton no hace nada.
+
+### Layout
+
+```
+┌─ EXR CONVERT ─────────────────────────────────────────┐
+│  [⚠ avisos por MOVs excluidos]                        │
+├───────────────────────────────────────────────────────┤
+│  TABLA DE EXRs A CONVERTIR                            │
+├───────────────────────────────────────────────────────┤
+│  Codec / Calidad     │  Resolucion                    │
+│  (col izquierda)     │  (col derecha)                 │
+├───────────────────────────────────────────────────────┤
+│  Manejo de originales                                 │
+├───────────────────────────────────────────────────────┤
+│  RESUMEN  (totales en disco)                          │
+├───────────────────────────────────────────────────────┤
+│  LOG (3 lineas, expandible ▲/▼)                       │
+├───────────────────────────────────────────────────────┤
+│  [← Go Back]                  [Start Transcode]       │
+└───────────────────────────────────────────────────────┘
+```
+
+### Tabla de EXRs a convertir
+
+En la columna Nombre de esta tabla aplica el mismo coloreado de shotname que en la tabla
+principal: si el nombre comienza con `shot_name` (case-sensitive), el prefijo se colorea
+con `SHOTNAME_COLOR`. La celda pasa de `QTableWidgetItem` plano a `setCellWidget(_cell_html_label(...))`.
+
+| Col | Contenido | Formato / color |
+|-----|-----------|-----------------|
+| (barra) | Color `#42616d` (plates) | 4 px, sin header |
+| Nombre | Nombre de la secuencia | Prefijo = shotname → `SHOTNAME_COLOR`. Resto → `#cccccc` |
+| Origen | `WxH (AR) (PAR) · bitdepth · Nch · compresion · #f - Xs` | AR dorado `#a89060`, PAR rosa `#c4787a` entre paréntesis, comp coloreada, count+secs ámbar `#b09040`. Ancho: 400 px |
+| → | Flecha separadora | centrada, `#666` |
+| Destino | `WxH (AR) (PAR) · bitdepth · Nch · compresion` | mismo coloring; PAR destino = `(1)` si desanamorfizar activo, sino mismo PAR fuente; `—` gris oscuro si checkbox off |
+| Tamaño | Tamaño actual en disco | escaneado al abrir la pagina (`_folder_size_bytes`) |
+| Estado | `Pendiente` / `⚠ Upscale` / `—` / barra de progreso / `✓ Listo` / `✗ Error` | ancho fijo 130px. Ver detalle abajo. |
+
+**Estados de la columna Estado:**
+
+| Estado | Descripción | Color/widget |
+|--------|-------------|--------------|
+| `Pendiente` | EXR chequeado, listo para convertir | cian `#5a9ab5` |
+| `⚠ Upscale` | Resize bloqueado por "no upscale" | rojo `#a06060` |
+| `—` | Checkbox desactivado (fila no se convertirá) | gris oscuro `#444444` |
+| Barra de progreso | Convirtiendo — polling QTimer cada 300ms de archivos en dst | fondo vacío `#393959`, relleno `#443a91`, texto `#cccccc`, bordes redondeados |
+| `✓ Listo` | Conversión completada exitosamente | verde `#6a9960` |
+| `✗ Error` | Conversión fallida | rojo `#a06060` |
+
+La columna Destino y la columna Estado se recalculan en vivo cuando cambian:
+DWAA on/off, DWAA level, channels, preset de resolucion, custom W×H, "no upscale", **checkbox de la fila**.
+
+**Interacción con la tabla:**
+- **Click simple** en cualquier columna (excepto col 0/1): activa/desactiva el checkbox de la fila.
+- **Doble click**: restaura el checkbox a su estado previo (cancela el toggle del primer click) y abre la carpeta del plate en el explorador del sistema (Windows: `os.startfile`; macOS: `open`).
+
+**Upscale bloqueado:** cuando el resize resultaría en upscale y "Aplicar solo si origen es mayor"
+está activo, la fila muestra `⚠ Upscale` en rojo y la columna Destino se grísea. No se modifica
+la lógica de cálculo; es solo comunicación visual al usuario.
+
+El bit depth y channels se leen via `oiiotool --info -v` parseando la linea
+`"WxH, N channel, half openexr"` y se guardan en cada item como `bitdepth` y
+`channels` (int) en `_scan_input_folder()` y `_scan_publish_folders()`.
+
+### Opciones — Codec / Calidad (columna izquierda)
+
+| Control | Default | Notas |
+|---------|---------|-------|
+| ☑ Convertir a DWAA | on | Si off, mantiene compresion original; oculta el control de nivel |
+| DWAA level (`QSpinBox` editable + `QSlider`) | `45` | Visible solo si DWAA activo. Rango `30–60`. Spin y slider two-way bound. |
+| Channels (`QComboBox`) | `Mantener` | `Mantener` o `Reducir a RGB` (elimina canal alpha; pasa `channels: "rgb"` al manifest) |
+
+> Todos los valores de Codec / Calidad son **persistentes**: se guardan en el INI al cambiar
+> y se restauran en la próxima apertura de la herramienta.
+
+### Opciones — Resolucion (columna derecha)
+
+| Control | Default | Notas |
+|---------|---------|-------|
+| Destino (`QComboBox`) | `Original` | Presets cargados desde INI. Secciones `[AR]` en dorado. Ícono 🗑 a la derecha solo en presets borrables (excluye siempre `Original`, `Timeline ...` y `Custom...`, incluso cuando `Original` muestra AR). Click en ícono borra el preset del INI. Presets por defecto: `Original`, `Timeline  WxH  [AR]` (resolución del timeline activo), `2K — 2048×1152 [16:9]`, `UHD — 3840×2160 [16:9]`, `4K — 4096×2304 [16:9]`, `Custom...`. Con source disponible: muestra `→ WxH [AR_real]` calculado según PAR y match_dim |
+| Custom W × H + `[Save preset]` | `2048 × 1152` | Solo visible si preset = `Custom...`. Spinboxes de 88 px de ancho (suficiente para mostrar 4 dígitos completos). El botón "Save preset" usa estilo `_BTN_SMALL` (igual que los botones de selección rápida). Abre un diálogo para nombrar y guardar el preset al INI. |
+| ☑ Preserve aspect ratio | on | **Comportamiento según preset:** |
+| | | — **Presets fijos** (2K/UHD/4K): muestra "Dimensión que manda" (match width/height) |
+| | | — **Custom:** oculta "Dimensión que manda"; vincula W↔H dinámicamente. La última dimensión editada es el "master"; la otra se recalcula por ítem según su AR de source |
+| Dimensión que manda | `Match target width` | Solo visible cuando PAR activo Y preset NO es Custom |
+| ☑ Desanamorfizar (Pixel Aspect Ratio) | off | Si activo, aparece el selector de PAR fuente (`1.3`, `1.5`, `1.8`, `2.0`). El ancho destino = `src_w × PAR`. El `PixelAspectRatio` de salida se fuerza a `1.0` en el manifest. La columna Destino muestra PAR `(1)`. |
+| PAR fuente (`QComboBox`) | `2.0` | Visible solo si Desanamorfizar activo |
+| Filtro resampling | `lanczos3` | `cubic`, `box` (solo aplica si hay resize) |
+| ☑ Aplicar solo si origen es mayor | on | Evita upscale accidental; filas con upscale → Estado `⚠ Upscale` |
+
+> Todos los valores de Resolución son **persistentes**: se guardan en el INI al cambiar
+> y se restauran en la próxima apertura.
+
+#### Presets de resolución — formato INI
+
+Los presets se almacenan en secciones `[ResPreset_N]` del mismo INI (`ImportShots.ini`):
+
+```ini
+[ResPreset_0]
+name = Original
+special = original
+
+[ResPreset_1]
+name = 2K — 2048×1152
+w = 2048
+h = 1152
+
+[ResPreset_4]
+name = Custom...
+special = custom
+```
+
+- `special = original` → mantiene resolución fuente  
+- `special = custom` → muestra spinboxes  
+- `w` + `h` → preset fijo (permite trash icon y borrado)  
+- Los presets `original` y `custom` son invariables (sin trash icon)
+
+#### Lógica Custom + Preserve AR
+
+```
+_custom_master: "w" | "h"  — última dimensión editada por el usuario
+_custom_ar_updating: bool  — flag para evitar recursión en valueChanged
+
+_on_custom_w_changed() → si PAR on: calcula H = W * src_h/src_w (primer EXR)
+_on_custom_h_changed() → si PAR on: calcula W = H * src_w/src_h (primer EXR)
+
+_current_target_res(src_w, src_h) con preset=custom y PAR on:
+    if _custom_master == "w": tw = spinner_w; th = round(tw * src_h/src_w)
+    if _custom_master == "h": th = spinner_h; tw = round(th * src_w/src_h)
+    → resultado diferente por ítem (cada plate mantiene su propio AR)
+```
+
+### Opciones — Manejo de originales (fila inferior)
+
+| Control | Default | Notas |
+|---------|---------|-------|
+| ☑ Borrar `/Originals` al terminar | off | Los originales **siempre** se mueven a `_input/Originals/<plate>/` antes del transcode. Este checkbox solo controla si se borran al finalizar exitosamente. Tooltip explica el comportamiento al hacer hover. |
+
+> El valor de "Borrar /Originals" es **persistente** (se guarda en el INI).
+> Con `Transcode_TEST_Mode = True`, el checkbox queda deshabilitado y los originales no se mueven.
+
+Cuando el flag global `Transcode_TEST_Mode = True` está activo (actualmente `False`):
+- Aparece un aviso `🧪 TEST MODE` en la sección.
+- El checkbox queda deshabilitado.
+- El output del transcode se escribe en `{seq_path}/test_transcode/` sin mover nada.
+
+#### Estructura de Originals (cuando `move_originals = True`)
+
+Los originales se mueven a una subcarpeta dentro de `_input/Originals/`:
+
+```
+_input/
+├── aPlate_v01/          ← item_path (dst del transcode — recibe los convertidos)
+│   └── *.exr            ← EXRs convertidos
+└── Originals/
+    └── aPlate_v01/      ← originals_dir (item_path.parent / "Originals" / item_path.name)
+        └── *.exr        ← EXRs originales movidos aquí antes del transcode
+```
+
+- Si hay varios plates, cada uno tiene su propia subcarpeta en `_input/Originals/`.
+- Si `Borrar /Originals al terminar` está activo: se borra `_input/Originals/<plate>/`
+  y, si la carpeta `_input/Originals/` queda vacía, también se borra.
+- En caso de fallo del transcode, los EXRs originales se restauran a `item_path`.
+
+#### Re-transcode / overwrite con Originals existente
+
+Si `_input/Originals/<plate>/` ya existe, se considera un transcode anterior. Al elegir
+`Sobreescribir`, la herramienta no debe borrar esos EXR originales. El flujo correcto es:
+
+1. Borrar los EXR convertidos que quedaron en `item_path`.
+2. Mover los EXR de `_input/Originals/<plate>/` de vuelta a `item_path`.
+3. Eliminar la carpeta `_input/Originals/<plate>/` ya vacia.
+4. Arrancar `TranscodeWorker`, que volvera a mover los EXR de `item_path` a
+   `_input/Originals/<plate>/` y generara los nuevos convertidos.
+
+Si `_input/Originals/<plate>/` existe pero esta vacia, se elimina esa carpeta y se conservan
+los EXR actuales de `item_path` como unica fuente disponible para el re-transcode.
+
+### Solución QSpinBox — `_ArrowSpinBox` (ganadora, implementada)
+
+Clase de módulo definida en `LGA_import_shots.py` (junto a `_ArrowComboBox`).
+Usada en los spinboxes W y H del panel Custom de resolución.
+
+**Ronda 1 FALLADA**: CSS triangle, `subcontrol-origin:border/padding`, arrows nativos del SO
+→ flechas invisibles en este build.
+
+**Ronda 2 ganadora**: Subclase con `paintEvent` (Opción 7) — mismo patrón que `_ArrowComboBox`.
+Opciones 5 (▲▼ externos) y 6 ([−] valor [+]) también funcionales como workaround.
+
+Ver receta completa en `docs/Docu_PySide_UI_Aprendizajes.md — SpinBox`.
+
+### Resumen
+
+Una linea de texto sobre el log con totales (sin estimaciones):
+
+```
+3 secuencias · 1842 frames · 14.21 GB en disco
+```
+
+### Botones inferiores
+
+| Boton | Estilo | Habilitado | Accion |
+|-------|--------|------------|--------|
+| ← Go Back | `_BTN_SECONDARY` | siempre (deshabilitado durante transcode activo) | vuelve a `PAGE_MEDIA` (preserva opciones) |
+| Start Transcode | `_BTN_PRIMARY` | cuando hay ≥1 EXR chequeado | llama a `_run_transcode()` → lanza `TranscodeWorker` via `QThreadPool` |
+
+### Log panel
+
+3 lineas visibles, expandible con boton ▲/▼ a `setMaximumHeight(16777215)`.
+
+> **Estado actual:** Implementado. El transcode corre via `LGA_EXR_Convert.py`
+> (manifest JSON + subprocess) en un `QRunnable` separado para no bloquear la UI.
