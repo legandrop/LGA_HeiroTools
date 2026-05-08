@@ -404,22 +404,29 @@ def _clip_media_range(clip):
 
 
 def _verify_clip_range(clip, expected_first=None, expected_last=None):
-    """Verifica el rango del clip sin llamar rescan.
+    """Lee el rango que Hiero reporta sin llamar rescan.
 
     clip.rescan() genera su propia entrada de undo en Hiero (con el nombre del clip),
     incluso dentro de un bloque beginUndo. Como los EXRs ya existen en disco antes
-    de importar el clip, el rango se detecta correctamente al crear el clip y no
-    se necesita rescan.
+    de importar el clip, la existencia/rango real se valida contra el filesystem.
+    Este rango es solo informativo porque Hiero puede conservar metadata cacheada.
     """
     after_first, after_last = _clip_media_range(clip)
     debug_print("Clip media range:", after_first, "-", after_last)
 
     if expected_first is not None and expected_last is not None:
         if (after_first, after_last) != (int(expected_first), int(expected_last)):
-            return (
-                "Clip range mismatch. Expected %s - %s, got %s - %s."
-                % (expected_first, expected_last, after_first, after_last)
-            ), (after_first, after_last)
+            debug_print(
+                "Clip range cache mismatch. Expected:",
+                expected_first,
+                "-",
+                expected_last,
+                "got:",
+                after_first,
+                "-",
+                after_last,
+                level="warning",
+            )
 
     return None, (after_first, after_last)
 
@@ -894,9 +901,41 @@ def _first_frame_path(params):
     )
 
 
-def _output_has_exrs(params):
+def _expected_exr_paths(params):
     output_dir = Path(params["output_dir"])
-    return output_dir.exists() and bool(list(output_dir.glob("*.exr")))
+    first_frame = int(params["source_first_frame"])
+    last_frame = int(params["source_last_frame"])
+    pattern = params["output_name_pattern"]
+    return [
+        output_dir / _frame_file_name(pattern, frame)
+        for frame in range(first_frame, last_frame + 1)
+    ]
+
+
+def _output_exr_status(params):
+    expected_paths = _expected_exr_paths(params)
+    existing_expected = [path for path in expected_paths if path.exists()]
+    output_dir = Path(params["output_dir"])
+    all_exrs = list(output_dir.glob("*.exr")) if output_dir.exists() else []
+    expected_names = {path.name for path in expected_paths}
+    unexpected_exrs = [path for path in all_exrs if path.name not in expected_names]
+    return existing_expected, unexpected_exrs
+
+
+def _output_has_exrs(params):
+    existing_expected, unexpected_exrs = _output_exr_status(params)
+    if existing_expected or unexpected_exrs:
+        debug_print(
+            "Output EXR scan:",
+            params["output_dir"],
+            "expected_found:",
+            len(existing_expected),
+            "unexpected_found:",
+            len(unexpected_exrs),
+            "sample:",
+            [str(path) for path in (existing_expected + unexpected_exrs)[:5]],
+        )
+    return bool(existing_expected)
 
 
 def _active_project_for_sequence(seq):
@@ -974,6 +1013,28 @@ def _find_bin_items_by_media_path(bin_item, first_frame_path):
     return matches
 
 
+def _bin_item_media_exists(bin_item):
+    try:
+        active_item = bin_item.activeItem()
+        fileinfos = active_item.mediaSource().fileinfos()
+    except Exception:
+        return False
+
+    for fileinfo in fileinfos:
+        try:
+            filename = fileinfo.filename().replace("\\", "/")
+        except Exception:
+            continue
+        if "%04d" in filename:
+            try:
+                filename = filename.replace("%04d", "%04d" % int(fileinfo.startFrame()))
+            except Exception:
+                pass
+        if Path(filename).exists():
+            return True
+    return False
+
+
 def _remove_bin_items(bin_items):
     removed_count = 0
     for bin_item in list(bin_items):
@@ -995,10 +1056,13 @@ def _import_v000_to_bin(project, params):
     target_bin = _find_or_create_bin_path(project, bin_path)
     existing_bin_items = _find_bin_items_by_media_path(target_bin, first_frame_path)
     if existing_bin_items:
+        stale_count = sum(1 for item in existing_bin_items if not _bin_item_media_exists(item))
         removed_count, remove_error = _remove_bin_items(existing_bin_items)
         debug_print(
             "Removed existing v000 bin item(s):",
             removed_count,
+            "stale:",
+            stale_count,
             "path:",
             first_frame_path,
         )
@@ -1145,8 +1209,8 @@ def _create_black_exr_sequence(params, replace=False):
 
     output_dir = Path(params["output_dir"])
     if output_dir.exists():
-        existing_exrs = list(output_dir.glob("*.exr"))
-        if existing_exrs:
+        existing_expected, unexpected_exrs = _output_exr_status(params)
+        if existing_expected:
             if not replace:
                 return False, "exists", "Output folder already contains EXR files: %s" % output_dir
             try:
@@ -1154,6 +1218,12 @@ def _create_black_exr_sequence(params, replace=False):
             except Exception as exc:
                 return False, "error", "Failed to remove existing v000 folder: %s" % exc
             output_dir.mkdir(parents=True)
+        elif unexpected_exrs:
+            debug_print(
+                "Ignoring unexpected EXR files in output folder:",
+                [str(path) for path in unexpected_exrs[:5]],
+                level="warning",
+            )
     else:
         output_dir.mkdir(parents=True)
 
@@ -1219,11 +1289,16 @@ def _create_black_exr_sequence(params, replace=False):
     except Exception as exc:
         return False, "error", "Failed while duplicating EXR frames: %s" % exc
 
-    written = list(output_dir.glob("*.exr"))
-    if len(written) != frame_count:
-        return False, "error", "Expected %d EXR files, found %d." % (frame_count, len(written))
+    expected_paths = _expected_exr_paths(params)
+    missing = [path for path in expected_paths if not path.exists()]
+    if missing:
+        return False, "error", "Expected %d EXR files, missing %d. First missing: %s" % (
+            frame_count,
+            len(missing),
+            missing[0],
+        )
 
-    debug_print("Validated EXR count:", len(written), "expected:", frame_count)
+    debug_print("Validated expected EXR frames:", len(expected_paths), "expected:", frame_count)
     return True, "created", "Created %d EXR frames in %s" % (frame_count, output_dir)
 
 
