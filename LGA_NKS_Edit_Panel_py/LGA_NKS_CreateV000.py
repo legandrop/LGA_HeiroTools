@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_CreateV000 v1.06 | Lega
+  LGA_NKS_CreateV000 v1.07 | Lega
 
   Crea una secuencia EXR negra v000 para el shot activo en Hiero/Nuke Studio.
   Permite elegir frame range, resolucion, handle persistente y una o varias
@@ -15,6 +15,10 @@ ____________________________________________________________________
   crear solo los EXRs, crear/importar al bin sin insertar, o reemplazar los
   clips solapados por la nueva v000.
 
+  v1.07: Fix undo extra por task: clip.rescan() generaba su propia entrada de undo en Hiero
+         (con el nombre del clip) aunque estuviera dentro del beginUndo. Reemplazado por
+         _verify_clip_range() que solo comprueba el rango sin llamar rescan; los EXRs ya
+         estan en disco antes del beginUndo, por lo que el rango se detecta correctamente.
   v1.06: Checkbox "Create folder structure for selected tasks if missing": crea
          0_assets/1_projects/2_prerenders/3_review/4_publish para cada task
          seleccionada si las carpetas faltan. Estado activado por defecto,
@@ -23,7 +27,7 @@ ____________________________________________________________________
          el timeline, se crea en la posicion correcta (BurnIn > comp > roto >
          cleanup > plates) usando el workaround remove-all/re-add.
          Undo unificado: toda la operacion de Hiero (creacion de track, import
-         al bin, coloreo, rescan, colocacion en timeline) queda en un unico
+         al bin, coloreo, colocacion en timeline) queda en un unico
          beginUndo, deshacible con un solo Ctrl+Z.
          Click en fila de la tabla de frame range activa/desactiva el checkbox.
   v1.05: La ventana principal ahora abre no modal para permitir usar Hiero en segundo plano.
@@ -399,37 +403,25 @@ def _clip_media_range(clip):
     return None, None
 
 
-def _rescan_clip_range(clip, expected_first=None, expected_last=None):
-    before_first, before_last = _clip_media_range(clip)
-    try:
-        clip.rescan()
-        try:
-            QtWidgets.QApplication.processEvents()
-        except Exception:
-            pass
-    except Exception as exc:
-        return "Failed to rescan clip range: %s" % exc, (before_first, before_last), (None, None)
+def _verify_clip_range(clip, expected_first=None, expected_last=None):
+    """Verifica el rango del clip sin llamar rescan.
 
+    clip.rescan() genera su propia entrada de undo en Hiero (con el nombre del clip),
+    incluso dentro de un bloque beginUndo. Como los EXRs ya existen en disco antes
+    de importar el clip, el rango se detecta correctamente al crear el clip y no
+    se necesita rescan.
+    """
     after_first, after_last = _clip_media_range(clip)
-    debug_print(
-        "Rescanned clip range:",
-        before_first,
-        "-",
-        before_last,
-        "->",
-        after_first,
-        "-",
-        after_last,
-    )
+    debug_print("Clip media range:", after_first, "-", after_last)
 
     if expected_first is not None and expected_last is not None:
         if (after_first, after_last) != (int(expected_first), int(expected_last)):
             return (
-                "Rescan range mismatch. Expected %s - %s, got %s - %s."
+                "Clip range mismatch. Expected %s - %s, got %s - %s."
                 % (expected_first, expected_last, after_first, after_last)
-            ), (before_first, before_last), (after_first, after_last)
+            ), (after_first, after_last)
 
-    return None, (before_first, before_last), (after_first, after_last)
+    return None, (after_first, after_last)
 
 
 def _frame_count(timeline_in, timeline_out):
@@ -2343,19 +2335,14 @@ class CreateV000Dialog(QtWidgets.QDialog):
         else:
             import_message += "\nClip color: #8a8a8a"
 
-        rescan_error, rescan_before, rescan_after = _rescan_clip_range(
+        range_error, clip_range = _verify_clip_range(
             clip,
             params["source_first_frame"],
             params["source_last_frame"],
         )
-        if rescan_error:
-            raise RuntimeError(rescan_error)
-        import_message += "\nRescanned clip range: %s - %s -> %s - %s" % (
-            rescan_before[0],
-            rescan_before[1],
-            rescan_after[0],
-            rescan_after[1],
-        )
+        if range_error:
+            raise RuntimeError(range_error)
+        import_message += "\nClip range: %s - %s" % (clip_range[0], clip_range[1])
 
         if integration_mode == "timeline":
             track_item, timeline_error = _insert_v000_in_timeline(seq, clip, params)
