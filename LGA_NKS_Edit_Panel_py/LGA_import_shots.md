@@ -241,13 +241,27 @@ Los mismos colores se usan en los titulos de las secciones.
 - Todo lo demas (publish, versiones anteriores, MOVs) → unchecked por defecto.
 - Click en cualquier celda de la fila (excepto la barra de color y el checkbox) togglea el checkbox.
 
+### Coloreado del shotname en la columna Nombre
+
+En la columna Nombre de la tabla, si el nombre del archivo o carpeta comienza con el
+`shot_name` (comparación case-sensitive, usando `str.startswith()`), el prefijo coincidente
+se colorea con `SHOTNAME_COLOR` (magenta). El resto del nombre mantiene su color base habitual.
+
+- Aplica a **todas las filas**, incluyendo versiones no-latest (en esos casos el magenta
+  también se oscurece/aclara proporcionalmente al greyed-out de la fila, igual que
+  el resto del texto).
+- La columna Nombre pasa de `QTableWidgetItem` plano a `setCellWidget(_cell_html_label(html))`,
+  el mismo patrón ya usado en Resolución y Compresión de esta tabla.
+- `SHOTNAME_COLOR` se define una sola vez al inicio de `LGA_import_shots.py` con el
+  comentario `✅✅` para fácil localización.
+
 ### Columnas
 
 | Col | Contenido | Formato / color |
 |-----|-----------|-----------------|
 | (barra) | Color indicator | 4 px, sin header |
 | (checkbox) | Seleccion | 28 px, sin header |
-| Nombre | Nombre del clip/version | — |
+| Nombre | Nombre del clip/version | Prefijo = shotname → `SHOTNAME_COLOR`. Resto = color base de la fila |
 | Tipo | `EXR seq`, `MOV`, etc. | — |
 | Res | Resolucion + AR | `2048×1152` en gris, `(16:9)` en dorado `#a89060` (muted si row greyed out) |
 | FPS | Frames por segundo | `23.976` |
@@ -413,6 +427,35 @@ de los items marcados.
 > **Estado actual:** implementado.
 > Documentación detallada: `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_import_shots_rename.md`
 
+### Coloreado del shotname en la tabla de Rename
+
+Las cuatro columnas de texto (nombre original, nombre renombrado, carpeta original,
+carpeta renombrada) aplican `SHOTNAME_COLOR` al prefijo que coincida con el `shot_name`,
+con las siguientes reglas:
+
+- **Verificación:** `text.startswith(shot_name)` (case-sensitive). Si coincide, los primeros
+  `len(shot_name)` caracteres se colorean con `SHOTNAME_COLOR`.
+- **Prioridad S&R sobre magenta:** si alguna regla de Search & Replace afecta a uno o más
+  caracteres dentro del prefijo del shotname, esos caracteres conservan el color de S&R
+  (que ya tiene un peso visual más fuerte, `font-weight:600`). El magenta del shotname
+  actúa como capa base; S&R la sobreescribe posición a posición. El mecanismo exacto:
+  se pre-llena el dict `colors_by_index` con `SHOTNAME_COLOR` para las primeras N
+  posiciones; luego se mergean los colores de S&R encima (`{**shotname_colors, **sr_colors}`).
+- **Columna "original":** el prefijo magenta aplica sobre el nombre original si comienza con shot_name.
+- **Columna "renamed":** el prefijo magenta aplica sobre el nombre renombrado si también comienza
+  con shot_name (puede que S&R haya cambiado el prefijo — en ese caso S&R tiene prioridad y
+  el magenta cede en esas posiciones).
+- **Columnas de carpeta:** mismo criterio que las de nombre de archivo.
+- **Filas blocked o unchecked:** cuando la fila está bloqueada o desmarcada, el texto se muestra
+  en plano (`#a7a7a7`) sin colorear el prefijo del shotname (coherente con que el resto de los
+  colores de S&R tampoco se muestran en ese estado).
+- **Greyed-out:** igual que en la tabla principal, si la fila estuviera oscurecida, el magenta
+  también se oscurece proporcionalmente.
+
+**Implementación:** `shot_name` y `SHOTNAME_COLOR` se pasan como parámetros adicionales a
+`compute_preview()` en `LGA_import_shots_rename.py`. No se define la constante de color en
+el módulo de rename; se recibe del script principal.
+
 ---
 
 ## Sub-vista Convert
@@ -446,10 +489,14 @@ Conversion de EXR sequences para los items marcados.
 
 ### Tabla de EXRs a convertir
 
+En la columna Nombre de esta tabla aplica el mismo coloreado de shotname que en la tabla
+principal: si el nombre comienza con `shot_name` (case-sensitive), el prefijo se colorea
+con `SHOTNAME_COLOR`. La celda pasa de `QTableWidgetItem` plano a `setCellWidget(_cell_html_label(...))`.
+
 | Col | Contenido | Formato / color |
 |-----|-----------|-----------------|
 | (barra) | Color `#42616d` (plates) | 4 px, sin header |
-| Nombre | Nombre de la secuencia | `#cccccc` |
+| Nombre | Nombre de la secuencia | Prefijo = shotname → `SHOTNAME_COLOR`. Resto → `#cccccc` |
 | Origen | `WxH (AR) (PAR) · bitdepth · Nch · compresion · #f - Xs` | AR dorado `#a89060`, PAR rosa `#c4787a` entre paréntesis, comp coloreada, count+secs ámbar `#b09040`. Ancho: 400 px |
 | → | Flecha separadora | centrada, `#666` |
 | Destino | `WxH (AR) (PAR) · bitdepth · Nch · compresion` | mismo coloring; PAR destino = `(1)` si desanamorfizar activo, sino mismo PAR fuente; `—` gris oscuro si checkbox off |
@@ -640,6 +687,9 @@ Ver documentación detallada en [`LGA_import_shots_do.md`](LGA_import_shots_do.m
 ## Constantes relevantes
 
 ```python
+# Color del shotname en las columnas de nombre de las tres tablas
+SHOTNAME_COLOR = "#..."   # ✅✅ cambiar aquí para ajustar el magenta en todas las tablas
+
 # Colores para anotaciones en tabla / dropdowns
 # Derivados de la paleta PATH_LEVEL_COLORS, desaturados ~40 %
 _CLR_AR            = "#a89060"   # aspect ratio          — dorado suave
@@ -838,7 +888,7 @@ donde se distribuya la repo.
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_settings.py` | `get_settings_path()`, `load_all_settings()`, `save_all_settings()`, `load_res_presets()`, `save_res_presets()`, `preset_to_tuple()`, `show_save_preset_dialog()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_timeline.py` | `push_clips_right()`, `place_clip_in_timeline()`, `stretch_burnin()`, `set_viewer_to_shot()`, `_zoom_and_restore()`, `set_debug_print()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_bin.py` | `find_or_create_shot_bin()`, `import_item_to_bin()`, `set_debug_print()` |
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots_rename.py` | `build_selected_rows()`, `compute_preview()`, `build_row_ops()`, `execute_ops()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots_rename.py` | `build_selected_rows()`, `compute_preview(rows, settings, stage_colors, shot_name="", shotname_color="")`, `build_row_ops()`, `execute_ops()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_rename_settings.py` | `get_settings_path()`, `load_settings()`, `save_settings()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_rename.md` | Especificación funcional y técnica de la sección Rename |
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_CreateV000.py` | Referencia de UI, bin import, timeline placement, colorize path, patrón de settings persistentes |
