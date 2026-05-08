@@ -33,7 +33,7 @@ sin depender del playhead.
 | Archivo | Contenido | Estado |
 |---------|-----------|--------|
 | `LGA_import_shots_transcode.py` | `TranscodeWorkerSignals`, `TranscodeWorker`, `build_manifest_for_sequence`, `check_existing_outputs`, `delete_existing_outputs`, `show_overwrite_warning` | **implementado** |
-| `LGA_import_shots_transcode_queue.py` | Manager global de cola de transcode. `TranscodeQueueManager`, `get_manager` | Etapa 1 implementada y testeada con una ventana |
+| `LGA_import_shots_transcode_queue.py` | Manager global de cola de transcode. `TranscodeQueueManager`, `get_manager` | Etapas 1 y 2 implementadas y testeadas |
 | `LGA_import_shots_settings.py` | Persistencia de settings e INI de presets de resolución. `load_all_settings`, `save_all_settings`, `load_res_presets`, `save_res_presets`, `preset_to_tuple`, `show_save_preset_dialog` | **implementado** |
 | `LGA_import_shots_rename.py` | Lógica de preview/validación/ejecución para Rename. `build_selected_rows`, `compute_preview`, `build_row_ops`, `execute_ops` | **implementado** |
 | `LGA_import_shots_rename_settings.py` | Persistencia INI dedicada de Rename. `load_settings`, `save_settings`, `get_settings_path` | **implementado** |

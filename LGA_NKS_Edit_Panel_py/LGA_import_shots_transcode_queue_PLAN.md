@@ -75,7 +75,7 @@ No incluido en esta etapa:
 
 ---
 
-## Etapa 2 - Multiples ventanas compartiendo cola {pendiente}
+## Etapa 2 - Multiples ventanas compartiendo cola {implementada y testeada en Hiero}
 
 Objetivo: permitir que varias ventanas encolen jobs en el mismo manager y que nunca corran
 dos transcodes en paralelo dentro de la misma sesion.
@@ -108,6 +108,21 @@ Resultado testeable:
   iniciar transcode en la segunda mientras la primera trabaja,
   confirmar que la segunda queda en fila,
   confirmar que la fila avanza al terminar cada plate
+}
+```
+
+Resultado validado:
+
+```text
+{
+  test manual en Hiero con dos ventanas,
+  primera ventana encolo 2 jobs,
+  segunda ventana encolo 2 jobs mientras la primera seguia activa,
+  no hubo workers paralelos,
+  la segunda ventana arranco despues de terminar la primera,
+  los 4 jobs terminaron OK,
+  queue_changed final size=0 active= pending=0,
+  log validado en debugPy_ImportShotsTranscodeQueue.log
 }
 ```
 
