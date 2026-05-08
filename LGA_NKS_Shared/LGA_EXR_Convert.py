@@ -39,6 +39,7 @@ class ConvertOptions:
     engine: str = "auto"
     overwrite: bool = False
     dry_run: bool = False
+    hdr_resize: bool = False  # ✅✅ HDR resize toggle — cambiar a True para activar rangecompress + highlightcomp=1 + rangeexpand (probado OK con AP0)
 
 
 @dataclass(frozen=True)
@@ -133,6 +134,7 @@ def load_manifest(path: Path, cli: argparse.Namespace) -> tuple[list[FrameTask],
         engine=cli.engine or data.get("engine", "auto"),
         overwrite=bool(cli.overwrite or data.get("overwrite", False)),
         dry_run=bool(cli.dry_run or data.get("dry_run", False)),
+        hdr_resize=bool(cli.hdr_resize or data.get("hdr_resize", False)),
     )
     return tasks, options
 
@@ -158,6 +160,7 @@ def tasks_from_cli(cli: argparse.Namespace) -> tuple[list[FrameTask], ConvertOpt
         engine=cli.engine or "auto",
         overwrite=cli.overwrite,
         dry_run=cli.dry_run,
+        hdr_resize=bool(cli.hdr_resize),
     )
     return tasks, options
 
@@ -223,10 +226,17 @@ def build_oiiotool_command(task: FrameTask, options: ConvertOptions) -> tuple[li
         args.extend(["--ch", "R,G,B"])
 
     if options.resize:
+        if options.hdr_resize:
+            args.append("--rangecompress")
         resize = options.resize
-        if options.resize_filter:
+        filter_part = f":filter={options.resize_filter}" if options.resize_filter else ":filter=lanczos3"
+        if options.hdr_resize:
+            resize = f"{resize}{filter_part}:highlightcomp=1"
+        elif options.resize_filter:
             resize = f"{resize}:filter={options.resize_filter}"
         args.extend(["--resize", resize])
+        if options.hdr_resize:
+            args.append("--rangeexpand")
 
     if options.ocio_src and options.ocio_dst:
         args.extend(["--colorconvert", options.ocio_src, options.ocio_dst])
@@ -303,6 +313,8 @@ def frame_result(
 def run_tasks(tasks: list[FrameTask], options: ConvertOptions) -> dict[str, Any]:
     engine = select_engine(options)
     validate_tools(engine, options)
+    if options.hdr_resize and options.resize:
+        print("[LGA_EXR_Convert] hdr_resize=ON: rangecompress + highlightcomp=1 + rangeexpand activos", file=sys.stderr)
     started = time.perf_counter()
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=options.workers) as executor:
@@ -326,6 +338,7 @@ def run_tasks(tasks: list[FrameTask], options: ConvertOptions) -> dict[str, Any]
             "dwa_level": options.dwa_level,
             "resize": options.resize,
             "resize_filter": options.resize_filter,
+            "hdr_resize": options.hdr_resize,
             "ocio_config": options.ocio_config,
             "ocio_src": options.ocio_src,
             "ocio_dst": options.ocio_dst,
@@ -358,6 +371,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--engine", choices=["auto", "exrmetrics", "oiiotool"], help="Conversion backend.")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing outputs.")
     parser.add_argument("--dry-run", action="store_true", help="Print planned work without converting.")
+    parser.add_argument("--hdr-resize", action="store_true", help="HDR-safe resize: rangecompress → resize:highlightcomp=1 → rangeexpand. Evita ringing negativo en AP0/HDR.")
     parser.add_argument("--log-json", type=Path, help="Optional path for full JSON report.")
     return parser.parse_args(argv)
 
