@@ -248,18 +248,28 @@ Objetivo: dar visibilidad completa del orden global de jobs.
   crear LGA_import_shots_transcode_queue_ui.py,
   implementar recarga de desarrollo del modulo UI solo cuando no haya ventanas vivas,
   exponer show_queue_window(manager, parent=None, focus_window_callback=None),
+  crear LGA_import_shots_transcode_queue_ui.md,
   usar estilo de botones pequenos existentes,
   respetar estetica visual de Import Shot,
   crear ventana flotante no bloqueante,
   traer al frente si ya esta abierta,
-  mostrar jobs agrupados por nombre de shot,
-  mostrar header por shot,
-  doble click en header/nombre de shot trae al frente la ventana existente,
+  mostrar tabla unica en orden global,
+  columnas Shot, Plate, Duracion, Estado,
+  mostrar Shot como boton plano clickeable,
+  alternar color de Shot entre SHOTNAME_COLOR y SHOTNAME_COLOR_ALT cuando cambia el shot,
+  click en Shot trae al frente la ventana existente,
   copiar/reutilizar la implementacion del boton de shot activo del estado global,
   si la ventana del shot ya no existe, registrar en log y no hacer nada en primera version,
   actualizar tabla por senales del manager,
-  agregar checkbox inferior Mantener arriba,
-  implementar Mantener arriba con QtCore.Qt.WindowStaysOnTopHint,
+  usar barra de progreso identica a la tabla de transcode para el job activo,
+  mostrar N en fila en Estado para jobs pendientes,
+  conservar historial visual de jobs terminados mientras la ventana este abierta,
+  agregar boton Show Windows,
+  agregar boton Clear Completed,
+  Clear Completed borra solo filas completadas del historial visual,
+  agregar checkbox inferior Keep on top,
+  persistir Keep on top en ImportShots.ini,
+  implementar Keep on top con QtCore.Qt.WindowStaysOnTopHint,
   mantener la ventana no modal para no bloquear Hiero,
   mantener primera version solo lectura
 }
@@ -269,12 +279,10 @@ Columnas iniciales:
 
 ```text
 {
-  Pos,
   Shot,
   Plate,
-  Estado,
-  Frames,
-  Ventana
+  Duracion,
+  Estado
 }
 ```
 

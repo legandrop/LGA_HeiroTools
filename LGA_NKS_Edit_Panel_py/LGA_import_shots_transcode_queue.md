@@ -330,16 +330,17 @@ ahi vive la cola real.
 
 ## Ventana de cola global (pendiente de implementacion y test)
 
-La ventana `Open Queue` deberia mostrar una tabla simple con todos los jobs conocidos.
+Detalle visual y tecnico: [`LGA_import_shots_transcode_queue_ui.md`](LGA_import_shots_transcode_queue_ui.md).
+
+La ventana `Open Queue` muestra una tabla unica, en orden global, con todos los jobs
+activos/pendientes y un historial visual de jobs completados mientras la ventana este
+abierta.
 
 La UI debe respetar la estetica de `Import Shot`: fondo `#2B2B2B`, tablas oscuras,
 bordes sobrios, tipografia y botones pequenos consistentes con los controles existentes.
 No debe sentirse como una ventana nativa generica separada del resto de la herramienta.
 
-Los jobs deben agruparse visualmente por `shot_name`. Cada grupo debe mostrar un header
-con el nombre del shot y debajo sus jobs en orden de cola.
-
-Al hacer doble click sobre el header/nombre de shot:
+La columna `Shot` usa texto/boton plano clickeable. Al hacer click sobre el nombre de shot:
 
 - Si la ventana de `Import Shot` para ese shot sigue abierta, debe traerse al frente.
 - La implementacion debe copiar/reutilizar el comportamiento ya implementado en el estado
@@ -355,22 +356,22 @@ Columnas sugeridas:
 
 | Columna | Contenido |
 |---------|-----------|
-| Pos | `Now`, `1`, `2`, `3`, etc. |
-| Shot | Nombre del shot |
-| Plate | Nombre de secuencia |
-| Estado | `Procesando`, `En fila`, `Listo`, `Error`, `Cancelado` |
-| Frames | Cantidad de frames si esta disponible |
-| Ventana | Identificador corto de la ventana/shot |
+| Shot | Nombre del shot como boton plano; alterna `SHOTNAME_COLOR` / `SHOTNAME_COLOR_ALT` cuando cambia el shot |
+| Plate | Nombre de secuencia, con el mismo criterio visual que la columna Nombre de la tabla Convert |
+| Duracion | `484f - 20.2s`, con el mismo color de frames/segundos usado en Convert |
+| Estado | Barra de progreso para activo, `N en fila` para pendiente, `Terminado`, `Error`, `Cancelado` |
 
 Primera version recomendada:
 
 - Solo lectura.
 - Sin reordenar jobs.
 - Sin cancelar jobs desde esta ventana.
-- Doble click en shot solo trae al frente ventanas existentes.
-- Checkbox inferior `Mantener arriba`, apagado por defecto.
+- Click en shot solo trae al frente ventanas existentes.
+- Boton `Show Windows`.
+- Boton `Clear Completed`, que limpia solo el historial visual de completados.
+- Checkbox inferior `Keep on top`, persistente entre sesiones.
 
-El checkbox `Mantener arriba` debe hacer que la ventana quede sobre el resto usando
+El checkbox `Keep on top` debe hacer que la ventana quede sobre el resto usando
 `QtCore.Qt.WindowStaysOnTopHint`, pero la ventana debe seguir siendo **no modal**:
 
 ```python

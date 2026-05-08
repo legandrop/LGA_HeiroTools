@@ -53,6 +53,7 @@ sin depender del playhead.
 | Sub-vista Convert (PAGE_CONVERT) | [`LGA_import_shots_transcode.md`](LGA_import_shots_transcode.md) |
 | Cola global de Transcode Plates | [`LGA_import_shots_transcode_queue.md`](LGA_import_shots_transcode_queue.md) |
 | Plan de cola global de Transcode Plates | [`LGA_import_shots_transcode_queue_PLAN.md`](LGA_import_shots_transcode_queue_PLAN.md) |
+| UI de Open Queue | [`LGA_import_shots_transcode_queue_ui.md`](LGA_import_shots_transcode_queue_ui.md) |
 
 ---
 
@@ -711,6 +712,7 @@ donde se distribuya la repo.
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_transcode_queue.py` | `TranscodeQueueManager`, `get_manager()`, `enqueue_jobs()`, `snapshot()`, `_start_next_if_idle()`, `_prepare_job_or_cancel()`, `_launch_worker()`, logging propio `debugPy_ImportShotsTranscodeQueue.log` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_transcode_queue.md` | Especificacion pendiente de la cola global entre ventanas: `TranscodeQueueManager`, modelo de job, estados por fila, footer global, ventana `Open Queue`, cierre de ventanas y riesgos conocidos |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_transcode_queue_PLAN.md` | Plan por etapas para implementar y testear la cola global. Incluye la regla de actualizar la especificacion principal cuando cambien decisiones durante la implementacion |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots_transcode_queue_ui.md` | Especificacion visual y tecnica de la futura ventana `Open Queue`: tabla global, columnas Shot/Plate/Duracion/Estado, historial visual, `Clear Completed`, `Keep on top` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_settings.py` | `get_settings_path()`, `load_all_settings()`, `save_all_settings()`, `load_res_presets()`, `save_res_presets()`, `preset_to_tuple()`, `show_save_preset_dialog()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_timeline.py` | `push_clips_right()`, `place_clip_in_timeline()`, `stretch_burnin()`, `set_viewer_to_shot()`, `_zoom_and_restore()`, `set_debug_print()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_bin.py` | `find_or_create_shot_bin()`, `import_item_to_bin()`, `set_debug_print()` |
