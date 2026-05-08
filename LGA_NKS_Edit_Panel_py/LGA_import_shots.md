@@ -33,7 +33,7 @@ sin depender del playhead.
 | Archivo | Contenido | Estado |
 |---------|-----------|--------|
 | `LGA_import_shots_transcode.py` | `TranscodeWorkerSignals`, `TranscodeWorker`, `build_manifest_for_sequence`, `check_existing_outputs`, `delete_existing_outputs`, `show_overwrite_warning` | **implementado** |
-| `LGA_import_shots_transcode_queue.py` | Manager global de cola de transcode. `TranscodeQueueManager`, `get_manager` | Etapas 1 y 2 implementadas y testeadas |
+| `LGA_import_shots_transcode_queue.py` | Manager global de cola de transcode. `TranscodeQueueManager`, `get_manager` | Etapas 1, 2 y 3 implementadas y testeadas |
 | `LGA_import_shots_settings.py` | Persistencia de settings e INI de presets de resolución. `load_all_settings`, `save_all_settings`, `load_res_presets`, `save_res_presets`, `preset_to_tuple`, `show_save_preset_dialog` | **implementado** |
 | `LGA_import_shots_rename.py` | Lógica de preview/validación/ejecución para Rename. `build_selected_rows`, `compute_preview`, `build_row_ops`, `execute_ops` | **implementado** |
 | `LGA_import_shots_rename_settings.py` | Persistencia INI dedicada de Rename. `load_settings`, `save_settings`, `get_settings_path` | **implementado** |
@@ -628,6 +628,20 @@ _input/
 - Si `Borrar /Originals al terminar` está activo: se borra `_input/Originals/<plate>/`
   y, si la carpeta `_input/Originals/` queda vacía, también se borra.
 - En caso de fallo del transcode, los EXRs originales se restauran a `item_path`.
+
+#### Re-transcode / overwrite con Originals existente
+
+Si `_input/Originals/<plate>/` ya existe, se considera un transcode anterior. Al elegir
+`Sobreescribir`, la herramienta no debe borrar esos EXR originales. El flujo correcto es:
+
+1. Borrar los EXR convertidos que quedaron en `item_path`.
+2. Mover los EXR de `_input/Originals/<plate>/` de vuelta a `item_path`.
+3. Eliminar la carpeta `_input/Originals/<plate>/` ya vacia.
+4. Arrancar `TranscodeWorker`, que volvera a mover los EXR de `item_path` a
+   `_input/Originals/<plate>/` y generara los nuevos convertidos.
+
+Si `_input/Originals/<plate>/` existe pero esta vacia, se elimina esa carpeta y se conservan
+los EXR actuales de `item_path` como unica fuente disponible para el re-transcode.
 
 ### Solución QSpinBox — `_ArrowSpinBox` (ganadora, implementada)
 

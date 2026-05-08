@@ -128,7 +128,7 @@ Resultado validado:
 
 ---
 
-## Etapa 3 - Cierre de ventanas y limpieza de jobs {implementada, pendiente de test en Hiero}
+## Etapa 3 - Cierre de ventanas y limpieza de jobs {implementada y testeada en Hiero}
 
 Objetivo: que cerrar una ventana no deje jobs huerfanos ni rompa updates de UI.
 
@@ -154,6 +154,19 @@ Resultado testeable:
   confirmar que la tercera sube en la fila,
   cerrar una ventana con job activo,
   confirmar que ese job termina y no siguen sus pendientes
+}
+```
+
+Resultado validado:
+
+```text
+{
+  test manual en Hiero con tres ventanas,
+  ventana intermedia cerrada mientras tenia jobs pendientes,
+  sus jobs pendientes fueron removidos de la cola,
+  la ventana siguiente subio de posicion,
+  el manager no arranco jobs pendientes de la ventana cerrada,
+  log validado en debugPy_ImportShotsTranscodeQueue.log
 }
 ```
 
@@ -245,6 +258,7 @@ Objetivo: cerrar casos borde y actualizar documentacion segun lo realmente imple
 {
   revisar errores por job sin bloquear la cola,
   revisar overwrite conflicts,
+  validar re-transcode con _input/Originals/<plate>/ existente,
   revisar logs del manager y de ImportShots,
   limpiar estados visuales inconsistentes,
   asegurar que no quedan timers activos al terminar,

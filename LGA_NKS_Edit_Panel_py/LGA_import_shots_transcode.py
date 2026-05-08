@@ -181,20 +181,45 @@ def delete_existing_outputs(item: dict, test_mode: bool, move_originals: bool) -
                 except OSError:
                     pass
     elif move_originals:
-        # Borra la subcarpeta de Originals de este plate (_input/Originals/<plate>/)
+        # Si existe Originals/<plate>/, es un transcode anterior. Para re-transcodear
+        # no podemos borrar esos EXR: son la fuente original. Los restauramos a
+        # item_path, limpiando antes los EXR convertidos que quedaron ahi.
         orig_plate = item_path.parent / "Originals" / item_path.name
         if orig_plate.exists():
+            orig_exrs = sorted(orig_plate.glob("*.exr"))
+            if orig_exrs:
+                # Borra los EXR convertidos que quedaron en item_path del run anterior.
+                for f in list(item_path.glob("*.exr")):
+                    try:
+                        os.remove(str(f))
+                        deleted += 1
+                    except OSError:
+                        pass
+                # Restaura los originales para que TranscodeWorker pueda moverlos de
+                # nuevo a Originals/<plate>/ y usarlos como source.
+                item_path.mkdir(parents=True, exist_ok=True)
+                for f in orig_exrs:
+                    dst = item_path / f.name
+                    try:
+                        os.rename(str(f), str(dst))
+                    except OSError:
+                        shutil.move(str(f), str(dst))
+                try:
+                    shutil.rmtree(str(orig_plate))
+                    deleted += 1
+                except OSError:
+                    pass
+            else:
+                # Carpeta vacia: limpiarla, pero conservar los EXR actuales de
+                # item_path como unica fuente disponible para el re-transcode.
+                try:
+                    shutil.rmtree(str(orig_plate))
+                    deleted += 1
+                except OSError:
+                    pass
             try:
-                shutil.rmtree(str(orig_plate))
-                deleted += 1
-            except OSError:
-                pass
-        # Borra los EXR convertidos que quedaron en item_path del run anterior
-        for f in list(item_path.glob("*.exr")):
-            try:
-                os.remove(str(f))
-                deleted += 1
-            except OSError:
+                orig_plate.parent.rmdir()
+            except Exception:
                 pass
     else:
         # Borra la carpeta temporal de buffer si quedó de un run fallido

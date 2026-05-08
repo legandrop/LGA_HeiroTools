@@ -16,7 +16,7 @@ misma sesion de Hiero/Nuke Studio.
 El objetivo es conservar la cola local por ventana/shot, pero agregar una autoridad global
 que decida que secuencia se procesa en cada momento.
 
-> Estado general: **Etapas 1 y 2 implementadas y testeadas en Hiero/Nuke Studio**.
+> Estado general: **Etapas 1, 2 y 3 implementadas y testeadas en Hiero/Nuke Studio**.
 
 ---
 
@@ -442,6 +442,8 @@ Eventos minimos:
 - Los dialogos de overwrite actuales son UI bloqueante por secuencia. Hay que decidir si
   se muestran antes de encolar o justo antes de ejecutar. Para primera version conviene
   resolver conflictos antes de encolar desde la ventana de origen.
+- En re-transcode, si existe `_input/Originals/<plate>/`, esos EXR son la fuente original:
+  el overwrite debe restaurarlos a `item_path` antes de relanzar el worker, no borrarlos.
 - Si se permite cancelar jobs activos mas adelante, habra que agregar soporte explicito
   para terminar subprocess y restaurar originales con seguridad.
 - `QThreadPool.globalInstance()` puede ejecutar otros jobs de la aplicacion; el manager
