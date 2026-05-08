@@ -82,6 +82,12 @@ dos transcodes en paralelo dentro de la misma sesion.
 
 ```text
 {
+  no recargar LGA_import_shots_transcode_queue.py si ya hay ventanas Import Shot abiertas,
+  mantener recarga de desarrollo del queue solo cuando no hay ventanas abiertas,
+  mantener debugPy_ImportShots.log en append cuando ya hay ventanas abiertas,
+  prefijar logs del script principal con [SHOT| despues de elegir carpeta,
+  loguear apertura de ventanas en debugPy_ImportShotsTranscodeQueue.log,
+  loguear cierre de ventanas antes de implementar remocion de jobs,
   registrar ventanas con window_id,
   desregistrar ventanas al cerrarse,
   encolar jobs desde multiples ventanas,

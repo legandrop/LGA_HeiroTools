@@ -60,6 +60,20 @@ else:
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
 from LGA_NKS_Flow_NamingUtils import clean_base_name, extract_shot_code
 
+
+def _has_visible_import_shot_dialogs():
+    app = QtWidgets.QApplication.instance()
+    if not app:
+        return False
+    for widget in app.topLevelWidgets():
+        try:
+            if widget.objectName() == "LGA_ImportShotDialog" and widget.isVisible():
+                return True
+        except Exception:
+            continue
+    return False
+
+
 # During tool development, force the helper to reload on every panel execution.
 _TRANSCODE_HELPER = "LGA_NKS_Edit_Panel_py.LGA_import_shots_transcode"
 if _TRANSCODE_HELPER in sys.modules:
@@ -71,10 +85,22 @@ delete_existing_outputs = _transcode_mod.delete_existing_outputs
 show_overwrite_warning  = _transcode_mod.show_overwrite_warning
 
 _TRANSCODE_QUEUE_HELPER = "LGA_NKS_Edit_Panel_py.LGA_import_shots_transcode_queue"
-if _TRANSCODE_QUEUE_HELPER in sys.modules:
+_queue_helper_had_visible_dialogs = _has_visible_import_shot_dialogs()
+_queue_helper_reloaded = False
+if _TRANSCODE_QUEUE_HELPER in sys.modules and not _queue_helper_had_visible_dialogs:
     del sys.modules[_TRANSCODE_QUEUE_HELPER]
+    _queue_helper_reloaded = True
 transcode_queue_mod = importlib.import_module(_TRANSCODE_QUEUE_HELPER)
 get_transcode_queue_manager = transcode_queue_mod.get_manager
+try:
+    transcode_queue_mod.debug_print(
+        "queue helper import mode: %s (visible_dialogs=%s)" % (
+            "reloaded" if _queue_helper_reloaded else "reused/imported",
+            _queue_helper_had_visible_dialogs,
+        )
+    )
+except Exception:
+    pass
 
 _SETTINGS_HELPER = "LGA_NKS_Edit_Panel_py.LGA_import_shots_settings"
 if _SETTINGS_HELPER in sys.modules:
@@ -137,6 +163,7 @@ DEBUG_CONSOLE = False
 DEBUG_LOG = True
 script_start_time = None
 debug_log_listener = None
+debug_log_context = ""
 
 
 class RelativeTimeFormatter(logging.Formatter):
@@ -153,7 +180,11 @@ def setup_debug_logging(script_name="ImportShots"):
     log_path = STARTUP_DIR / "logs" / ("debugPy_%s.log" % script_name)
     log_path.parent.mkdir(exist_ok=True)
     try:
-        log_path.write_text("Fecha: %s\n" % time.strftime("%Y-%m-%d %H:%M:%S"), encoding="utf-8")
+        if _has_visible_import_shot_dialogs() and log_path.exists():
+            with log_path.open("a", encoding="utf-8") as fh:
+                fh.write("\n--- Nueva ventana: %s ---\n" % time.strftime("%Y-%m-%d %H:%M:%S"))
+        else:
+            log_path.write_text("Fecha: %s\n" % time.strftime("%Y-%m-%d %H:%M:%S"), encoding="utf-8")
     except Exception:
         pass
     logger = logging.getLogger("%s_logger" % script_name.lower())
@@ -182,11 +213,18 @@ def setup_debug_logging(script_name="ImportShots"):
 debug_logger = setup_debug_logging(script_name="ImportShots")
 
 
+def set_debug_context(context):
+    global debug_log_context
+    debug_log_context = str(context or "").strip()
+
+
 def debug_print(*message, level="info"):
     global script_start_time
     if not (DEBUG and DEBUG_LOG):
         return
     msg = " ".join(str(a) for a in message)
+    if debug_log_context:
+        msg = "[%s] %s" % (debug_log_context, msg)
     if script_start_time is None:
         script_start_time = time.time()
     getattr(debug_logger, level)(msg)
@@ -1473,6 +1511,11 @@ class ImportShotDialog(QtWidgets.QDialog):
         self.setProperty("window_id", self._window_id)
         self.setModal(False)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
+        self.finished.connect(self._on_dialog_finished)
+        self.destroyed.connect(
+            lambda *_args, window_id=self._window_id, shot=self.shot_name:
+                self._log_dialog_destroyed(window_id, shot)
+        )
         self.setMinimumWidth(1300)
         self.setMinimumHeight(650)
         self.setStyleSheet(_DIALOG_STYLE)
@@ -1512,7 +1555,41 @@ class ImportShotDialog(QtWidgets.QDialog):
         mgr.job_cancelled.connect(self._on_manager_job_cancelled)
         mgr.batch_done.connect(self._on_manager_batch_done)
         mgr.fatal_error.connect(self._on_manager_transcode_error)
+        try:
+            mgr.note_window_opened(self._window_id, self.shot_name)
+        except Exception as exc:
+            debug_print("TranscodeQueueManager open log error: %s" % exc, level="warning")
         debug_print("TranscodeQueueManager conectado window_id=%s" % self._window_id)
+
+    def closeEvent(self, event):
+        debug_print(
+            "ImportShotDialog closeEvent window_id=%s shot=%s"
+            % (getattr(self, "_window_id", ""), self.shot_name)
+        )
+        try:
+            self._transcode_manager.note_window_closed(self._window_id, self.shot_name)
+        except Exception as exc:
+            debug_print("TranscodeQueueManager close log error: %s" % exc, level="warning")
+        super(ImportShotDialog, self).closeEvent(event)
+
+    def _on_dialog_finished(self, result):
+        debug_print(
+            "ImportShotDialog finished window_id=%s shot=%s result=%s"
+            % (getattr(self, "_window_id", ""), self.shot_name, result)
+        )
+        try:
+            self._transcode_manager.note_window_closed(
+                self._window_id, self.shot_name, source="finished"
+            )
+        except Exception as exc:
+            debug_print("TranscodeQueueManager finished log error: %s" % exc, level="warning")
+
+    def _log_dialog_destroyed(self, window_id, shot_name):
+        debug_print("ImportShotDialog destroyed window_id=%s shot=%s" % (window_id, shot_name))
+        try:
+            self._transcode_manager.note_window_closed(window_id, shot_name, source="destroyed")
+        except Exception as exc:
+            debug_print("TranscodeQueueManager destroyed log error: %s" % exc, level="warning")
 
     def _build_header(self):
         row = QtWidgets.QHBoxLayout()
@@ -5452,6 +5529,7 @@ def main():
 
     shot_root = shot_root.replace("\\", "/")
     shot_name = _get_shot_name_from_folder(shot_root)
+    set_debug_context(shot_name)
     debug_print("Shot root: %s  shot_name: %s" % (shot_root, shot_name))
 
     existing_dialog = _visible_import_dialog_for_shot(shot_name)

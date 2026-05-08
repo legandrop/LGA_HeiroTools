@@ -142,6 +142,8 @@ class TranscodeQueueManager(QtCore.QObject):
         self._active_worker = None
         self._results_by_window = {}
         self._completed_windows = set()
+        self._open_windows = set()
+        self._closed_windows = set()
         self._job_seq = 0
         debug_print("=== TranscodeQueueManager init ===")
 
@@ -187,6 +189,24 @@ class TranscodeQueueManager(QtCore.QObject):
 
     def is_busy(self):
         return self._active_job is not None or bool(self._pending)
+
+    def note_window_opened(self, window_id, shot_name):
+        if window_id in self._open_windows:
+            debug_print("window opened duplicate window=%s shot=%s" % (window_id, shot_name), level="warning")
+            return
+        self._open_windows.add(window_id)
+        self._closed_windows.discard(window_id)
+        debug_print("window opened window=%s shot=%s" % (window_id, shot_name))
+
+    def note_window_closed(self, window_id, shot_name, source="unknown"):
+        if window_id in self._closed_windows:
+            debug_print(
+                "window closed duplicate source=%s window=%s shot=%s" % (source, window_id, shot_name)
+            )
+            return
+        self._closed_windows.add(window_id)
+        self._open_windows.discard(window_id)
+        debug_print("window closed source=%s window=%s shot=%s" % (source, window_id, shot_name))
 
     def snapshot(self):
         data = []

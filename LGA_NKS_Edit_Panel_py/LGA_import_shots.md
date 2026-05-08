@@ -98,8 +98,13 @@ Transcode_TEST_Mode = False   # Output a /test_transcode; checkboxes de
 
 `C:\Users\leg4-pc\.nuke\Python\Startup\logs\debugPy_ImportShots.log`
 
-Formato: `[0.123s] mensaje`
-El archivo se borra y recrea en cada ejecucion con encabezado `Fecha: YYYY-MM-DD HH:MM:SS`.
+Formato: `[0.123s] mensaje` antes de elegir shot, y `[0.123s] [SHOT] mensaje`
+cuando ya existe contexto de shot.
+
+El archivo se borra y recrea con encabezado `Fecha: YYYY-MM-DD HH:MM:SS` solo
+cuando no hay otra ventana `Import Shot` visible. Si ya hay ventanas abiertas, la
+nueva ejecucion agrega un separador `--- Nueva ventana: ... ---` y continua en el
+mismo `.log`, para preservar trazabilidad entre ventanas.
 
 ### Funciones del sistema
 
@@ -107,6 +112,7 @@ El archivo se borra y recrea en cada ejecucion con encabezado `Fecha: YYYY-MM-DD
 |---------|-------------|
 | `RelativeTimeFormatter` | Formatter con tiempo relativo desde inicio |
 | `setup_debug_logging(script_name)` | Configura `QueueHandler + QueueListener`, `propagate=False` |
+| `set_debug_context(context)` | Define prefijo de contexto para logs posteriores (`[SHOT] ...`) |
 | `debug_print(*message, level="info")` | Funcion de logging publica, acepta multiples argumentos |
 | `cleanup_logging()` | Detiene el listener; registrado con `atexit` |
 

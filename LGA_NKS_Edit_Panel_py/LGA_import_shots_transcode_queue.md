@@ -112,6 +112,15 @@ El manager sera la unica autoridad que sabe:
 - Que posicion ocupa cada job en la cola.
 - Que ventanas siguen vivas.
 
+Durante desarrollo, `LGA_import_shots.py` solo recarga este modulo si no hay ventanas
+`Import Shot` visibles. Si hay una ventana abierta, reutiliza el modulo ya cargado para
+no perder el manager ni duplicar colas.
+
+Cada ventana conectada llama `note_window_opened(window_id, shot_name)` y cada cierre
+llama `note_window_closed(...)`. El cierre puede llegar por varias senales Qt
+(`closeEvent`, `finished`, `destroyed`), por lo que el manager lo trata como evento
+idempotente por `window_id`.
+
 ---
 
 ## Modelo de job (pendiente de implementacion y test)
@@ -372,7 +381,14 @@ La cola vive solo en memoria:
 
 ## Logs (pendiente de implementacion y test)
 
-El manager deberia escribir al mismo logger de `ImportShots` mediante `debug_print`.
+El manager escribe en un log propio:
+
+```text
+C:\Users\leg4-pc\.nuke\Python\Startup\logs\debugPy_ImportShotsTranscodeQueue.log
+```
+
+Este log se reinicia cuando el modulo de queue se recarga. Si hay ventanas `Import Shot`
+abiertas, `LGA_import_shots.py` reutiliza el modulo existente y el log no se reinicia.
 
 Eventos minimos:
 
