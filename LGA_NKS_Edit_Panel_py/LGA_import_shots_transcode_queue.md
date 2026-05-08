@@ -211,26 +211,28 @@ SHOT_C / aPlate -> 2 en fila
 
 ## Estado global visible (pendiente de implementacion y test)
 
-Todas las paginas/secciones importantes de todas las ventanas deberian mostrar una franja
-de estado global en la zona inferior, alineada a la izquierda, compartiendo la misma fila
-visual donde los botones principales quedan alineados a la derecha.
+Todas las paginas importantes de todas las ventanas muestran en la fila inferior de botones,
+alineados a la izquierda, el boton `Open Queue` seguido del texto de estado global.
+Los botones de accion principales quedan a la derecha.
 
-Ejemplos de ubicacion:
+Ubicacion implementada:
 
-- Pagina principal de media: izquierda de `Rename`, `Transcode Plates`, `Import`.
-- Pagina de rename: izquierda de sus botones inferiores.
-- Pagina de transcode: izquierda de `Go Back` y `Start Transcode`.
-- Pagina de import preview: izquierda de `Go Back`, `Import Now`,
-  `Import and Create V000`.
+- Pagina media: `[Open Queue] [estado] ... [Rename] [Transcode Plates] [Import]`
+- Pagina rename: `[Open Queue] [estado] ... [← Go Back] [Rename]`
+- Pagina convert: `[Open Queue] [estado] ... [← Go Back] [Start Transcode]`
+- Pagina import: `[Open Queue] [estado] ... [← Go Back] [Import Now] [Import and Create V000]`
 
-Textos sugeridos:
+Textos implementados:
 
 ```text
-Transcode: idle
-Transcode: SHOT_A / aPlate convirtiendo
-Transcode: SHOT_A / aPlate convirtiendo - 4 jobs en fila
-Transcode: SHOT_B / bPlate convirtiendo - esta ventana tiene 2 jobs en fila
+(vacío cuando idle)
+Convirtiendo plates del shot SHOT_A. Plates restantes: 3
+Convirtiendo plates del shot SHOT_A
 ```
+
+El nombre del shot se muestra con `SHOTNAME_COLOR` (`#B56AB5`). "Plates restantes" es el
+conteo global de jobs pendientes en la cola; cuando no hay pendientes solo aparece el nombre del shot.
+El texto se vacía al terminar todos los jobs.
 
 El estado global debe actualizarse por senales del manager, no por polling local de cada
 ventana.

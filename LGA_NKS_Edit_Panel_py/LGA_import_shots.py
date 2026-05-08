@@ -1532,18 +1532,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._content_area = QtWidgets.QStackedWidget()
         self._root_layout.addWidget(self._content_area, 1)
 
-        # Footer global de transcode — visible en todas las páginas
-        self._root_layout.addWidget(_separator())
-        _footer_row = QtWidgets.QHBoxLayout()
-        _footer_row.setContentsMargins(0, 2, 0, 2)
-        _footer_row.setSpacing(6)
-        self._global_status_lbl = QtWidgets.QLabel("Transcode: idle")
-        self._global_status_lbl.setStyleSheet("color:#888888; padding:0px;")
-        _footer_row.addWidget(self._global_status_lbl, 1)
-        self._open_queue_btn = QtWidgets.QPushButton("Open Queue")
-        self._open_queue_btn.setStyleSheet(_BTN_SMALL)
-        _footer_row.addWidget(self._open_queue_btn)
-        self._root_layout.addLayout(_footer_row)
+        self._status_labels = []
 
         self._page_media   = self._build_page_media()
         self._page_rename  = self._build_page_rename()
@@ -1577,6 +1566,16 @@ class ImportShotDialog(QtWidgets.QDialog):
             debug_print("TranscodeQueueManager open log error: %s" % exc, level="warning")
         debug_print("TranscodeQueueManager conectado window_id=%s" % self._window_id)
         self._update_global_status_label(mgr.snapshot())
+
+    def _make_footer_pair(self):
+        """Crea (Open Queue btn, status label) para integrar en la fila de botones de una página."""
+        btn = QtWidgets.QPushButton("Open Queue")
+        btn.setStyleSheet(_BTN_SMALL)
+        lbl = QtWidgets.QLabel("")
+        lbl.setTextFormat(QtCore.Qt.RichText)
+        lbl.setStyleSheet("padding:0px;")
+        self._status_labels.append(lbl)
+        return btn, lbl
 
     def closeEvent(self, event):
         debug_print(
@@ -1705,7 +1704,10 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         # Botones de acción — operan sobre los items con checkbox marcado
         btn_row = QtWidgets.QHBoxLayout()
-        btn_row.addStretch()
+        _oq_btn, _status_lbl = self._make_footer_pair()
+        btn_row.addWidget(_oq_btn)
+        btn_row.addSpacing(8)
+        btn_row.addWidget(_status_lbl, 1)
 
         self._rename_btn = QtWidgets.QPushButton("Rename")
         self._rename_btn.setStyleSheet(_BTN_SECONDARY)
@@ -2780,7 +2782,10 @@ class ImportShotDialog(QtWidgets.QDialog):
         layout.addWidget(_separator())
 
         btn_row = QtWidgets.QHBoxLayout()
-        btn_row.addStretch()
+        _oq_btn, _status_lbl = self._make_footer_pair()
+        btn_row.addWidget(_oq_btn)
+        btn_row.addSpacing(8)
+        btn_row.addWidget(_status_lbl, 1)
         self._rename_back_btn = QtWidgets.QPushButton("← Go Back")
         self._rename_back_btn.setStyleSheet(_BTN_SECONDARY)
         self._rename_back_btn.clicked.connect(lambda: self._show_page(self.PAGE_MEDIA))
@@ -3602,7 +3607,10 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         # Botones
         btn_row = QtWidgets.QHBoxLayout()
-        btn_row.addStretch()
+        _oq_btn, _status_lbl = self._make_footer_pair()
+        btn_row.addWidget(_oq_btn)
+        btn_row.addSpacing(8)
+        btn_row.addWidget(_status_lbl, 1)
         self._go_back_btn = QtWidgets.QPushButton("← Go Back")
         self._go_back_btn.setStyleSheet(_BTN_SECONDARY)
         self._go_back_btn.clicked.connect(lambda: self._show_page(self.PAGE_MEDIA))
@@ -3706,7 +3714,10 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         # Fila de botones
         btn_row = QtWidgets.QHBoxLayout()
-        btn_row.addStretch()
+        _oq_btn, _status_lbl = self._make_footer_pair()
+        btn_row.addWidget(_oq_btn)
+        btn_row.addSpacing(8)
+        btn_row.addWidget(_status_lbl, 1)
 
         self._import_back_btn = QtWidgets.QPushButton("← Go Back")
         self._import_back_btn.setStyleSheet(_BTN_SECONDARY)
@@ -5369,34 +5380,33 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._update_global_status_label(snapshot)
 
     def _update_global_status_label(self, snapshot):
-        if not hasattr(self, "_global_status_lbl"):
+        if not hasattr(self, "_status_labels"):
             return
         active = next((j for j in snapshot if j.get("status") in ("running", "starting")), None)
         pending = [j for j in snapshot if j.get("status") == "queued"]
 
         if not active and not pending:
-            self._global_status_lbl.setText("Transcode: idle")
-            self._global_status_lbl.setStyleSheet("color:#888888; padding:0px;")
-            return
-
-        if active:
+            text = ""
+        elif active:
             shot = active.get("shot_name", "")
-            name = active.get("name", "")
-            label = ("%s / %s" % (shot, name)) if shot else name
-            own_pending = sum(1 for j in pending if j.get("window_id") == self._window_id)
-            total_pending = len(pending)
-            if own_pending:
-                suffix = " — esta ventana tiene %d en fila" % own_pending
-            elif total_pending:
-                suffix = " — %d en fila" % total_pending
+            shot_html = (
+                "<span style='color:%s;'>%s</span>" % (SHOTNAME_COLOR, shot) if shot else ""
+            )
+            pending_count = len(pending)
+            if pending_count:
+                text = "Convirtiendo plates del shot %s. Plates restantes: %d" % (
+                    shot_html, pending_count
+                )
             else:
-                suffix = ""
-            text = "Transcode: %s convirtiendo%s" % (label, suffix)
+                text = "Convirtiendo plates del shot %s" % shot_html
         else:
-            text = "Transcode: %d en fila" % len(pending)
+            text = "%d plates en fila" % len(pending)
 
-        self._global_status_lbl.setText(text)
-        self._global_status_lbl.setStyleSheet("color:%s; padding:0px;" % _CLR_STATUS_PENDING)
+        for lbl in self._status_labels:
+            try:
+                lbl.setText(text)
+            except Exception:
+                pass
 
     def _set_convert_status(self, row_i, text, color):
         if not hasattr(self, "_convert_table") or row_i >= self._convert_table.rowCount():
