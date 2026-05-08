@@ -70,7 +70,7 @@ Ejemplo:
 
 Esto permite:
 
-- Mostrar una posicion global clara: `1 en fila`, `2 en fila`, etc.
+- Mostrar una posicion global clara: `Queued #1`, `Queued #2`, etc.
 - Cancelar pendientes de una ventana al cerrarla sin afectar trabajos de otros shots.
 - Mantener el orden natural si un shot encola varios plates antes que los demas.
 - Seguir procesando aunque un plate falle.
@@ -181,9 +181,9 @@ La columna `Estado` de cada plate deberia poder mostrar:
 | Estado | Texto sugerido | Uso |
 |--------|----------------|-----|
 | idle | `Pendiente` | Plate aun no encolado |
-| queued | `N en fila` | Job pendiente en la cola global |
+| queued | `Queued #N` | Job pendiente en la cola global |
 | running | barra de progreso | Job actualmente convirtiendo |
-| done | `Listo` | Conversion terminada OK |
+| done | `DONE (Xs)` | Conversion terminada OK con segundos reales |
 | error | `Error` | Conversion fallida |
 | cancelled | `Cancelado` | Job pendiente removido por cierre/cancelacion |
 | unsupported | `No soportado` | MOV u otro formato no convertible |
@@ -194,17 +194,17 @@ Ejemplo:
 
 ```text
 SHOT_A / aPlate -> procesando
-SHOT_A / bPlate -> 1 en fila
-SHOT_B / aPlate -> 2 en fila
-SHOT_C / aPlate -> 3 en fila
+SHOT_A / bPlate -> Queued #1
+SHOT_B / aPlate -> Queued #2
+SHOT_C / aPlate -> Queued #3
 ```
 
 Si termina `SHOT_A / aPlate`:
 
 ```text
 SHOT_A / bPlate -> procesando
-SHOT_B / aPlate -> 1 en fila
-SHOT_C / aPlate -> 2 en fila
+SHOT_B / aPlate -> Queued #1
+SHOT_C / aPlate -> Queued #2
 ```
 
 ---
@@ -342,7 +342,7 @@ Columnas sugeridas:
 | Shot | Nombre del shot como boton plano; alterna `SHOTNAME_COLOR` / `SHOTNAME_COLOR_ALT` cuando cambia el shot |
 | Plate | Nombre de secuencia, con el mismo criterio visual que la columna Nombre de la tabla Convert |
 | Duracion | `484f - 20.2s`, con el mismo color de frames/segundos usado en Convert |
-| Estado | Barra de progreso para activo, `N en fila` para pendiente, `DONE (Xs)`, `Error`, `Cancelado` |
+| Estado | Barra de progreso para activo, `Queued #N` para pendiente, `DONE (Xs)`, `Error`, `Cancelado` |
 
 Primera version recomendada:
 

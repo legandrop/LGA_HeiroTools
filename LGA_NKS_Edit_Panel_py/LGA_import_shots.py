@@ -328,7 +328,7 @@ _CLR_FRAMES        = "#b09040"   # cantidad de frames    — ámbar cálido
 _CLR_COMP_ZIP      = "#a06060"   # compresión zip/piz    — rojo suave
 _CLR_COMP_DWAA     = "#6a9960"   # compresión dwaa/dwab  — verde suave
 _CLR_STATUS_PENDING  = "#5a9ab5" # estado Pendiente      — cian suave
-_CLR_STATUS_DONE     = "#6a9960" # estado Terminado      — verde suave
+_CLR_STATUS_DONE     = "#6a9960" # estado DONE           — verde suave
 _CLR_STATUS_ERROR    = "#a06060" # estado Error          — rojo suave
 _CLR_STATUS_UPSCALE  = "#a06060" # estado Upscale (bloq) — rojo suave
 
@@ -5499,7 +5499,7 @@ class ImportShotDialog(QtWidgets.QDialog):
                 status = job.get("status")
                 if status == "queued":
                     pos = job.get("position") or 0
-                    self._set_convert_status(row_i, "%d en fila" % pos, _CLR_STATUS_PENDING)
+                    self._set_convert_status(row_i, "Queued #%d" % pos, _CLR_STATUS_PENDING)
                 elif status in ("running", "starting"):
                     if not (hasattr(self, "_transcode_pbars") and row_i in self._transcode_pbars):
                         self._set_convert_status(row_i, "Procesando", _CLR_STATUS_PENDING)
@@ -5608,7 +5608,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             pass
 
     def _on_sequence_done(self, row_i, ok, stats):
-        """Detiene el timer de progreso y actualiza el Estado a '✓ Listo' o '✗ Error'."""
+        """Detiene el timer de progreso y actualiza el Estado a DONE o Error."""
         # Detener y eliminar timer
         if hasattr(self, "_transcode_timers") and row_i in self._transcode_timers:
             self._transcode_timers[row_i].stop()
@@ -5618,7 +5618,14 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         if row_i < self._convert_table.rowCount():
             if ok:
-                html = "<span style='color:%s;'>✓ Listo</span>" % _CLR_STATUS_DONE
+                elapsed = ""
+                try:
+                    elapsed_v = float((stats or {}).get("elapsed_seconds") or 0.0)
+                except Exception:
+                    elapsed_v = 0.0
+                if elapsed_v > 0.0:
+                    elapsed = " (%.1fs)" % elapsed_v
+                html = "<span style='color:%s;'>DONE%s</span>" % (_CLR_STATUS_DONE, elapsed)
             else:
                 html = "<span style='color:%s;'>✗ Error</span>" % _CLR_STATUS_ERROR
             self._convert_table.setCellWidget(row_i, 7, _cell_html_label(html))

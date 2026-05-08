@@ -52,8 +52,8 @@ Import Shots - Transcode Queue
 ────────────────────────────────────────────────────────
 Shot          Plate                  Duracion      Estado
 TEST_014_010  TEST_014_010_aPlate... 184f - 7.7s  [barra progreso]
-TEST_014_010  TEST_014_010_bPlate... 184f - 7.7s  1 en fila
-TEST_014_020  TEST_014_020_aPlate... 78f - 3.3s   2 en fila
+TEST_014_010  TEST_014_010_bPlate... 184f - 7.7s  Queued #1
+TEST_014_020  TEST_014_020_aPlate... 78f - 3.3s   Queued #2
 TEST_014_020  TEST_014_020_bPlate... 484f - 20.2s DONE (18.6s)
 ────────────────────────────────────────────────────────
 [Show All Import Windows] [Clear Completed] CPU [High (6/6)]            ☐ Keep this window on top
@@ -76,10 +76,10 @@ La tabla debe usar una estetica similar a la tabla de la seccion Convert:
 | Shot | Nombre del shot como boton plano clickeable |
 | Plate | Nombre de secuencia |
 | Duracion | Frames y segundos, por ejemplo `484f - 20.2s` |
-| Estado | Barra de progreso, `N en fila`, `DONE (Xs)`, `Error` o `Cancelado` |
+| Estado | Barra de progreso, `Queued #N`, `DONE (Xs)`, `Error` o `Cancelado` |
 
 No se agrega columna `Pos`: la posicion global se comunica dentro de `Estado` con
-`N en fila`. El job activo se identifica por la barra de progreso.
+`Queued #N`. El job activo se identifica por la barra de progreso.
 
 ---
 
@@ -151,7 +151,7 @@ Estados previstos:
 | Estado logico | UI |
 |---------------|----|
 | running / starting | Barra de progreso identica a la tabla Convert |
-| queued | `N en fila`, mismo estilo que la tabla Convert |
+| queued | `Queued #N`, mismo estilo que la tabla Convert |
 | done | `DONE (Xs)`, verde como estado listo. El tiempo sale de `elapsed_seconds` emitido por el worker |
 | error | `Error`, rojo |
 | cancelled | `Cancelado`, rojo/gris segun convenga visualmente |

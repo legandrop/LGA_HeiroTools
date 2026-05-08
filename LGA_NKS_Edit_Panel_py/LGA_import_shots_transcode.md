@@ -44,17 +44,18 @@ con `SHOTNAME_COLOR`. La celda pasa de `QTableWidgetItem` plano a `setCellWidget
 | → | Flecha separadora | centrada, `#666` |
 | Destino | `WxH (AR) (PAR) · bitdepth · Nch · compresion` | mismo coloring; PAR destino = `(1)` si desanamorfizar activo, sino mismo PAR fuente; `—` gris oscuro si checkbox off |
 | Tamaño | Tamaño actual en disco | escaneado al abrir la pagina (`_folder_size_bytes`) |
-| Estado | `Pendiente` / `⚠ Upscale` / `—` / barra de progreso / `✓ Listo` / `✗ Error` | ancho fijo 130px. Ver detalle abajo. |
+| Estado | `Pendiente` / `Queued #N` / `⚠ Upscale` / `—` / barra de progreso / `DONE (Xs)` / `✗ Error` | ancho fijo 130px. Ver detalle abajo. |
 
 **Estados de la columna Estado:**
 
 | Estado | Descripción | Color/widget |
 |--------|-------------|--------------|
 | `Pendiente` | EXR chequeado, listo para convertir | cian `#5a9ab5` |
+| `Queued #N` | Job pendiente en la cola global | cian `#5a9ab5` |
 | `⚠ Upscale` | Resize bloqueado por "no upscale" | rojo `#a06060` |
 | `—` | Checkbox desactivado (fila no se convertirá) | gris oscuro `#444444` |
 | Barra de progreso | Convirtiendo — polling QTimer cada 300ms de archivos en dst | fondo vacío `#393959`, relleno `#443a91`, texto `#cccccc`, bordes redondeados |
-| `✓ Listo` | Conversión completada exitosamente | verde `#6a9960` |
+| `DONE (Xs)` | Conversión completada exitosamente con segundos reales | verde `#6a9960` |
 | `✗ Error` | Conversión fallida | rojo `#a06060` |
 
 La columna Destino y la columna Estado se recalculan en vivo cuando cambian:

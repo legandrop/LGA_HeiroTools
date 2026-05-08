@@ -567,7 +567,7 @@ class TranscodeQueueWindow(QtWidgets.QDialog):
             return
 
         if status == "queued":
-            text = "%d en fila" % int(job.get("position") or 0)
+            text = "Queued #%d" % int(job.get("position") or 0)
             color = _CLR_PENDING
         elif status == "done":
             elapsed = _elapsed_text(job.get("elapsed_seconds"))
