@@ -72,6 +72,17 @@ La regla v000: si el track_type es `comp`, `roto` o `cleanup` y el nombre del cl
 
 Solo si `self.frames_to_push > 0`. Este valor lo calcula `_find_insert_frame()` al abrir el diálogo: si el nuevo shot va al final del timeline, no hay nada que empujar.
 
+### Cálculo del rango master de shots existentes
+
+Antes de decidir `insert_frame`, `_find_insert_frame()` usa `_collect_timeline_shots()` para construir una lista de shots existentes. Esa lista no toma el primer clip encontrado como master: agrupa todos los TrackItems con el mismo `item.name()` en todos los video tracks no-BurnIn y calcula:
+
+```python
+timeline_in  = min(timelineIn de todos los clips del shot)
+timeline_out = max(timelineOut de todos los clips del shot)
+```
+
+El master puede estar en cualquier track real (`aPlate`, `bPlate`, `_comp_`, `EditRef`, etc.). Si un track tiene un clip corto u offseteado del mismo shot, ese clip puede contribuir al `timeline_in`, pero no acorta el `timeline_out` cuando otro track llega mas lejos. Cuando el shot nuevo va al final, `insert_frame = timeline_out master + 1`.
+
 ### Implementación
 
 `timeline_mod.push_clips_right(seq, from_frame, amount)` → `(moved_count, effective_insert_frame)`:
@@ -378,7 +389,7 @@ BurnIn no figura en la lista (se trata como índice infinito, siempre en el tope
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `ImportShotDialog._do_import()`, `_item_hiero_color()`, `_item_section_color()`, `_chip_color()`, `_find_insert_frame()`, `_scan_input_folder()`, `_build_track_combo()`, `_get_seq_track_names()`, `_create_plate_track()`, `_refresh_track_combo_options()`, `_on_track_combo_changed()`, `_get_track_for_row()`, `_populate_data_row()` |
+| `LGA_NKS_Edit_Panel_py/LGA_import_shots.py` | `ImportShotDialog._do_import()`, `_item_hiero_color()`, `_item_section_color()`, `_chip_color()`, `_find_insert_frame()`, `_collect_timeline_shots()`, `_scan_input_folder()`, `_build_track_combo()`, `_get_seq_track_names()`, `_create_plate_track()`, `_refresh_track_combo_options()`, `_on_track_combo_changed()`, `_get_track_for_row()`, `_populate_data_row()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_timeline.py` | `push_clips_right()`, `place_clip_in_timeline()`, `stretch_burnin()`, `set_viewer_to_shot()`, `_zoom_and_restore()`, `_find_video_track()`, `_get_last_timeline_out()`, `_is_burnin_track()`, `set_debug_print()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_bin.py` | `find_or_create_shot_bin()`, `import_item_to_bin()`, `set_debug_print()` |
 | `LGA_NKS_Edit_Panel_py/LGA_import_shots_preview.md` | Documentación de la página de preview que precede al import |

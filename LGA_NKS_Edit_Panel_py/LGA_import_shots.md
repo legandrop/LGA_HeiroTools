@@ -22,6 +22,13 @@ La posicion de insercion en el timeline se calcula automaticamente escaneando
 los shots existentes y determinando la posicion alfabeticamente correcta,
 sin depender del playhead.
 
+Para cada shot existente, el rango master se calcula agrupando todos los
+TrackItems con el mismo `item.name()` en todos los video tracks no-BurnIn. El
+TC IN del shot es el menor `timelineIn()` encontrado y el TC OUT es el mayor
+`timelineOut()` encontrado. Por eso el master puede venir de un plate, un
+editref, un `_comp_` o cualquier otro track real; un clip corto u offseteado en
+un track secundario no puede acortar el rango master del shot.
+
 ## Archivos principales
 
 - **Script principal:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_import_shots.py`

@@ -770,15 +770,23 @@ def _get_shot_name_from_folder(folder_path):
 
 def _collect_timeline_shots(seq):
     """
-    Escanea tracks aPlate y EditRef para construir lista de shots existentes.
-    Retorna list de {shot_name, timeline_in, timeline_out, track_name}.
+    Escanea todos los tracks de video no-BurnIn para construir lista de shots
+    existentes.
+
+    Agrupa por item.name() y toma el rango completo del shot:
+      timeline_in  = min(timelineIn)  entre todos los clips de ese shot
+      timeline_out = max(timelineOut) entre todos los clips de ese shot
+
+    Esto evita que un plate corto/offseteado en un track secundario defina
+    por error el final del shot cuando existe un comp, plate o editref mas largo
+    en otro track.
+
+    Retorna list de {shot_name, timeline_in, timeline_out, track_name, track_names}.
     """
-    shots = []
-    seen_names = set()
+    shots_by_name = {}
     for track in seq.videoTracks():
         tname = track.name()
-        if not (re.search(r"plate$", tname, re.IGNORECASE) or
-                re.search(r"editref", tname, re.IGNORECASE)):
+        if _is_burnin_track(tname):
             continue
         for item in track.items():
             if isinstance(item, hiero.core.EffectTrackItem):
@@ -789,14 +797,30 @@ def _collect_timeline_shots(seq):
                 tl_out = int(item.timelineOut())
             except Exception:
                 continue
-            if name not in seen_names:
-                seen_names.add(name)
-                shots.append({
+            if not name:
+                continue
+
+            shot_data = shots_by_name.get(name)
+            if shot_data is None:
+                shots_by_name[name] = {
                     "shot_name": name,
                     "timeline_in": tl_in,
                     "timeline_out": tl_out,
                     "track_name": tname,
-                })
+                    "track_names": [tname],
+                }
+                continue
+
+            if tl_in < shot_data["timeline_in"]:
+                shot_data["timeline_in"] = tl_in
+            if tl_out > shot_data["timeline_out"]:
+                shot_data["timeline_out"] = tl_out
+                # track_name conserva el track que define el final master.
+                shot_data["track_name"] = tname
+            if tname not in shot_data["track_names"]:
+                shot_data["track_names"].append(tname)
+
+    shots = list(shots_by_name.values())
     shots.sort(key=lambda x: x["timeline_in"])
     return shots
 
