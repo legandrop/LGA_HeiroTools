@@ -56,7 +56,7 @@ TEST_014_010  TEST_014_010_bPlate... 184f - 7.7s  1 en fila
 TEST_014_020  TEST_014_020_aPlate... 78f - 3.3s   2 en fila
 TEST_014_020  TEST_014_020_bPlate... 484f - 20.2s DONE (18.6s)
 ────────────────────────────────────────────────────────
-[Show All Import Windows] [Clear Completed]            ☐ Keep this window on top
+[Show All Import Windows] [Clear Completed] CPU [High (6/6)]            ☐ Keep this window on top
 ```
 
 La tabla debe usar una estetica similar a la tabla de la seccion Convert:
@@ -179,7 +179,7 @@ Reglas:
 ## Botones Inferiores
 
 ```text
-[Show All Import Windows] [Clear Completed]            ☐ Keep this window on top
+[Show All Import Windows] [Clear Completed] CPU [High (6/6)]            ☐ Keep this window on top
 ```
 
 `Show All Import Windows`:
@@ -194,6 +194,16 @@ Reglas:
 - Borra filas con estado `DONE`, `Error` o `Cancelado`.
 - No borra jobs activos ni pendientes.
 
+`CPU`:
+
+- Dropdown global para bajar/subir consumo de CPU de los proximos plates.
+- Opciones visibles: `High (6/6)`, `Medium (4/4)`, `Low (2/2)`, `Minimal (1/1)`.
+- El primer numero es `workers` del manifest: cantidad de frames paralelos.
+- El segundo numero es `exrmetrics_threads`: threads por proceso de `exrmetrics`.
+- El valor es persistente entre sesiones.
+- Si se cambia mientras un plate esta convirtiendo, no interrumpe ese proceso; aplica desde el proximo plate que arranque.
+- Si hay jobs pendientes, el manager sobreescribe `workers` y `exrmetrics_threads` justo antes de lanzar cada worker, por lo que esos pendientes usan el preset nuevo cuando les llega el turno.
+
 `Keep this window on top`:
 
 - Persistente entre sesiones.
@@ -206,6 +216,7 @@ Persistencia propuesta en `ImportShots.ini`:
 ```ini
 [TranscodeQueueWindow]
 keep_on_top = true
+cpu_preset = High
 ```
 
 ---

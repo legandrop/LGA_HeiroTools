@@ -53,6 +53,28 @@ QPushButton:pressed {
 }
 """
 
+_COMBO_STYLE = """
+QComboBox {
+    background-color: #2e2e2e;
+    border: 1px solid #444444;
+    color: #999999;
+    padding: 2px 22px 2px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    min-height: 19px;
+}
+QComboBox:hover {
+    background-color: #3a3a3a;
+    color: #cccccc;
+}
+QComboBox QAbstractItemView {
+    background-color: #2b2b2b;
+    border: 1px solid #444444;
+    color: #cccccc;
+    selection-background-color: #3a3a3a;
+}
+"""
+
 _TABLE_STYLE = """
 QTableWidget {
     background-color: #272727;
@@ -122,17 +144,33 @@ def _load_keep_on_top():
     return cfg.getboolean("TranscodeQueueWindow", "keep_on_top", fallback=False)
 
 
-def _save_keep_on_top(value):
+def _load_cpu_preset():
+    cfg = configparser.ConfigParser()
+    p = _settings_path()
+    if p.exists():
+        cfg.read(str(p), encoding="utf-8")
+    return cfg.get("TranscodeQueueWindow", "cpu_preset", fallback="High")
+
+
+def _save_window_setting(key, value):
     p = _settings_path()
     cfg = configparser.ConfigParser()
     if p.exists():
         cfg.read(str(p), encoding="utf-8")
     if not cfg.has_section("TranscodeQueueWindow"):
         cfg.add_section("TranscodeQueueWindow")
-    cfg.set("TranscodeQueueWindow", "keep_on_top", "true" if value else "false")
+    cfg.set("TranscodeQueueWindow", key, str(value))
     p.parent.mkdir(parents=True, exist_ok=True)
     with open(str(p), "w", encoding="utf-8") as fh:
         cfg.write(fh)
+
+
+def _save_keep_on_top(value):
+    _save_window_setting("keep_on_top", "true" if value else "false")
+
+
+def _save_cpu_preset(value):
+    _save_window_setting("cpu_preset", value)
 
 
 def _escape(text):
@@ -198,6 +236,12 @@ class TranscodeQueueWindow(QtWidgets.QDialog):
         self._progress_dirs = {}
         self._last_snapshot = []
         self._keep_on_top = _load_keep_on_top()
+        self._cpu_preset = _load_cpu_preset()
+        try:
+            self.manager.set_cpu_preset(self._cpu_preset)
+            self._cpu_preset = self.manager.cpu_preset()
+        except Exception:
+            self._cpu_preset = "High"
 
         self.setObjectName("LGA_TranscodeQueueWindow")
         self.setWindowTitle("Import Shots - Transcode Queue")
@@ -255,6 +299,16 @@ class TranscodeQueueWindow(QtWidgets.QDialog):
         self.clear_btn.clicked.connect(self._clear_completed)
         btn_row.addWidget(self.show_windows_btn)
         btn_row.addWidget(self.clear_btn)
+
+        cpu_label = QtWidgets.QLabel("CPU")
+        cpu_label.setStyleSheet("color:%s; font-size:11px; padding-left:6px;" % _CLR_DIM)
+        btn_row.addWidget(cpu_label)
+
+        self.cpu_combo = QtWidgets.QComboBox()
+        self.cpu_combo.setStyleSheet(_COMBO_STYLE)
+        self._populate_cpu_combo()
+        self.cpu_combo.currentIndexChanged.connect(self._on_cpu_combo_changed)
+        btn_row.addWidget(self.cpu_combo)
         btn_row.addStretch(1)
 
         self.keep_chk = QtWidgets.QCheckBox("Keep this window on top")
@@ -268,6 +322,47 @@ class TranscodeQueueWindow(QtWidgets.QDialog):
         self.manager.sequence_started.connect(self._on_sequence_started)
         self.manager.sequence_done.connect(self._on_sequence_done)
         self.manager.job_cancelled.connect(self._on_job_cancelled)
+        if hasattr(self.manager, "cpu_preset_changed"):
+            self.manager.cpu_preset_changed.connect(self._on_cpu_preset_changed)
+
+    def _populate_cpu_combo(self):
+        presets = self.manager.cpu_presets() if hasattr(self.manager, "cpu_presets") else ["High", "Medium", "Low", "Minimal"]
+        self.cpu_combo.blockSignals(True)
+        self.cpu_combo.clear()
+        for preset in presets:
+            try:
+                opts = self.manager.cpu_options_for_preset(preset)
+            except Exception:
+                opts = {"workers": "", "exrmetrics_threads": ""}
+            label = "%s (%s/%s)" % (preset, opts.get("workers", ""), opts.get("exrmetrics_threads", ""))
+            self.cpu_combo.addItem(label, preset)
+        self._set_cpu_combo_value(self._cpu_preset)
+        self.cpu_combo.blockSignals(False)
+
+    def _set_cpu_combo_value(self, preset):
+        for i in range(self.cpu_combo.count()):
+            if str(self.cpu_combo.itemData(i)) == str(preset):
+                self.cpu_combo.setCurrentIndex(i)
+                return
+        self.cpu_combo.setCurrentIndex(0)
+
+    def _on_cpu_combo_changed(self, _index):
+        preset = self.cpu_combo.itemData(self.cpu_combo.currentIndex())
+        if not preset:
+            return
+        self._cpu_preset = str(preset)
+        try:
+            self.manager.set_cpu_preset(self._cpu_preset)
+            self._cpu_preset = self.manager.cpu_preset()
+        except Exception:
+            pass
+        _save_cpu_preset(self._cpu_preset)
+
+    def _on_cpu_preset_changed(self, preset, _opts):
+        self._cpu_preset = str(preset or "High")
+        self.cpu_combo.blockSignals(True)
+        self._set_cpu_combo_value(self._cpu_preset)
+        self.cpu_combo.blockSignals(False)
 
     def _apply_window_flags(self, initial=False):
         flags = QtCore.Qt.Window

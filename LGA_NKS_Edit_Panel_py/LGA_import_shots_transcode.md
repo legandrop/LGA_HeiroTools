@@ -247,3 +247,5 @@ Una linea de texto sobre el log con totales (sin estimaciones):
 
 > **Estado actual:** Implementado. El transcode corre via `LGA_EXR_Convert.py`
 > (manifest JSON + subprocess) en un `QRunnable` separado para no bloquear la UI.
+> El consumo de CPU se controla desde la ventana `Import Shots - Transcode Queue`
+> mediante presets globales que escriben `workers` y `exrmetrics_threads` en el manifest.

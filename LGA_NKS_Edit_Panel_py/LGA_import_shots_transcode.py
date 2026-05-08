@@ -569,6 +569,8 @@ class TranscodeWorker(QRunnable):
             dwa_level          = int(self.global_opts.get("dwa_level", 45))
             resize_filter      = self.global_opts.get("resize_filter", "lanczos3")
             workers            = int(self.global_opts.get("workers", 6))
+            exrmetrics_threads = int(self.global_opts.get("exrmetrics_threads", workers))
+            cpu_preset         = self.global_opts.get("cpu_preset")
             channels           = self.global_opts.get("channels", "all")
             pixel_aspect_ratio = self.global_opts.get("pixel_aspect_ratio", None)
 
@@ -580,6 +582,7 @@ class TranscodeWorker(QRunnable):
                 pixel_aspect_ratio=pixel_aspect_ratio,
             )
             manifest["workers"] = workers
+            manifest["exrmetrics_threads"] = exrmetrics_threads
 
             frame_count = len(manifest["tasks"])
             if frame_count == 0:
@@ -594,11 +597,13 @@ class TranscodeWorker(QRunnable):
                 if manifest["resize"] else "resolución original"
             )
             self.signals.log_message.emit(
-                "  %s %d frames | %s | comp: %s%s | workers: %d" % (
+                "  %s %d frames | %s | comp: %s%s | CPU: %s | workers: %d | exrmetrics threads: %d" % (
                     self._t(), frame_count, resize_info,
                     compression,
                     (":%d" % dwa_level) if compression.lower().startswith("dwa") else "",
+                    cpu_preset or "custom",
                     workers,
+                    exrmetrics_threads,
                 )
             )
 

@@ -124,10 +124,20 @@ def _safe_key(value):
     return text or "job"
 
 
+CPU_PRESETS = {
+    "High": {"workers": 6, "exrmetrics_threads": 6},
+    "Medium": {"workers": 4, "exrmetrics_threads": 4},
+    "Low": {"workers": 2, "exrmetrics_threads": 2},
+    "Minimal": {"workers": 1, "exrmetrics_threads": 1},
+}
+DEFAULT_CPU_PRESET = "High"
+
+
 class TranscodeQueueManager(QtCore.QObject):
     """Singleton global que serializa los TranscodeWorker de Import Shot."""
 
     queue_changed = QtCore.Signal(list)
+    cpu_preset_changed = QtCore.Signal(str, dict)
     log_message = QtCore.Signal(str, str)              # window_id, msg
     sequence_started = QtCore.Signal(str, int, str, int)
     sequence_done = QtCore.Signal(str, int, bool, dict)
@@ -145,6 +155,7 @@ class TranscodeQueueManager(QtCore.QObject):
         self._open_windows = set()
         self._closed_windows = set()
         self._job_seq = 0
+        self._cpu_preset = DEFAULT_CPU_PRESET
         debug_print("=== TranscodeQueueManager init ===")
 
     def enqueue_jobs(self, window_id, shot_name, job_sequences, global_opts, flags, shared_dir, ui_parent=None):
@@ -218,6 +229,32 @@ class TranscodeQueueManager(QtCore.QObject):
         for pos, job in enumerate(self._pending, 1):
             data.append(self._job_snapshot(job, "queued", pos))
         return data
+
+    def cpu_presets(self):
+        return list(CPU_PRESETS.keys())
+
+    def cpu_preset(self):
+        return self._cpu_preset
+
+    def cpu_options(self):
+        return dict(CPU_PRESETS.get(self._cpu_preset, CPU_PRESETS[DEFAULT_CPU_PRESET]))
+
+    def cpu_options_for_preset(self, preset):
+        return dict(CPU_PRESETS.get(str(preset or ""), CPU_PRESETS[DEFAULT_CPU_PRESET]))
+
+    def set_cpu_preset(self, preset):
+        preset = str(preset or DEFAULT_CPU_PRESET)
+        if preset not in CPU_PRESETS:
+            preset = DEFAULT_CPU_PRESET
+        if preset == self._cpu_preset:
+            return
+        self._cpu_preset = preset
+        opts = self.cpu_options()
+        debug_print(
+            "cpu preset changed preset=%s workers=%s exrmetrics_threads=%s"
+            % (preset, opts["workers"], opts["exrmetrics_threads"])
+        )
+        self.cpu_preset_changed.emit(preset, opts)
 
     def _start_next_if_idle(self):
         if self._active_job is not None:
@@ -299,9 +336,18 @@ class TranscodeQueueManager(QtCore.QObject):
 
     def _launch_worker(self, job):
         flags = job["flags"]
+        global_opts = dict(job.get("global_opts") or {})
+        cpu_opts = self.cpu_options()
+        global_opts.update(cpu_opts)
+        global_opts["cpu_preset"] = self._cpu_preset
+        job["global_opts"] = global_opts
+        debug_print(
+            "job cpu options id=%s preset=%s workers=%s exrmetrics_threads=%s"
+            % (job["job_id"], self._cpu_preset, cpu_opts["workers"], cpu_opts["exrmetrics_threads"])
+        )
         worker = TranscodeWorker(
             [(job["row_i"], job["item"], job["target_w"], job["target_h"])],
-            job["global_opts"],
+            global_opts,
             test_mode=flags.get("test_mode", False),
             move_originals=flags.get("move_originals", True),
             delete_originals=flags.get("delete_originals", False),
@@ -358,6 +404,9 @@ class TranscodeQueueManager(QtCore.QObject):
             stats["shot_name"] = self._active_job.get("shot_name")
             stats["frame_count"] = stats.get("frame_count") or (self._active_job.get("item") or {}).get("frame_count")
             stats["source_fps"] = (self._active_job.get("item") or {}).get("fps")
+            stats["cpu_preset"] = (self._active_job.get("global_opts") or {}).get("cpu_preset")
+            stats["workers"] = (self._active_job.get("global_opts") or {}).get("workers")
+            stats["exrmetrics_threads"] = (self._active_job.get("global_opts") or {}).get("exrmetrics_threads")
         debug_print("sequence_done window=%s row=%s ok=%s stats=%s" % (window_id, row_i, ok, stats))
         self.sequence_done.emit(window_id, row_i, ok, stats)
 
@@ -367,6 +416,9 @@ class TranscodeQueueManager(QtCore.QObject):
             for result in results:
                 result.setdefault("job_id", self._active_job.get("job_id"))
                 result.setdefault("name", self._active_job.get("name"))
+                result.setdefault("cpu_preset", (self._active_job.get("global_opts") or {}).get("cpu_preset"))
+                result.setdefault("workers", (self._active_job.get("global_opts") or {}).get("workers"))
+                result.setdefault("exrmetrics_threads", (self._active_job.get("global_opts") or {}).get("exrmetrics_threads"))
         self._results_by_window.setdefault(window_id, []).extend(results)
         all_results = list(self._results_by_window.get(window_id, []))
         debug_print("worker done window=%s results=%d" % (window_id, len(results)))
@@ -463,6 +515,9 @@ class TranscodeQueueManager(QtCore.QObject):
             "source_fps": (job.get("item") or {}).get("fps"),
             "dst_dir": job.get("dst_dir"),
             "total_frames": job.get("total_frames"),
+            "cpu_preset": (job.get("global_opts") or {}).get("cpu_preset"),
+            "workers": (job.get("global_opts") or {}).get("workers"),
+            "exrmetrics_threads": (job.get("global_opts") or {}).get("exrmetrics_threads"),
         }
 
 

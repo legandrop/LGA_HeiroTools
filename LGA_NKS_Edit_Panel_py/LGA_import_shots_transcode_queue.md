@@ -352,7 +352,23 @@ Primera version recomendada:
 - Click en shot solo trae al frente ventanas existentes.
 - Boton `Show All Import Windows`.
 - Boton `Clear Completed`, que limpia solo el historial visual de completados.
+- Dropdown `CPU` con presets `High (6/6)`, `Medium (4/4)`, `Low (2/2)`, `Minimal (1/1)`.
 - Checkbox `Keep this window on top`, persistente entre sesiones y alineado a la derecha de la fila inferior.
+
+El dropdown `CPU` es global para la cola. Controla `workers` y `exrmetrics_threads`
+del manifest que se envia a `LGA_EXR_Convert.py`:
+
+| Preset | workers | exrmetrics_threads | Uso |
+|--------|---------|--------------------|-----|
+| High | 6 | 6 | Maxima velocidad, mayor consumo de CPU |
+| Medium | 4 | 4 | Balance general |
+| Low | 2 | 2 | Menor impacto mientras se trabaja en Hiero |
+| Minimal | 1 | 1 | Conversion lenta, menor consumo |
+
+El cambio no afecta el plate que ya esta convirtiendo. El manager aplica el preset
+vigente justo antes de lanzar el siguiente `TranscodeWorker`, sobreescribiendo
+`workers` y `exrmetrics_threads` en los `global_opts` del job. Por eso tambien
+afecta jobs que ya estaban pendientes en la cola.
 
 El checkbox `Keep this window on top` debe hacer que la ventana quede sobre el resto usando
 `QtCore.Qt.WindowStaysOnTopHint`, pero la ventana debe seguir siendo **no modal**:
