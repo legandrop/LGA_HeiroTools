@@ -99,6 +99,12 @@ El bit depth y channels se leen via `oiiotool --info -v` parseando la linea
 | Filtro resampling | `lanczos3` | `cubic`, `box` (solo aplica si hay resize) |
 | ☑ Aplicar solo si origen es mayor | on | Evita upscale accidental; filas con upscale → Estado `⚠ Upscale` |
 
+> **HDR-safe resize automático:** cuando hay resize activo, `LGA_EXR_Convert.py` aplica
+> automáticamente `--rangecompress → --resize:highlightcomp=1 → --rangeexpand` (Opción A,
+> probada 2026-05-08). Esto evita pixeles negativos en zonas de alto contraste (ringing
+> de filtro en material HDR lineal). No requiere configuración — se activa solo.
+> Detalle completo: `LGA_NKS_Shared/LGA_EXR_Convert_HDR_Resize.md`
+
 > Todos los valores de Resolución son **persistentes**: se guardan en el INI al cambiar
 > y se restauran en la próxima apertura.
 

@@ -4,15 +4,19 @@
 from __future__ import annotations
 
 import argparse
+import atexit
 import concurrent.futures
 import json
+import logging
 import os
+import queue
 import subprocess
 import sys
 import time
 import dataclasses
 import re
 from dataclasses import dataclass
+from logging.handlers import QueueHandler, QueueListener
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +28,69 @@ OIIO_DIR = SHARED_DIR / "OIIO_Win"
 OCIO_AP0_AP1_CONFIG = SHARED_DIR / "OCIO" / "aces_ap0_ap1.ocio"
 EXRMETRICS = OPENEXR_DIR / "exrmetrics.exe"
 OIIOTOOL = OIIO_DIR / "oiiotool.exe"
+
+# ── Logging (Sistema A — append por invocación, un separador por run) ─────────
+DEBUG = True
+DEBUG_LOG = True
+
+_script_start_time: float | None = None
+_debug_log_listener: QueueListener | None = None
+_exr_logger: logging.Logger | None = None
+
+
+class _RelativeTimeFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        global _script_start_time
+        if _script_start_time is None:
+            _script_start_time = record.created
+        record.relative_time = f"{record.created - _script_start_time:.3f}s"
+        return super().format(record)
+
+
+def _setup_logging() -> None:
+    global _debug_log_listener, _exr_logger, _script_start_time
+    _script_start_time = time.time()
+    log_path = BASE_DIR.parent / "logs" / "debugPy_EXRConvert.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(log_path, "a", encoding="utf-8") as f:
+        f.write(f"\n--- EXRConvert run: {time.strftime('%Y-%m-%d %H:%M:%S')} ---\n")
+
+    _exr_logger = logging.getLogger("exrconvert_logger")
+    _exr_logger.setLevel(logging.DEBUG)
+    _exr_logger.propagate = False
+    _exr_logger.handlers.clear()
+
+    file_handler = logging.FileHandler(log_path, encoding="utf-8")
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(_RelativeTimeFormatter("[%(relative_time)s] %(message)s"))
+
+    log_queue: queue.Queue = queue.Queue()
+    _exr_logger.addHandler(QueueHandler(log_queue))
+    _debug_log_listener = QueueListener(log_queue, file_handler, respect_handler_level=True)
+    _debug_log_listener.daemon = True
+    _debug_log_listener.start()
+
+
+def _cleanup_logging() -> None:
+    global _debug_log_listener
+    if _debug_log_listener:
+        try:
+            _debug_log_listener.stop()
+        except Exception:
+            pass
+
+
+def debug_print(*message: object, level: str = "info") -> None:
+    if not (DEBUG and DEBUG_LOG and _exr_logger):
+        return
+    msg = " ".join(str(a) for a in message)
+    {"debug": _exr_logger.debug, "warning": _exr_logger.warning, "error": _exr_logger.error}.get(level, _exr_logger.info)(msg)
+
+
+_setup_logging()
+atexit.register(_cleanup_logging)
+# ── fin logging ───────────────────────────────────────────────────────────────
 
 
 @dataclass(frozen=True)
@@ -337,32 +404,39 @@ def _detect_ap0(frame_path: Path) -> bool:
         )
         output = result.stdout + result.stderr
         if "acesImageContainerFlag" in output:
+            debug_print("AP0 detectado via acesImageContainerFlag:", frame_path.name)
             return True
         m = re.search(r"chromaticities[:\s]+([\d. eE+-]+)", output)
         if m:
             vals = [float(v) for v in m.group(1).split()]
             if len(vals) >= 2:
-                return abs(vals[0] - _AP0_RX) < _AP0_TOLERANCE and abs(vals[1] - _AP0_RY) < _AP0_TOLERANCE
-    except Exception:
-        pass
+                is_ap0 = abs(vals[0] - _AP0_RX) < _AP0_TOLERANCE and abs(vals[1] - _AP0_RY) < _AP0_TOLERANCE
+                debug_print(f"chromaticities Rx={vals[0]:.4f} Ry={vals[1]:.4f} → {'AP0' if is_ap0 else 'no AP0'} ({frame_path.name})")
+                return is_ap0
+        debug_print("no se encontraron chromaticities en:", frame_path.name)
+    except Exception as e:
+        debug_print("_detect_ap0 error:", e, level="warning")
     return False
 
 
 def run_tasks(tasks: list[FrameTask], options: ConvertOptions) -> dict[str, Any]:
-    # Auto-activar hdr_resize si el material es AP0 y hay resize — sin intervención manual
+    debug_print("=== run_tasks:", len(tasks), "frames | resize:", options.resize or "none", "| compression:", options.compression)
+
+    # Siempre que haya resize, activar hdr_resize automáticamente.
+    # La detección por color space (AP0 via chromaticities) no es confiable:
+    # Nuke escribe chromaticities AP0 en todos los EXR independientemente del espacio real.
+    # rangecompress + highlightcomp es seguro en cualquier material lineal HDR.
     if options.resize and not options.hdr_resize and not options.ocio_round_trip:
-        if _detect_ap0(tasks[0].src):
-            options = dataclasses.replace(options, hdr_resize=True)
-            print("[LGA_EXR_Convert] AUTO hdr_resize=ON: AP0 detectado + resize activo", file=sys.stderr)
-        else:
-            print("[LGA_EXR_Convert] hdr_resize=OFF: material no es AP0", file=sys.stderr)
+        options = dataclasses.replace(options, hdr_resize=True)
+        debug_print("AUTO hdr_resize=ON: resize activo (aplica siempre)")
     elif options.hdr_resize and options.resize:
-        print("[LGA_EXR_Convert] hdr_resize=ON (manual)", file=sys.stderr)
+        debug_print("hdr_resize=ON (manual)")
     elif options.ocio_round_trip and options.resize:
-        print("[LGA_EXR_Convert] ocio_round_trip=ON (manual)", file=sys.stderr)
+        debug_print("ocio_round_trip=ON (manual)")
 
     engine = select_engine(options)
     validate_tools(engine, options)
+    debug_print("engine:", engine, "| workers:", options.workers)
     started = time.perf_counter()
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=options.workers) as executor:
@@ -372,6 +446,7 @@ def run_tasks(tasks: list[FrameTask], options: ConvertOptions) -> dict[str, Any]
     results.sort(key=lambda item: item["src"].lower())
     elapsed = time.perf_counter() - started
     ok_count = sum(1 for item in results if item["ok"])
+    debug_print(f"done: {ok_count}/{len(results)} OK en {elapsed:.1f}s ({len(results)/elapsed:.1f} fps)")
     return {
         "ok": ok_count == len(results),
         "engine": engine,

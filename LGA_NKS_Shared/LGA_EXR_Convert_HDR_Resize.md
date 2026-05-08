@@ -164,19 +164,30 @@ No implementado en LGA_EXR_Convert.py.
 
 ## Decisión final
 
-**Opción A implementada como auto-detección en `LGA_EXR_Convert.py`.**
+**Opción A activada automáticamente en `LGA_EXR_Convert.py` siempre que haya resize.**
 
-`hdr_resize` se activa automáticamente cuando:
-1. El primer frame del job tiene chromaticities AP0 (`Rx≈0.7347, Ry≈0.2653`) o `acesImageContainerFlag`
-2. Hay resize (`options.resize is not None`)
+No se intenta detectar el color space del material. Motivo:
 
-Nadie tiene que configurar nada. El manifest no necesita `hdr_resize`. La tool decide sola.
+- `chromaticities` no es confiable: Nuke escribe AP0 chromaticities en todos los EXR
+  independientemente del espacio real de contenido (ACEScg, AP0, etc.).
+- `oiio:ColorSpace` siempre lee `"Linear"` en EXR — bug conocido de OIIO.
+- `acesImageContainerFlag` solo confirma ACES-compliance, no distingue AP0 de AP1.
+- Intentado en 2026-05-08: metadata de un EXR exportado de Nuke en ACEScg era
+  indistinguible de un plate AP0 real.
 
-El log de stderr confirma la decisión frame a frame:
-- `AUTO hdr_resize=ON: AP0 detectado + resize activo`
-- `hdr_resize=OFF: material no es AP0`
+**La detección por metadata de color space en EXR es inviable en la práctica.**
 
-Los flags `hdr_resize` y `ocio_round_trip` siguen existiendo para override manual vía manifest o CLI.
+`rangecompress + highlightcomp=1 + rangeexpand` es seguro en cualquier material
+lineal HDR independientemente del color space. El costo es mínimo (~2s extra por
+secuencia de 80 frames). Nadie tiene que configurar nada.
+
+El log confirma la activación:
+```
+[0.021s] AUTO hdr_resize=ON: resize activo (aplica siempre)
+```
+
+Los flags `hdr_resize` y `ocio_round_trip` siguen existiendo para override manual
+vía manifest JSON o `--hdr-resize` / `--ocio-round-trip` en CLI.
 
 ---
 
