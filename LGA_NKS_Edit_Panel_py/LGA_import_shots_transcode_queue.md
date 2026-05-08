@@ -316,7 +316,7 @@ Cancelacion y reordenamiento pueden agregarse despues si hacen falta.
 Cuando una ventana de `Import Shot` se cierra:
 
 - Debe desregistrarse del manager global.
-- Sus jobs pendientes deben removerse de la cola.
+- Sus jobs pendientes deben removerse de la cola y marcarse como `cancelled`.
 - Las posiciones de los demas jobs deben recalcularse.
 - Las demas ventanas deben actualizar su UI.
 

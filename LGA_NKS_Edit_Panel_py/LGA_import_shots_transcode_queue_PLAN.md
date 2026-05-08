@@ -128,7 +128,7 @@ Resultado validado:
 
 ---
 
-## Etapa 3 - Cierre de ventanas y limpieza de jobs {pendiente}
+## Etapa 3 - Cierre de ventanas y limpieza de jobs {implementada, pendiente de test en Hiero}
 
 Objetivo: que cerrar una ventana no deje jobs huerfanos ni rompa updates de UI.
 

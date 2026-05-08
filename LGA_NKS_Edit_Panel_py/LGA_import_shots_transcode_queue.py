@@ -207,6 +207,9 @@ class TranscodeQueueManager(QtCore.QObject):
         self._closed_windows.add(window_id)
         self._open_windows.discard(window_id)
         debug_print("window closed source=%s window=%s shot=%s" % (source, window_id, shot_name))
+        self._remove_pending_jobs_for_window(window_id, shot_name)
+        self._emit_queue_changed()
+        self._start_next_if_idle()
 
     def snapshot(self):
         data = []
@@ -355,6 +358,38 @@ class TranscodeQueueManager(QtCore.QObject):
         if self._active_job and self._active_job.get("window_id") == window_id:
             return True
         return any(job.get("window_id") == window_id for job in self._pending)
+
+    def _remove_pending_jobs_for_window(self, window_id, shot_name):
+        kept = []
+        removed = []
+        for job in self._pending:
+            if job.get("window_id") == window_id:
+                job["status"] = "cancelled"
+                removed.append(job)
+            else:
+                kept.append(job)
+        self._pending = kept
+
+        if not removed:
+            debug_print("window close removed 0 pending jobs window=%s shot=%s" % (window_id, shot_name))
+            return
+
+        results = self._results_by_window.setdefault(window_id, [])
+        for job in removed:
+            result = {
+                "row_i": job.get("row_i"),
+                "ok": False,
+                "cancelled": True,
+                "name": job.get("name"),
+                "job_id": job.get("job_id"),
+                "closed_window": True,
+            }
+            results.append(result)
+            self.job_cancelled.emit(window_id, job.get("row_i"), result)
+            debug_print(
+                "job removed because window closed id=%s window=%s shot=%s row=%s name=%s"
+                % (job.get("job_id"), window_id, shot_name, job.get("row_i"), job.get("name"))
+            )
 
     def _emit_completed_windows(self):
         for window_id, results in list(self._results_by_window.items()):
