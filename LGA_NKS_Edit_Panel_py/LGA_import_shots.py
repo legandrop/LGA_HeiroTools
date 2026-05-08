@@ -1408,7 +1408,7 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         self.setWindowTitle("Import Shot — %s" % shot_name)
         self.setObjectName("LGA_ImportShotDialog")
-        self.setModal(True)
+        self.setModal(False)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
         self.setMinimumWidth(1300)
         self.setMinimumHeight(650)
@@ -5313,13 +5313,11 @@ def main():
     # Abrir dialogo (no bloqueante — igual que CreateV000)
     global _import_shot_dialog_instance
 
-    parent = hiero.ui.mainWindow() if hasattr(hiero.ui, "mainWindow") else None
     dlg = ImportShotDialog(
         shot_root, shot_name, seq,
         insert_frame, frames_to_push,
         prev_shot_name, next_shot_name,
         input_items, publish_items,
-        parent=parent,
     )
     dlg.finished.connect(_clear_import_dialog)
     dlg.destroyed.connect(_clear_import_dialog)
