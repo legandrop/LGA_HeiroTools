@@ -1586,7 +1586,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         shot_btn.setStyleSheet(
             "QPushButton { background: transparent; border:0px; padding:0px;"
             " margin:0px; color:%s; text-align:left; }"
-            "QPushButton:hover { color:#d08ad0; text-decoration: underline; }"
+            "QPushButton:hover { color:#e2a2e2; text-decoration: none; }"
             "QPushButton:pressed { color:#9f529f; }" % SHOTNAME_COLOR
         )
         shot_btn.clicked.connect(
