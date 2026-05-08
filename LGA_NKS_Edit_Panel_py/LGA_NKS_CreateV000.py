@@ -1994,10 +1994,32 @@ class CreateV000Dialog(QtWidgets.QDialog):
             QtWidgets.QMessageBox.warning(self, "Create v000", message)
             return
 
-        created_count = 0
+        # Phase 1: pre-flight dialogs + EXR creation (filesystem, outside undo)
+        preflight_results = []
         for params in params_list:
-            if self._create_v000_for_params(seq, project, params):
-                created_count += 1
+            result = self._preflight_and_create_exr(seq, params)
+            if result is not None:
+                preflight_results.append(result)
+
+        if not preflight_results:
+            self._update_state()
+            return
+
+        # Phase 2: all Hiero operations in a single undo block
+        hiero_tasks = [r for r in preflight_results if r["integration_mode"] != "exrs_only"]
+        created_count = len(preflight_results)
+
+        if hiero_tasks:
+            try:
+                with project.beginUndo("Create v000"):
+                    for result in hiero_tasks:
+                        self._hiero_import_for_params(seq, project, result["params"], result["integration_mode"])
+            except Exception as exc:
+                message = "EXRs were created, but Hiero import/placement failed:\n%s" % exc
+                self._set_warning(str(exc))
+                QtWidgets.QMessageBox.warning(self, "Create v000", message)
+                debug_print("import error:", exc)
+                created_count = 0
 
         if created_count:
             self.accept()
@@ -2221,7 +2243,11 @@ class CreateV000Dialog(QtWidgets.QDialog):
         dialog.exec_()
         return result["choice"]
 
-    def _create_v000_for_params(self, seq, project, params):
+    def _preflight_and_create_exr(self, seq, params):
+        """Phase 1: dialogs de confirmación + creación de EXRs en disco (fuera del undo).
+
+        Retorna un dict con params e integration_mode, o None si el usuario cancela.
+        """
         debug_print(
             "Starting Create v000 task:",
             params["task"],
@@ -2246,24 +2272,22 @@ class CreateV000Dialog(QtWidgets.QDialog):
             )
             if not confirmed:
                 debug_print("Create v000 skipped by user at EXR replace dialog:", params["task"])
-                return False
+                return None
             replace_existing = True
             debug_print("User confirmed EXR replacement:", params["output_dir"])
 
         integration_mode = "timeline"
         target_track_name = track_for_task(params["task"])
         target_track = _find_video_track(seq, target_track_name)
-        track_needs_creation = target_track is None
 
-        # Overlap check only applies when the track already exists; a new track has no items
-        if not track_needs_creation:
+        if target_track is not None:
             overlaps = _timeline_overlaps(target_track, params["timeline_in"], params["timeline_out"])
             if overlaps:
                 debug_print("Timeline overlaps detected:", len(overlaps), "track:", target_track_name)
                 choice = self._task_overlap_dialog(params["task"], overlaps)
                 if not choice:
                     debug_print("Create v000 skipped by user at overlap dialog:", params["task"])
-                    return False
+                    return None
                 integration_mode = choice
         debug_print("Create v000 integration mode:", integration_mode)
 
@@ -2275,11 +2299,10 @@ class CreateV000Dialog(QtWidgets.QDialog):
                 debug_print(
                     "Created %d folder(s): %s" % (len(created_dirs), ", ".join(created_dirs))
                 )
-            if dir_errors:
-                for err_path, err_msg in dir_errors:
-                    debug_print(
-                        "Failed to create folder %s: %s" % (err_path, err_msg), level="warning"
-                    )
+            for err_path, err_msg in dir_errors:
+                debug_print(
+                    "Failed to create folder %s: %s" % (err_path, err_msg), level="warning"
+                )
 
         success, status, message = _create_black_exr_sequence(params, replace=replace_existing)
         debug_print("EXR creation result:", status, message)
@@ -2288,87 +2311,88 @@ class CreateV000Dialog(QtWidgets.QDialog):
             self._set_warning(message)
             QtWidgets.QMessageBox.warning(self, "Create v000", message)
             debug_print("error:", message)
-            return False
+            return None
 
-        import_message = ""
-        if integration_mode != "exrs_only":
-            try:
-                with project.beginUndo("Create v000 %s" % params["task"]):
-                    if track_needs_creation:
-                        target_track, create_err = _insert_task_track(seq, params["task"])
-                        if create_err:
-                            raise RuntimeError(
-                                "Could not create track %s: %s" % (target_track_name, create_err)
-                            )
-                        debug_print("Track created:", target_track_name)
+        return {"params": params, "integration_mode": integration_mode}
 
-                    clip, bin_item, import_error = _import_v000_to_bin(project, params)
-                    if import_error:
-                        raise RuntimeError(import_error)
-                    color_error = _set_v000_clip_color(bin_item)
+    def _hiero_import_for_params(self, seq, project, params, integration_mode):
+        """Phase 2: operaciones de Hiero (bin, track, timeline).
 
-                    import_message = "\nImported to bin: %s" % bin_item.parentBin().name()
-                    if color_error:
-                        debug_print(color_error)
-                    else:
-                        import_message += "\nClip color: #8a8a8a"
-                    rescan_error, rescan_before, rescan_after = _rescan_clip_range(
-                        clip,
-                        params["source_first_frame"],
-                        params["source_last_frame"],
-                    )
-                    if rescan_error:
-                        raise RuntimeError(rescan_error)
-                    import_message += "\nRescanned clip range: %s - %s -> %s - %s" % (
-                        rescan_before[0],
-                        rescan_before[1],
-                        rescan_after[0],
-                        rescan_after[1],
-                    )
-                    if integration_mode == "timeline":
-                        track_item, timeline_error = _insert_v000_in_timeline(seq, clip, params)
-                        if timeline_error:
-                            raise RuntimeError(timeline_error)
-                        disable_error = _disable_timeline_item(track_item)
-                        if disable_error:
-                            debug_print(disable_error)
-                        import_message += "\nPlaced in timeline: %s (%s - %s)" % (
-                            track_item.parentTrack().name(),
-                            track_item.timelineIn(),
-                            track_item.timelineOut(),
-                        )
-                        if not disable_error:
-                            import_message += "\nTimeline clip disabled"
-                    elif integration_mode == "replace_timeline":
-                        current_overlaps = _timeline_overlaps(
-                            target_track,
-                            params["timeline_in"],
-                            params["timeline_out"],
-                        )
-                        _remove_timeline_items(target_track, current_overlaps)
-                        track_item, timeline_error = _insert_v000_in_timeline(seq, clip, params)
-                        if timeline_error:
-                            raise RuntimeError(timeline_error)
-                        disable_error = _disable_timeline_item(track_item)
-                        if disable_error:
-                            debug_print(disable_error)
-                        import_message += "\nReplaced %d timeline clip(s) on %s." % (
-                            len(current_overlaps),
-                            track_item.parentTrack().name(),
-                        )
-                        if not disable_error:
-                            import_message += "\nTimeline clip disabled"
-            except Exception as exc:
-                message = "%s\n\nEXRs were created, but Hiero import/placement failed:\n%s" % (message, exc)
-                self._set_warning(str(exc))
-                QtWidgets.QMessageBox.warning(self, "Create v000", message)
-                debug_print("import error:", exc)
-                return False
+        Debe llamarse dentro de un bloque project.beginUndo() del caller.
+        Lanza RuntimeError si algo falla.
+        """
+        target_track_name = track_for_task(params["task"])
+        target_track = _find_video_track(seq, target_track_name)
+
+        if target_track is None:
+            target_track, create_err = _insert_task_track(seq, params["task"])
+            if create_err:
+                raise RuntimeError(
+                    "Could not create track %s: %s" % (target_track_name, create_err)
+                )
+            debug_print("Track created:", target_track_name)
+
+        clip, bin_item, import_error = _import_v000_to_bin(project, params)
+        if import_error:
+            raise RuntimeError(import_error)
+        color_error = _set_v000_clip_color(bin_item)
+
+        import_message = "\nImported to bin: %s" % bin_item.parentBin().name()
+        if color_error:
+            debug_print(color_error)
+        else:
+            import_message += "\nClip color: #8a8a8a"
+
+        rescan_error, rescan_before, rescan_after = _rescan_clip_range(
+            clip,
+            params["source_first_frame"],
+            params["source_last_frame"],
+        )
+        if rescan_error:
+            raise RuntimeError(rescan_error)
+        import_message += "\nRescanned clip range: %s - %s -> %s - %s" % (
+            rescan_before[0],
+            rescan_before[1],
+            rescan_after[0],
+            rescan_after[1],
+        )
+
+        if integration_mode == "timeline":
+            track_item, timeline_error = _insert_v000_in_timeline(seq, clip, params)
+            if timeline_error:
+                raise RuntimeError(timeline_error)
+            disable_error = _disable_timeline_item(track_item)
+            if disable_error:
+                debug_print(disable_error)
+            import_message += "\nPlaced in timeline: %s (%s - %s)" % (
+                track_item.parentTrack().name(),
+                track_item.timelineIn(),
+                track_item.timelineOut(),
+            )
+            if not disable_error:
+                import_message += "\nTimeline clip disabled"
+        elif integration_mode == "replace_timeline":
+            current_overlaps = _timeline_overlaps(
+                target_track,
+                params["timeline_in"],
+                params["timeline_out"],
+            )
+            _remove_timeline_items(target_track, current_overlaps)
+            track_item, timeline_error = _insert_v000_in_timeline(seq, clip, params)
+            if timeline_error:
+                raise RuntimeError(timeline_error)
+            disable_error = _disable_timeline_item(track_item)
+            if disable_error:
+                debug_print(disable_error)
+            import_message += "\nReplaced %d timeline clip(s) on %s." % (
+                len(current_overlaps),
+                track_item.parentTrack().name(),
+            )
+            if not disable_error:
+                import_message += "\nTimeline clip disabled"
 
         debug_print("created:", params)
-        if import_message:
-            debug_print(import_message.strip())
-        return True
+        debug_print(import_message.strip())
 
 
 def _clear_create_v000_dialog_instance(*args):
