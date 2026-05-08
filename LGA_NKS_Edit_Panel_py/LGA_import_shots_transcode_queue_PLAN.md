@@ -11,7 +11,7 @@ secundaria antes de validar que el manager global ejecuta los transcodes correct
 
 ---
 
-## Etapa 1 - Manager global minimo con una sola ventana {implementada, pendiente de test en Hiero}
+## Etapa 1 - Manager global minimo con una sola ventana {implementada y testeada en Hiero}
 
 Objetivo: reemplazar la cola local por un manager global, manteniendo el caso de uso actual
 con una sola ventana.
@@ -44,6 +44,19 @@ Resultado testeable:
   confirmar que se procesan uno por uno via manager,
   revisar debugPy_ImportShotsTranscodeQueue.log,
   revisar debugPy_ImportShots.log si hace falta
+}
+```
+
+Resultado validado:
+
+```text
+{
+  test manual en Hiero con una ventana,
+  2 plates encolados,
+  el primer plate corrio como job activo,
+  el segundo plate mostro 1 en fila,
+  ambos terminaron OK,
+  log validado en debugPy_ImportShotsTranscodeQueue.log
 }
 ```
 

@@ -16,7 +16,7 @@ misma sesion de Hiero/Nuke Studio.
 El objetivo es conservar la cola local por ventana/shot, pero agregar una autoridad global
 que decida que secuencia se procesa en cada momento.
 
-> Estado general: **Etapa 1 implementada, pendiente de test en Hiero/Nuke Studio**.
+> Estado general: **Etapa 1 implementada y testeada con una ventana en Hiero/Nuke Studio**.
 
 ---
 
