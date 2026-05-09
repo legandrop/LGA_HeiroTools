@@ -1557,7 +1557,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         QTabBar::tab {
             background: #232323;
             color: #777777;
-            padding: 13px %dpx;
+            padding: 16px %dpx;
             border: none;
             font-weight: bold;
             font-size: 12px;
@@ -1705,7 +1705,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._tab_widget = QtWidgets.QStackedWidget()
         _body = QtWidgets.QWidget()
         _body_lay = QtWidgets.QVBoxLayout(_body)
-        _body_lay.setContentsMargins(9, 0, 9, 9)
+        _body_lay.setContentsMargins(9, 10, 9, 9)
         _body_lay.setSpacing(0)
         _body_lay.addWidget(self._tab_widget)
         self._root_layout.addWidget(_body, 1)
