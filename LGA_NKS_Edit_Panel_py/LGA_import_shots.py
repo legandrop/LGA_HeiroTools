@@ -1520,6 +1520,22 @@ class _TrackComboDelegate(QtWidgets.QStyledItemDelegate):
 #  Dialogo principal
 # ══════════════════════════════════════════════════════════════════
 
+class _ImportShotTabBar(QtWidgets.QTabBar):
+    """QTabBar con tabSizeHint ampliado.
+
+    Qt calcula el ancho de cada tab usando QFontMetrics sobre el texto crudo,
+    sin contemplar `letter-spacing` del QSS. Como aquí el CSS aplica
+    letter-spacing 1px, el texto pintado termina siendo más ancho que la
+    celda y se cropea en los extremos. Compensamos sumando un margen extra.
+    """
+    EXTRA_WIDTH = 24  # px adicionales por tab — cubre letter-spacing + aire
+
+    def tabSizeHint(self, index):
+        s = super(_ImportShotTabBar, self).tabSizeHint(index)
+        s.setWidth(s.width() + self.EXTRA_WIDTH)
+        return s
+
+
 class ImportShotDialog(QtWidgets.QDialog):
 
     TAB_RENAME    = 0
@@ -1528,37 +1544,42 @@ class ImportShotDialog(QtWidgets.QDialog):
     IMPORT_MAIN    = 0
     IMPORT_PREVIEW = 1
 
+    _TAB_H_PAD_EXTRA = 14  # px adicionales a cada lado de todos los tabs — ajustar a mano
+
     _TAB_STYLE = """
-        QTabWidget::pane {
+        QTabWidget#LGA_ImportShotTabs {
+            background: #232323;
+        }
+        QTabWidget#LGA_ImportShotTabs::pane {
             border: none;
             border-top: 1px solid #333333;
             background: #2B2B2B;
+            top: 0px;
+        }
+        QTabWidget#LGA_ImportShotTabs::tab-bar {
+            left: 0px;
+            alignment: left;
         }
         QTabBar {
-            background: #101010;
+            background: #232323;
+            qproperty-drawBase: 0;
         }
         QTabBar::tab {
-            background: #101010;
+            background: #232323;
             color: #777777;
-            padding: 8px 18px;
+            padding: 8px %dpx;
             border: none;
             font-weight: bold;
-            font-size: 11px;
+            font-size: 14px;
             letter-spacing: 1px;
-            text-transform: uppercase;
         }
         QTabBar::tab:selected {
-            background: #161616;
+            background: #2b2b2b;
             color: #CCCCCC;
-            border-left: 1px solid #333333;
-            border-top: 1px solid #333333;
-            border-right: 1px solid #333333;
-            border-bottom: 2px solid #161616;
-            margin-bottom: -1px;
         }
-        QTabBar::tab:hover:!selected { color: #AAAAAA; background: #141414; }
-        QTabBar::tab:disabled { color: #444444; background: #101010; }
-    """
+        QTabBar::tab:hover:!selected { color: #AAAAAA; background: #272727; }
+        QTabBar::tab:disabled { color: #444444; background: #232323; }
+    """ % _TAB_H_PAD_EXTRA
 
     def __init__(self, shot_root, shot_name, seq, insert_frame, frames_to_push,
                  prev_shot_name, next_shot_name,
@@ -1634,17 +1655,40 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._status_labels = []
 
         self._tab_widget = QtWidgets.QTabWidget()
+        self._tab_widget.setObjectName("LGA_ImportShotTabs")
+        self._tab_widget.setTabBar(_ImportShotTabBar())
+        self._tab_widget.setDocumentMode(True)
+        self._tab_widget.tabBar().setExpanding(False)
+        self._tab_widget.tabBar().setDrawBase(False)
+        self._tab_widget.tabBar().setAutoFillBackground(True)
+        _tb_pal = self._tab_widget.tabBar().palette()
+        _tb_pal.setColor(QtGui.QPalette.Window, QtGui.QColor("#232323"))
+        self._tab_widget.tabBar().setPalette(_tb_pal)
         self._root_layout.addWidget(self._tab_widget, 1)
 
         self._page_rename  = self._build_page_rename()
         self._page_convert = self._build_page_convert()
         self._page_import  = self._build_tab_import()
 
-        self._tab_widget.addTab(self._page_rename,  "Rename")
-        self._tab_widget.addTab(self._page_convert, "Transcode Plates")
-        self._tab_widget.addTab(self._page_import,  "Import")
+        self._tab_widget.addTab(self._page_rename,  "RENAME")
+        self._tab_widget.addTab(self._page_convert, "TRANSCODE PLATES")
+        self._tab_widget.addTab(self._page_import,  "IMPORT")
 
-        # Seq / shot name alineado a la derecha de la barra de tabs
+        # Seq / shot name alineado a la derecha de la barra de tabs.
+        # Wrapper QWidget que ocupa todo el alto del corner area para que
+        # el fondo #232323 cubra parejo. Layout con bottom margin > top
+        # margin para que el texto quede ligeramente por encima del centro.
+        _corner = QtWidgets.QWidget()
+        _corner.setObjectName("LGA_ImportShotCorner")
+        _corner.setStyleSheet(
+            "QWidget#LGA_ImportShotCorner { background:#232323; }"
+        )
+        _corner.setSizePolicy(QtWidgets.QSizePolicy.Preferred,
+                              QtWidgets.QSizePolicy.Expanding)
+        _corner_lay = QtWidgets.QHBoxLayout(_corner)
+        _corner_lay.setContentsMargins(8, 0, 12, 6)  # top=0, bottom=6 → empuja arriba
+        _corner_lay.setSpacing(0)
+
         _corner_lbl = QtWidgets.QLabel(
             "<span style='color:#6AB5CA;'>%s</span>"
             " <span style='color:#888888;'>/</span> "
@@ -1652,8 +1696,11 @@ class ImportShotDialog(QtWidgets.QDialog):
             % (self._seq_name(), self.shot_name)
         )
         _corner_lbl.setTextFormat(QtCore.Qt.RichText)
-        _corner_lbl.setStyleSheet("background:#101010; font-size:13px; font-weight:bold; padding:0 10px 0 6px;")
-        self._tab_widget.setCornerWidget(_corner_lbl, QtCore.Qt.TopRightCorner)
+        _corner_lbl.setStyleSheet(
+            "QLabel { background: transparent; font-size:16px; font-weight:bold; }"
+        )
+        _corner_lay.addWidget(_corner_lbl, 0, QtCore.Qt.AlignVCenter)
+        self._tab_widget.setCornerWidget(_corner, QtCore.Qt.TopRightCorner)
 
         self._tab_widget.currentChanged.connect(self._on_tab_changed)
 
