@@ -1529,16 +1529,35 @@ class ImportShotDialog(QtWidgets.QDialog):
     IMPORT_PREVIEW = 1
 
     _TAB_STYLE = """
-        QTabWidget::pane { border: none; background: #2B2B2B; margin-top: -1px; }
-        QTabBar { background: #2B2B2B; }
-        QTabBar::tab {
-            background: #2B2B2B; color: #777777; padding: 7px 18px; border: none;
-            border-bottom: 2px solid transparent; font-weight: bold;
-            font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+        QTabWidget::pane {
+            border: none;
+            border-top: 1px solid #333333;
+            background: #2B2B2B;
         }
-        QTabBar::tab:selected { color: #CCCCCC; border-bottom: 2px solid #B56AB5; }
-        QTabBar::tab:hover:!selected { color: #AAAAAA; background: #313131; }
-        QTabBar::tab:disabled { color: #444444; background: #2B2B2B; }
+        QTabBar {
+            background: #101010;
+        }
+        QTabBar::tab {
+            background: #101010;
+            color: #777777;
+            padding: 8px 18px;
+            border: none;
+            font-weight: bold;
+            font-size: 11px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        QTabBar::tab:selected {
+            background: #161616;
+            color: #CCCCCC;
+            border-left: 1px solid #333333;
+            border-top: 1px solid #333333;
+            border-right: 1px solid #333333;
+            border-bottom: 2px solid #161616;
+            margin-bottom: -1px;
+        }
+        QTabBar::tab:hover:!selected { color: #AAAAAA; background: #141414; }
+        QTabBar::tab:disabled { color: #444444; background: #101010; }
     """
 
     def __init__(self, shot_root, shot_name, seq, insert_frame, frames_to_push,
@@ -1607,18 +1626,14 @@ class ImportShotDialog(QtWidgets.QDialog):
         )
         self.setMinimumWidth(1300)
         self.setMinimumHeight(650)
-        self.setStyleSheet(_DIALOG_STYLE)
+        self.setStyleSheet(_DIALOG_STYLE + self._TAB_STYLE)
 
         self._root_layout = QtWidgets.QVBoxLayout(self)
         self._root_layout.setSpacing(8)
 
-        self._build_header()
-        self._root_layout.addWidget(_separator())
-
         self._status_labels = []
 
         self._tab_widget = QtWidgets.QTabWidget()
-        self._tab_widget.setStyleSheet(self._TAB_STYLE)
         self._root_layout.addWidget(self._tab_widget, 1)
 
         self._page_rename  = self._build_page_rename()
@@ -1628,6 +1643,17 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._tab_widget.addTab(self._page_rename,  "Rename")
         self._tab_widget.addTab(self._page_convert, "Transcode Plates")
         self._tab_widget.addTab(self._page_import,  "Import")
+
+        # Seq / shot name alineado a la derecha de la barra de tabs
+        _corner_lbl = QtWidgets.QLabel(
+            "<span style='color:#6AB5CA;'>%s</span>"
+            " <span style='color:#888888;'>/</span> "
+            "<span style='color:#B56AB5;'>%s</span>"
+            % (self._seq_name(), self.shot_name)
+        )
+        _corner_lbl.setTextFormat(QtCore.Qt.RichText)
+        _corner_lbl.setStyleSheet("background:#101010; font-size:13px; font-weight:bold; padding:0 10px 0 6px;")
+        self._tab_widget.setCornerWidget(_corner_lbl, QtCore.Qt.TopRightCorner)
 
         self._tab_widget.currentChanged.connect(self._on_tab_changed)
 
@@ -1784,26 +1810,6 @@ class ImportShotDialog(QtWidgets.QDialog):
             self._transcode_manager.note_window_closed(window_id, shot_name, source="destroyed")
         except Exception as exc:
             debug_print("TranscodeQueueManager destroyed log error: %s" % exc, level="warning")
-
-    def _build_header(self):
-        row = QtWidgets.QHBoxLayout()
-        shot_lbl = QtWidgets.QLabel(
-            "<span style='color:#6AB5CA;'>%s</span> / "
-            "<span style='color:#B56AB5;'>%s</span>"
-            % (self._seq_name(), self.shot_name)
-        )
-        shot_lbl.setTextFormat(QtCore.Qt.RichText)
-        shot_lbl.setStyleSheet(
-            "color:#CCCCCC; font-size:14px; font-weight:bold; padding:4px 5px 0 5px;"
-        )
-        row.addWidget(shot_lbl, 0, QtCore.Qt.AlignLeft)
-        row.addStretch()
-        title = QtWidgets.QLabel("Import Shot")
-        title.setStyleSheet(
-            "color:#CCCCCC; font-size:14px; font-weight:bold; padding:4px 5px 0 5px;"
-        )
-        row.addWidget(title, 0, QtCore.Qt.AlignRight)
-        self._root_layout.addLayout(row)
 
     def _seq_name(self):
         try:
