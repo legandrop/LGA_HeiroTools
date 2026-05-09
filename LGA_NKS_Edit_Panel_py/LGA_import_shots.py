@@ -1,13 +1,17 @@
 """
 ____________________________________________________________________
 
-  LGA_import_shots v1.05 | Lega
+  LGA_import_shots v1.06 | Lega
 
   Importa shots al proyecto de Nuke Studio.
   Analiza la carpeta _input del shot, detecta plates/editrefs/seqrefs
   y versiones en publish, y los coloca en el timeline en la posicion
   alfabeticamente correcta.
 
+  v1.06: Recalcula insert_frame en el momento exacto de presionar "Import Now"
+         para evitar posicion incorrecta cuando multiples ventanas estan abiertas
+         y otra termina de importar antes (el frame calculado al abrir la ventana
+         quedaba stale tras el push de clips del import previo).
   v1.05: Cola global de transcode (TranscodeQueueManager) con UI Open Queue.
          Dropdown de track con boton "Crear track" integrado en la tabla.
          Boton "Go Back" bloqueado y renombrado a "Transcoding, wait..." durante
@@ -4548,6 +4552,34 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         def _run_import():
             nonlocal placed, _view_tc_in, _view_tc_out
+
+            # ── Recalcular posición justo antes del import ────────────────────
+            # Cuando varias ventanas están abiertas simultáneamente, el timeline
+            # puede haber cambiado desde que se calculó insert_frame al abrir
+            # esta ventana. Recalcular aquí garantiza la posición correcta.
+            _shot_dur = max(
+                (it["frame_count"] for it in self.input_items
+                 if it["kind"] == "exr_seq" and it.get("is_latest")),
+                default=0,
+            )
+            if _shot_dur == 0:
+                _shot_dur = max(
+                    (it["frame_count"] for it in self.input_items
+                     if it["kind"] == "exr_seq"),
+                    default=100,
+                )
+            _new_insert, _new_push, _new_prev, _new_next = _find_insert_frame(
+                self.seq, self.shot_name, _shot_dur
+            )
+            if _new_insert != self.insert_frame or _new_push != self.frames_to_push:
+                debug_print(
+                    "_do_import: posición recalculada → insert_frame %d→%d,"
+                    " frames_to_push %d→%d"
+                    % (self.insert_frame, _new_insert,
+                       self.frames_to_push, _new_push)
+                )
+            self.insert_frame   = _new_insert
+            self.frames_to_push = _new_push
 
             # ── PASO 1: Hacer espacio ─────────────────────────────────────────
             # effective_insert_frame es el min(tl_in) de los clips empujados;
