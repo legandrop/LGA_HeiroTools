@@ -1659,10 +1659,9 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._header.setObjectName("LGA_ImportShotHeader")
         self._header.setAttribute(QtCore.Qt.WA_StyledBackground, True)
         _hdr_lay = QtWidgets.QHBoxLayout(self._header)
-        # 9px laterales adentro del header → tabs y shotname mantienen su
-        # posición visual original aunque el fondo dark se extienda
-        # hasta los bordes de la ventana.
-        _hdr_lay.setContentsMargins(9, 0, 9, 0)
+        # left=0 (prueba): el primer tab queda flush con el borde izquierdo.
+        # right=9 mantiene el shotname en su posición visual original.
+        _hdr_lay.setContentsMargins(0, 0, 9, 0)
         _hdr_lay.setSpacing(0)
 
         self._tab_bar = _ImportShotTabBar()
@@ -1682,7 +1681,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         )
         _shot_lbl.setTextFormat(QtCore.Qt.RichText)
         _shot_lbl.setStyleSheet(
-            "QLabel { background: transparent; font-size:16px; font-weight:bold; "
+            "QLabel { background: transparent; font-size:14px; font-weight:bold; "
             "padding:0 12px 0 8px; }"
         )
         _hdr_lay.addWidget(_shot_lbl, 0, QtCore.Qt.AlignVCenter)
@@ -1693,7 +1692,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         _sep = QtWidgets.QWidget()
         _sep.setFixedHeight(1)
         _sep.setAttribute(QtCore.Qt.WA_StyledBackground, True)
-        _sep.setStyleSheet("background: #333333;")
+        _sep.setStyleSheet("background: #4a4a4a;")
         self._root_layout.addWidget(_sep)
 
         # ── Stack de páginas ─────────────────────────────────────
