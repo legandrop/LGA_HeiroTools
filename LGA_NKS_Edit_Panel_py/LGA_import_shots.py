@@ -1,13 +1,14 @@
 """
 ____________________________________________________________________
 
-  LGA_import_shots v1.07 | Lega
+  LGA_import_shots v1.08 | Lega
 
   Importa shots al proyecto de Nuke Studio.
   Analiza la carpeta _input del shot, detecta plates/editrefs/seqrefs
   y versiones en publish, y los coloca en el timeline en la posicion
   alfabeticamente correcta.
 
+  v1.08: Seccion presets en tab rename
   v1.07: Navegación por tabs (Rename / Transcode Plates / Import).
          Tablas independientes, refresh inteligente con _needs_refresh.
          Import Now directo sin preview obligatorio.
@@ -3059,6 +3060,9 @@ class ImportShotDialog(QtWidgets.QDialog):
         col_left.addStretch()
         opts_row.addLayout(col_left, 1)
 
+        # Espacio para correr la columna 2 hacia la derecha
+        opts_row.addSpacing(100)
+
         # Separador vertical
         opts_row.addWidget(_separator("v"))
 
@@ -3098,6 +3102,26 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         col_right.addStretch()
         opts_row.addLayout(col_right, 1)
+
+        # Espacio para correr la columna 3 hacia la derecha
+        opts_row.addSpacing(100)
+
+        # Separador vertical
+        opts_row.addWidget(_separator("v"))
+
+        # Tercera columna — Reset / utilidades
+        col_extra = QtWidgets.QVBoxLayout()
+        col_extra.setSpacing(6)
+        self._rename_clear_defaults_btn = QtWidgets.QPushButton("Clear / defaults")
+        self._rename_clear_defaults_btn.setStyleSheet(_BTN_SMALL)
+        self._rename_clear_defaults_btn.clicked.connect(self._reset_rename_to_defaults)
+        col_extra.addWidget(self._rename_clear_defaults_btn)
+        col_extra.addStretch()
+        opts_row.addLayout(col_extra, 0)
+
+        # ✅✅ Espacio libre a la derecha de la tercera columna (ajustar a gusto)
+        _RENAME_COL3_RIGHT_PADDING = 200
+        opts_row.addSpacing(_RENAME_COL3_RIGHT_PADDING)
 
         layout.addLayout(opts_row)
         layout.addWidget(_separator())
@@ -3186,6 +3210,14 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_settings = self._collect_rename_settings_from_ui()
         rename_settings_mod.save_settings(self._rename_settings)
         self._refresh_rename_preview()
+
+    def _reset_rename_to_defaults(self):
+        self._rename_sr1_search.setText("")
+        self._rename_sr1_replace.setText("")
+        self._rename_sr2_search.setText("")
+        self._rename_sr2_replace.setText("")
+        self._rename_delim_combo.setCurrentIndex(0)  # "_"
+        self._rename_digits_spin.setValue(4)
 
     def _update_rename_page(self):
         all_items = []

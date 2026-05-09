@@ -118,6 +118,36 @@ Cada etapa tiene color propio, reutilizando la paleta ya existente de transcode:
 - etapa 3: `_CLR_COMP_DWAA` (verde)
 - etapa 4: `_CLR_STATUS_PENDING` (cyan)
 
+## Layout de opciones (3 columnas)
+
+`opts_row` ahora tiene 3 columnas separadas por `_separator("v")`:
+
+- **Columna izquierda** (stretch 1): Step 1 (Search & Replace) + Step 2 (Search & Replace).
+- **Columna central** (stretch 1): Step 3 (Delimiter) + Step 4 (Frame Digits).
+  Se agrega `addSpacing(100)` antes del separador vertical para correr esta columna 100 px a la derecha.
+- **Columna derecha** (stretch 0): botón `Clear / defaults` con estilo `_BTN_SMALL`
+  (mismo estilo que `Select All` / `Clear` / `Plates` del tab Import).
+  Se agrega `addSpacing(100)` antes del separador vertical para correr esta columna 100 px a la derecha del fin de la columna central.
+  Después de la columna se agrega `addSpacing(_RENAME_COL3_RIGHT_PADDING)` (variable local
+  marcada con `✅✅` en el código) para dejar un margen libre a la derecha y que la columna 3
+  no quede pegada al borde derecho de la ventana.
+
+### Botón `Clear / defaults`
+
+Método: `_reset_rename_to_defaults()`.
+
+Acciones:
+
+- Vacía los 4 campos de texto: SR1 Search, SR1 Replace, SR2 Search, SR2 Replace.
+- Setea el combo de Step 3 (Delimiter) en `_`.
+- Setea el spinbox de Step 4 (Frame Digits) en `4`.
+
+Los `case_sensitive` de SR1/SR2 NO se tocan (no son parte del defaults requerido).
+
+Cada `setText` / `setCurrentIndex` / `setValue` dispara la señal correspondiente, que está
+conectada a `_on_rename_settings_changed`. Por lo tanto la persistencia en el INI ocurre
+automáticamente igual que si el usuario hubiera editado los campos a mano.
+
 ## Botón ⇄ (Swap Search / Replace)
 
 Cada sección SR1 y SR2 tiene un botón pequeño `⇄` entre el campo Search y el Replace.
