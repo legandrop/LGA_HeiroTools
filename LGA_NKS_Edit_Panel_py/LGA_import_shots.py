@@ -1570,7 +1570,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             padding: 8px %dpx;
             border: none;
             font-weight: bold;
-            font-size: 14px;
+            font-size: 12px;
             letter-spacing: 1px;
         }
         QTabBar::tab:selected {
@@ -1650,6 +1650,9 @@ class ImportShotDialog(QtWidgets.QDialog):
         self.setStyleSheet(_DIALOG_STYLE + self._TAB_STYLE)
 
         self._root_layout = QtWidgets.QVBoxLayout(self)
+        # Top=0 para que la barra de tabs quede flush con el title bar.
+        # Lados/abajo conservan el padding default del QDialog.
+        self._root_layout.setContentsMargins(9, 0, 9, 9)
         self._root_layout.setSpacing(8)
 
         self._status_labels = []
@@ -1680,6 +1683,9 @@ class ImportShotDialog(QtWidgets.QDialog):
         # margin para que el texto quede ligeramente por encima del centro.
         _corner = QtWidgets.QWidget()
         _corner.setObjectName("LGA_ImportShotCorner")
+        # WA_StyledBackground: sin esto, un QWidget plano NO pinta el
+        # background del stylesheet (solo lo hacen las subclases tipo QFrame).
+        _corner.setAttribute(QtCore.Qt.WA_StyledBackground, True)
         _corner.setStyleSheet(
             "QWidget#LGA_ImportShotCorner { background:#232323; }"
         )
