@@ -1640,10 +1640,12 @@ class ImportShotDialog(QtWidgets.QDialog):
         self.setStyleSheet(_DIALOG_STYLE + self._TAB_STYLE)
 
         self._root_layout = QtWidgets.QVBoxLayout(self)
-        # Top=0 para que la barra de tabs quede flush con el title bar.
-        # Lados/abajo conservan el padding default del QDialog.
-        # Spacing=0: header y separador van pegados sin franja gris entre medio.
-        self._root_layout.setContentsMargins(9, 0, 9, 9)
+        # Margins=0 en el root: el fondo dark del header y la línea separadora
+        # llegan hasta los bordes izq/der/sup de la ventana. El padding lateral
+        # de 9px se aplica adentro del header (en `_hdr_lay`) y en el wrapper
+        # del stack, de forma que tabs y shotname queden en su posición visual
+        # original sin franjas grises a los costados.
+        self._root_layout.setContentsMargins(0, 0, 0, 0)
         self._root_layout.setSpacing(0)
 
         self._status_labels = []
@@ -1657,7 +1659,10 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._header.setObjectName("LGA_ImportShotHeader")
         self._header.setAttribute(QtCore.Qt.WA_StyledBackground, True)
         _hdr_lay = QtWidgets.QHBoxLayout(self._header)
-        _hdr_lay.setContentsMargins(0, 0, 0, 0)
+        # 9px laterales adentro del header → tabs y shotname mantienen su
+        # posición visual original aunque el fondo dark se extienda
+        # hasta los bordes de la ventana.
+        _hdr_lay.setContentsMargins(9, 0, 9, 0)
         _hdr_lay.setSpacing(0)
 
         self._tab_bar = _ImportShotTabBar()
@@ -1694,8 +1699,17 @@ class ImportShotDialog(QtWidgets.QDialog):
         # ── Stack de páginas ─────────────────────────────────────
         # Mantenemos el nombre `_tab_widget` como atributo de
         # compatibilidad: ahora apunta al QStackedWidget.
+        # Se envuelve en un container con margins (9, 0, 9, 9) para
+        # que el contenido de las páginas conserve el padding original
+        # respecto a los bordes del diálogo, mientras el header dark
+        # y la línea separadora siguen llegando edge-to-edge.
         self._tab_widget = QtWidgets.QStackedWidget()
-        self._root_layout.addWidget(self._tab_widget, 1)
+        _body = QtWidgets.QWidget()
+        _body_lay = QtWidgets.QVBoxLayout(_body)
+        _body_lay.setContentsMargins(9, 0, 9, 9)
+        _body_lay.setSpacing(0)
+        _body_lay.addWidget(self._tab_widget)
+        self._root_layout.addWidget(_body, 1)
 
         self._page_rename  = self._build_page_rename()
         self._page_convert = self._build_page_convert()

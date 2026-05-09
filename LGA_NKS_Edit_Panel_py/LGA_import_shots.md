@@ -132,9 +132,12 @@ Detalles técnicos relevantes para tocar el header:
   → sin esto el texto de los tabs se cropea en los extremos.
 - **`WA_StyledBackground`** en el wrapper del header: sin este flag, un
   `QWidget` plano no pinta el background definido por stylesheet.
-- **Root layout `setContentsMargins(9, 0, 9, 9)`**: top=0 para que el header
-  quede flush con el title bar. Lados/inferior conservan el padding default
-  del `QDialog`.
+- **Root layout `setContentsMargins(0, 0, 0, 0)`**: margins en cero para que
+  el fondo dark del header y la línea separadora lleguen edge-to-edge a los
+  bordes izquierdo, derecho y superior del diálogo. El padding lateral de 9px
+  se aplica adentro del header (`_hdr_lay`) y en un wrapper del stack
+  (`_body` con `setContentsMargins(9, 0, 9, 9)`), de forma que tabs, shotname
+  y contenido de páginas queden en su posición visual original.
 
 API de compatibilidad para abrir/cerrar/cambiar tabs desde otros métodos:
 
