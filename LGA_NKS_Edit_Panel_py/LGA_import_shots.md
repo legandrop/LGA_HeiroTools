@@ -116,7 +116,12 @@ QWidget (objectName "LGA_ImportShotHeader")  ← fondo #232323, WA_StyledBackgro
     └── QLabel  ← seq / shotname (AlignVCenter, font-size 16px)
 ```
 
-Bajo el header hay un `QWidget` separador de 1px con fondo `#333333`, y debajo
+Bajo el header hay una línea separadora de 1px implementada con la subclase
+`_HeaderSeparator(QWidget)`: pinta la línea en `#4a4a4a` salvo en el rect
+horizontal del tab activo, donde pinta `#2b2b2b` (= bg del tab seleccionado
+= bg del body) para que el tab "abra" el separador y se conecte visualmente
+con la página debajo. La actualización se dispara con
+`tab_bar.currentChanged.connect(self.update)`. Debajo del separador va
 un `QStackedWidget` (atributo `self._tab_widget` por compatibilidad con código
 existente) que aloja las tres páginas. El `QTabBar.currentChanged` está
 conectado a `QStackedWidget.setCurrentIndex` y a `_on_tab_changed`.

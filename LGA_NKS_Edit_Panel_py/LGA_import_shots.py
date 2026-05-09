@@ -1520,6 +1520,39 @@ class _TrackComboDelegate(QtWidgets.QStyledItemDelegate):
 #  Dialogo principal
 # ══════════════════════════════════════════════════════════════════
 
+class _HeaderSeparator(QtWidgets.QWidget):
+    """Línea de 1px debajo del tab header.
+
+    Pinta la línea en `LINE_COLOR` excepto en el rect horizontal del tab
+    activo, donde pinta `GAP_COLOR` (= bg del tab activo = bg del body) para
+    que el tab seleccionado parezca "abrir" el separador y conectarse
+    visualmente con la página debajo.
+    """
+
+    LINE_COLOR = QtGui.QColor("#4a4a4a")
+    GAP_COLOR  = QtGui.QColor("#2b2b2b")  # = QTabBar::tab:selected background
+
+    def __init__(self, tab_bar, parent=None):
+        super(_HeaderSeparator, self).__init__(parent)
+        self._tab_bar = tab_bar
+        self.setFixedHeight(1)
+        tab_bar.currentChanged.connect(self.update)
+
+    def paintEvent(self, event):
+        p = QtGui.QPainter(self)
+        p.fillRect(self.rect(), self.LINE_COLOR)
+        idx = self._tab_bar.currentIndex()
+        if idx < 0:
+            return
+        rect = self._tab_bar.tabRect(idx)
+        if rect.isEmpty():
+            return
+        # tabRect viene en coords del QTabBar; lo traemos a coords del separador
+        top_left_global = self._tab_bar.mapToGlobal(rect.topLeft())
+        x = self.mapFromGlobal(top_left_global).x()
+        p.fillRect(x, 0, rect.width(), self.height(), self.GAP_COLOR)
+
+
 class _ImportShotTabBar(QtWidgets.QTabBar):
     """QTabBar con tabSizeHint ampliado.
 
@@ -1688,11 +1721,9 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         self._root_layout.addWidget(self._header)
 
-        # Línea separadora (antes era pane.border-top del QTabWidget).
-        _sep = QtWidgets.QWidget()
-        _sep.setFixedHeight(1)
-        _sep.setAttribute(QtCore.Qt.WA_StyledBackground, True)
-        _sep.setStyleSheet("background: #4a4a4a;")
+        # Línea separadora con "hueco" bajo el tab activo para conectar
+        # visualmente el tab seleccionado con la página debajo.
+        _sep = _HeaderSeparator(self._tab_bar)
         self._root_layout.addWidget(_sep)
 
         # ── Stack de páginas ─────────────────────────────────────
