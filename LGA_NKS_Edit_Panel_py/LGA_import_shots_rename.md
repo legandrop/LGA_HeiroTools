@@ -124,9 +124,9 @@ Cada etapa tiene color propio, reutilizando la paleta ya existente de transcode:
 exactamente el ancho que tenía antes de existir las columnas 2 y 3 (~50% del ancho de la ventana):
 
 - **Mitad izquierda** = `col_left` (stretch 1): Step 1 (Search & Replace) + Step 2 (Search & Replace).
-- **Separador vertical** entre las dos mitades (mismo lugar que tenía antes).
 - **Mitad derecha** = `right_wrap` (QHBoxLayout con stretch 1 dentro de `opts_row`), que contiene en orden:
-  - `addSpacing(100)` para que la columna 2 empiece 100 px adentro de la mitad derecha.
+  - `addSpacing(100)` — espacio libre entre `col_left` y el separador vertical.
+  - **Separador vertical** entre col 1 y col 2.
   - **Columna 2** = `col_right` (stretch 1 dentro de `right_wrap`): Step 3 (Delimiter) + Step 4 (Frame Digits).
   - `addSpacing(100)` para separar la columna 3 de la columna 2.
   - Separador vertical.

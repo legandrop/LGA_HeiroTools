@@ -3060,17 +3060,16 @@ class ImportShotDialog(QtWidgets.QDialog):
         col_left.addStretch()
         opts_row.addLayout(col_left, 1)
 
-        # Separador vertical (mismo lugar que antes para preservar el ancho de col_left)
-        opts_row.addWidget(_separator("v"))
-
-        # Wrapper para todo lo que va a la derecha del separador.
-        # Tiene stretch=1 igual que col_left, asi col_left mantiene exactamente
-        # el mismo ancho (~50%) que tenia antes de agregar las columnas 2 y 3.
+        # Wrapper para todo lo que va a la derecha de col_left.
+        # Tiene stretch=1 igual que col_left, asi col_left mantiene su ancho (~50%).
         right_wrap = QtWidgets.QHBoxLayout()
         right_wrap.setSpacing(0)
 
-        # Espacio para correr la columna 2 hacia la derecha
-        right_wrap.addSpacing(100)
+        # Espacio entre col_left y el separador vertical
+        right_wrap.addSpacing(30)
+
+        # Separador vertical entre col_left y col_right
+        right_wrap.addWidget(_separator("v"))
 
         # Columna derecha — Step 3 + Step 4
         col_right = QtWidgets.QVBoxLayout()
