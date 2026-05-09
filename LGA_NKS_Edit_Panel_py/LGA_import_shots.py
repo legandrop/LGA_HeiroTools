@@ -3060,11 +3060,17 @@ class ImportShotDialog(QtWidgets.QDialog):
         col_left.addStretch()
         opts_row.addLayout(col_left, 1)
 
-        # Espacio para correr la columna 2 hacia la derecha
-        opts_row.addSpacing(100)
-
-        # Separador vertical
+        # Separador vertical (mismo lugar que antes para preservar el ancho de col_left)
         opts_row.addWidget(_separator("v"))
+
+        # Wrapper para todo lo que va a la derecha del separador.
+        # Tiene stretch=1 igual que col_left, asi col_left mantiene exactamente
+        # el mismo ancho (~50%) que tenia antes de agregar las columnas 2 y 3.
+        right_wrap = QtWidgets.QHBoxLayout()
+        right_wrap.setSpacing(0)
+
+        # Espacio para correr la columna 2 hacia la derecha
+        right_wrap.addSpacing(100)
 
         # Columna derecha — Step 3 + Step 4
         col_right = QtWidgets.QVBoxLayout()
@@ -3101,13 +3107,13 @@ class ImportShotDialog(QtWidgets.QDialog):
         col_right.addLayout(pad_inner)
 
         col_right.addStretch()
-        opts_row.addLayout(col_right, 1)
+        right_wrap.addLayout(col_right, 1)
 
         # Espacio para correr la columna 3 hacia la derecha
-        opts_row.addSpacing(100)
+        right_wrap.addSpacing(100)
 
         # Separador vertical
-        opts_row.addWidget(_separator("v"))
+        right_wrap.addWidget(_separator("v"))
 
         # Tercera columna — Reset / utilidades
         col_extra = QtWidgets.QVBoxLayout()
@@ -3117,11 +3123,13 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_clear_defaults_btn.clicked.connect(self._reset_rename_to_defaults)
         col_extra.addWidget(self._rename_clear_defaults_btn)
         col_extra.addStretch()
-        opts_row.addLayout(col_extra, 0)
+        right_wrap.addLayout(col_extra, 0)
 
         # ✅✅ Espacio libre a la derecha de la tercera columna (ajustar a gusto)
         _RENAME_COL3_RIGHT_PADDING = 200
-        opts_row.addSpacing(_RENAME_COL3_RIGHT_PADDING)
+        right_wrap.addSpacing(_RENAME_COL3_RIGHT_PADDING)
+
+        opts_row.addLayout(right_wrap, 1)
 
         layout.addLayout(opts_row)
         layout.addWidget(_separator())
