@@ -1,13 +1,16 @@
 > **Regla de documentacion**: este archivo describe el estado actual del codigo. No es un historial de cambios, changelog ni bitacora temporal.
 > **Regla de documentacion**: este archivo debe incluir una seccion de referencias tecnicas con rutas completas a los archivos mas importantes relacionados, y para cada archivo nombrar las funciones, clases o metodos clave vinculados a este tema.
 
-## Sub-vista Convert
+## Tab Transcode Plates
 
-Conversion de EXR sequences para los items marcados.
+Conversion de EXR sequences. Muestra **todos** los plates de `_input/` (todas las versiones),
+**independientemente** de lo marcado en el tab Import.
 
-- Solo opera sobre `exr_seq`. Los MOVs marcados se listan con un aviso
-  `"<nombre>.mov no sera convertido"` y se excluyen del proceso.
-- Si no hay ningun EXR marcado (solo MOVs u otros), el boton no hace nada.
+- Todos los EXR aparecen chequeados por defecto al abrir el tab.
+- MOVs aparecen en la tabla con checkbox deshabilitado (`No soportado`).
+- Solo opera sobre `exr_seq` con checkbox activo.
+- Durante transcode activo (esta ventana): tabs Rename e Import quedan deshabilitados.
+- Al terminar el transcode: tabs Rename e Import se marcan para refresh (`_needs_refresh`).
 
 ### Layout
 
@@ -26,7 +29,7 @@ Conversion de EXR sequences para los items marcados.
 ├───────────────────────────────────────────────────────┤
 │  LOG (3 lineas, expandible ▲/▼)                       │
 ├───────────────────────────────────────────────────────┤
-│  [← Go Back]                  [Start Transcode]       │
+│  [Open Queue] [estado global]  [Start Transcode]       │
 └───────────────────────────────────────────────────────┘
 ```
 

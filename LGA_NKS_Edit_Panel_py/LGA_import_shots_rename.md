@@ -8,7 +8,8 @@ Documentacion especifica de la sub-vista `Rename` del dialogo de Import Shot.
 
 Permitir renombrado masivo con preview en vivo, de forma segura y modular.
 
-- Aplica sobre todos los items seleccionados en la tabla principal (input y publish).
+- Aplica sobre todos los items detectados (input y publish), **independientemente** de lo marcado en el tab Import.
+- Todos los items aparecen chequeados por defecto al abrir el tab.
 - En secuencias EXR, renombra la secuencia y su carpeta contenedora.
 - Bloquea automaticamente casos inseguros (mismatch de carpeta/secuencia, conflictos de destino).
 
@@ -33,8 +34,8 @@ Permitir renombrado masivo con preview en vivo, de forma segura y modular.
 
 ### Secciones
 
-La tabla está organizada en **secciones** igual que la tabla principal, con el mismo sistema
-de cabeceras de color. Solo se muestran las secciones que tienen ítems en la selección activa:
+La tabla está organizada en **secciones** igual que el tab Import, con el mismo sistema
+de cabeceras de color. Solo se muestran las secciones que tienen ítems detectados:
 
 | Sección | Color barra | Texto header | Condición |
 |---------|-------------|--------------|-----------|

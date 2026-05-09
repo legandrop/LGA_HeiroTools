@@ -1,13 +1,16 @@
 """
 ____________________________________________________________________
 
-  LGA_import_shots v1.06 | Lega
+  LGA_import_shots v1.07 | Lega
 
   Importa shots al proyecto de Nuke Studio.
   Analiza la carpeta _input del shot, detecta plates/editrefs/seqrefs
   y versiones en publish, y los coloca en el timeline en la posicion
   alfabeticamente correcta.
 
+  v1.07: Navegación por tabs (Rename / Transcode Plates / Import).
+         Tablas independientes, refresh inteligente con _needs_refresh.
+         Import Now directo sin preview obligatorio.
   v1.06: Recalcula insert_frame en el momento exacto de presionar "Import Now"
          para evitar posicion incorrecta cuando multiples ventanas estan abiertas
          y otra termina de importar antes (el frame calculado al abrir la ventana
@@ -1519,10 +1522,24 @@ class _TrackComboDelegate(QtWidgets.QStyledItemDelegate):
 
 class ImportShotDialog(QtWidgets.QDialog):
 
-    PAGE_MEDIA   = "media"
-    PAGE_RENAME  = "rename"
-    PAGE_CONVERT = "convert"
-    PAGE_IMPORT  = "import"
+    TAB_RENAME    = 0
+    TAB_TRANSCODE = 1
+    TAB_IMPORT    = 2
+    IMPORT_MAIN    = 0
+    IMPORT_PREVIEW = 1
+
+    _TAB_STYLE = """
+        QTabWidget::pane { border: none; background: #2B2B2B; margin-top: -1px; }
+        QTabBar { background: #2B2B2B; }
+        QTabBar::tab {
+            background: #2B2B2B; color: #777777; padding: 7px 18px; border: none;
+            border-bottom: 2px solid transparent; font-weight: bold;
+            font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+        }
+        QTabBar::tab:selected { color: #CCCCCC; border-bottom: 2px solid #B56AB5; }
+        QTabBar::tab:hover:!selected { color: #AAAAAA; background: #313131; }
+        QTabBar::tab:disabled { color: #444444; background: #2B2B2B; }
+    """
 
     def __init__(self, shot_root, shot_name, seq, insert_frame, frames_to_push,
                  prev_shot_name, next_shot_name,
@@ -1540,7 +1557,7 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         self._track_overrides = {}
         self._create_v000_tasks = set()
-        self._rename_happened = False
+        self._needs_refresh = set()
 
         # Custom resolution + Preserve AR
         self._custom_ar_updating = False   # evita recursión al actualizar spinboxes
@@ -1598,24 +1615,26 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._build_header()
         self._root_layout.addWidget(_separator())
 
-        self._content_area = QtWidgets.QStackedWidget()
-        self._root_layout.addWidget(self._content_area, 1)
-
         self._status_labels = []
 
-        self._page_media   = self._build_page_media()
+        self._tab_widget = QtWidgets.QTabWidget()
+        self._tab_widget.setStyleSheet(self._TAB_STYLE)
+        self._root_layout.addWidget(self._tab_widget, 1)
+
         self._page_rename  = self._build_page_rename()
         self._page_convert = self._build_page_convert()
-        self._page_import  = self._build_page_import()
+        self._page_import  = self._build_tab_import()
 
-        self._content_area.addWidget(self._page_media)
-        self._content_area.addWidget(self._page_rename)
-        self._content_area.addWidget(self._page_convert)
-        self._content_area.addWidget(self._page_import)
+        self._tab_widget.addTab(self._page_rename,  "Rename")
+        self._tab_widget.addTab(self._page_convert, "Transcode Plates")
+        self._tab_widget.addTab(self._page_import,  "Import")
+
+        self._tab_widget.currentChanged.connect(self._on_tab_changed)
 
         self._connect_transcode_manager()
 
-        self._show_page(self.PAGE_MEDIA)
+        self._tab_widget.setCurrentIndex(self.TAB_RENAME)
+        self._update_rename_page()
 
     # ── header ───────────────────────────────────────────────────
 
@@ -1794,49 +1813,32 @@ class ImportShotDialog(QtWidgets.QDialog):
 
     # ── navegación entre páginas ─────────────────────────────────
 
-    def _show_page(self, page):
-        if page == self.PAGE_MEDIA:
-            if getattr(self, "_transcode_happened", False):
-                self._transcode_happened = False
-                self._refresh_media_page()
-            if getattr(self, "_rename_happened", False):
-                self._rename_happened = False
-                self._refresh_media_page()
-            self._content_area.setCurrentWidget(self._page_media)
-        elif page == self.PAGE_RENAME:
-            self._refresh_rename_preview()
-            self._content_area.setCurrentWidget(self._page_rename)
-        elif page == self.PAGE_CONVERT:
-            self._content_area.setCurrentWidget(self._page_convert)
-        elif page == self.PAGE_IMPORT:
-            self._update_import_page()
-            self._content_area.setCurrentWidget(self._page_import)
-
-    def _refresh_media_page(self):
-        """Re-escanea el shot y reconstruye la tabla de media."""
-        self.input_items   = _scan_input_folder(self.shot_root)
-        self.publish_items = _scan_publish_folders(self.shot_root)
-
-        layout = self._page_media.layout()
-        # El widget de tabla está en la posición 1 del layout (después del section label)
-        old_item = layout.takeAt(1)
-        if old_item and old_item.widget():
-            old_item.widget().deleteLater()
-
-        self._media_table = self._build_media_table()
-        layout.insertWidget(1, self._media_table, 1)
-        self._update_action_btns()
-
     # ══════════════════════════════════════════════════════════
-    #  PAGINA PRINCIPAL: tabla de media
+    #  TAB IMPORT: sub-vistas (main table + preview)
     # ══════════════════════════════════════════════════════════
 
-    def _build_page_media(self):
+    def _build_tab_import(self):
+        """Contenedor del tab Import con QStackedWidget interno."""
+        container = QtWidgets.QWidget()
+        vbox = QtWidgets.QVBoxLayout(container)
+        vbox.setContentsMargins(0, 0, 0, 0)
+        vbox.setSpacing(0)
+
+        self._import_inner_stack = QtWidgets.QStackedWidget()
+        self._import_main_page    = self._build_import_main()
+        self._import_preview_page = self._build_import_preview()
+        self._import_inner_stack.addWidget(self._import_main_page)
+        self._import_inner_stack.addWidget(self._import_preview_page)
+        self._import_inner_stack.setCurrentIndex(self.IMPORT_MAIN)
+
+        vbox.addWidget(self._import_inner_stack)
+        return container
+
+    def _build_import_main(self):
+        """Vista principal del tab Import: tabla de media + botones de acción."""
         page = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(page)
         layout.setSpacing(6)
-
-        layout.addWidget(_section_label("MEDIA ENCONTRADA"))
 
         self._media_table = self._build_media_table()
         layout.addWidget(self._media_table, 1)
@@ -1861,36 +1863,34 @@ class ImportShotDialog(QtWidgets.QDialog):
         layout.addWidget(_separator())
         layout.addSpacing(_BTN_ROW_TOP_SPACING)
 
-        # Botones de acción — operan sobre los items con checkbox marcado
+        # Botones de acción
         btn_row = QtWidgets.QHBoxLayout()
         _oq_btn, _status_lbl = self._make_footer_pair()
         btn_row.addWidget(_oq_btn)
         btn_row.addSpacing(8)
         btn_row.addWidget(_status_lbl, 1)
 
-        self._rename_btn = QtWidgets.QPushButton("Rename")
-        self._rename_btn.setStyleSheet(_BTN_SECONDARY)
-        self._rename_btn.setToolTip("Renombrar los items seleccionados")
-        self._rename_btn.clicked.connect(self._go_to_rename)
-        btn_row.addWidget(self._rename_btn)
+        self._preview_btn = QtWidgets.QPushButton("Preview Timeline")
+        self._preview_btn.setStyleSheet(_BTN_SECONDARY)
+        self._preview_btn.setToolTip("Previsualizar la disposición en el timeline antes de importar")
+        self._preview_btn.clicked.connect(self._go_to_import_preview)
+        btn_row.addWidget(self._preview_btn)
 
         btn_row.addSpacing(6)
 
-        self._convert_btn = QtWidgets.QPushButton("Transcode Plates")
-        self._convert_btn.setStyleSheet(_BTN_SECONDARY)
-        self._convert_btn.setToolTip(
-            "Transcodear los plates seleccionados (DWAA, resolución, etc.)"
-        )
-        self._convert_btn.clicked.connect(self._go_to_convert)
-        btn_row.addWidget(self._convert_btn)
+        self._import_now_btn = QtWidgets.QPushButton("Import Now")
+        self._import_now_btn.setStyleSheet(_BTN_PRIMARY)
+        self._import_now_btn.setToolTip("Importar al bin y colocar en el timeline")
+        self._import_now_btn.clicked.connect(self._do_import)
+        btn_row.addWidget(self._import_now_btn)
 
         btn_row.addSpacing(6)
 
-        self._import_btn = QtWidgets.QPushButton("Import")
-        self._import_btn.setStyleSheet(_BTN_PRIMARY)
-        self._import_btn.setToolTip("Importar los items seleccionados al timeline")
-        self._import_btn.clicked.connect(self._go_to_import)
-        btn_row.addWidget(self._import_btn)
+        self._import_v000_btn = QtWidgets.QPushButton("Import and Create V000")
+        self._import_v000_btn.setStyleSheet(_BTN_PRIMARY)
+        self._import_v000_btn.setToolTip("Importar al timeline y abrir Create V000 al terminar")
+        self._import_v000_btn.clicked.connect(self._do_import_and_v000)
+        btn_row.addWidget(self._import_v000_btn)
 
         layout.addLayout(btn_row)
 
@@ -2621,15 +2621,59 @@ class ImportShotDialog(QtWidgets.QDialog):
         return track if track and track != "?" else None
 
     def _update_action_btns(self):
+        if not hasattr(self, "_checkboxes"):
+            return
         any_checked = any(chk.isChecked() for chk in self._checkboxes.values())
-        has_plate_checked = any(
-            chk.isChecked()
-            and self._table_rows[row].get("section") == "plates"
+        has_track_assigned = any(
+            chk.isChecked() and self._get_track_for_row(row) is not None
             for row, chk in self._checkboxes.items()
-        )
-        self._rename_btn.setEnabled(any_checked)
-        self._convert_btn.setEnabled(has_plate_checked)
-        self._import_btn.setEnabled(any_checked)
+            if self._table_rows[row].get("type") != "section_header"
+        ) if hasattr(self, "_table_rows") else False
+
+        if hasattr(self, "_preview_btn"):
+            self._preview_btn.setEnabled(any_checked)
+        if hasattr(self, "_import_now_btn"):
+            self._import_now_btn.setEnabled(has_track_assigned)
+        if hasattr(self, "_import_v000_btn"):
+            self._import_v000_btn.setEnabled(has_track_assigned)
+        if hasattr(self, "_preview_import_now_btn"):
+            self._preview_import_now_btn.setEnabled(has_track_assigned)
+        if hasattr(self, "_preview_import_v000_btn"):
+            self._preview_import_v000_btn.setEnabled(has_track_assigned)
+
+    def _go_to_import_preview(self):
+        """Cambia a la sub-vista de preview dentro del tab Import."""
+        self._update_import_page()
+        self._import_inner_stack.setCurrentIndex(self.IMPORT_PREVIEW)
+
+    def _on_tab_changed(self, index):
+        """Manejador de cambio de tab. Ejecuta refresh si el tab necesita uno."""
+        tab_map = {
+            self.TAB_RENAME:    "rename",
+            self.TAB_TRANSCODE: "transcode",
+            self.TAB_IMPORT:    "import",
+        }
+        tab_name = tab_map.get(index)
+        if tab_name and tab_name in self._needs_refresh:
+            self._needs_refresh.discard(tab_name)
+            self.input_items   = _scan_input_folder(self.shot_root)
+            self.publish_items = _scan_publish_folders(self.shot_root)
+
+        if index == self.TAB_RENAME:
+            self._update_rename_page()
+        elif index == self.TAB_TRANSCODE:
+            saved_chk = {}
+            if hasattr(self, "_convert_rows") and hasattr(self, "_convert_checkboxes"):
+                for i, chk in self._convert_checkboxes.items():
+                    if i < len(self._convert_rows):
+                        path = self._convert_rows[i].get("path", "")
+                        if path:
+                            saved_chk[path] = chk.isChecked()
+            self._update_convert_page(saved_chk=saved_chk)
+        elif index == self.TAB_IMPORT:
+            # Vuelve a la vista principal al entrar al tab
+            if hasattr(self, "_import_inner_stack"):
+                self._import_inner_stack.setCurrentIndex(self.IMPORT_MAIN)
 
     # ── selección rápida ─────────────────────────────────────────
 
@@ -2645,17 +2689,6 @@ class ImportShotDialog(QtWidgets.QDialog):
         for row_i in self._section_data_rows.get(section, []):
             if row_i in self._checkboxes:
                 self._checkboxes[row_i].setChecked(True)
-
-    def _go_to_rename(self):
-        self._update_rename_page()
-        self._show_page(self.PAGE_RENAME)
-
-    def _go_to_convert(self):
-        self._update_convert_page()
-        self._show_page(self.PAGE_CONVERT)
-
-    def _go_to_import(self):
-        self._show_page(self.PAGE_IMPORT)
 
     # ══════════════════════════════════════════════════════════
     #  PAGINA: Rename
@@ -2781,14 +2814,13 @@ class ImportShotDialog(QtWidgets.QDialog):
         layout = QtWidgets.QVBoxLayout(page)
         layout.setSpacing(8)
 
-        _title_row = QtWidgets.QHBoxLayout()
-        _title_row.addWidget(_section_label("RENOMBRAR"))
         if Rename_Test_mode:
+            _tm_row = QtWidgets.QHBoxLayout()
             _tm_lbl = QtWidgets.QLabel("  ⚠  TEST MODE")
             _tm_lbl.setStyleSheet("color:#d9a441; font-weight:bold; padding:2px 6px;")
-            _title_row.addWidget(_tm_lbl)
-        _title_row.addStretch()
-        layout.addLayout(_title_row)
+            _tm_row.addWidget(_tm_lbl)
+            _tm_row.addStretch()
+            layout.addLayout(_tm_row)
 
         self._rename_table = QtWidgets.QTableWidget()
         self._rename_table.setColumnCount(8)
@@ -2945,12 +2977,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         btn_row.addWidget(_oq_btn)
         btn_row.addSpacing(8)
         btn_row.addWidget(_status_lbl, 1)
-        self._rename_back_btn = QtWidgets.QPushButton("Go Back")
-        self._rename_back_btn.setStyleSheet(_BTN_SECONDARY)
-        self._rename_back_btn.clicked.connect(lambda: self._show_page(self.PAGE_MEDIA))
-        btn_row.addWidget(self._rename_back_btn)
-        btn_row.addSpacing(6)
-        self._apply_rename_btn = QtWidgets.QPushButton("Rename")
+        self._apply_rename_btn = QtWidgets.QPushButton("Run Rename")
         self._apply_rename_btn.setStyleSheet(_BTN_PRIMARY)
         self._apply_rename_btn.setEnabled(False)
         self._apply_rename_btn.clicked.connect(self._run_rename)
@@ -3031,17 +3058,23 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._refresh_rename_preview()
 
     def _update_rename_page(self):
-        selected = []
-        for row, chk in self._checkboxes.items():
-            if not chk.isChecked():
-                continue
-            row_data = self._table_rows[row]
-            if row_data.get("type") != "data":
-                continue
-            item = dict(row_data.get("item", {}))
-            item["source"] = row_data.get("section")
-            selected.append(item)
-        self._rename_selected_rows = rename_mod.build_selected_rows(selected)
+        all_items = []
+        for p in getattr(self, "publish_items", []):
+            if p.get("has_versions"):
+                item = dict(p)
+                item["source"] = "publish"
+                all_items.append(item)
+        for inp in getattr(self, "input_items", []):
+            if inp["kind"] == "exr_seq":
+                item = dict(inp)
+                item["source"] = "plates"
+                all_items.append(item)
+        for inp in getattr(self, "input_items", []):
+            if inp["kind"] == "mov":
+                item = dict(inp)
+                item["source"] = "refs"
+                all_items.append(item)
+        self._rename_selected_rows = rename_mod.build_selected_rows(all_items)
         self._refresh_rename_preview()
 
     def _refresh_rename_preview(self):
@@ -3328,7 +3361,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             return
         applied = int(result.get("applied", 0))
         if applied > 0:
-            self._rename_happened = True
+            self._needs_refresh.update({"transcode", "import"})
 
             # Actualizar rutas en self._table_rows para reflejar los items renombrados
             for row_data in self._table_rows:
@@ -3436,8 +3469,6 @@ class ImportShotDialog(QtWidgets.QDialog):
         page = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(page)
         layout.setSpacing(8)
-
-        layout.addWidget(_section_label("TRANSCODE PLATES"))
 
         # Tabla de plates a transcodear
         # col 0: barra color (10px)  col 1: checkbox (28px)
@@ -3770,11 +3801,6 @@ class ImportShotDialog(QtWidgets.QDialog):
         btn_row.addWidget(_oq_btn)
         btn_row.addSpacing(8)
         btn_row.addWidget(_status_lbl, 1)
-        self._go_back_btn = QtWidgets.QPushButton("Go Back")
-        self._go_back_btn.setStyleSheet(_BTN_SECONDARY)
-        self._go_back_btn.clicked.connect(lambda: self._show_page(self.PAGE_MEDIA))
-        btn_row.addWidget(self._go_back_btn)
-        btn_row.addSpacing(6)
         self._start_transcode_btn = QtWidgets.QPushButton("Start Transcode")
         self._start_transcode_btn.setStyleSheet(_BTN_PRIMARY)
         self._start_transcode_btn.setEnabled(False)
@@ -3808,22 +3834,16 @@ class ImportShotDialog(QtWidgets.QDialog):
         return page
 
     # ══════════════════════════════════════════════════════════════
-    #  PÁGINA: Import Preview
+    #  PÁGINA: Import Preview (sub-vista del tab Import)
     # ══════════════════════════════════════════════════════════════
 
-    def _build_page_import(self):
+    def _build_import_preview(self):
         # Aplicar stylesheet de tooltips a la QApplication (una sola vez es suficiente)
         apply_tooltip_ss(QtWidgets.QApplication.instance())
 
         page = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(page)
         layout.setSpacing(8)
-
-        # Fila de título
-        title_row = QtWidgets.QHBoxLayout()
-        title_row.addWidget(_section_label("IMPORT PREVIEW"))
-        title_row.addStretch()
-        layout.addLayout(title_row)
 
         # Tabla timeline
         # col 0: barra de color (10 px fijo)
@@ -3878,28 +3898,30 @@ class ImportShotDialog(QtWidgets.QDialog):
         btn_row.addSpacing(8)
         btn_row.addWidget(_status_lbl, 1)
 
-        self._import_back_btn = QtWidgets.QPushButton("Go Back")
-        self._import_back_btn.setStyleSheet(_BTN_SECONDARY)
-        self._import_back_btn.clicked.connect(lambda: self._show_page(self.PAGE_MEDIA))
-        btn_row.addWidget(self._import_back_btn)
+        self._preview_back_btn = QtWidgets.QPushButton("← Go Back")
+        self._preview_back_btn.setStyleSheet(_BTN_SECONDARY)
+        self._preview_back_btn.clicked.connect(
+            lambda: self._import_inner_stack.setCurrentIndex(self.IMPORT_MAIN)
+        )
+        btn_row.addWidget(self._preview_back_btn)
 
         btn_row.addSpacing(6)
 
-        self._import_now_btn = QtWidgets.QPushButton("Import Now")
-        self._import_now_btn.setStyleSheet(_BTN_PRIMARY)
-        self._import_now_btn.setToolTip("Importar al bin y colocar en el timeline")
-        self._import_now_btn.clicked.connect(self._do_import)
-        btn_row.addWidget(self._import_now_btn)
+        self._preview_import_now_btn = QtWidgets.QPushButton("Import Now")
+        self._preview_import_now_btn.setStyleSheet(_BTN_PRIMARY)
+        self._preview_import_now_btn.setToolTip("Importar al bin y colocar en el timeline")
+        self._preview_import_now_btn.clicked.connect(self._do_import)
+        btn_row.addWidget(self._preview_import_now_btn)
 
         btn_row.addSpacing(6)
 
-        self._import_and_v000_btn = QtWidgets.QPushButton("Import and Create V000")
-        self._import_and_v000_btn.setStyleSheet(_BTN_PRIMARY)
-        self._import_and_v000_btn.setToolTip(
+        self._preview_import_v000_btn = QtWidgets.QPushButton("Import and Create V000")
+        self._preview_import_v000_btn.setStyleSheet(_BTN_PRIMARY)
+        self._preview_import_v000_btn.setToolTip(
             "Importar al timeline y abrir Create V000 al terminar"
         )
-        self._import_and_v000_btn.clicked.connect(self._do_import_and_v000)
-        btn_row.addWidget(self._import_and_v000_btn)
+        self._preview_import_v000_btn.clicked.connect(self._do_import_and_v000)
+        btn_row.addWidget(self._preview_import_v000_btn)
 
         layout.addLayout(btn_row)
 
@@ -4287,14 +4309,17 @@ class ImportShotDialog(QtWidgets.QDialog):
             if has_assigned else
             "No hay ítems con track asignado para importar"
         )
-        self._import_now_btn.setEnabled(has_assigned)
-        self._import_now_btn.setToolTip(_import_tip)
-        self._import_and_v000_btn.setEnabled(has_assigned)
-        self._import_and_v000_btn.setToolTip(
+        _v000_tip = (
             "Importar al timeline y abrir Create V000 al terminar"
             if has_assigned else
             "No hay ítems con track asignado para importar"
         )
+        if hasattr(self, "_preview_import_now_btn"):
+            self._preview_import_now_btn.setEnabled(has_assigned)
+            self._preview_import_now_btn.setToolTip(_import_tip)
+        if hasattr(self, "_preview_import_v000_btn"):
+            self._preview_import_v000_btn.setEnabled(has_assigned)
+            self._preview_import_v000_btn.setToolTip(_v000_tip)
 
     def _populate_import_table(self, data: dict):
         """
@@ -5207,16 +5232,14 @@ class ImportShotDialog(QtWidgets.QDialog):
                            % _CLR_STATUS_PENDING)
             self._convert_table.setCellWidget(row_i, 7, _cell_html_label(st_html))
 
-    def _update_convert_page(self):
-        # Recolectar plates chequeados (todos los items de la sección PLATES,
-        # independientemente del formato; MOVs entran pero estarán deshabilitados)
-        plate_items = []
-        for row, chk in self._checkboxes.items():
-            if not chk.isChecked():
-                continue
-            row_data = self._table_rows[row]
-            if row_data.get("section") == "plates":
-                plate_items.append(row_data["item"])
+    def _update_convert_page(self, saved_chk=None):
+        if saved_chk is None:
+            saved_chk = {}
+        # Todos los plates de input (EXR + MOVs de plates); MOVs entran deshabilitados
+        plate_items = [
+            it for it in getattr(self, "input_items", [])
+            if it["kind"] in ("exr_seq", "mov")
+        ]
 
         # Poblar tabla
         self._convert_rows = plate_items
@@ -5244,7 +5267,8 @@ class ImportShotDialog(QtWidgets.QDialog):
                 chk.setEnabled(False)
                 chk.setToolTip("Transcode de MOV pendiente de implementación")
             else:
-                chk.setChecked(True)
+                item_path = it.get("path", "")
+                chk.setChecked(saved_chk.get(item_path, True))
             chk.stateChanged.connect(lambda *_: self._update_transcode_btn_state())
             chk.stateChanged.connect(lambda *_: self._refresh_convert_destinos())
             self._convert_checkboxes[i] = chk
@@ -5437,11 +5461,11 @@ class ImportShotDialog(QtWidgets.QDialog):
             "pixel_aspect_ratio": 1.0 if _deana_active else None,
         }
 
-        # Deshabilitar botones mientras hay trabajo en curso
+        # Deshabilitar tabs mientras hay trabajo en curso (solo esta ventana)
         self._transcode_active = True
         self._start_transcode_btn.setEnabled(False)
-        self._go_back_btn.setEnabled(False)
-        self._go_back_btn.setText("Transcoding, wait...")
+        self._tab_widget.setTabEnabled(self.TAB_RENAME, False)
+        self._tab_widget.setTabEnabled(self.TAB_IMPORT, False)
         self._convert_log.clear()
 
         self._transcode_results_all = []
@@ -5717,10 +5741,10 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._on_transcode_log(summary)
         self._transcode_active = False
         self._start_transcode_btn.setEnabled(True)
-        self._go_back_btn.setEnabled(True)
-        self._go_back_btn.setText("Go Back")
+        self._tab_widget.setTabEnabled(self.TAB_RENAME, True)
+        self._tab_widget.setTabEnabled(self.TAB_IMPORT, True)
+        self._needs_refresh.update({"rename", "import"})
         self._update_transcode_btn_state()
-        self._transcode_happened = True  # para triggerar refresh al volver a PAGE_MEDIA
         debug_print("Transcode all_done — %d/%d OK" % (ok_count, total))
 
     def _on_transcode_error(self, msg):

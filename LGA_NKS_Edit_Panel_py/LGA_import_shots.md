@@ -16,7 +16,8 @@ y los coloca automaticamente en el timeline en la posicion alfabeticamente corre
 ## Descripcion
 
 Abre un file browser para elegir la carpeta raiz del shot. Luego presenta
-una ventana principal con la tabla de media detectada y tres botones de accion.
+una ventana con tres tabs fijos: **Rename**, **Transcode Plates** e **Import**.
+La ventana siempre abre en el tab Rename.
 
 La posicion de insercion en el timeline se calcula automaticamente escaneando
 los shots existentes y determinando la posicion alfabeticamente correcta,
@@ -31,7 +32,7 @@ un track secundario no puede acortar el rango master del shot.
 
 ## Archivos principales
 
-- **Script principal:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_import_shots.py` (v1.05)
+- **Script principal:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_import_shots.py` (v1.07)
 - **Boton:** Edit Panel → "Import shot" (verde `#2a4d3a`)
 - **Plan de desarrollo:** `C:\Users\leg4-pc\.nuke\Python\Startup\docs\LGA_import_shots_PLAN.md`
 
@@ -54,10 +55,10 @@ un track secundario no puede acortar el rango master del shot.
 
 | Sección | MD de referencia |
 |---------|-----------------|
-| Import Preview (PAGE_IMPORT) | [`LGA_import_shots_preview.md`](LGA_import_shots_preview.md) |
+| Tab Import — vista preview | [`LGA_import_shots_preview.md`](LGA_import_shots_preview.md) |
 | Import Real (`_do_import`) | [`LGA_import_shots_do.md`](LGA_import_shots_do.md) |
-| Rename (PAGE_RENAME) | [`LGA_import_shots_rename.md`](LGA_import_shots_rename.md) |
-| Sub-vista Convert (PAGE_CONVERT) | [`LGA_import_shots_transcode.md`](LGA_import_shots_transcode.md) |
+| Tab Rename | [`LGA_import_shots_rename.md`](LGA_import_shots_rename.md) |
+| Tab Transcode Plates | [`LGA_import_shots_transcode.md`](LGA_import_shots_transcode.md) |
 | Cola global de Transcode Plates | [`LGA_import_shots_transcode_queue.md`](LGA_import_shots_transcode_queue.md) |
 | Plan de cola global de Transcode Plates | [`LGA_import_shots_transcode_queue_PLAN.md`](LGA_import_shots_transcode_queue_PLAN.md) |
 | UI de Open Queue | [`LGA_import_shots_transcode_queue_ui.md`](LGA_import_shots_transcode_queue_ui.md) |
@@ -112,7 +113,7 @@ Todas las secciones principales de la herramienta muestran una fila inferior com
   plano; al clickearlo trae al frente la ventana de ese shot.
 
 El footer es UI general de `Import Shot`, aunque el estado y `Open Queue` usen datos del
-manager global de transcode. Su layout se reutiliza en Media, Rename, Convert e Import.
+manager global de transcode. Su layout se reutiliza en los tres tabs (Rename, Transcode Plates, Import).
 
 ---
 
@@ -189,20 +190,23 @@ main()
     ├── _scan_input_folder()                -> lista de media en _input/
     ├── _scan_publish_folders()             -> versiones en {Task}/4_publish/
     ├── _find_insert_frame()                -> posicion alfabetica en el timeline
-    └── ImportShotDialog(...)               -> ventana principal con tabla + 3 botones
+    └── ImportShotDialog(...)               -> ventana con 3 tabs (abre en Rename)
             |
-            ├── [Rename]  -> sub-vista de renombrado para items marcados
-            │                (preview en vivo + ejecución segura en batch)
-            ├── [Convert] -> sub-vista de conversion EXR para items marcados
-            │                Solo opera sobre EXR sequences. Si hay MOVs marcados,
-            │                muestra advertencia por cada uno y los excluye.
-            │                Si no hay ningun EXR marcado, no abre la sub-vista.
-            └── [Import]  -> _do_import() sobre items marcados
-                            ├── _push_clips_right()
-                            ├── _import_clip_to_bin()
-                            ├── _place_clip_in_timeline()
-                            ├── _stretch_burnin()
-                            └── LGA_NKS_SetShotName (llamada externa)
+            ├── [Tab Rename]           -> todos los items detectados (input + publish)
+            │                             todos chequeados por defecto
+            │                             preview en vivo + ejecución segura en batch
+            │                             tras rename: marca transcode e import para refresh
+            ├── [Tab Transcode Plates] -> todos los EXR/MOV de _input/
+            │                             todos los EXR chequeados por defecto
+            │                             solo EXR convertibles; MOVs = checkbox off/disabled
+            │                             durante transcode: tabs Rename e Import deshabilitados
+            │                             tras transcode: marca rename e import para refresh
+            └── [Tab Import]           -> sub-vista MAIN (tabla de media + quick select)
+                    |                     botones: Preview Timeline / Import Now / Import V000
+                    ├── [Preview Timeline] -> sub-vista PREVIEW (tabla de chips de timeline)
+                    │                         botones: ← Go Back / Import Now / Import V000
+                    ├── [Import Now]       -> _do_import() directo sin preview
+                    └── [Import V000]      -> _do_import_and_v000() directo sin preview
 ```
 
 ---
