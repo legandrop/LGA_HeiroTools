@@ -901,8 +901,6 @@ def _find_insert_frame(seq, shot_name, duration):
     return insert_frame, duration, prev_shot_name, next_shot_name
 
 
-
-
 # ══════════════════════════════════════════════════════════════════
 #  Helpers UI
 # ══════════════════════════════════════════════════════════════════
@@ -951,14 +949,14 @@ QPushButton:hover { background-color: #666666; }
 _BTN_PRIMARY = """
 QPushButton {
     background-color: #443a91;
-    border: 1px solid #5a4faa;
-    color: #CCCCCC;
+    border: none;
+    color: #B2B2B2;
     padding: 7px 18px;
-    border-radius: 3px;
+    border-radius: 5px;
     font-weight: bold;
 }
-QPushButton:hover { background-color: #774dcb; }
-QPushButton:disabled { background-color: #2a2540; color: #666666; border-color: #443a91; }
+QPushButton:hover { background-color: #774dcb; color: #ffffff; }
+QPushButton:disabled { background-color: #2a2540; color: #666666; border: none; }
 """
 
 _BTN_SECONDARY = """
@@ -1579,7 +1577,8 @@ class ImportShotDialog(QtWidgets.QDialog):
 
     _TAB_H_PAD_EXTRA = 14  # px adicionales a cada lado de todos los tabs — ajustar a mano
 
-    _TAB_STYLE = """
+    _TAB_STYLE = (
+        """
         QWidget#LGA_ImportShotHeader {
             background: #232323;
         }
@@ -1591,18 +1590,28 @@ class ImportShotDialog(QtWidgets.QDialog):
             background: #232323;
             color: #777777;
             padding: 16px %dpx;
-            border: none;
+            /* border 1px transparent en todos los tabs para que el geometry
+               sea idéntico entre seleccionado y no seleccionado. El
+               seleccionado sólo overridea los colores de top/left/right. */
+            border: 1px solid transparent;
             font-weight: bold;
             font-size: 12px;
             letter-spacing: 1px;
         }
         QTabBar::tab:selected {
             background: #2b2b2b;
-            color: #CCCCCC;
+            color: #774dcb;
+            border-top-color: #4a4a4a;
+            border-left-color: #4a4a4a;
+            border-right-color: #4a4a4a;
+            /* border-bottom queda transparent → no reaparece la línea
+               que el separador "abre" debajo del tab activo. */
         }
         QTabBar::tab:hover:!selected { color: #AAAAAA; background: #272727; }
         QTabBar::tab:disabled { color: #444444; background: #232323; }
-    """ % _TAB_H_PAD_EXTRA
+    """
+        % _TAB_H_PAD_EXTRA
+    )
 
     def __init__(self, shot_root, shot_name, seq, insert_frame, frames_to_push,
                  prev_shot_name, next_shot_name,
