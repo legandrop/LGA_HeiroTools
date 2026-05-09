@@ -1,12 +1,11 @@
 """
-LGA_import_shots_preview.py
-Lógica de datos para la página de preview de importación.
+____________________________________________________________________
 
-Expone:
-  build_import_preview_data  — construye la estructura de datos del preview timeline
-  classify_track_type        — clasifica un nombre de track en plate/editref/comp/other
-  mix_colors                 — mezcla dos colores hex por interpolación lineal
-  set_debug_print            — inyecta la función debug_print del módulo principal
+  LGA_import_shots_preview v1.00 | Lega
+
+  Logica de datos para la pagina Import Preview de LGA_import_shots.
+
+____________________________________________________________________
 """
 
 from __future__ import annotations

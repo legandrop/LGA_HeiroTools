@@ -31,7 +31,7 @@ un track secundario no puede acortar el rango master del shot.
 
 ## Archivos principales
 
-- **Script principal:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_import_shots.py`
+- **Script principal:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_import_shots.py` (v1.05)
 - **Boton:** Edit Panel → "Import shot" (verde `#2a4d3a`)
 - **Plan de desarrollo:** `C:\Users\leg4-pc\.nuke\Python\Startup\docs\LGA_import_shots_PLAN.md`
 
@@ -431,6 +431,8 @@ Los botones de accion operan sobre los items que tienen el checkbox marcado.
 | Rename | secundario `#3a3a3a` | hay al menos 1 item marcado | abre sub-vista de renombrado |
 | Transcode Plates | secundario `#3a3a3a` | hay al menos 1 EXR seq de input marcado | abre sub-vista de conversion |
 | Import | primario `#2a4d3a` | hay al menos 1 item marcado | ejecuta import (ver logica abajo) |
+
+> Los botones "Go Back" de todas las sub-vistas (Rename, Convert, Import) no tienen flecha; el texto es simplemente `"Go Back"`. En la sub-vista Convert el boton cambia a `"Transcoding, wait..."` mientras hay jobs activos o en cola, y vuelve a `"Go Back"` al terminar.
 
 #### Botones de la página Import Preview
 

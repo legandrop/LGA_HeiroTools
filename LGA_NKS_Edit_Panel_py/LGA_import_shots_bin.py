@@ -1,11 +1,11 @@
 """
-LGA_import_shots_bin.py
-Helpers de bin para la importación real de shots.
+____________________________________________________________________
 
-Expone:
-  find_or_create_shot_bin — busca o crea el bin F <Secuencia>/<ShotName>
-  import_item_to_bin      — importa un item (EXR seq o MOV) al bin
-  set_debug_print         — inyecta la función debug_print del módulo principal
+  LGA_import_shots_bin v1.00 | Lega
+
+  Helpers de bin para la importacion real de LGA_import_shots.
+
+____________________________________________________________________
 """
 
 from __future__ import annotations

@@ -1,13 +1,17 @@
 """
 ____________________________________________________________________
 
-  LGA_import_shots v1.04 | Lega
+  LGA_import_shots v1.05 | Lega
 
   Importa shots al proyecto de Nuke Studio.
   Analiza la carpeta _input del shot, detecta plates/editrefs/seqrefs
   y versiones en publish, y los coloca en el timeline en la posicion
   alfabeticamente correcta.
 
+  v1.05: Cola global de transcode (TranscodeQueueManager) con UI Open Queue.
+         Dropdown de track con boton "Crear track" integrado en la tabla.
+         Boton "Go Back" bloqueado y renombrado a "Transcoding, wait..." durante
+         transcode activo o en cola; restaurado al terminar.
   v1.04: Evita abrir dos ventanas de Import Shot para el mismo shot.
          Los avisos de duplicado usan dialogos propios sin iconos, con estilo de la tool.
   v1.03: Boton "Import and Create V000" en la pagina de Import Preview.

@@ -1,6 +1,11 @@
 """
-LGA_import_shots_rename.py
-Helpers de lógica para la sección Rename.
+____________________________________________________________________
+
+  LGA_import_shots_rename v1.00 | Lega
+
+  Helpers de logica para la seccion Rename de LGA_import_shots.
+
+____________________________________________________________________
 """
 
 from __future__ import annotations

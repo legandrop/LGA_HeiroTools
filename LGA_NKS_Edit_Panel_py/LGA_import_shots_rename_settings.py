@@ -1,8 +1,12 @@
 """
-LGA_import_shots_rename_settings.py
-Persistencia de configuración para la sección Rename.
+____________________________________________________________________
 
-INI: %APPDATA%\\LGA\\HieroTools\\ImportShotsRename.ini
+  LGA_import_shots_rename_settings v1.00 | Lega
+
+  Persistencia de configuracion para la seccion Rename.
+  INI: %APPDATA%\\LGA\\HieroTools\\ImportShotsRename.ini
+
+____________________________________________________________________
 """
 
 import configparser

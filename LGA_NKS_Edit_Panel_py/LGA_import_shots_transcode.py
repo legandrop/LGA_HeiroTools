@@ -1,20 +1,16 @@
 """
-Helper de transcode EXR para LGA_import_shots.
+____________________________________________________________________
 
-Proporciona:
-  - TranscodeWorkerSignals  — QObject con señales Qt para comunicación entre hilos
-  - TranscodeWorker         — QRunnable que ejecuta LGA_EXR_Convert.py via subprocess
-  - build_manifest_for_sequence — construye el manifest dict para una secuencia EXR
+  LGA_import_shots_transcode v1.00 | Lega
 
-El worker procesa las secuencias en serie (una tras otra); el paralelismo por frame
-lo maneja internamente LGA_EXR_Convert.py con concurrent.futures.
+  Helper de transcode EXR para LGA_import_shots.
 
-Uso:
-    worker = TranscodeWorker(job_sequences, global_opts, ...)
-    worker.signals.log_message.connect(mi_funcion_log)
-    worker.signals.sequence_done.connect(mi_funcion_done)
-    worker.signals.all_done.connect(mi_funcion_all_done)
-    QtCore.QThreadPool.globalInstance().start(worker)
+  Proporciona TranscodeWorkerSignals, TranscodeWorker y
+  build_manifest_for_sequence. El worker procesa las secuencias
+  en serie; el paralelismo por frame lo maneja internamente
+  LGA_EXR_Convert.py con concurrent.futures.
+
+____________________________________________________________________
 """
 
 from __future__ import annotations

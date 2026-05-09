@@ -245,8 +245,15 @@ Una linea de texto sobre el log con totales (sin estimaciones):
 
 | Boton | Estilo | Habilitado | Accion |
 |-------|--------|------------|--------|
-| ← Go Back | `_BTN_SECONDARY` | siempre (deshabilitado durante transcode activo) | vuelve a `PAGE_MEDIA` (preserva opciones) |
+| Go Back | `_BTN_SECONDARY` | deshabilitado mientras hay jobs activos o en cola para esta ventana | vuelve a `PAGE_MEDIA` (preserva opciones) |
 | Start Transcode | `_BTN_PRIMARY` | cuando hay ≥1 EXR chequeado | llama a `_run_transcode()` → lanza `TranscodeWorker` via `QThreadPool` |
+
+**Comportamiento del boton "Go Back" durante transcode:**
+
+- Al arrancar `_run_transcode()`: se deshabilita y su texto cambia a `"Transcoding, wait..."`.
+- Al finalizar toda la cola (`_finalize_transcode()`): se re-habilita y vuelve a `"Go Back"`.
+- El path de error fatal (`_on_transcode_error`) tambien llama a `_finalize_transcode`, asi que el restore cubre ese caso.
+- El boton no tiene flecha (`←`); ninguno de los botones "Go Back" del dialogo la tiene.
 
 ### Log panel
 

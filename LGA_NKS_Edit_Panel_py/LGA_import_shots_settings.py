@@ -1,14 +1,12 @@
 """
-LGA_import_shots_settings.py
-Persistencia de configuración y presets del Import Shots tool.
+____________________________________________________________________
 
-INI: %APPDATA%\\LGA\\HieroTools\\ImportShots.ini
+  LGA_import_shots_settings v1.00 | Lega
 
-Secciones del INI:
-  [Codec]       — dwaa, dwaa_level, channels, filter
-  [Resolution]  — preset_index, custom_w/h, keep_ar, match_dim, no_upscale, deana, deana_par
-  [Originals]   — move, delete
-  [ResPreset_N] — name + (w, h) ó special="original"|"custom"
+  Persistencia de configuracion y presets para LGA_import_shots.
+  INI: %APPDATA%\\LGA\\HieroTools\\ImportShots.ini
+
+____________________________________________________________________
 """
 
 import configparser

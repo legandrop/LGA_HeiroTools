@@ -1,16 +1,11 @@
 """
-LGA_import_shots_timeline.py
-Helpers de timeline para la importación real de shots.
+____________________________________________________________________
 
-Expone:
-  push_clips_right       — empuja clips que ocupan from_frame o posterior;
-                           retorna (moved_count, effective_insert_frame)
-  place_clip_in_timeline — coloca un clip en el track indicado
-  stretch_burnin         — extiende los soft effects del track BurnIn hasta
-                           el timelineOut del ultimo clip real del timeline
-  set_viewer_to_shot     — pone In/Out al rango del shot, mueve el playhead a
-                           tc_in y ajusta el zoom con contexto a los lados
-  set_debug_print        — inyecta la función debug_print del módulo principal
+  LGA_import_shots_timeline v1.00 | Lega
+
+  Helpers de timeline para la importacion real de LGA_import_shots.
+
+____________________________________________________________________
 """
 
 from __future__ import annotations
