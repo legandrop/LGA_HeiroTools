@@ -265,10 +265,6 @@ class TranscodeQueueWindow(QtWidgets.QDialog):
         layout.setContentsMargins(14, 12, 14, 12)
         layout.setSpacing(10)
 
-        title = QtWidgets.QLabel("Import Shots - Transcode Queue")
-        title.setStyleSheet("color:%s; font-size:13px; font-weight:bold;" % _CLR_TEXT)
-        layout.addWidget(title)
-
         self.table = QtWidgets.QTableWidget(0, 4)
         self.table.setHorizontalHeaderLabels(["Shot", "Plate", "Duracion", "Estado"])
         self.table.verticalHeader().setVisible(False)
