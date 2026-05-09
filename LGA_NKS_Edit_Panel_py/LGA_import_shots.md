@@ -94,6 +94,55 @@ Cada ventana queda marcada con propiedades Qt (`shot_name` y `shot_root`). Si el
 
 ---
 
+## Tab Header
+
+**Nombre del conjunto:** "Tab Header" (o "header de tabs"). Cuando se hable de
+"la tab bar" en este proyecto, se refiere a **toda la franja superior** que
+incluye los tres tabs, el espacio entre el último tab y el corner widget, y el
+corner widget con `seq / shotname` a la derecha.
+
+El header **NO usa `QTabWidget`** (probado y descartado: `setCornerWidget` no
+respeta `SizePolicy::Expanding`, lo que dejaba el shotname más bajo que los
+tabs y con franjas grises arriba). En su lugar es un `QHBoxLayout` plano con
+tabs + stretch + shotname como hermanos:
+
+```
+QWidget (objectName "LGA_ImportShotHeader")  ← fondo #232323, WA_StyledBackground
+└── QHBoxLayout (margins 0, spacing 0)
+    ├── QTabBar  ← subclase _ImportShotTabBar (tabSizeHint con +24px para letter-spacing)
+    │      tabs: RENAME / TRANSCODE PLATES / IMPORT
+    │      AlignBottom para que las solapas queden pegadas al separador
+    ├── stretch
+    └── QLabel  ← seq / shotname (AlignVCenter, font-size 16px)
+```
+
+Bajo el header hay un `QWidget` separador de 1px con fondo `#333333`, y debajo
+un `QStackedWidget` (atributo `self._tab_widget` por compatibilidad con código
+existente) que aloja las tres páginas. El `QTabBar.currentChanged` está
+conectado a `QStackedWidget.setCurrentIndex` y a `_on_tab_changed`.
+
+El padding vertical del header se controla en `QTabBar::tab { padding: ... }`
+(actualmente `13px 14px`); el QLabel del shotname se centra verticalmente
+dentro de la altura que dictan los tabs.
+
+Detalles técnicos relevantes para tocar el header:
+
+- **`tabSizeHint` ampliado** (`_ImportShotTabBar.EXTRA_WIDTH = 24`) compensa
+  el `letter-spacing: 1px` del QSS, que Qt no contempla en su cálculo de ancho
+  → sin esto el texto de los tabs se cropea en los extremos.
+- **`WA_StyledBackground`** en el wrapper del header: sin este flag, un
+  `QWidget` plano no pinta el background definido por stylesheet.
+- **Root layout `setContentsMargins(9, 0, 9, 9)`**: top=0 para que el header
+  quede flush con el title bar. Lados/inferior conservan el padding default
+  del `QDialog`.
+
+API de compatibilidad para abrir/cerrar/cambiar tabs desde otros métodos:
+
+- `self._tab_bar.setCurrentIndex(idx)` — cambiar de tab
+- `self._tab_bar.setTabEnabled(idx, bool)` — habilitar/deshabilitar tab
+- `self._tab_widget` — el `QStackedWidget` con las páginas (sigue el cambio
+  de tab automáticamente vía signal)
+
 ## Footer global
 
 Todas las secciones principales de la herramienta muestran una fila inferior compartida:
