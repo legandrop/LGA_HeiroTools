@@ -343,6 +343,12 @@ _CLR_STATUS_DONE     = "#6a9960" # estado DONE           — verde suave
 _CLR_STATUS_ERROR    = "#a06060" # estado Error          — rojo suave
 _CLR_STATUS_UPSCALE  = "#a06060" # estado Upscale (bloq) — rojo suave
 
+# ── colores de botones especiales ──────────────────────────────────
+# Botón "Open Queue" — variables para que el usuario las cambies
+# fácilmente por el color que quiera (ej. verde) manteniendo patrón.
+_QUEUE_BTN_BG_NORMAL = "#3a7b91"  # violeta oscuro normal
+_QUEUE_BTN_BG_HOVER  = "#4db4cb"  # violeta claro hover
+
 # ── constantes de track ────────────────────────────────────────────
 BURNIN_TRACK_NAMES = {"burnin", "burn in", "burn_in"}
 
@@ -983,6 +989,19 @@ QPushButton {
 QPushButton:hover { background-color: #383838; color: #cccccc; }
 QPushButton:disabled { background-color: #272727; color: #555555; }
 """
+
+_BTN_QUEUE_OPEN = """
+QPushButton {{
+    background-color: {normal_bg};
+    border: none;
+    color: #B2B2B2;
+    padding: 7px 18px;
+    border-radius: 5px;
+    font-weight: bold;
+}}
+QPushButton:hover {{ background-color: {hover_bg}; color: #ffffff; }}
+QPushButton:disabled {{ background-color: #2a2540; color: #666666; border: none; }}
+""".format(normal_bg=_QUEUE_BTN_BG_NORMAL, hover_bg=_QUEUE_BTN_BG_HOVER)
 
 # ✅✅ Espacio (px) entre el separador horizontal y la fila de botones de acción.
 # Se aplica en todas las páginas (media y convert) para mantener equilibrio visual.
@@ -1795,7 +1814,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         buttons_row.setSpacing(6)
 
         open_queue_btn = QtWidgets.QPushButton("Open Queue")
-        open_queue_btn.setStyleSheet(_BTN_SMALL)
+        open_queue_btn.setStyleSheet(_BTN_QUEUE_OPEN)
         open_queue_btn.clicked.connect(self._show_transcode_queue_window)
 
         buttons_row.addWidget(open_queue_btn)
