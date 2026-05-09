@@ -3066,10 +3066,13 @@ class ImportShotDialog(QtWidgets.QDialog):
         right_wrap.setSpacing(0)
 
         # Espacio entre col_left y el separador vertical
-        right_wrap.addSpacing(30)
+        right_wrap.addSpacing(10)
 
         # Separador vertical entre col_left y col_right
         right_wrap.addWidget(_separator("v"))
+
+        # Espacio entre el separador y el contenido de col_right
+        right_wrap.addSpacing(30)
 
         # Columna derecha — Step 3 + Step 4
         col_right = QtWidgets.QVBoxLayout()
@@ -3109,10 +3112,13 @@ class ImportShotDialog(QtWidgets.QDialog):
         right_wrap.addLayout(col_right, 1)
 
         # Espacio para correr la columna 3 hacia la derecha
-        right_wrap.addSpacing(100)
+        right_wrap.addSpacing(10)
 
         # Separador vertical
         right_wrap.addWidget(_separator("v"))
+
+        # Espacio entre el separador y el contenido de col_extra
+        right_wrap.addSpacing(30)
 
         # Tercera columna — Reset / utilidades
         col_extra = QtWidgets.QVBoxLayout()
