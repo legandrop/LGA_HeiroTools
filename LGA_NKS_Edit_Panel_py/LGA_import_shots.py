@@ -3217,7 +3217,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_save_preset_btn.clicked.connect(self._on_rename_save_preset_clicked)
         col_extra.addWidget(self._rename_save_preset_btn)
 
-        self._rename_clear_defaults_btn = QtWidgets.QPushButton("Clear / defaults")
+        self._rename_clear_defaults_btn = QtWidgets.QPushButton("Reset")
         self._rename_clear_defaults_btn.setStyleSheet(_BTN_SMALL)
         self._rename_clear_defaults_btn.setFocusPolicy(QtCore.Qt.NoFocus)
         self._rename_clear_defaults_btn.clicked.connect(self._reset_rename_to_defaults)

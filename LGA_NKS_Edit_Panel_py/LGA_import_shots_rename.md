@@ -141,7 +141,7 @@ exactamente el ancho que tenía antes de existir las columnas 2 y 3 (~50% del an
     Contiene en orden:
     1. Fila `Preset:` + `_rename_preset_combo` (dropdown con presets).
     2. Botón `Save preset` con estilo `_BTN_SMALL`.
-    3. Botón `Clear / defaults` con estilo `_BTN_SMALL`
+    3. Botón `Reset` con estilo `_BTN_SMALL`
        (mismo estilo que `Select All` / `Clear` / `Plates` del tab Import).
   - `addSpacing(_RENAME_COL3_RIGHT_PADDING)` (variable local marcada con `✅✅` en el código)
     para dejar un margen libre a la derecha y que la columna 3 no quede pegada al borde
@@ -242,7 +242,7 @@ a `_update_rename_preset_combo_selection()` (excepto si está activa la bandera
 selecciona el item correspondiente en el combo (`match_idx + 1` por el `----` en pos 0), o
 selecciona `----` si ninguno matchea. Las señales del combo se bloquean durante el cambio.
 
-### Botón `Clear / defaults`
+### Botón `Reset`
 
 Método: `_reset_rename_to_defaults()`.
 
@@ -275,7 +275,7 @@ en:
 - Botones swap `⇄` (SR1 y SR2).
 - Checkboxes `Case Sensitive` (SR1 y SR2).
 - Combo de Step 3 (Delimiter) y spinbox de Step 4 (Frame Digits).
-- Combo `Preset:` y botones `Save preset` / `Clear / defaults` de col 3.
+- Combo `Preset:` y botones `Save preset` / `Reset` de col 3.
 - Botón `Run Rename` del footer.
 
 ## Botón ⇄ (Swap Search / Replace)
