@@ -1,13 +1,16 @@
 """
 ____________________________________________________________________
 
-  LGA_import_shots v1.14 | Lega
+  LGA_import_shots v1.15 | Lega
 
   Importa shots al proyecto de Nuke Studio.
   Analiza la carpeta _input del shot, detecta plates/editrefs/seqrefs
   y versiones en publish, y los coloca en el timeline en la posicion
   alfabeticamente correcta.
 
+  v1.15: Transcode Plates: DWAA usa compression fija 45 sin slider/spinbox.
+         Upscale bloqueado siempre; se elimina el checkbox "Aplicar solo si
+         la resolucion origen es mayor".
   v1.14: Tab cycle del tab Rename limitado a los 4 line edits de SR1/SR2
          (excluye swap, case sensitive, combos y botones via NoFocus).
          NoFocus tambien en los botones Save preset, Clear/defaults y
@@ -4128,14 +4131,6 @@ class ImportShotDialog(QtWidgets.QDialog):
         flt_row.addStretch()
         col_res.addLayout(flt_row)
 
-        self._convert_no_upscale = QtWidgets.QCheckBox(
-            "Aplicar solo si la resolución origen es mayor"
-        )
-        self._convert_no_upscale.setChecked(True)
-        self._convert_no_upscale.setStyleSheet("color:#a7a7a7; padding:2px;")
-        self._convert_no_upscale.stateChanged.connect(self._refresh_convert_destinos)
-        col_res.addWidget(self._convert_no_upscale)
-
         col_res.addStretch()
         opts_row.addLayout(col_res, 1)
 
@@ -4228,7 +4223,6 @@ class ImportShotDialog(QtWidgets.QDialog):
             (self._convert_custom_h,     "valueChanged"),
             (self._convert_keep_ar,      "stateChanged"),
             (self._convert_match_dim,    "currentIndexChanged"),
-            (self._convert_no_upscale,   "stateChanged"),
             (self._convert_deana_chk,    "stateChanged"),
             (self._convert_deana_par,    "currentIndexChanged"),
             (self._delete_originals_chk, "stateChanged"),
@@ -5404,7 +5398,6 @@ class ImportShotDialog(QtWidgets.QDialog):
             self._convert_match_dim.setCurrentIndex(max(0, min(md_idx, 1)))
         except ValueError:
             pass
-        self._convert_no_upscale.setChecked(res.get("no_upscale", "true").lower() == "true")
         self._convert_deana_chk.setChecked(res.get("deana", "false").lower() == "true")
         dp_idx = self._convert_deana_par.findText(res.get("deana_par", "2.0"))
         self._convert_deana_par.setCurrentIndex(max(0, dp_idx))
@@ -5428,7 +5421,6 @@ class ImportShotDialog(QtWidgets.QDialog):
                 "custom_h":     str(self._convert_custom_h.value()),
                 "keep_ar":      str(self._convert_keep_ar.isChecked()).lower(),
                 "match_dim":    str(self._convert_match_dim.currentIndex()),
-                "no_upscale":   str(self._convert_no_upscale.isChecked()).lower(),
                 "deana":        str(self._convert_deana_chk.isChecked()).lower(),
                 "deana_par":    self._convert_deana_par.currentText(),
             },
@@ -5555,7 +5547,7 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _refresh_convert_destinos(self):
         """Recalcula columnas 'Destino' y 'Estado' y las labels del combo (EXR solamente).
 
-        Detecta automáticamente los casos de upscale bloqueado por 'no upscale':
+        Detecta automáticamente los casos de upscale bloqueado:
         - Destino: muestra la resolución final (griseado si upscale bloqueado o desactivado)
         - Estado:  'Pendiente' (cian) | '⚠ Upscale' (rojo) | '—' (gris, fila desactivada)
         """
@@ -5582,8 +5574,7 @@ class ImportShotDialog(QtWidgets.QDialog):
 
             # ¿El resize resultaría en upscale y está bloqueado?
             is_upscale_blocked = (
-                self._convert_no_upscale.isChecked()
-                and sw and sh and tw and th
+                sw and sh and tw and th
                 and (tw > sw or th > sh)
             )
             if is_upscale_blocked:
@@ -5830,7 +5821,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             item = self._convert_rows[row_i]
             tw, th = self._current_target_res(item.get("width"), item.get("height"))
             sw, sh = item.get("width"), item.get("height")
-            if self._convert_no_upscale.isChecked() and sw and sh and tw and th:
+            if sw and sh and tw and th:
                 if tw > sw or th > sh:
                     tw, th = sw, sh
             # Aplicar desanamorfizado DESPUÉS del check de upscale

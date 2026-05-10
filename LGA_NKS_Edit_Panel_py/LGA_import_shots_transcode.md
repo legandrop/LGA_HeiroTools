@@ -62,15 +62,15 @@ con `SHOTNAME_COLOR`. La celda pasa de `QTableWidgetItem` plano a `setCellWidget
 | `✗ Error` | Conversión fallida | rojo `#a06060` |
 
 La columna Destino y la columna Estado se recalculan en vivo cuando cambian:
-DWAA on/off, channels, preset de resolucion, custom W×H, "no upscale", **checkbox de la fila**.
+DWAA on/off, channels, preset de resolucion, custom W×H, **checkbox de la fila**.
 
 **Interacción con la tabla:**
 - **Click simple** en cualquier columna (excepto col 0/1): activa/desactiva el checkbox de la fila.
 - **Doble click**: restaura el checkbox a su estado previo (cancela el toggle del primer click) y abre la carpeta del plate en el explorador del sistema (Windows: `os.startfile`; macOS: `open`).
 
-**Upscale bloqueado:** cuando el resize resultaría en upscale y "Aplicar solo si origen es mayor"
-está activo, la fila muestra `⚠ Upscale` en rojo y la columna Destino se grísea. No se modifica
-la lógica de cálculo; es solo comunicación visual al usuario.
+**Upscale bloqueado:** la tool nunca permite upscale. Cuando el preset elegido
+resultaría en una resolución mayor que el origen, se mantiene la resolución original,
+la fila muestra `⚠ Upscale` en rojo y la columna Destino se grísea.
 
 El bit depth y channels se leen via `oiiotool --info -v` parseando la linea
 `"WxH, N channel, half openexr"` y se guardan en cada item como `bitdepth` y
@@ -99,8 +99,6 @@ El bit depth y channels se leen via `oiiotool --info -v` parseando la linea
 | ☑ Desanamorfizar (Pixel Aspect Ratio) | off | Si activo, aparece el selector de PAR fuente (`1.3`, `1.5`, `1.8`, `2.0`). El ancho destino = `src_w × PAR`. El `PixelAspectRatio` de salida se fuerza a `1.0` en el manifest. La columna Destino muestra PAR `(1)`. |
 | PAR fuente (`QComboBox`) | `2.0` | Visible solo si Desanamorfizar activo |
 | Filtro resampling | `lanczos3` | `cubic`, `box` (solo aplica si hay resize) |
-| ☑ Aplicar solo si origen es mayor | on | Evita upscale accidental; filas con upscale → Estado `⚠ Upscale` |
-
 > **HDR-safe resize automático:** cuando hay resize activo, `LGA_EXR_Convert.py` aplica
 > automáticamente `--rangecompress → --resize:highlightcomp=1 → --rangeexpand` (Opción A,
 > probada 2026-05-08). Esto evita pixeles negativos en zonas de alto contraste (ringing

@@ -35,7 +35,6 @@ DEFAULTS_RES = {
     "custom_h":     "1152",
     "keep_ar":      "true",
     "match_dim":    "0",
-    "no_upscale":   "true",
     "deana":        "false",
     "deana_par":    "2.0",
 }
@@ -124,6 +123,8 @@ def save_all_settings(s):
             cfg.add_section(sec_name)
         if key == "codec" and "dwaa_level" not in s[key]:
             cfg.remove_option(sec_name, "dwaa_level")
+        if key == "res" and "no_upscale" not in s[key]:
+            cfg.remove_option(sec_name, "no_upscale")
         for k, v in s[key].items():
             cfg.set(sec_name, str(k), str(v))
 

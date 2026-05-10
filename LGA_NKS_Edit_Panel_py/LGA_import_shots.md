@@ -679,7 +679,6 @@ custom_w = 2048
 custom_h = 1152
 keep_ar = true
 match_dim = 0           ; 0 = "Match target width", 1 = "Match target height"
-no_upscale = true
 deana = false
 deana_par = 2.0
 
