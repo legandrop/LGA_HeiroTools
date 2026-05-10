@@ -337,6 +337,7 @@ Los mismos colores se usan en los titulos de las secciones.
 - EXR de `_input` con `is_latest=True` → checked por defecto.
 - Todo lo demas (publish, versiones anteriores, MOVs) → unchecked por defecto.
 - Click en cualquier celda de la fila (excepto la barra de color y el checkbox) togglea el checkbox.
+- Shift+click en cualquier fila o checkbox deja checked solo esa fila y deselecciona las demas.
 
 ### Coloreado del shotname en la columna Nombre
 

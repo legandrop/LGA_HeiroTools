@@ -66,6 +66,7 @@ DWAA on/off, channels, preset de resolucion, custom W×H, **checkbox de la fila*
 
 **Interacción con la tabla:**
 - **Click simple** en cualquier columna (excepto col 0/1): activa/desactiva el checkbox de la fila.
+- **Shift+click** en una fila o checkbox: deja checked solo esa fila y deselecciona las demas filas habilitadas.
 - **Doble click**: restaura el checkbox a su estado previo (cancela el toggle del primer click) y abre la carpeta del plate en el explorador del sistema (Windows: `os.startfile`; macOS: `open`).
 
 **Upscale bloqueado:** la tool nunca permite upscale. Cuando el preset elegido

@@ -99,6 +99,8 @@ dato, igual que `_table_rows` en la tabla principal:
 `_rename_checkboxes` y los handlers de click usan el índice de display row (no de preview row).
 Las filas de tipo `section_header` son ignoradas en los handlers de click/doble-click y en
 `_update_rename_btn_state()` / `_run_rename()`.
+Shift+click en una fila de datos o en su checkbox deja checked solo esa fila y deselecciona
+las demas filas habilitadas.
 
 Para secuencias EXR se muestra una sola entrada con placeholder de padding:
 

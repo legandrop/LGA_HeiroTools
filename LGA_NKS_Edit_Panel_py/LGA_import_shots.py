@@ -2147,13 +2147,41 @@ class ImportShotDialog(QtWidgets.QDialog):
         return table
 
     def _on_media_row_clicked(self, row, col):
+        if row in self._checkboxes and self._shift_click_active():
+            self._exclusive_check_row(self._checkboxes, row)
+            self._update_action_btns()
+            return
         if col <= 1:
             return  # barra de color y checkbox manejan sus propios eventos
         if row in self._checkboxes:
             chk = self._checkboxes[row]
             chk.setChecked(not chk.isChecked())
 
+    def _shift_click_active(self):
+        return bool(QtWidgets.QApplication.keyboardModifiers() & QtCore.Qt.ShiftModifier)
+
+    def _exclusive_check_row(self, checkbox_map, target_row):
+        target = checkbox_map.get(target_row)
+        if target is None or not target.isEnabled():
+            return False
+        for row_i, chk in checkbox_map.items():
+            if not chk.isEnabled():
+                continue
+            desired = (row_i == target_row)
+            if chk.isChecked() != desired:
+                chk.setChecked(desired)
+        return True
+
+    def _on_media_chk_clicked(self, row):
+        if self._shift_click_active() and self._exclusive_check_row(self._checkboxes, row):
+            self._update_action_btns()
+
     def _on_convert_row_clicked(self, row, col):
+        if row in self._convert_checkboxes and self._shift_click_active():
+            self._exclusive_check_row(self._convert_checkboxes, row)
+            self._update_transcode_btn_state()
+            self._refresh_convert_destinos()
+            return
         if col <= 1:
             return  # barra de color y checkbox manejan sus propios eventos
         if row in self._convert_checkboxes:
@@ -2161,6 +2189,11 @@ class ImportShotDialog(QtWidgets.QDialog):
             if chk.isEnabled():
                 chk.setChecked(not chk.isChecked())
         self._update_transcode_btn_state()
+
+    def _on_convert_chk_clicked(self, row):
+        if self._shift_click_active() and self._exclusive_check_row(self._convert_checkboxes, row):
+            self._update_transcode_btn_state()
+            self._refresh_convert_destinos()
 
     def _on_convert_row_double_clicked(self, row, col):
         """Doble click en la tabla de transcode: restaura checkbox (cancela el toggle del
@@ -2312,6 +2345,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         chk.setStyleSheet("color:#a7a7a7; padding:2px;")
         chk.setChecked(is_latest)
         chk.stateChanged.connect(self._update_action_btns)
+        chk.clicked.connect(lambda _checked=False, ri=row_i: self._on_media_chk_clicked(ri))
         self._checkboxes[row_i] = chk
         container = QtWidgets.QWidget()
         cl = QtWidgets.QHBoxLayout(container)
@@ -2893,16 +2927,26 @@ class ImportShotDialog(QtWidgets.QDialog):
     # ══════════════════════════════════════════════════════════
 
     def _on_rename_row_clicked(self, row, col):
-        if col <= 1:
-            return
         display_rows = getattr(self, "_rename_display_rows", [])
         if row < len(display_rows) and display_rows[row].get("type") == "section_header":
+            return
+        if row in self._rename_checkboxes and self._shift_click_active():
+            self._exclusive_check_row(self._rename_checkboxes, row)
+            self._update_rename_btn_state()
+            self._update_rename_summary()
+            return
+        if col <= 1:
             return
         if row in self._rename_checkboxes:
             chk = self._rename_checkboxes[row]
             if chk.isEnabled():
                 chk.setChecked(not chk.isChecked())
         self._update_rename_btn_state()
+
+    def _on_rename_chk_clicked(self, row):
+        if self._shift_click_active() and self._exclusive_check_row(self._rename_checkboxes, row):
+            self._update_rename_btn_state()
+            self._update_rename_summary()
 
     def _on_rename_row_double_clicked(self, row, col):
         import os
@@ -3610,6 +3654,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             chk.setChecked(initial_checked)  # antes de conectar la señal
             chk.setEnabled(not blocked)
             chk.stateChanged.connect(lambda _state, ri=i: self._on_rename_chk_changed(ri))
+            chk.clicked.connect(lambda _checked=False, ri=i: self._on_rename_chk_clicked(ri))
             self._rename_checkboxes[i] = chk
             cbox = QtWidgets.QWidget()
             cl = QtWidgets.QHBoxLayout(cbox)
@@ -5661,6 +5706,7 @@ class ImportShotDialog(QtWidgets.QDialog):
                 chk.setChecked(saved_chk.get(item_path, True))
             chk.stateChanged.connect(lambda *_: self._update_transcode_btn_state())
             chk.stateChanged.connect(lambda *_: self._refresh_convert_destinos())
+            chk.clicked.connect(lambda _checked=False, ri=i: self._on_convert_chk_clicked(ri))
             self._convert_checkboxes[i] = chk
             chk_container = QtWidgets.QWidget()
             cl = QtWidgets.QHBoxLayout(chk_container)
