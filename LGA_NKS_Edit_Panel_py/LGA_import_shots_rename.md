@@ -258,6 +258,26 @@ Cada `setText` / `setCurrentIndex` / `setValue` dispara la señal correspondient
 conectada a `_on_rename_settings_changed`. Por lo tanto la persistencia en el INI ocurre
 automáticamente igual que si el usuario hubiera editado los campos a mano.
 
+## Tab order y foco
+
+El ciclo de Tab en el tab Rename incluye **sólo los 4 line edits** de SR1/SR2:
+
+```
+sr1_search → sr1_replace → sr2_search → sr2_replace → (vuelve al primero)
+```
+
+Forzado con `QtWidgets.QWidget.setTabOrder(...)` al final de `_build_page_rename`.
+
+Para que los demás widgets no aparezcan en el ciclo ni muestren el rectángulo de foco
+amarillo del estilo después de navegar con teclado, se setea `setFocusPolicy(QtCore.Qt.NoFocus)`
+en:
+
+- Botones swap `⇄` (SR1 y SR2).
+- Checkboxes `Case Sensitive` (SR1 y SR2).
+- Combo de Step 3 (Delimiter) y spinbox de Step 4 (Frame Digits).
+- Combo `Preset:` y botones `Save preset` / `Clear / defaults` de col 3.
+- Botón `Run Rename` del footer.
+
 ## Botón ⇄ (Swap Search / Replace)
 
 Cada sección SR1 y SR2 tiene un botón pequeño `⇄` entre el campo Search y el Replace.

@@ -1,13 +1,18 @@
 """
 ____________________________________________________________________
 
-  LGA_import_shots v1.13 | Lega
+  LGA_import_shots v1.14 | Lega
 
   Importa shots al proyecto de Nuke Studio.
   Analiza la carpeta _input del shot, detecta plates/editrefs/seqrefs
   y versiones en publish, y los coloca en el timeline en la posicion
   alfabeticamente correcta.
 
+  v1.14: Tab cycle del tab Rename limitado a los 4 line edits de SR1/SR2
+         (excluye swap, case sensitive, combos y botones via NoFocus).
+         NoFocus tambien en los botones Save preset, Clear/defaults y
+         Run Rename para que no muestren el rectangulo de foco amarillo
+         tras navegar con teclado.
   v1.13: Reintroducido el match automatico entre los 4 steps y los presets
          guardados (ahora barato gracias a las mejoras de v1.12). El combo
          muestra el nombre del preset que coincide o "----" si no hay
@@ -3081,10 +3086,12 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_sr1_replace.setStyleSheet(line_style)
         self._rename_sr1_case = QtWidgets.QCheckBox("Case Sensitive")
         self._rename_sr1_case.setStyleSheet("color:#a7a7a7; padding:2px;")
+        self._rename_sr1_case.setFocusPolicy(QtCore.Qt.NoFocus)
         _sr1_swap = QtWidgets.QPushButton("⇄")
         _sr1_swap.setStyleSheet(_BTN_SMALL)
         _sr1_swap.setFixedWidth(28)
         _sr1_swap.setToolTip("Intercambiar Search y Replace")
+        _sr1_swap.setFocusPolicy(QtCore.Qt.NoFocus)
         _sr1_swap.clicked.connect(lambda: self._swap_sr(self._rename_sr1_search, self._rename_sr1_replace))
         sr1_row.addWidget(self._rename_sr1_search, 1)
         sr1_row.addWidget(_sr1_swap, 0)
@@ -3104,10 +3111,12 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_sr2_replace.setStyleSheet(line_style)
         self._rename_sr2_case = QtWidgets.QCheckBox("Case Sensitive")
         self._rename_sr2_case.setStyleSheet("color:#a7a7a7; padding:2px;")
+        self._rename_sr2_case.setFocusPolicy(QtCore.Qt.NoFocus)
         _sr2_swap = QtWidgets.QPushButton("⇄")
         _sr2_swap.setStyleSheet(_BTN_SMALL)
         _sr2_swap.setFixedWidth(28)
         _sr2_swap.setToolTip("Intercambiar Search y Replace")
+        _sr2_swap.setFocusPolicy(QtCore.Qt.NoFocus)
         _sr2_swap.clicked.connect(lambda: self._swap_sr(self._rename_sr2_search, self._rename_sr2_replace))
         sr2_row.addWidget(self._rename_sr2_search, 1)
         sr2_row.addWidget(_sr2_swap, 0)
@@ -3146,6 +3155,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_delim_combo.setView(QtWidgets.QListView())
         self._rename_delim_combo.addItems(["_", "."])
         self._rename_delim_combo.setFixedWidth(80)
+        self._rename_delim_combo.setFocusPolicy(QtCore.Qt.NoFocus)
         delim_inner.addWidget(self._rename_delim_combo)
         delim_inner.addStretch()
         col_right.addLayout(delim_inner)
@@ -3162,6 +3172,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_digits_spin.setValue(4)
         self._rename_digits_spin.setStyleSheet(_ArrowSpinBox._STYLE)
         self._rename_digits_spin.setFixedWidth(88)
+        self._rename_digits_spin.setFocusPolicy(QtCore.Qt.NoFocus)
         pad_inner.addWidget(self._rename_digits_spin)
         pad_inner.addStretch()
         col_right.addLayout(pad_inner)
@@ -3196,16 +3207,19 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_preset_combo.setView(_r_list)
         _r_list.setItemDelegate(_RenamePresetDelegate(_r_list, _pix_trash_r, _pix_hover_r))
         self._rename_preset_combo.setMinimumWidth(180)
+        self._rename_preset_combo.setFocusPolicy(QtCore.Qt.NoFocus)
         preset_row.addWidget(self._rename_preset_combo, 1)
         col_extra.addLayout(preset_row)
 
         self._rename_save_preset_btn = QtWidgets.QPushButton("Save preset")
         self._rename_save_preset_btn.setStyleSheet(_BTN_SMALL)
+        self._rename_save_preset_btn.setFocusPolicy(QtCore.Qt.NoFocus)
         self._rename_save_preset_btn.clicked.connect(self._on_rename_save_preset_clicked)
         col_extra.addWidget(self._rename_save_preset_btn)
 
         self._rename_clear_defaults_btn = QtWidgets.QPushButton("Clear / defaults")
         self._rename_clear_defaults_btn.setStyleSheet(_BTN_SMALL)
+        self._rename_clear_defaults_btn.setFocusPolicy(QtCore.Qt.NoFocus)
         self._rename_clear_defaults_btn.clicked.connect(self._reset_rename_to_defaults)
         col_extra.addWidget(self._rename_clear_defaults_btn)
         col_extra.addStretch()
@@ -3228,6 +3242,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._apply_rename_btn = QtWidgets.QPushButton("Run Rename")
         self._apply_rename_btn.setStyleSheet(_BTN_PRIMARY)
         self._apply_rename_btn.setEnabled(False)
+        self._apply_rename_btn.setFocusPolicy(QtCore.Qt.NoFocus)
         self._apply_rename_btn.clicked.connect(self._run_rename)
         btn_row.addWidget(self._apply_rename_btn)
         layout.addSpacing(_BTN_ROW_TOP_SPACING)
@@ -3253,6 +3268,11 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_preset_combo.currentIndexChanged.connect(
             self._on_rename_preset_combo_changed
         )
+        # Tab cycle: sólo entre los 4 line edits de SR1/SR2 (excluye swap, case
+        # sensitive, combos y botones, que ya tienen FocusPolicy = NoFocus).
+        QtWidgets.QWidget.setTabOrder(self._rename_sr1_search,  self._rename_sr1_replace)
+        QtWidgets.QWidget.setTabOrder(self._rename_sr1_replace, self._rename_sr2_search)
+        QtWidgets.QWidget.setTabOrder(self._rename_sr2_search,  self._rename_sr2_replace)
         self._refresh_rename_preview()
         return page
 
