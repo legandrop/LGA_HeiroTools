@@ -229,8 +229,10 @@ El trash icon dispara `_on_rename_preset_delete(row)`:
 2. Elimina del INI.
 3. `hidePopup()` (mismo patrón que el combo de transcode, para que Qt recalcule el alto
    del desplegable sin filas vacías).
-4. `_rebuild_rename_preset_combo()` deja la selección en `----` (o muestra
-   `(sin presets)` si quedó vacío).
+4. `_rebuild_rename_preset_combo()` reconstruye el combo dejando `----` seleccionado
+   (o `(sin presets)` si quedó vacío).
+5. `_update_rename_preset_combo_selection()` re-evalúa el match contra los presets
+   restantes; si el estado actual coincide con uno, lo selecciona.
 
 ### Sincronización con cambios manuales
 
