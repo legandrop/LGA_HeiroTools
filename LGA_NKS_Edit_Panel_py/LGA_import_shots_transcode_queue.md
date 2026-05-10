@@ -151,7 +151,7 @@ Campos propuestos:
 }
 ```
 
-Las opciones quedan **congeladas al encolar**. Si el usuario cambia DWAA level,
+Las opciones quedan **congeladas al encolar**. Si el usuario cambia DWAA on/off,
 resolucion, channels, PAR o delete originals despues de encolar, esos cambios no deben
 alterar jobs ya pendientes.
 

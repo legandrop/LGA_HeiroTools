@@ -26,7 +26,6 @@ SEC_ORIG  = "Originals"
 
 DEFAULTS_CODEC = {
     "dwaa":       "true",
-    "dwaa_level": "45",
     "channels":   "all",
     "filter":     "lanczos3",
 }
@@ -123,6 +122,8 @@ def save_all_settings(s):
             continue
         if not cfg.has_section(sec_name):
             cfg.add_section(sec_name)
+        if key == "codec" and "dwaa_level" not in s[key]:
+            cfg.remove_option(sec_name, "dwaa_level")
         for k, v in s[key].items():
             cfg.set(sec_name, str(k), str(v))
 

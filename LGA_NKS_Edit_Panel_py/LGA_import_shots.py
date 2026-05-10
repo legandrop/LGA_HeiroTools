@@ -381,6 +381,7 @@ _QUEUE_BTN_BG_HOVER  = "#4db4cb"  # violeta claro hover
 
 # ── constantes de track ────────────────────────────────────────────
 BURNIN_TRACK_NAMES = {"burnin", "burn in", "burn_in"}
+_DWAA_COMPRESSION_LEVEL = 45
 
 # Orden canónico de tracks de video, de abajo hacia arriba en el stack de Hiero
 # (= de arriba hacia abajo tal como los devuelve reversed(seq.videoTracks())).
@@ -3961,56 +3962,20 @@ class ImportShotDialog(QtWidgets.QDialog):
         col_codec.setSpacing(6)
         col_codec.addWidget(_section_label("Codec / Calidad"))
 
+        dwaa_option_row = QtWidgets.QHBoxLayout()
+        dwaa_option_row.setSpacing(8)
         self._convert_dwaa_chk = QtWidgets.QCheckBox("Convertir a DWAA")
         self._convert_dwaa_chk.setChecked(True)
         self._convert_dwaa_chk.setStyleSheet("color:#a7a7a7; padding:2px;")
         self._convert_dwaa_chk.stateChanged.connect(self._on_dwaa_chk_changed)
-        col_codec.addWidget(self._convert_dwaa_chk)
-
-        # Contenedor del nivel (se oculta cuando DWAA está desactivado)
-        self._dwaa_level_widget = QtWidgets.QWidget()
-        dwaa_row = QtWidgets.QHBoxLayout(self._dwaa_level_widget)
-        dwaa_row.setContentsMargins(0, 0, 0, 0)
-        dwaa_lbl = QtWidgets.QLabel("DWAA level:")
-        dwaa_lbl.setStyleSheet("color:#a7a7a7;")
-        dwaa_row.addWidget(dwaa_lbl)
-        self._convert_dwaa_level = QtWidgets.QSpinBox()
-        self._convert_dwaa_level.setRange(30, 60)
-        self._convert_dwaa_level.setValue(45)
-        self._convert_dwaa_level.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
-        self._convert_dwaa_level.setAlignment(QtCore.Qt.AlignCenter)
-        self._convert_dwaa_level.setFixedWidth(60)
-        self._convert_dwaa_level.setStyleSheet("""
-            QSpinBox {
-                background-color: #272727;
-                color: #a7a7a7;
-                border: 1px solid #444;
-                padding: 2px 4px;
-                selection-background-color: #505060;
-                selection-color: #d0d0d0;
-            }
-        """)
-        dwaa_row.addWidget(self._convert_dwaa_level)
-        self._convert_dwaa_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
-        self._convert_dwaa_slider.setRange(30, 60)
-        self._convert_dwaa_slider.setValue(45)
-        self._convert_dwaa_slider.setFixedWidth(120)
-        self._convert_dwaa_slider.setStyleSheet("""
-            QSlider::groove:horizontal {
-                height: 2px; background:#333; border-radius:1px;
-            }
-            QSlider::handle:horizontal {
-                background:#888; width:10px; margin:-4px 0; border-radius:5px;
-            }
-            QSlider::handle:horizontal:hover { background:#aaa; }
-            QSlider::sub-page:horizontal { background:#5a5a5a; border-radius:1px; }
-        """)
-        self._convert_dwaa_slider.valueChanged.connect(self._convert_dwaa_level.setValue)
-        self._convert_dwaa_level.valueChanged.connect(self._convert_dwaa_slider.setValue)
-        self._convert_dwaa_level.valueChanged.connect(lambda *_: self._refresh_convert_destinos())
-        dwaa_row.addWidget(self._convert_dwaa_slider)
-        dwaa_row.addStretch()
-        col_codec.addWidget(self._dwaa_level_widget)
+        dwaa_option_row.addWidget(self._convert_dwaa_chk)
+        self._convert_dwaa_level_lbl = QtWidgets.QLabel(
+            "compression %d" % _DWAA_COMPRESSION_LEVEL
+        )
+        self._convert_dwaa_level_lbl.setStyleSheet("color:#666666; padding:2px;")
+        dwaa_option_row.addWidget(self._convert_dwaa_level_lbl)
+        dwaa_option_row.addStretch()
+        col_codec.addLayout(dwaa_option_row)
 
         ch_row = QtWidgets.QHBoxLayout()
         ch_lbl = QtWidgets.QLabel("Channels:")
@@ -4256,7 +4221,6 @@ class ImportShotDialog(QtWidgets.QDialog):
         # Conectar auto-guardado DESPUÉS de cargar (para no disparar saves innecesarios)
         for _w, _sig in [
             (self._convert_dwaa_chk,     "stateChanged"),
-            (self._convert_dwaa_level,   "valueChanged"),
             (self._convert_channels,     "currentIndexChanged"),
             (self._convert_filter,       "currentIndexChanged"),
             (self._res_combo,            "currentIndexChanged"),
@@ -5374,8 +5338,8 @@ class ImportShotDialog(QtWidgets.QDialog):
                 i, "%s  ➜  %d×%d%s" % (base, tw, th, ar_part))
 
     def _on_dwaa_chk_changed(self, state):
-        """Muestra u oculta el control de DWAA level según el estado del checkbox."""
-        self._dwaa_level_widget.setVisible(state == QtCore.Qt.Checked)
+        """Actualiza destinos cuando cambia el uso de compresion DWAA."""
+        self._convert_dwaa_level_lbl.setVisible(state == QtCore.Qt.Checked)
         self._refresh_convert_destinos()
 
     def _on_deana_chk_changed(self, state):
@@ -5414,10 +5378,6 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         # Codec
         self._convert_dwaa_chk.setChecked(cod.get("dwaa", "true").lower() == "true")
-        try:
-            self._convert_dwaa_level.setValue(int(cod.get("dwaa_level", "45")))
-        except ValueError:
-            pass
         ch_val = cod.get("channels", "all")
         self._convert_channels.setCurrentIndex(1 if ch_val == "rgb" else 0)
         flt_idx = self._convert_filter.findText(cod.get("filter", "lanczos3"))
@@ -5458,7 +5418,6 @@ class ImportShotDialog(QtWidgets.QDialog):
         settings_mod.save_all_settings({
             "codec": {
                 "dwaa":       str(self._convert_dwaa_chk.isChecked()).lower(),
-                "dwaa_level": str(self._convert_dwaa_level.value()),
                 "channels":   ("rgb" if self._convert_channels.currentText() == "Reducir a RGB"
                                else "all"),
                 "filter":     self._convert_filter.currentText(),
@@ -5893,7 +5852,7 @@ class ImportShotDialog(QtWidgets.QDialog):
                          and self._convert_deana_chk.isChecked())
         self._transcode_global_opts = {
             "compression":        self._target_compression(None),
-            "dwa_level":          self._convert_dwaa_level.value(),
+            "dwa_level":          _DWAA_COMPRESSION_LEVEL,
             "resize_filter":      self._convert_filter.currentText(),
             "workers":            6,
             "channels":           ("rgb" if self._convert_channels.currentText() == "Reducir a RGB"

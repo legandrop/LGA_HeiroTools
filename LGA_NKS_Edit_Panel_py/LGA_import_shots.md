@@ -646,7 +646,7 @@ Basado en `LGA_NKS_CreateV000.py`:
 - Ancho minimo del dialogo: `1300px` (requiere espacio para la tabla de transcode con Origen 400 px + Destino amplio)
 - Titulos de seccion de tabla: color de la seccion sobre fondo `#313131`
 - Referencias (seqref en bin): texto color `#aa9e54`
-- Selection highlight en QSpinBox (dwaa level, custom W/H): `#505060` bg / `#d0d0d0` texto (gris legible, no blanco ni violeta)
+- Selection highlight en QSpinBox (custom W/H): `#505060` bg / `#d0d0d0` texto (gris legible, no blanco ni violeta)
 - Espacio entre separador horizontal y fila de botones de acción: constante `_BTN_ROW_TOP_SPACING = 15` (px). Aplicado en páginas media y convert. Buscar `# ✅✅` en el código para ajustar.
 - Diálogo "Guardar preset": QLineEdit con fondo `#272727` (neutro, coherente con el resto de la app)
 - Avisos de duplicado (ventana ya abierta / shot ya existente en timeline): usan `_show_tool_message()` con `QDialog` propio, sin iconos, fondo `#2B2B2B` y botón primario de la tool.
@@ -669,8 +669,7 @@ El módulo `LGA_import_shots_settings.py` es el único responsable de leer y esc
 
 ```ini
 [Codec]
-dwaa = true
-dwaa_level = 45
+dwaa = true            ; true = DWAA con compression fija 45
 channels = all          ; "all" | "rgb"
 filter = lanczos3
 

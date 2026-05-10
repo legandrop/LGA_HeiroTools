@@ -62,7 +62,7 @@ con `SHOTNAME_COLOR`. La celda pasa de `QTableWidgetItem` plano a `setCellWidget
 | `✗ Error` | Conversión fallida | rojo `#a06060` |
 
 La columna Destino y la columna Estado se recalculan en vivo cuando cambian:
-DWAA on/off, DWAA level, channels, preset de resolucion, custom W×H, "no upscale", **checkbox de la fila**.
+DWAA on/off, channels, preset de resolucion, custom W×H, "no upscale", **checkbox de la fila**.
 
 **Interacción con la tabla:**
 - **Click simple** en cualquier columna (excepto col 0/1): activa/desactiva el checkbox de la fila.
@@ -80,11 +80,10 @@ El bit depth y channels se leen via `oiiotool --info -v` parseando la linea
 
 | Control | Default | Notas |
 |---------|---------|-------|
-| ☑ Convertir a DWAA | on | Si off, mantiene compresion original; oculta el control de nivel |
-| DWAA level (`QSpinBox` editable + `QSlider`) | `45` | Visible solo si DWAA activo. Rango `30–60`. Spin y slider two-way bound. |
+| ☑ Convertir a DWAA + `compression 45` | on | Si off, mantiene compresion original. Si on, siempre usa DWAA con compression fija `45`. |
 | Channels (`QComboBox`) | `Mantener` | `Mantener` o `Reducir a RGB` (elimina canal alpha; pasa `channels: "rgb"` al manifest) |
 
-> Todos los valores de Codec / Calidad son **persistentes**: se guardan en el INI al cambiar
+> Los valores editables de Codec / Calidad son **persistentes**: se guardan en el INI al cambiar
 > y se restauran en la próxima apertura de la herramienta.
 
 ### Opciones — Resolucion (columna derecha)
