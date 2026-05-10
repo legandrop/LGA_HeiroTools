@@ -13,27 +13,9 @@ from __future__ import annotations
 import os
 import re
 import shutil
-import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-
-
-# Inyectable desde el script principal: callable(*args) que loguea via debug_print.
-_DBG = None
-
-
-def set_debug_print(fn):
-    global _DBG
-    _DBG = fn
-
-
-def _dbg(msg):
-    if _DBG:
-        try:
-            _DBG(msg)
-        except Exception:
-            pass
 
 
 _SEQ_RE = re.compile(r"^(?P<prefix>.+?)(?P<delim>[_.])(?P<frame>\d+)\.exr$", re.IGNORECASE)
@@ -280,7 +262,6 @@ def build_selected_rows(selected_items: list[dict]) -> list[dict]:
 
 def compute_preview(rows: list[dict], settings: dict, stage_colors: dict[int, str],
                     shot_name: str = "", shotname_color: str = "") -> list[dict]:
-    _cp_t0 = time.perf_counter()
     sr1 = settings.get("sr1", {})
     sr2 = settings.get("sr2", {})
     delimiter = settings.get("delimiter", {})
@@ -419,17 +400,7 @@ def compute_preview(rows: list[dict], settings: dict, stage_colors: dict[int, st
             "user_digits": user_digits if row.get("is_sequence") else None,
         })
 
-    _cp_t_pre_collisions = time.perf_counter()
     _mark_collisions(preview)
-    _cp_t_end = time.perf_counter()
-    _dbg(
-        "[RenameLag] compute_preview total=%.1fms transform=%.1fms "
-        "mark_collisions=%.1fms rows=%d"
-        % ((_cp_t_end - _cp_t0) * 1000,
-           (_cp_t_pre_collisions - _cp_t0) * 1000,
-           (_cp_t_end - _cp_t_pre_collisions) * 1000,
-           len(rows))
-    )
     return preview
 
 
@@ -438,9 +409,6 @@ def _mark_collisions(preview_rows: list[dict]):
     `build_row_ops_for_ui` (liviano, sin iterdir). El chequeo exhaustivo file-by-file
     se hace recién al ejecutar el rename, no en cada refresh del preview.
     """
-    _mc_t0 = time.perf_counter()
-    n_exists = 0
-
     # Cache: una sola call a build_row_ops_for_ui por fila, reutilizada en las
     # tres pasadas siguientes.
     ops_by_pr_id = {}
@@ -448,7 +416,6 @@ def _mark_collisions(preview_rows: list[dict]):
         if pr.get("blocked"):
             continue
         ops_by_pr_id[id(pr)] = build_row_ops_for_ui(pr)
-    _mc_t1 = time.perf_counter()
 
     # Pasada 1: claimed_targets para detectar dos filas apuntando al mismo destino.
     claimed_targets = {}
@@ -463,7 +430,6 @@ def _mark_collisions(preview_rows: list[dict]):
             for pr in owners:
                 pr["blocked"] = True
                 pr["status"] = "Conflicto destino duplicado"
-    _mc_t2 = time.perf_counter()
 
     # Pasada 2: set de sources planeados (para no falsear "destino ya existe"
     # cuando ese destino es el src de otra fila que también vamos a mover).
@@ -473,7 +439,6 @@ def _mark_collisions(preview_rows: list[dict]):
             continue
         for op in ops_by_pr_id.get(id(pr), ()):
             planned_src.add(os.path.normcase(os.path.normpath(op.src)))
-    _mc_t3 = time.perf_counter()
 
     # Pasada 3: chequeo de existencia en disco (sólo sobre las ops representativas).
     for pr in preview_rows:
@@ -484,23 +449,10 @@ def _mark_collisions(preview_rows: list[dict]):
             src_norm = os.path.normcase(os.path.normpath(op.src))
             if dst_norm == src_norm:
                 continue
-            n_exists += 2  # dst y src
             if os.path.exists(op.dst) and dst_norm not in planned_src and os.path.exists(op.src):
                 pr["blocked"] = True
                 pr["status"] = "Destino ya existe"
                 break
-    _mc_t4 = time.perf_counter()
-    _dbg(
-        "[RenameLag] mark_collisions total=%.1fms cache_build=%.1fms "
-        "claim=%.1fms planned_src=%.1fms exists_check=%.1fms "
-        "rows=%d exists_calls=%d"
-        % ((_mc_t4 - _mc_t0) * 1000,
-           (_mc_t1 - _mc_t0) * 1000,
-           (_mc_t2 - _mc_t1) * 1000,
-           (_mc_t3 - _mc_t2) * 1000,
-           (_mc_t4 - _mc_t3) * 1000,
-           len(preview_rows), n_exists)
-    )
 
 
 def build_row_ops_for_ui(preview_row: dict) -> list[RenameOp]:

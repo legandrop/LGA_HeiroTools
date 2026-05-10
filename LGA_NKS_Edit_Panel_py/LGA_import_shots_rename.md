@@ -188,13 +188,15 @@ Reusa por completo el patrón del combo `Destino:` de Transcode:
   deshabilitado (`setEnabled(False)`), no se puede abrir.
 - **Con presets**: el combo lista siempre el item virtual `----` en la posición 0 (no
   deletable, elegirlo desde el combo no hace nada) seguido de todos los presets reales.
-  - Al cargar/guardar un preset queda seleccionado el nombre de ese preset.
-  - Apenas el usuario edita cualquier campo de los 4 steps, la selección pasa a `----`.
+  En cada cambio de los 4 steps se evalúa el match contra todos los presets; si alguno
+  coincide exactamente queda seleccionado, sino se selecciona `----`.
 
-> No se hace ningún chequeo de match entre el estado actual y los presets. Esa decisión es
-> intencional para no consumir recursos en cada `textChanged` / `valueChanged`. El combo
-> muestra el nombre de un preset solo mientras el usuario no haya tocado nada después de
-> elegirlo o guardarlo.
+### Comparación de match
+
+`_preset_matches_current(preset)` compara campo a campo los 8 valores de `PRESET_FIELDS`
+contra el snapshot actual (`_current_rename_preset_dict()`). La comparación es exacta de
+strings (incluyendo `case_sensitive` como `"true"`/`"false"` y `digits` como string del int).
+La búsqueda es lineal sobre la lista de presets — barata porque son pocos campos cortos.
 
 ### Aplicar un preset
 
@@ -202,11 +204,11 @@ Reusa por completo el patrón del combo `Destino:` de Transcode:
 
 - Setea los 8 widgets desde el preset.
 - Cada `setText` / `setChecked` / `setCurrentIndex` / `setValue` dispara su señal, que está
-  conectada a `_on_rename_settings_changed` (autosave + refresh del preview + posible cambio
-  del combo a `----`).
+  conectada a `_on_rename_settings_changed` (autosave + reinicio del timer de debounce
+  + recálculo de la selección del combo).
 - Se usa la bandera `self._rename_applying_preset = True` durante el apply para que
-  `_on_rename_settings_changed` NO mande el combo a `----` mientras estamos cargando el
-  preset (sin esto, el combo terminaría siempre en `----` después de un apply).
+  `_on_rename_settings_changed` NO recalcule el combo en cada uno de los setteos
+  intermedios mientras estamos cargando el preset.
 
 ### Guardar un preset
 
@@ -233,9 +235,10 @@ El trash icon dispara `_on_rename_preset_delete(row)`:
 ### Sincronización con cambios manuales
 
 Cada vez que el usuario edita un widget de los 4 steps, `_on_rename_settings_changed` llama
-a `_mark_rename_preset_dirty()` (excepto si está activa la bandera
-`_rename_applying_preset`). Ese método simplemente cambia el `currentIndex` del combo a 0
-(`----`) si no estaba ya ahí, sin emitir señales y sin reconstruir nada.
+a `_update_rename_preset_combo_selection()` (excepto si está activa la bandera
+`_rename_applying_preset`). Ese método busca un preset que matchee el estado actual y
+selecciona el item correspondiente en el combo (`match_idx + 1` por el `----` en pos 0), o
+selecciona `----` si ninguno matchea. Las señales del combo se bloquean durante el cambio.
 
 ### Botón `Clear / defaults`
 
@@ -301,17 +304,6 @@ planned_src, exists check).
 **`build_row_ops` original (que sí hace `iterdir()` y produce una op por cada frame del
 disco) se sigue usando en `execute_ops`** — al apretar Run Rename necesitamos enumerar y
 mover cada archivo, así que ahí se paga ese costo una sola vez.
-
-### Logs de timing
-
-`[RenameLag]` en `debug_print` mide cada paso del flujo:
-
-- `settings_changed` (no se loguea más en cada keystroke porque ya no hace el trabajo).
-- `refresh_preview` total + breakdown.
-- `compute_preview` total + transform + mark_collisions.
-- `mark_collisions` total + cache_build + claim + planned_src + exists_check + cantidades.
-
-Útiles para diagnosticar futuras regresiones de performance.
 
 ## Preservación de checkboxes en refresh
 
