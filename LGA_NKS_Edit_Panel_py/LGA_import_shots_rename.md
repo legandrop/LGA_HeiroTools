@@ -23,7 +23,8 @@ Permitir renombrado masivo con preview en vivo, de forma segura y modular.
 - `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_import_shots_rename.py`
   - `build_selected_rows()`
   - `compute_preview()`
-  - `build_row_ops()`
+  - `build_row_ops_for_ui()` (liviana, para preview/colisiones)
+  - `build_row_ops()` (pesada, para ejecutar)
   - `execute_ops()`
 - `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_import_shots_rename_settings.py`
   - `load_settings()`
@@ -117,10 +118,10 @@ El preview aplica estas etapas en orden:
 
 Cada etapa tiene color propio, reutilizando la paleta ya existente de transcode:
 
-- etapa 1: `_CLR_AR` (amarillo)
+- etapa 1: `_CLR_COMP_DWAA` (verde suave) — se eligió verde para no chocar con el amarillo de la etapa 4
 - etapa 2: `_CLR_PAR` (rosa)
-- etapa 3: `_CLR_COMP_DWAA` (verde)
-- etapa 4: `_CLR_STATUS_PENDING` (cyan)
+- etapa 3: `_CLR_COMP` (azul comp publish)
+- etapa 4: `_CLR_FRAMES` (ámbar cálido)
 
 ## Layout de opciones (3 columnas)
 
@@ -258,6 +259,59 @@ Cada sección SR1 y SR2 tiene un botón pequeño `⇄` entre el campo Search y e
 Al pulsarlo, intercambia el texto de ambos campos (método `_swap_sr(search_edit, replace_edit)`).
 El swap dispara `textChanged` en ambos campos, por lo que el preview se actualiza
 automáticamente igual que si el usuario hubiera editado manualmente.
+
+## Performance: debounce + ops livianas para el preview
+
+El refresh del preview tiene dos optimizaciones clave para que tipear en los campos de
+search/replace sea instantáneo, incluso sobre carpetas en discos de red con cientos de
+frames por secuencia.
+
+### Debounce del refresh
+
+`_on_rename_settings_changed` no llama directamente a `_refresh_rename_preview`. En lugar
+de eso reinicia un `QTimer` single-shot (`self._rename_refresh_timer`) con intervalo
+`_RENAME_REFRESH_DEBOUNCE_MS = 100` (constante a nivel módulo). Cada keystroke reinicia
+el timer; el refresh sólo corre cuando el usuario pausa de tipear ese tiempo.
+
+`save_settings` (escritura del INI) y `_mark_rename_preset_dirty` (cambio del combo a `----`)
+siguen corriendo síncronamente porque son baratos y necesitamos feedback inmediato del
+combo de presets.
+
+`_run_rename` flushea el timer pendiente antes de ejecutar (lo detiene y corre el refresh
+manualmente) para garantizar que la tabla refleje el último estado de los settings.
+
+### Ops livianas para colisiones (`build_row_ops_for_ui`)
+
+`_mark_collisions` no llama a `build_row_ops`. Llama a `build_row_ops_for_ui`, que devuelve
+hasta 2 ops representativas por fila SIN tocar el disco:
+
+- **No-secuencia**: la op real `(src_file, dst_file)` (que ya era barata).
+- **Secuencia EXR**: una op del primer frame (mapeando `item.first_file` a su nombre nuevo)
+  + una op del folder rename (sólo si el folder cambia de nombre).
+
+Eso es suficiente para detectar:
+
+- Colisiones entre filas (`claimed_targets` / `planned_src`).
+- "Destino ya existe" via `os.path.exists` sobre rutas representativas.
+
+Además se cachea el resultado de `build_row_ops_for_ui` por fila al inicio de
+`_mark_collisions` (dict `ops_by_pr_id`), reutilizándolo en las 3 pasadas siguientes (claim,
+planned_src, exists check).
+
+**`build_row_ops` original (que sí hace `iterdir()` y produce una op por cada frame del
+disco) se sigue usando en `execute_ops`** — al apretar Run Rename necesitamos enumerar y
+mover cada archivo, así que ahí se paga ese costo una sola vez.
+
+### Logs de timing
+
+`[RenameLag]` en `debug_print` mide cada paso del flujo:
+
+- `settings_changed` (no se loguea más en cada keystroke porque ya no hace el trabajo).
+- `refresh_preview` total + breakdown.
+- `compute_preview` total + transform + mark_collisions.
+- `mark_collisions` total + cache_build + claim + planned_src + exists_check + cantidades.
+
+Útiles para diagnosticar futuras regresiones de performance.
 
 ## Preservación de checkboxes en refresh
 

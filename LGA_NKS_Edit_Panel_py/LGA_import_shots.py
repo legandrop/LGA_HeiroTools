@@ -1,13 +1,24 @@
 """
 ____________________________________________________________________
 
-  LGA_import_shots v1.10 | Lega
+  LGA_import_shots v1.12 | Lega
 
   Importa shots al proyecto de Nuke Studio.
   Analiza la carpeta _input del shot, detecta plates/editrefs/seqrefs
   y versiones en publish, y los coloca en el timeline en la posicion
   alfabeticamente correcta.
 
+  v1.12: Performance del preview de Rename: nueva funcion
+         build_row_ops_for_ui (liviana, sin iterdir) usada por
+         _mark_collisions; build_row_ops original sigue usandose en
+         execute_ops para enumerar archivo por archivo. Debounce de
+         200ms del refresh para que el typing en search/replace sea
+         instantaneo. Flush del timer al apretar Run Rename.
+  v1.11: Step 1 del rename ahora usa color verde (antes amarillo, chocaba
+         con el step 4). Logs de timing [RenameLag] en
+         _on_rename_settings_changed, _refresh_rename_preview,
+         compute_preview y _mark_collisions para diagnosticar lag al
+         tipear en los campos de search/replace.
   v1.10: Combo de presets de rename simplificado: ya no se chequea el match
          contra los settings actuales en cada cambio. El combo muestra el
          nombre del preset al cargarlo y pasa a "----" apenas el usuario
@@ -208,6 +219,11 @@ Transcode_TEST_Mode = False
 # Si True, Rename trabaja sobre copia en carpeta "renamned" y no toca originales.
 Rename_Test_mode = False
 
+# Debounce del refresh del preview de Rename (ms tras la última edición).
+# Evita correr compute_preview en cada keystroke; el preview se actualiza
+# cuando el user pausa de tipear.
+_RENAME_REFRESH_DEBOUNCE_MS = 100
+
 # ── logging ────────────────────────────────────────────────────────
 DEBUG = True
 DEBUG_CONSOLE = False
@@ -294,7 +310,7 @@ def cleanup_logging():
 
 def _inject_preview_logger():
     """Inyecta debug_print en los módulos auxiliares para que usen el mismo logger."""
-    for mod in (preview_mod, timeline_mod, bin_mod):
+    for mod in (preview_mod, timeline_mod, bin_mod, rename_mod):
         try:
             mod.set_debug_print(debug_print)
         except Exception:
@@ -3220,6 +3236,13 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_preview_rows = []
         self._rename_display_rows = []
         self._rename_applying_preset = False
+        # Debounce del refresh de preview: evita correr compute_preview en cada
+        # keystroke. Se reinicia en cada _on_rename_settings_changed y dispara
+        # el refresh tras `_RENAME_REFRESH_DEBOUNCE_MS` ms de inactividad.
+        self._rename_refresh_timer = QtCore.QTimer(self)
+        self._rename_refresh_timer.setSingleShot(True)
+        self._rename_refresh_timer.setInterval(_RENAME_REFRESH_DEBOUNCE_MS)
+        self._rename_refresh_timer.timeout.connect(self._refresh_rename_preview)
         self._rename_presets = rename_settings_mod.load_rename_presets()
         self._rename_settings = rename_settings_mod.load_settings()
         self._load_rename_settings_to_ui()
@@ -3291,7 +3314,11 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _on_rename_settings_changed(self, *_):
         self._rename_settings = self._collect_rename_settings_from_ui()
         rename_settings_mod.save_settings(self._rename_settings)
-        self._refresh_rename_preview()
+        # Debounce: en vez de refrescar el preview en cada keystroke, reiniciamos
+        # el timer single-shot. Si llega otra edición antes de que dispare, se
+        # cancela y vuelve a empezar la cuenta. El refresh corre cuando el user
+        # pausa de tipear `_RENAME_REFRESH_DEBOUNCE_MS` ms.
+        self._rename_refresh_timer.start()
         if not self._rename_applying_preset:
             self._mark_rename_preset_dirty()
 
@@ -3448,6 +3475,7 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _refresh_rename_preview(self):
         if not hasattr(self, "_rename_table"):
             return
+        _rp_t0 = time.perf_counter()
 
         # Guardar estados de checkboxes actuales por item_path para preservarlos
         saved_chk_states = {}
@@ -3459,18 +3487,21 @@ class ImportShotDialog(QtWidgets.QDialog):
                 saved_chk_states[_pr.get("item_path", "")] = _chk.isChecked()
 
         colors = {
-            1: _CLR_AR,
+            1: _CLR_COMP_DWAA,  # verde suave (antes amarillo, choca con step 4)
             2: _CLR_PAR,
             3: _CLR_COMP,
             4: _CLR_FRAMES,
         }
+        _rp_t_cp_in = time.perf_counter()
+        _rp_rows = getattr(self, "_rename_selected_rows", [])
         self._rename_preview_rows = rename_mod.compute_preview(
-            getattr(self, "_rename_selected_rows", []),
+            _rp_rows,
             self._collect_rename_settings_from_ui() if hasattr(self, "_rename_sr1_search") else getattr(self, "_rename_settings", {}),
             colors,
             shot_name=self.shot_name,
             shotname_color=SHOTNAME_COLOR,
         )
+        _rp_t_cp_out = time.perf_counter()
 
         # Construir display_rows: secciones intercaladas igual que la tabla principal
         _SECTION_META = {
@@ -3593,6 +3624,15 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         self._update_rename_summary()
         self._update_rename_btn_state()
+        _rp_t1 = time.perf_counter()
+        debug_print(
+            "[RenameLag] refresh_preview total=%.1fms compute_preview=%.1fms "
+            "table_build=%.1fms rows=%d display=%d"
+            % ((_rp_t1 - _rp_t0) * 1000,
+               (_rp_t_cp_out - _rp_t_cp_in) * 1000,
+               (_rp_t1 - _rp_t_cp_out) * 1000,
+               len(_rp_rows), len(display_rows))
+        )
 
     def _update_import_handle_label(self):
         """Actualiza el label de handle auto-calculado debajo de la tabla de import preview."""
@@ -3668,6 +3708,13 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._apply_rename_btn.setToolTip("" if ready else "No hay filas válidas con cambios")
 
     def _run_rename(self):
+        # Si hay un refresh debounceado pendiente, flushearlo ahora para que la
+        # tabla esté sincronizada con los settings actuales antes de ejecutar.
+        if (hasattr(self, "_rename_refresh_timer")
+                and self._rename_refresh_timer.isActive()):
+            self._rename_refresh_timer.stop()
+            self._refresh_rename_preview()
+
         to_apply = []
         display_rows = getattr(self, "_rename_display_rows", [])
         for i, chk in self._rename_checkboxes.items():
