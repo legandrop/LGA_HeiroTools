@@ -109,3 +109,138 @@ def save_settings(data):
             cfg.set(sec_name, str(k), str(v))
 
     _write_cfg(cfg, cfg_path)
+
+
+# ── Presets de rename ─────────────────────────────────────────────────────────
+
+PRESET_FIELDS = (
+    "sr1_search",
+    "sr1_replace",
+    "sr1_case",
+    "sr2_search",
+    "sr2_replace",
+    "sr2_case",
+    "delim",
+    "digits",
+)
+
+
+def load_rename_presets():
+    """Lee secciones [RenamePreset_N] del INI y devuelve lista de dicts.
+
+    Cada preset: {"name": str, "sr1_search": ..., ..., "delim": "_", "digits": "4"}.
+    """
+    cfg = _read_cfg(get_settings_path())
+    presets = []
+    i = 0
+    while cfg.has_section("RenamePreset_%d" % i):
+        sec = "RenamePreset_%d" % i
+        d = {"name": cfg.get(sec, "name", fallback="Preset %d" % i)}
+        for k in PRESET_FIELDS:
+            d[k] = cfg.get(sec, k, fallback="")
+        presets.append(d)
+        i += 1
+    return presets
+
+
+def save_rename_presets(presets):
+    """Reescribe todas las secciones [RenamePreset_N] con la lista dada."""
+    p = get_settings_path()
+    cfg = _read_cfg(p)
+    for sec in list(cfg.sections()):
+        if sec.lower().startswith("renamepreset_"):
+            cfg.remove_section(sec)
+    for i, preset in enumerate(presets):
+        sec = "RenamePreset_%d" % i
+        cfg.add_section(sec)
+        cfg.set(sec, "name", str(preset.get("name", "Preset %d" % i)))
+        for k in PRESET_FIELDS:
+            cfg.set(sec, k, str(preset.get(k, "")))
+    _write_cfg(cfg, p)
+
+
+def show_save_rename_preset_dialog(parent=None):
+    """Diálogo para nombrar un preset de rename. Devuelve str (nombre) o None."""
+    from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtCore
+
+    _BTN_SECONDARY = (
+        "QPushButton { background-color:#3a3a3a; border:1px solid #555555;"
+        " color:#CCCCCC; padding:7px 18px; border-radius:3px; }"
+        "QPushButton:hover { background-color:#4a4a4a; }"
+    )
+    _BTN_PRIMARY_DIS = (
+        "QPushButton { background-color:#443a91; border:1px solid #5a4faa;"
+        " color:#CCCCCC; padding:7px 18px; border-radius:3px; font-weight:bold; }"
+        "QPushButton:hover { background-color:#774dcb; }"
+        "QPushButton:disabled { background-color:#2a2a4a; color:#666; border-color:#444; }"
+    )
+    _LINE_STYLE = (
+        "QLineEdit { background-color:#272727; border:1px solid #555555;"
+        " color:#cccccc; padding:5px 8px; border-radius:3px; }"
+        "QLineEdit:focus { border:1px solid #666666; }"
+    )
+
+    dlg = QtWidgets.QDialog(parent)
+    dlg.setWindowTitle("Guardar preset")
+    dlg.setMinimumWidth(380)
+    dlg.setWindowFlags(QtCore.Qt.Dialog | QtCore.Qt.FramelessWindowHint)
+    dlg.setStyleSheet(
+        "QDialog { background-color:#2B2B2B; border:1px solid #555555; }"
+        "QLabel  { color:#a7a7a7; }"
+    )
+    dlg.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
+
+    layout = QtWidgets.QVBoxLayout(dlg)
+    layout.setContentsMargins(24, 20, 24, 20)
+    layout.setSpacing(10)
+
+    header_row = QtWidgets.QHBoxLayout()
+    title_lbl = QtWidgets.QLabel("Guardar preset de rename")
+    title_lbl.setStyleSheet("color:#d9a441; font-size:13px; font-weight:bold;")
+    header_row.addWidget(title_lbl)
+    header_row.addStretch()
+    layout.addLayout(header_row)
+
+    sep = QtWidgets.QFrame()
+    sep.setFrameShape(QtWidgets.QFrame.HLine)
+    sep.setStyleSheet("background:#444444;")
+    sep.setFixedHeight(1)
+    layout.addWidget(sep)
+
+    name_prompt = QtWidgets.QLabel("Nombre del preset:")
+    name_prompt.setStyleSheet("color:#a7a7a7; font-size:11px;")
+    layout.addWidget(name_prompt)
+
+    line = QtWidgets.QLineEdit()
+    line.setPlaceholderText("Ej: Plates v01")
+    line.setStyleSheet(_LINE_STYLE)
+    layout.addWidget(line)
+
+    layout.addSpacing(8)
+
+    btn_row = QtWidgets.QHBoxLayout()
+    btn_row.addStretch()
+    btn_cancel = QtWidgets.QPushButton("Cancelar")
+    btn_save   = QtWidgets.QPushButton("Guardar")
+    btn_cancel.setStyleSheet(_BTN_SECONDARY)
+    btn_save.setStyleSheet(_BTN_PRIMARY_DIS)
+    btn_save.setEnabled(False)
+    btn_row.addWidget(btn_cancel)
+    btn_row.addSpacing(8)
+    btn_row.addWidget(btn_save)
+    layout.addLayout(btn_row)
+
+    line.textChanged.connect(lambda t: btn_save.setEnabled(bool(t.strip())))
+
+    result = [None]
+
+    def _do_save():
+        result[0] = line.text().strip()
+        dlg.accept()
+
+    btn_cancel.clicked.connect(dlg.reject)
+    btn_save.clicked.connect(_do_save)
+    line.returnPressed.connect(lambda: _do_save() if btn_save.isEnabled() else None)
+
+    dlg.exec_()
+    return result[0]

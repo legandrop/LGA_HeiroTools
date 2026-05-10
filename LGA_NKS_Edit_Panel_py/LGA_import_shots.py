@@ -1,13 +1,15 @@
 """
 ____________________________________________________________________
 
-  LGA_import_shots v1.08 | Lega
+  LGA_import_shots v1.09 | Lega
 
   Importa shots al proyecto de Nuke Studio.
   Analiza la carpeta _input del shot, detecta plates/editrefs/seqrefs
   y versiones en publish, y los coloca en el timeline en la posicion
   alfabeticamente correcta.
 
+  v1.09: Dropdown de presets de rename con guardar/borrar (mismo patron
+         que el combo de Destino del tab Transcode).
   v1.08: Seccion presets en tab rename
   v1.07: Navegación por tabs (Rename / Transcode Plates / Import).
          Tablas independientes, refresh inteligente con _needs_refresh.
@@ -1395,6 +1397,40 @@ class _ResPresetDelegate(QtWidgets.QStyledItemDelegate):
     def sizeHint(self, option, index):
         sh = super(_ResPresetDelegate, self).sizeHint(option, index)
         return sh.expandedTo(QtCore.QSize(0, 24))
+
+
+# ══════════════════════════════════════════════════════════════════
+#  Variantes para el combo de presets del tab Rename.
+#  Misma UX (trash icon, hover, click en zona de papelera) que el de
+#  resoluciones; sólo cambia la regla de "qué item es deletable":
+#  todos lo son excepto los items virtuales "----" y "(sin presets)".
+# ══════════════════════════════════════════════════════════════════
+
+_RENAME_PRESET_PLACEHOLDER_NOMATCH = "----"
+_RENAME_PRESET_PLACEHOLDER_EMPTY   = "(sin presets)"
+
+
+def _rename_preset_is_deletable(text):
+    t = (text or "").strip()
+    if not t:
+        return False
+    if t == _RENAME_PRESET_PLACEHOLDER_NOMATCH:
+        return False
+    if t == _RENAME_PRESET_PLACEHOLDER_EMPTY:
+        return False
+    return True
+
+
+class _RenamePresetListView(_ResPresetListView):
+    @staticmethod
+    def _is_deletable(text):
+        return _rename_preset_is_deletable(text)
+
+
+class _RenamePresetDelegate(_ResPresetDelegate):
+    @staticmethod
+    def _is_deletable(text):
+        return _rename_preset_is_deletable(text)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -3120,9 +3156,32 @@ class ImportShotDialog(QtWidgets.QDialog):
         # Espacio entre el separador y el contenido de col_extra
         right_wrap.addSpacing(30)
 
-        # Tercera columna — Reset / utilidades
+        # Tercera columna — Presets + reset / utilidades
         col_extra = QtWidgets.QVBoxLayout()
         col_extra.setSpacing(6)
+
+        # Fila Preset: label + dropdown
+        preset_row = QtWidgets.QHBoxLayout()
+        preset_row.setSpacing(6)
+        preset_lbl = QtWidgets.QLabel("Preset:")
+        preset_lbl.setStyleSheet("color:#a7a7a7;")
+        preset_row.addWidget(preset_lbl)
+        self._rename_preset_combo = _ArrowComboBox()
+        self._rename_preset_combo.setStyleSheet(self._COMBO_STYLE)
+        _pix_trash_r = QtGui.QPixmap(str(SHARED_DIR / "icons" / "trash.svg"))
+        _pix_hover_r = QtGui.QPixmap(str(SHARED_DIR / "icons" / "trash_hover.svg"))
+        _r_list = _RenamePresetListView(self._on_rename_preset_delete)
+        self._rename_preset_combo.setView(_r_list)
+        _r_list.setItemDelegate(_RenamePresetDelegate(_r_list, _pix_trash_r, _pix_hover_r))
+        self._rename_preset_combo.setMinimumWidth(180)
+        preset_row.addWidget(self._rename_preset_combo, 1)
+        col_extra.addLayout(preset_row)
+
+        self._rename_save_preset_btn = QtWidgets.QPushButton("Save preset")
+        self._rename_save_preset_btn.setStyleSheet(_BTN_SMALL)
+        self._rename_save_preset_btn.clicked.connect(self._on_rename_save_preset_clicked)
+        col_extra.addWidget(self._rename_save_preset_btn)
+
         self._rename_clear_defaults_btn = QtWidgets.QPushButton("Clear / defaults")
         self._rename_clear_defaults_btn.setStyleSheet(_BTN_SMALL)
         self._rename_clear_defaults_btn.clicked.connect(self._reset_rename_to_defaults)
@@ -3156,9 +3215,23 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_selected_rows = []
         self._rename_preview_rows = []
         self._rename_display_rows = []
+        self._rename_applying_preset = False
+        self._rename_presets = rename_settings_mod.load_rename_presets()
+        debug_print("[RenamePreset] init load: %d presets, ini=%s"
+                    % (len(self._rename_presets),
+                       rename_settings_mod.get_settings_path()))
+        debug_print("[RenamePreset] rename_settings_mod attrs ok: "
+                    "save=%s show=%s load=%s"
+                    % (hasattr(rename_settings_mod, "save_rename_presets"),
+                       hasattr(rename_settings_mod, "show_save_rename_preset_dialog"),
+                       hasattr(rename_settings_mod, "load_rename_presets")))
         self._rename_settings = rename_settings_mod.load_settings()
         self._load_rename_settings_to_ui()
         self._connect_rename_autosave()
+        self._rebuild_rename_preset_combo()
+        self._rename_preset_combo.currentIndexChanged.connect(
+            self._on_rename_preset_combo_changed
+        )
         self._refresh_rename_preview()
         return page
 
@@ -3223,6 +3296,8 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_settings = self._collect_rename_settings_from_ui()
         rename_settings_mod.save_settings(self._rename_settings)
         self._refresh_rename_preview()
+        if not self._rename_applying_preset:
+            self._update_rename_preset_combo_selection()
 
     def _reset_rename_to_defaults(self):
         self._rename_sr1_search.setText("")
@@ -3231,6 +3306,206 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_sr2_replace.setText("")
         self._rename_delim_combo.setCurrentIndex(0)  # "_"
         self._rename_digits_spin.setValue(4)
+
+    # ── Presets de rename ──────────────────────────────────────────────────────
+
+    def _current_rename_preset_dict(self):
+        """Snapshot de los 4 steps en formato preset (sin nombre)."""
+        return {
+            "sr1_search":  self._rename_sr1_search.text(),
+            "sr1_replace": self._rename_sr1_replace.text(),
+            "sr1_case":    "true" if self._rename_sr1_case.isChecked() else "false",
+            "sr2_search":  self._rename_sr2_search.text(),
+            "sr2_replace": self._rename_sr2_replace.text(),
+            "sr2_case":    "true" if self._rename_sr2_case.isChecked() else "false",
+            "delim":       self._rename_delim_combo.currentText(),
+            "digits":      str(self._rename_digits_spin.value()),
+        }
+
+    def _preset_matches_current(self, preset):
+        cur = self._current_rename_preset_dict()
+        for k in rename_settings_mod.PRESET_FIELDS:
+            if str(preset.get(k, "")) != cur[k]:
+                return False
+        return True
+
+    def _find_matching_rename_preset_index(self):
+        """Devuelve el índice en self._rename_presets que matchea, o -1."""
+        for i, p in enumerate(self._rename_presets):
+            if self._preset_matches_current(p):
+                return i
+        return -1
+
+    def _rebuild_rename_preset_combo(self, force_select=None):
+        """Reconstruye items del combo basado en self._rename_presets.
+
+        - Sin presets: un único item "(sin presets)" y combo deshabilitado.
+        - Con presets: si el estado actual matchea uno, se selecciona ese; si no,
+          se inserta un item virtual "----" en la posición 0 y se selecciona.
+        """
+        combo = self._rename_preset_combo
+        combo.blockSignals(True)
+        combo.clear()
+        if not self._rename_presets:
+            combo.addItem(_RENAME_PRESET_PLACEHOLDER_EMPTY)
+            combo.setEnabled(False)
+            combo.setCurrentIndex(0)
+            combo.blockSignals(False)
+            return
+
+        combo.setEnabled(True)
+        match_idx = (force_select
+                     if force_select is not None
+                     else self._find_matching_rename_preset_index())
+        has_virtual = (match_idx < 0)
+        if has_virtual:
+            combo.addItem(_RENAME_PRESET_PLACEHOLDER_NOMATCH)
+        for p in self._rename_presets:
+            combo.addItem(p.get("name", ""))
+
+        if has_virtual:
+            combo.setCurrentIndex(0)
+        else:
+            combo.setCurrentIndex(match_idx + (1 if has_virtual else 0))
+        combo.blockSignals(False)
+
+    def _update_rename_preset_combo_selection(self):
+        """Recalcula match y ajusta el combo sin emitir señales."""
+        if not self._rename_presets:
+            return  # combo muestra "(sin presets)"
+        combo = self._rename_preset_combo
+        combo.blockSignals(True)
+        match_idx = self._find_matching_rename_preset_index()
+        # Estado actual del combo: ¿tiene "----" en pos 0?
+        has_virtual = (combo.count() > 0
+                       and combo.itemText(0) == _RENAME_PRESET_PLACEHOLDER_NOMATCH)
+        if match_idx < 0:
+            # Necesitamos "----" en pos 0
+            if not has_virtual:
+                combo.insertItem(0, _RENAME_PRESET_PLACEHOLDER_NOMATCH)
+            combo.setCurrentIndex(0)
+        else:
+            # Sacar "----" si existía
+            if has_virtual:
+                combo.removeItem(0)
+            combo.setCurrentIndex(match_idx)
+        combo.blockSignals(False)
+
+    def _preset_index_from_combo_row(self, row):
+        """Convierte un row del combo al índice en self._rename_presets, o -1
+        si el row es un placeholder virtual."""
+        if not self._rename_presets:
+            return -1
+        combo = self._rename_preset_combo
+        if row < 0 or row >= combo.count():
+            return -1
+        text = combo.itemText(row)
+        if text == _RENAME_PRESET_PLACEHOLDER_NOMATCH:
+            return -1
+        if text == _RENAME_PRESET_PLACEHOLDER_EMPTY:
+            return -1
+        # Si hay virtual en pos 0, los presets reales empiezan en 1
+        if combo.count() > 0 and combo.itemText(0) == _RENAME_PRESET_PLACEHOLDER_NOMATCH:
+            return row - 1
+        return row
+
+    def _on_rename_preset_combo_changed(self, idx):
+        debug_print("[RenamePreset] combo_changed idx=%d text=%r applying=%s"
+                    % (idx,
+                       self._rename_preset_combo.itemText(idx) if idx >= 0 else "",
+                       self._rename_applying_preset))
+        preset_idx = self._preset_index_from_combo_row(idx)
+        if preset_idx < 0:
+            return  # placeholder, no aplica nada
+        preset = self._rename_presets[preset_idx]
+        self._apply_rename_preset(preset)
+
+    def _apply_rename_preset(self, preset):
+        """Setea los widgets desde el preset. Dispara autosave + refresh, pero el
+        flag _rename_applying_preset evita que se vuelva a recalcular el combo."""
+        self._rename_applying_preset = True
+        try:
+            self._rename_sr1_search.setText(preset.get("sr1_search", ""))
+            self._rename_sr1_replace.setText(preset.get("sr1_replace", ""))
+            self._rename_sr1_case.setChecked(
+                str(preset.get("sr1_case", "false")).lower() == "true"
+            )
+            self._rename_sr2_search.setText(preset.get("sr2_search", ""))
+            self._rename_sr2_replace.setText(preset.get("sr2_replace", ""))
+            self._rename_sr2_case.setChecked(
+                str(preset.get("sr2_case", "false")).lower() == "true"
+            )
+            d = preset.get("delim", "_")
+            self._rename_delim_combo.setCurrentIndex(1 if d == "." else 0)
+            try:
+                self._rename_digits_spin.setValue(int(preset.get("digits", "4")))
+            except Exception:
+                self._rename_digits_spin.setValue(4)
+        finally:
+            self._rename_applying_preset = False
+        # Tras aplicar el preset el combo ya muestra el preset correcto,
+        # pero por las dudas removemos un posible "----" que quedó arriba.
+        if (self._rename_preset_combo.count() > 0
+                and self._rename_preset_combo.itemText(0)
+                == _RENAME_PRESET_PLACEHOLDER_NOMATCH):
+            combo = self._rename_preset_combo
+            combo.blockSignals(True)
+            cur = combo.currentIndex()
+            combo.removeItem(0)
+            new_cur = max(0, cur - 1)
+            combo.setCurrentIndex(new_cur)
+            combo.blockSignals(False)
+
+    def _on_rename_save_preset_clicked(self):
+        debug_print("[RenamePreset] _on_rename_save_preset_clicked() inicio")
+        try:
+            name = rename_settings_mod.show_save_rename_preset_dialog(parent=self)
+        except Exception as e:
+            debug_print("[RenamePreset] show_save_rename_preset_dialog ERROR: %r"
+                        % e, level="error")
+            return
+        debug_print("[RenamePreset] dialog returned name=%r" % name)
+        if not name:
+            debug_print("[RenamePreset] sin nombre, abortando save")
+            return
+        new_preset = {"name": name}
+        new_preset.update(self._current_rename_preset_dict())
+        debug_print("[RenamePreset] new_preset=%r" % new_preset)
+        self._rename_presets.append(new_preset)
+        try:
+            rename_settings_mod.save_rename_presets(self._rename_presets)
+            debug_print("[RenamePreset] save_rename_presets OK, total=%d"
+                        % len(self._rename_presets))
+        except Exception as e:
+            debug_print("[RenamePreset] save_rename_presets ERROR: %r"
+                        % e, level="error")
+            return
+        # Releer del INI para verificar que se persistio
+        try:
+            verif = rename_settings_mod.load_rename_presets()
+            debug_print("[RenamePreset] verificacion load_rename_presets devolvio %d items"
+                        % len(verif))
+        except Exception as e:
+            debug_print("[RenamePreset] verificacion load ERROR: %r" % e, level="error")
+        # Reconstruir combo y seleccionar el preset recien agregado.
+        self._rebuild_rename_preset_combo(
+            force_select=len(self._rename_presets) - 1
+        )
+        debug_print("[RenamePreset] combo rebuild OK, count=%d cur_idx=%d cur_text=%r"
+                    % (self._rename_preset_combo.count(),
+                       self._rename_preset_combo.currentIndex(),
+                       self._rename_preset_combo.currentText()))
+
+    def _on_rename_preset_delete(self, row):
+        """Callback del trash icon del listview (row es el row del combo)."""
+        debug_print("[RenamePreset] _on_rename_preset_delete row=%d" % row)
+        preset_idx = self._preset_index_from_combo_row(row)
+        if preset_idx < 0:
+            return
+        del self._rename_presets[preset_idx]
+        rename_settings_mod.save_rename_presets(self._rename_presets)
+        self._rename_preset_combo.hidePopup()
+        self._rebuild_rename_preset_combo()
 
     def _update_rename_page(self):
         all_items = []

@@ -29,6 +29,10 @@ Permitir renombrado masivo con preview en vivo, de forma segura y modular.
   - `load_settings()`
   - `save_settings()`
   - `get_settings_path()`
+  - `load_rename_presets()`
+  - `save_rename_presets()`
+  - `show_save_rename_preset_dialog()`
+  - constante `PRESET_FIELDS`
 
 ## Tabla de preview
 
@@ -132,11 +136,106 @@ exactamente el ancho que tenía antes de existir las columnas 2 y 3 (~50% del an
   - `addSpacing(100)` para separar la columna 3 de la columna 2.
   - Separador vertical.
   - `addSpacing(20)` — separación entre el separador y el contenido de la columna 3.
-  - **Columna 3** = `col_extra` (stretch 0): botón `Clear / defaults` con estilo `_BTN_SMALL`
-    (mismo estilo que `Select All` / `Clear` / `Plates` del tab Import).
+  - **Columna 3** = `col_extra` (stretch 0). Contiene en orden:
+    1. Fila `Preset:` + `_rename_preset_combo` (dropdown con presets).
+    2. Botón `Save preset` con estilo `_BTN_SMALL`.
+    3. Botón `Clear / defaults` con estilo `_BTN_SMALL`
+       (mismo estilo que `Select All` / `Clear` / `Plates` del tab Import).
   - `addSpacing(_RENAME_COL3_RIGHT_PADDING)` (variable local marcada con `✅✅` en el código)
     para dejar un margen libre a la derecha y que la columna 3 no quede pegada al borde
     derecho de la ventana.
+
+## Presets de rename
+
+El dropdown `Preset:` permite guardar y aplicar combinaciones completas de los 4 steps.
+
+### Persistencia
+
+Los presets viven en el mismo INI de rename (`%APPDATA%\LGA\HieroTools\ImportShotsRename.ini`),
+en secciones `[RenamePreset_0]`, `[RenamePreset_1]`, ... Cada sección tiene los campos:
+
+- `name` — nombre visible en el combo.
+- `sr1_search`, `sr1_replace`, `sr1_case` — Step 1.
+- `sr2_search`, `sr2_replace`, `sr2_case` — Step 2.
+- `delim` — Step 3 (`_` o `.`).
+- `digits` — Step 4 (string del int).
+
+Funciones nuevas en `LGA_import_shots_rename_settings.py`:
+
+- `load_rename_presets()` — devuelve `list[dict]`.
+- `save_rename_presets(presets)` — sobrescribe todas las secciones `[RenamePreset_N]`.
+- `show_save_rename_preset_dialog(parent=None)` — diálogo modal con título "Guardar preset
+  de rename", barra divisoria, campo de texto y botones Cancelar/Guardar. Devuelve el nombre
+  o `None`. Estilo idéntico al de `show_save_preset_dialog` de transcode pero **sin** la
+  línea `WxH`.
+- Constante `PRESET_FIELDS` con los nombres de los 8 campos persistidos.
+
+### UI del combo
+
+Reusa por completo el patrón del combo `Destino:` de Transcode:
+
+- `_RenamePresetListView(_ResPresetListView)` y
+  `_RenamePresetDelegate(_ResPresetDelegate)` — sólo overridean `_is_deletable(text)` para
+  que TODOS los items sean deletables (con trash icon hover/click) excepto los placeholders
+  virtuales `----` y `(sin presets)`.
+- `_pix_trash` y `_pix_hover` reusan los mismos SVG en `LGA_NKS_Shared/icons/`.
+
+### Estados del dropdown
+
+- **Sin presets guardados**: el combo contiene un único item `(sin presets)` y está
+  deshabilitado (`setEnabled(False)`), no se puede abrir.
+- **Match con preset**: si los valores actuales de los 4 steps coinciden exactamente con un
+  preset guardado, ese preset queda seleccionado.
+- **Sin match (con presets existentes)**: se inserta un item virtual `----` en la posición 0
+  del combo y queda seleccionado. El item `----` no es deletable y elegirlo desde el combo
+  no hace nada.
+
+### Comparación de match
+
+`_preset_matches_current(preset)` compara campo a campo los 8 valores de `PRESET_FIELDS`
+contra el snapshot actual (`_current_rename_preset_dict()`). La comparación es exacta de
+strings (incluyendo `case_sensitive` como `"true"`/`"false"` y `digits` como string del int).
+
+### Aplicar un preset
+
+`_on_rename_preset_combo_changed(idx)` → `_apply_rename_preset(preset)`:
+
+- Setea los 8 widgets desde el preset.
+- Cada `setText` / `setChecked` / `setCurrentIndex` / `setValue` dispara su señal, que está
+  conectada a `_on_rename_settings_changed` (autosave + refresh del preview).
+- Se usa la bandera `self._rename_applying_preset = True` durante el apply para que
+  `_on_rename_settings_changed` NO recalcule el combo (evita loops).
+- Tras aplicar, se quita el item virtual `----` si estaba en posición 0.
+
+### Guardar un preset
+
+`_on_rename_save_preset_clicked()`:
+
+1. Abre `show_save_rename_preset_dialog`.
+2. Si el usuario confirma, arma el dict con `name` + snapshot de los 8 campos actuales.
+3. Hace append a `self._rename_presets` y `save_rename_presets`.
+4. Reconstruye el combo con `_rebuild_rename_preset_combo(force_select=N-1)` para dejar
+   seleccionado el preset recién guardado.
+
+### Borrar un preset
+
+El trash icon dispara `_on_rename_preset_delete(row)`:
+
+1. Convierte el row del combo al índice de `self._rename_presets` con
+   `_preset_index_from_combo_row` (descontando `----` si estaba arriba).
+2. Elimina del INI.
+3. `hidePopup()` (mismo patrón que el combo de transcode, para que Qt recalcule el alto
+   del desplegable sin filas vacías).
+4. `_rebuild_rename_preset_combo()` que vuelve a evaluar el match contra el estado actual:
+   si el estado actual matchea otro preset → lo selecciona; si no → muestra `----` (o
+   `(sin presets)` si quedó vacío).
+
+### Sincronización con cambios manuales
+
+Cada vez que el usuario edita un widget de los 4 steps, `_on_rename_settings_changed` llama
+a `_update_rename_preset_combo_selection()` (excepto si está activa la bandera
+`_rename_applying_preset`). Ese método ajusta el combo (con señales bloqueadas) para mostrar
+el preset que matchea o insertar/quitar el item virtual `----` según corresponda.
 
 ### Botón `Clear / defaults`
 
