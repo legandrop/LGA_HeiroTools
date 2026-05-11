@@ -682,6 +682,7 @@ keep_ar = true
 match_dim = 0           ; 0 = "Match target width", 1 = "Match target height"
 deana = false
 deana_par = 2.0
+even_dims = true        ; true = forzar dimensiones pares (resta 1 px si queda impar)
 
 [Originals]
 move = false

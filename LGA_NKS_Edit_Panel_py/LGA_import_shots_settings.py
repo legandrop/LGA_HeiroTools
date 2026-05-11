@@ -37,6 +37,7 @@ DEFAULTS_RES = {
     "match_dim":    "0",
     "deana":        "false",
     "deana_par":    "2.0",
+    "even_dims":    "true",
 }
 DEFAULTS_ORIG = {
     "move":   "false",

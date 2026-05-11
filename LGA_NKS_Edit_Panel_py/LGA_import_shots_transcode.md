@@ -62,7 +62,8 @@ con `SHOTNAME_COLOR`. La celda pasa de `QTableWidgetItem` plano a `setCellWidget
 | `✗ Error` | Conversión fallida | rojo `#a06060` |
 
 La columna Destino y la columna Estado se recalculan en vivo cuando cambian:
-DWAA on/off, channels, preset de resolucion, custom W×H, **checkbox de la fila**.
+DWAA on/off, channels, preset de resolucion, custom W×H, preserve AR, match_dim,
+desanamorfizado, forzar pares, **checkbox de la fila**.
 
 **Interacción con la tabla:**
 - **Click simple** en cualquier columna (excepto col 0/1): activa/desactiva el checkbox de la fila.
@@ -93,12 +94,10 @@ El bit depth y channels se leen via `oiiotool --info -v` parseando la linea
 |---------|---------|-------|
 | Destino (`QComboBox`) | `Original` | Presets cargados desde INI. Secciones `[AR]` en dorado. Ícono 🗑 a la derecha solo en presets borrables (excluye siempre `Original`, `Timeline ...` y `Custom...`, incluso cuando `Original` muestra AR). Click en ícono borra el preset del INI. Presets por defecto: `Original`, `Timeline  WxH  [AR]` (resolución del timeline activo), `2K — 2048×1152 [16:9]`, `UHD — 3840×2160 [16:9]`, `4K — 4096×2304 [16:9]`, `Custom...`. Con source disponible: muestra `→ WxH [AR_real]` calculado según PAR y match_dim |
 | Custom W × H + `[Save preset]` | `2048 × 1152` | Solo visible si preset = `Custom...`. Spinboxes de 88 px de ancho (suficiente para mostrar 4 dígitos completos). El botón "Save preset" usa estilo `_BTN_SMALL` (igual que los botones de selección rápida). Abre un diálogo para nombrar y guardar el preset al INI. |
-| ☑ Preserve aspect ratio | on | **Comportamiento según preset:** |
-| | | — **Presets fijos** (2K/UHD/4K): muestra "Dimensión que manda" (match width/height) |
-| | | — **Custom:** oculta "Dimensión que manda"; vincula W↔H dinámicamente. La última dimensión editada es el "master"; la otra se recalcula por ítem según su AR de source |
-| Dimensión que manda | `Match target width` | Solo visible cuando PAR activo Y preset NO es Custom |
-| ☑ Desanamorfizar (Pixel Aspect Ratio) | off | Si activo, aparece el selector de PAR fuente (`1.3`, `1.5`, `1.8`, `2.0`). El ancho destino = `src_w × PAR`. El `PixelAspectRatio` de salida se fuerza a `1.0` en el manifest. La columna Destino muestra PAR `(1)`. |
-| PAR fuente (`QComboBox`) | `2.0` | Visible solo si Desanamorfizar activo |
+| ☑ Preserve aspect ratio | on | Comparte fila con **Dimensión que manda**. Si el usuario re-activa este checkbox estando en `Custom...` con W/H arbitrarios, se corrige automáticamente la dimensión derivada según match_dim. |
+| Dimensión que manda | `Match target width` | Visible cuando Preserve AR está activo (también en `Custom...`). Define qué eje se conserva y cuál se recalcula para mantener AR. |
+| ☑ Desanamorfizar (Pixel Aspect Ratio) + PAR fuente | off + `2.0` | El combo `PAR fuente` (`1.3`, `1.5`, `1.8`, `2.0`) aparece inline, a la derecha del checkbox. Si está activo: ancho destino = `target_w × PAR`, `PixelAspectRatio` de salida se fuerza a `1.0` en el manifest y la columna Destino muestra PAR `(1)`. |
+| ☑ Forzar dimensiones pares (recomendado) | on | Si el resultado final tiene ancho/alto impar, resta 1 px en esa dimensión (ej: `4139×1280` → `4138×1280`). Se aplica en preview y en el cálculo final de transcode. |
 | Filtro resampling | `lanczos3` | `cubic`, `box` (solo aplica si hay resize) |
 > **HDR-safe resize automático:** cuando hay resize activo, `LGA_EXR_Convert.py` aplica
 > automáticamente `--rangecompress → --resize:highlightcomp=1 → --rangeexpand` (Opción A,
@@ -133,19 +132,26 @@ special = custom
 - `w` + `h` → preset fijo (permite trash icon y borrado)  
 - Los presets `original` y `custom` son invariables (sin trash icon)
 
-#### Lógica Custom + Preserve AR
+#### Lógica Custom + Preserve AR (con match_dim visible)
 
 ```
-_custom_master: "w" | "h"  — última dimensión editada por el usuario
 _custom_ar_updating: bool  — flag para evitar recursión en valueChanged
 
-_on_custom_w_changed() → si PAR on: calcula H = W * src_h/src_w (primer EXR)
-_on_custom_h_changed() → si PAR on: calcula W = H * src_w/src_h (primer EXR)
+_on_keep_ar_changed() con preset=custom, al pasar OFF→ON:
+    ajusta automáticamente la dimensión derivada según match_dim
 
-_current_target_res(src_w, src_h) con preset=custom y PAR on:
-    if _custom_master == "w": tw = spinner_w; th = round(tw * src_h/src_w)
-    if _custom_master == "h": th = spinner_h; tw = round(th * src_w/src_h)
-    → resultado diferente por ítem (cada plate mantiene su propio AR)
+_on_custom_w_changed() / _on_custom_h_changed() con preserve on:
+    sincroniza W/H usando match_dim:
+      - Match target width  → H = round(W * src_h/src_w)
+      - Match target height → W = round(H * src_w/src_h)
+
+_current_target_res(src_w, src_h) con preset=custom y preserve on:
+    aplica la misma regla de match_dim por ítem (mantiene AR source)
+
+post-proceso de resolución final (preview + run):
+    1) check de upscale (si corresponde, vuelve a source)
+    2) desanamorfizado (si está activo)
+    3) forzar dimensiones pares (si está activo)
 ```
 
 ### Opciones — Manejo de originales (fila inferior)

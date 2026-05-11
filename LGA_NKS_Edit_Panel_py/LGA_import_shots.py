@@ -1,13 +1,15 @@
 """
 ____________________________________________________________________
 
-  LGA_import_shots v1.15 | Lega
+  LGA_import_shots v1.16 | Lega
 
   Importa shots al proyecto de Nuke Studio.
   Analiza la carpeta _input del shot, detecta plates/editrefs/seqrefs
   y versiones en publish, y los coloca en el timeline en la posicion
   alfabeticamente correcta.
 
+  v1.16: Transcode Plates: Forzar dimensiones pares (recomendado) ahora visible
+         en el tab Transcode. Y arreglo de UI
   v1.15: Transcode Plates: DWAA usa compression fija 45 sin slider/spinbox.
          Upscale bloqueado siempre; se elimina el checkbox "Aplicar solo si
          la resolucion origen es mayor".
@@ -1720,7 +1722,6 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         # Custom resolution + Preserve AR
         self._custom_ar_updating = False   # evita recursión al actualizar spinboxes
-        self._custom_master = "w"          # "w" | "h" — última dimensión editada
 
         # FPS del timeline (para tooltips de duración en segundos)
         try:
@@ -4110,18 +4111,22 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._convert_custom_w.valueChanged.connect(self._on_custom_w_changed)
         self._convert_custom_h.valueChanged.connect(self._on_custom_h_changed)
 
-        # Preserve aspect ratio — siempre visible
+        # Preserve aspect ratio + Dimensión que manda (misma fila)
+        keep_ar_row_widget = QtWidgets.QWidget()
+        keep_ar_row = QtWidgets.QHBoxLayout(keep_ar_row_widget)
+        keep_ar_row.setContentsMargins(0, 0, 0, 0)
+        keep_ar_row.setSpacing(8)
         self._convert_keep_ar = QtWidgets.QCheckBox("Preserve aspect ratio")
         self._convert_keep_ar.setChecked(True)
         self._convert_keep_ar.setStyleSheet("color:#a7a7a7; padding:2px;")
         self._convert_keep_ar.stateChanged.connect(self._on_keep_ar_changed)
-        col_res.addWidget(self._convert_keep_ar)
+        keep_ar_row.addWidget(self._convert_keep_ar)
 
-        # Match dimension (visible solo si PAR activo)
         self._match_dim_widget = QtWidgets.QWidget()
         md_row = QtWidgets.QHBoxLayout(self._match_dim_widget)
-        md_row.setContentsMargins(16, 0, 0, 0)
-        md_lbl = QtWidgets.QLabel("Dimensión que manda:")
+        md_row.setContentsMargins(0, 0, 0, 0)
+        md_row.setSpacing(6)
+        md_lbl = QtWidgets.QLabel("|  Dimensión que manda:")
         md_lbl.setStyleSheet("color:#a7a7a7;")
         md_row.addWidget(md_lbl)
         self._convert_match_dim = _ArrowComboBox()
@@ -4130,22 +4135,27 @@ class ImportShotDialog(QtWidgets.QDialog):
         for opt in ("Match target width", "Match target height"):
             self._convert_match_dim.addItem(opt)
         self._convert_match_dim.setFixedWidth(180)
-        self._convert_match_dim.currentIndexChanged.connect(self._refresh_convert_destinos)
+        self._convert_match_dim.currentIndexChanged.connect(self._on_match_dim_changed)
         md_row.addWidget(self._convert_match_dim)
-        md_row.addStretch()
-        col_res.addWidget(self._match_dim_widget)
+        keep_ar_row.addWidget(self._match_dim_widget)
+        keep_ar_row.addStretch()
+        col_res.addWidget(keep_ar_row_widget)
+        self._keep_ar_prev_state = self._convert_keep_ar.isChecked()
 
-        # Desanamorfizar (bake desqueeze)
+        # Desanamorfizar (PAR fuente inline, a la derecha del checkbox)
+        deana_main_row = QtWidgets.QHBoxLayout()
+        deana_main_row.setContentsMargins(0, 0, 0, 0)
+        deana_main_row.setSpacing(8)
         self._convert_deana_chk = QtWidgets.QCheckBox("Desanamorfizar (Pixel Aspect Ratio)")
         self._convert_deana_chk.setChecked(False)
         self._convert_deana_chk.setStyleSheet("color:#a7a7a7; padding:2px;")
         self._convert_deana_chk.stateChanged.connect(self._on_deana_chk_changed)
-        col_res.addWidget(self._convert_deana_chk)
-
+        deana_main_row.addWidget(self._convert_deana_chk)
         self._deana_par_widget = QtWidgets.QWidget()
         deana_row = QtWidgets.QHBoxLayout(self._deana_par_widget)
-        deana_row.setContentsMargins(16, 0, 0, 0)
-        deana_lbl = QtWidgets.QLabel("PAR fuente:")
+        deana_row.setContentsMargins(0, 0, 0, 0)
+        deana_row.setSpacing(6)
+        deana_lbl = QtWidgets.QLabel("|  PAR fuente:")
         deana_lbl.setStyleSheet("color:#a7a7a7;")
         deana_row.addWidget(deana_lbl)
         self._convert_deana_par = _ArrowComboBox()
@@ -4158,9 +4168,22 @@ class ImportShotDialog(QtWidgets.QDialog):
             lambda *_: self._refresh_convert_destinos()
         )
         deana_row.addWidget(self._convert_deana_par)
-        deana_row.addStretch()
         self._deana_par_widget.hide()
-        col_res.addWidget(self._deana_par_widget)
+        deana_main_row.addWidget(self._deana_par_widget)
+        deana_main_row.addStretch()
+        col_res.addLayout(deana_main_row)
+
+        # Dimensiones pares (opción recomendada para evitar incompatibilidades)
+        self._convert_even_dims_chk = QtWidgets.QCheckBox("Forzar dimensiones pares (recomendado)")
+        self._convert_even_dims_chk.setChecked(True)
+        self._convert_even_dims_chk.setStyleSheet("color:#a7a7a7; padding:2px;")
+        self._convert_even_dims_chk.setToolTip(
+            "Si el resultado queda con ancho o alto impar, resta 1 px en esa dimensión."
+        )
+        self._convert_even_dims_chk.stateChanged.connect(
+            lambda *_: self._refresh_convert_destinos()
+        )
+        col_res.addWidget(self._convert_even_dims_chk)
 
         flt_row = QtWidgets.QHBoxLayout()
         flt_lbl = QtWidgets.QLabel("Filtro resampling:")
@@ -4270,6 +4293,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             (self._convert_match_dim,    "currentIndexChanged"),
             (self._convert_deana_chk,    "stateChanged"),
             (self._convert_deana_par,    "currentIndexChanged"),
+            (self._convert_even_dims_chk, "stateChanged"),
             (self._delete_originals_chk, "stateChanged"),
         ]:
             getattr(_w, _sig).connect(self._save_all_settings)
@@ -5213,21 +5237,25 @@ class ImportShotDialog(QtWidgets.QDialog):
         preset = self._res_presets[idx][1] if 0 <= idx < len(self._res_presets) else None
         self._custom_res_widget.setVisible(preset == "custom")
         self._save_preset_btn.setVisible(preset == "custom")
+        if preset == "custom" and self._convert_keep_ar.isChecked():
+            self._sync_custom_res_to_source_ar()
         self._update_match_dim_visibility()
         self._refresh_convert_destinos()
 
-    def _on_keep_ar_changed(self):
+    def _on_keep_ar_changed(self, _state=None):
+        now_enabled = self._convert_keep_ar.isChecked()
+        was_enabled = getattr(self, "_keep_ar_prev_state", now_enabled)
+        if now_enabled and not was_enabled:
+            # Si veníamos de custom libre (W/H arbitrarios), al activar preserve
+            # normalizamos usando "Dimensión que manda".
+            self._sync_custom_res_to_source_ar()
+        self._keep_ar_prev_state = now_enabled
         self._update_match_dim_visibility()
         self._refresh_convert_destinos()
 
     def _update_match_dim_visibility(self):
-        """Muestra 'Dimensión que manda' solo cuando PAR activo y preset NO es Custom."""
-        idx = self._res_combo.currentIndex()
-        preset_val = self._res_presets[idx][1] if 0 <= idx < len(self._res_presets) else None
-        is_custom = (preset_val == "custom")
-        self._match_dim_widget.setVisible(
-            self._convert_keep_ar.isChecked() and not is_custom
-        )
+        """Muestra 'Dimensión que manda' cuando Preserve aspect ratio está activo."""
+        self._match_dim_widget.setVisible(self._convert_keep_ar.isChecked())
 
     def _get_representative_res(self):
         """Devuelve (src_w, src_h) del primer EXR disponible, o (None, None)."""
@@ -5237,38 +5265,56 @@ class ImportShotDialog(QtWidgets.QDialog):
                     return it["width"], it["height"]
         return None, None
 
+    def _is_custom_res_selected(self):
+        idx = self._res_combo.currentIndex()
+        return (
+            0 <= idx < len(self._res_presets)
+            and self._res_presets[idx][1] == "custom"
+        )
+
+    def _match_target_is_width(self):
+        return self._convert_match_dim.currentIndex() == 0
+
+    def _sync_custom_res_to_source_ar(self):
+        """En preset Custom + Preserve AR, ajusta la dimensión derivada según match_dim."""
+        if not self._is_custom_res_selected() or not self._convert_keep_ar.isChecked():
+            return
+        src_w, src_h = self._get_representative_res()
+        if not (src_w and src_h):
+            return
+
+        self._custom_ar_updating = True
+        try:
+            if self._match_target_is_width():
+                tw = self._convert_custom_w.value()
+                new_h = max(1, int(round(tw * src_h / float(src_w))))
+                self._convert_custom_h.setValue(new_h)
+            else:
+                th = self._convert_custom_h.value()
+                new_w = max(1, int(round(th * src_w / float(src_h))))
+                self._convert_custom_w.setValue(new_w)
+        finally:
+            self._custom_ar_updating = False
+
     def _on_custom_w_changed(self):
-        """Cuando el usuario edita el width en Custom, actualiza height si PAR activo."""
+        """Sincroniza resolución Custom con AR cuando Preserve está activo."""
         if self._custom_ar_updating:
             return
-        self._custom_master = "w"
-        idx = self._res_combo.currentIndex()
-        is_custom = (0 <= idx < len(self._res_presets)
-                     and self._res_presets[idx][1] == "custom")  # noqa: E501
-        if is_custom and self._convert_keep_ar.isChecked():
-            src_w, src_h = self._get_representative_res()
-            if src_w and src_h:
-                new_h = int(round(self._convert_custom_w.value() * src_h / float(src_w)))
-                self._custom_ar_updating = True
-                self._convert_custom_h.setValue(max(1, new_h))
-                self._custom_ar_updating = False
+        if self._is_custom_res_selected() and self._convert_keep_ar.isChecked():
+            self._sync_custom_res_to_source_ar()
         self._refresh_convert_destinos()
 
     def _on_custom_h_changed(self):
-        """Cuando el usuario edita el height en Custom, actualiza width si PAR activo."""
+        """Sincroniza resolución Custom con AR cuando Preserve está activo."""
         if self._custom_ar_updating:
             return
-        self._custom_master = "h"
-        idx = self._res_combo.currentIndex()
-        is_custom = (0 <= idx < len(self._res_presets)
-                     and self._res_presets[idx][1] == "custom")  # noqa: E501
-        if is_custom and self._convert_keep_ar.isChecked():
-            src_w, src_h = self._get_representative_res()
-            if src_w and src_h:
-                new_w = int(round(self._convert_custom_h.value() * src_w / float(src_h)))
-                self._custom_ar_updating = True
-                self._convert_custom_w.setValue(max(1, new_w))
-                self._custom_ar_updating = False
+        if self._is_custom_res_selected() and self._convert_keep_ar.isChecked():
+            self._sync_custom_res_to_source_ar()
+        self._refresh_convert_destinos()
+
+    def _on_match_dim_changed(self, *_):
+        if self._convert_keep_ar.isChecked():
+            self._sync_custom_res_to_source_ar()
         self._refresh_convert_destinos()
 
     def _current_target_res(self, src_w, src_h):
@@ -5276,9 +5322,9 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         - Original:  devuelve dimensiones del origen (sin cambio).
         - Preset fijo: si PAR activo, ajusta la dimensión secundaria.
-        - Custom:    si PAR activo, la dimensión "master" (última editada)
-                     se mantiene y la otra se recalcula por ítem usando el AR
-                     del source; si PAR desactivado, usa los spinboxes tal cual.
+        - Custom:    si PAR activo, "Dimensión que manda" define qué eje
+                     se respeta y el otro se recalcula por ítem según AR source;
+                     si PAR desactivado, usa los spinboxes tal cual.
         """
         idx = self._res_combo.currentIndex()
         preset = self._res_presets[idx][1] if 0 <= idx < len(self._res_presets) else None
@@ -5296,8 +5342,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             return tw, th
         if preset == "custom":
             if self._convert_keep_ar.isChecked() and src_w and src_h:
-                # La dimensión master determina; la otra se calcula por ítem
-                if self._custom_master == "w":
+                if self._match_target_is_width():
                     tw = self._convert_custom_w.value()
                     th = int(round(tw * src_h / float(src_w)))
                 else:
@@ -5347,6 +5392,7 @@ class ImportShotDialog(QtWidgets.QDialog):
                             else:
                                 tw = int(round(th * src_w / float(src_h)))
                         tw, th = self._apply_deana_if_active(tw, th)
+                        tw, th = self._apply_even_dims_if_active(tw, th)
                         comp_ar = _ar_str(tw, th)
                         ar_part = ("  [%s]" % comp_ar) if comp_ar else ""
                         self._res_combo.setItemText(
@@ -5370,6 +5416,7 @@ class ImportShotDialog(QtWidgets.QDialog):
                 else:
                     tw = int(round(th * src_w / float(src_h)))
             tw, th = self._apply_deana_if_active(tw, th)
+            tw, th = self._apply_even_dims_if_active(tw, th)
             computed_ar = _ar_str(tw, th)
             base = ("%s  [%s]" % (label, preset_ar)) if preset_ar else label
             ar_part = ("  [%s]" % computed_ar) if computed_ar else ""
@@ -5446,6 +5493,9 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._convert_deana_chk.setChecked(res.get("deana", "false").lower() == "true")
         dp_idx = self._convert_deana_par.findText(res.get("deana_par", "2.0"))
         self._convert_deana_par.setCurrentIndex(max(0, dp_idx))
+        self._convert_even_dims_chk.setChecked(
+            res.get("even_dims", "true").lower() == "true"
+        )
 
         # Originals (solo si no estamos en test mode)
         if not Transcode_TEST_Mode:
@@ -5468,6 +5518,7 @@ class ImportShotDialog(QtWidgets.QDialog):
                 "match_dim":    str(self._convert_match_dim.currentIndex()),
                 "deana":        str(self._convert_deana_chk.isChecked()).lower(),
                 "deana_par":    self._convert_deana_par.currentText(),
+                "even_dims":    str(self._convert_even_dims_chk.isChecked()).lower(),
             },
             "originals": {
                 "delete": str(self._delete_originals_chk.isChecked()).lower(),
@@ -5553,6 +5604,17 @@ class ImportShotDialog(QtWidgets.QDialog):
             tw  = int(round(tw * par))
         return tw, th
 
+    def _apply_even_dims_if_active(self, tw, th):
+        """Si está activo, corrige dimensiones impares restando 1 px (mínimo 1)."""
+        if not (hasattr(self, "_convert_even_dims_chk")
+                and self._convert_even_dims_chk.isChecked()):
+            return tw, th
+        if tw and (tw % 2) and tw > 1:
+            tw -= 1
+        if th and (th % 2) and th > 1:
+            th -= 1
+        return tw, th
+
     def _target_compression(self, src_comp):
         return "dwaa" if self._convert_dwaa_chk.isChecked() else (src_comp or "—")
 
@@ -5627,6 +5689,7 @@ class ImportShotDialog(QtWidgets.QDialog):
 
             # Aplicar desanamorfizado DESPUÉS del check de upscale
             tw, th = self._apply_deana_if_active(tw, th)
+            tw, th = self._apply_even_dims_if_active(tw, th)
 
             # ── Columna 5: Destino ────────────────────────────────────────
             dest_fg = "#555555" if is_upscale_blocked else "#a7a7a7"
@@ -5872,6 +5935,7 @@ class ImportShotDialog(QtWidgets.QDialog):
                     tw, th = sw, sh
             # Aplicar desanamorfizado DESPUÉS del check de upscale
             tw, th = self._apply_deana_if_active(tw, th)
+            tw, th = self._apply_even_dims_if_active(tw, th)
             job_sequences.append((row_i, item, tw, th))
 
         if not job_sequences:
