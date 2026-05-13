@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_import_shots v1.16 | Lega
+  LGA_import_shots v1.17 | Lega
 
   Importa shots al proyecto de Nuke Studio.
   Analiza la carpeta _input del shot, detecta plates/editrefs/seqrefs
