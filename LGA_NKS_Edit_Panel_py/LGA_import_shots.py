@@ -8,6 +8,8 @@ ____________________________________________________________________
   y versiones en publish, y los coloca en el timeline en la posicion
   alfabeticamente correcta.
 
+
+  v1.17: Si existe el shot en el timeline, permite igualmente continuar
   v1.16: Transcode Plates: Forzar dimensiones pares (recomendado) ahora visible
          en el tab Transcode. Y arreglo de UI
   v1.15: Transcode Plates: DWAA usa compression fija 45 sin slider/spinbox.
@@ -1088,6 +1090,66 @@ def _show_tool_message(parent, title, message):
     layout.addLayout(btn_row)
 
     return dialog.exec_()
+
+
+def _show_shot_exists_confirm(shot_name):
+    """Muestra aviso de shot duplicado con opcion de continuar. Retorna True si el usuario elige continuar."""
+    dialog = QtWidgets.QDialog(None)
+    dialog.setWindowTitle("Import Shot")
+    dialog.setModal(True)
+    dialog.setMinimumWidth(440)
+    dialog.setStyleSheet(
+        _DIALOG_STYLE
+        + """
+        QLabel#ToolMessageTitle {
+            color: #CCCCCC;
+            font-size: 15px;
+            font-weight: bold;
+        }
+        QLabel#ToolMessageBody {
+            color: #A7A7A7;
+            font-size: 12px;
+            line-height: 1.35;
+        }
+        """
+    )
+
+    layout = QtWidgets.QVBoxLayout(dialog)
+    layout.setContentsMargins(18, 16, 18, 16)
+    layout.setSpacing(12)
+
+    title_lbl = QtWidgets.QLabel("Import Shot")
+    title_lbl.setObjectName("ToolMessageTitle")
+    layout.addWidget(title_lbl)
+
+    body_lbl = QtWidgets.QLabel(
+        "El shot '%s' ya existe en el timeline.\n\n"
+        "Podés continuar de todas formas si querés importarlo como duplicado." % shot_name
+    )
+    body_lbl.setObjectName("ToolMessageBody")
+    body_lbl.setWordWrap(True)
+    layout.addWidget(body_lbl)
+
+    btn_row = QtWidgets.QHBoxLayout()
+    btn_row.addStretch()
+
+    cancel_btn = QtWidgets.QPushButton("Cancel")
+    cancel_btn.setMinimumWidth(90)
+    cancel_btn.setStyleSheet(_BTN_CANCEL)
+    cancel_btn.clicked.connect(dialog.reject)
+    btn_row.addWidget(cancel_btn)
+
+    btn_row.addSpacing(8)
+
+    continue_btn = QtWidgets.QPushButton("Continue anyway")
+    continue_btn.setMinimumWidth(120)
+    continue_btn.setStyleSheet(_BTN_PRIMARY)
+    continue_btn.clicked.connect(dialog.accept)
+    btn_row.addWidget(continue_btn)
+
+    layout.addLayout(btn_row)
+
+    return dialog.exec_() == QtWidgets.QDialog.Accepted
 
 
 def _section_label(text):
@@ -6373,14 +6435,11 @@ def main():
 
     # Verificar si ya existe
     if _shot_exists_in_timeline(seq, shot_name, shot_root):
-        _show_tool_message(
-            None,
-            "Import Shot",
-            "El shot '%s' ya existe en el timeline.\n\n"
-            "No se puede importar un shot duplicado." % shot_name,
-        )
-        debug_print("Aborted — shot already exists: %s" % shot_name, level="warning")
-        return
+        confirm = _show_shot_exists_confirm(shot_name)
+        if not confirm:
+            debug_print("Aborted — shot already exists: %s" % shot_name, level="warning")
+            return
+        debug_print("User chose to continue despite existing shot: %s" % shot_name, level="warning")
 
     # Analizar carpeta
     debug_print("Scanning _input...")
