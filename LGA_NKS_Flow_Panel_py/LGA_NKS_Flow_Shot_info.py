@@ -1149,7 +1149,7 @@ class GUIWindow(QWidget):
         self.scroll_content.setMinimumWidth(0)
         self.scroll_content.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.scroll_layout = QVBoxLayout(self.scroll_content)
-        self.scroll_layout.setContentsMargins(16, 12, 16, 12)
+        self.scroll_layout.setContentsMargins(12, 12, 12, 12)
         self.scroll_layout.setSpacing(16)
         self.scroll_layout.setAlignment(Qt.AlignTop)
 
@@ -1283,7 +1283,7 @@ class GUIWindow(QWidget):
         section.setMinimumWidth(0)
         section.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         sl = QVBoxLayout(section)
-        sl.setContentsMargins(16, 8, 12, 8)
+        sl.setContentsMargins(12, 8, 8, 8)
         sl.setSpacing(0)
 
         author = (version.get("created_by") or "").strip()
@@ -1298,7 +1298,7 @@ class GUIWindow(QWidget):
         title_label = QLabel(title_html)
         title_label.setObjectName("flowVersionDescriptionTitle")
         title_label.setTextFormat(Qt.RichText)
-        self._configure_wrapping_label(title_label, extra_width=28)
+        self._configure_wrapping_label(title_label, extra_width=20)
         sl.addWidget(title_label)
         sl.addSpacing(2)
 
@@ -1312,8 +1312,8 @@ class GUIWindow(QWidget):
         content_label = QLabel(content_html)
         content_label.setObjectName("flowVersionDescriptionContent")
         content_label.setTextFormat(Qt.RichText)
-        self._configure_wrapping_label(content_label, extra_width=28)
-        content_label.setContentsMargins(16, 0, 0, 0)
+        self._configure_wrapping_label(content_label, extra_width=20)
+        content_label.setContentsMargins(12, 0, 0, 0)
         sl.addWidget(content_label)
 
         return section
@@ -1324,7 +1324,7 @@ class GUIWindow(QWidget):
         section.setMinimumWidth(0)
         section.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         sl = QVBoxLayout(section)
-        sl.setContentsMargins(8, 0, 8, 0)
+        sl.setContentsMargins(6, 0, 6, 0)
         sl.setSpacing(4)
 
         for comment in comments:
@@ -1344,7 +1344,7 @@ class GUIWindow(QWidget):
         w.setMinimumWidth(0)
         w.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         wl = QVBoxLayout(w)
-        wl.setContentsMargins(24, 0, 0, 8)
+        wl.setContentsMargins(18, 0, 0, 8)
         wl.setSpacing(0)
 
         author = (comment.get("user") or "").strip()
@@ -1366,7 +1366,7 @@ class GUIWindow(QWidget):
         header_label = QLabel(header_html)
         header_label.setObjectName("flowVersionCommentHeader")
         header_label.setTextFormat(Qt.RichText)
-        self._configure_wrapping_label(header_label, extra_width=40)
+        self._configure_wrapping_label(header_label, extra_width=30)
         header_label.setContentsMargins(0, 8, 0, 0)
         wl.addWidget(header_label)
         wl.addSpacing(6)
@@ -1378,8 +1378,8 @@ class GUIWindow(QWidget):
             content_label = QLabel(content_html)
             content_label.setObjectName("flowVersionCommentContent")
             content_label.setTextFormat(Qt.RichText)
-            self._configure_wrapping_label(content_label, extra_width=40)
-            content_label.setContentsMargins(16, 0, 0, 0)
+            self._configure_wrapping_label(content_label, extra_width=30)
+            content_label.setContentsMargins(12, 0, 0, 0)
             wl.addWidget(content_label)
 
         # Attachments con frame info
@@ -1416,7 +1416,7 @@ class GUIWindow(QWidget):
         thumbs_w = QWidget()
         thumbs_w.setObjectName("flowVersionCommentThumbnails")
         tl = QHBoxLayout(thumbs_w)
-        tl.setContentsMargins(16, 8, 0, 8)
+        tl.setContentsMargins(12, 8, 0, 8)
         tl.setSpacing(8)
 
         valid_idx = 0
