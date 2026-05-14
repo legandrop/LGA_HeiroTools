@@ -1,11 +1,12 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_Shot_info v1.89 | Lega
+  LGA_NKS_Flow_Shot_info v1.90 | Lega
 
   Imprime informacion del shot y las versiones de la task seleccionada
   (comp, roto o cleanup) en el playhead.
 
+  v1.90: Wrap de textos sin scroll horizontal y resaltado de comentarios de playlist.
   v1.89: Identacion comentarios, comentarios de playlist, colores de nombres de usuario
   v1.88: UI unificada con la de PipeSync (FlowNotesPopover).
          - Titulo: shot_code | task_type | assignee.
@@ -218,6 +219,7 @@ COLORS = {
     "txt_desc_title": "#d8d8d8",
     "txt_desc_meta": "#b8b8b8",
     "txt_body": "#909090",
+    "txt_playlist": "#ffcc33",
     "attachment_label_bg": "#2D2A26",
     "attachment_label_fg": "#8B7355",
 }
@@ -453,6 +455,17 @@ def _user_name_span(user_name):
     if not safe:
         return ""
     return f"<span style='color: {_get_user_text_color(user_name)};'>{safe}</span>"
+
+
+def _playlist_meta_span(playlist_name):
+    """Texto HTML para metadata de comentarios que vienen desde una playlist."""
+    safe_name = _html_escape((playlist_name or "").strip())
+    playlist_word = (
+        f"<span style='color: {COLORS['txt_playlist']}; font-weight: 800;'>playlist</span>"
+    )
+    if safe_name:
+        return f"{playlist_word}: {safe_name}"
+    return playlist_word
 
 
 def _parse_pipesync_datetime(value):
@@ -1101,6 +1114,7 @@ class GUIWindow(QWidget):
     def __init__(self, hiero_ops, parent=None):
         super(GUIWindow, self).__init__(parent)
         self.hiero_ops = hiero_ops
+        self._wrapping_labels = []
         self.initUI()
 
     def initUI(self):
@@ -1120,6 +1134,7 @@ class GUIWindow(QWidget):
         header_layout.setContentsMargins(16, 12, 12, 12)
         self.title_label = QLabel("")
         self.title_label.setObjectName("flowNotesTitle")
+        self._configure_wrapping_label(self.title_label)
         header_layout.addWidget(self.title_label, 1)
         main_layout.addWidget(self.header_widget)
 
@@ -1127,9 +1142,12 @@ class GUIWindow(QWidget):
         self.scroll_area = QScrollArea()
         self.scroll_area.setObjectName("flowNotesScrollArea")
         self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
         self.scroll_content = QWidget()
         self.scroll_content.setObjectName("flowNotesScrollContent")
+        self.scroll_content.setMinimumWidth(0)
+        self.scroll_content.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.scroll_layout = QVBoxLayout(self.scroll_content)
         self.scroll_layout.setContentsMargins(16, 12, 16, 12)
         self.scroll_layout.setSpacing(16)
@@ -1142,6 +1160,10 @@ class GUIWindow(QWidget):
         shortcut = QShortcut(QKeySequence(Qt.Key_Escape), self)
         shortcut.activated.connect(self.close)
 
+    def resizeEvent(self, event):
+        super(GUIWindow, self).resizeEvent(event)
+        self._update_wrapping_widths()
+
     def closeEvent(self, event):
         # Cerrar la conexión de sg_manager si existe
         if hasattr(self.hiero_ops, "sg_manager") and self.hiero_ops.sg_manager:
@@ -1153,10 +1175,45 @@ class GUIWindow(QWidget):
         parts = [p for p in (shot_code, task_type, assignee) if p]
         self.title_label.setText("  |  ".join(parts))
 
+    def _configure_wrapping_label(self, label, extra_width=0):
+        label.setWordWrap(True)
+        label.setMinimumWidth(0)
+        label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        self._wrapping_labels.append((label, extra_width))
+
+    def _update_wrapping_widths(self):
+        if not hasattr(self, "scroll_area") or not hasattr(self, "scroll_layout"):
+            return
+        viewport_width = self.scroll_area.viewport().width()
+        if viewport_width <= 0:
+            return
+
+        # QScrollArea::viewport() ya descuenta el scrollbar vertical, pero no los
+        # margenes de los layouts internos ni los indentados de cada label.
+        scroll_margins = self.scroll_layout.contentsMargins()
+        base_width = (
+            viewport_width
+            - scroll_margins.left()
+            - scroll_margins.right()
+            - 4
+        )
+        self.scroll_content.setFixedWidth(max(0, viewport_width - 1))
+
+        for label, extra_width in list(self._wrapping_labels):
+            if label is None:
+                continue
+            try:
+                if label.parent() is None:
+                    continue
+                label.setMaximumWidth(max(80, base_width - extra_width))
+            except RuntimeError:
+                continue
+
     def create_version_widget(self, version):
         """Crea el widget contenedor para una version (header morado + descripcion + comentarios)."""
         container = QWidget()
         container.setObjectName("flowVersionContainer")
+        container.setMinimumWidth(0)
         container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
         c_layout = QVBoxLayout(container)
@@ -1199,6 +1256,8 @@ class GUIWindow(QWidget):
         info_label = QLabel(info_html)
         info_label.setObjectName("flowVersionInfo")
         info_label.setTextFormat(Qt.RichText)
+        info_label.setMinimumWidth(0)
+        info_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         info_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         hl.addWidget(info_label)
         hl.addStretch(1)
@@ -1212,6 +1271,8 @@ class GUIWindow(QWidget):
             time_label = QLabel(time_html)
             time_label.setObjectName("flowVersionTimeLogged")
             time_label.setTextFormat(Qt.RichText)
+            time_label.setMinimumWidth(0)
+            time_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
             time_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             hl.addWidget(time_label)
 
@@ -1219,6 +1280,8 @@ class GUIWindow(QWidget):
 
     def _build_description_section(self, version):
         section = QWidget()
+        section.setMinimumWidth(0)
+        section.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         sl = QVBoxLayout(section)
         sl.setContentsMargins(16, 8, 12, 8)
         sl.setSpacing(0)
@@ -1235,7 +1298,7 @@ class GUIWindow(QWidget):
         title_label = QLabel(title_html)
         title_label.setObjectName("flowVersionDescriptionTitle")
         title_label.setTextFormat(Qt.RichText)
-        title_label.setWordWrap(True)
+        self._configure_wrapping_label(title_label, extra_width=28)
         sl.addWidget(title_label)
         sl.addSpacing(2)
 
@@ -1249,7 +1312,7 @@ class GUIWindow(QWidget):
         content_label = QLabel(content_html)
         content_label.setObjectName("flowVersionDescriptionContent")
         content_label.setTextFormat(Qt.RichText)
-        content_label.setWordWrap(True)
+        self._configure_wrapping_label(content_label, extra_width=28)
         content_label.setContentsMargins(16, 0, 0, 0)
         sl.addWidget(content_label)
 
@@ -1258,6 +1321,8 @@ class GUIWindow(QWidget):
     def _build_comments_section(self, comments):
         section = QWidget()
         section.setObjectName("flowVersionCommentsContainer")
+        section.setMinimumWidth(0)
+        section.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         sl = QVBoxLayout(section)
         sl.setContentsMargins(8, 0, 8, 0)
         sl.setSpacing(4)
@@ -1276,6 +1341,8 @@ class GUIWindow(QWidget):
         """Crea el widget para un comentario con header, contenido y thumbnails."""
         w = QWidget()
         w.setObjectName("flowVersionComment")
+        w.setMinimumWidth(0)
+        w.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         wl = QVBoxLayout(w)
         wl.setContentsMargins(24, 0, 0, 8)
         wl.setSpacing(0)
@@ -1289,8 +1356,7 @@ class GUIWindow(QWidget):
 
         meta_parts = _user_name_span(author) + f", {_html_escape(date_str)}"
         if from_playlist:
-            pname = _html_escape(playlist_name) if playlist_name else "Playlist"
-            meta_parts += f", {pname}"
+            meta_parts += f", {_playlist_meta_span(playlist_name)}"
 
         header_html = (
             f"<span style='color: {COLORS['txt_desc_title']}; font-size: 15px; font-weight: 700;'>Comentario:</span>"
@@ -1300,7 +1366,7 @@ class GUIWindow(QWidget):
         header_label = QLabel(header_html)
         header_label.setObjectName("flowVersionCommentHeader")
         header_label.setTextFormat(Qt.RichText)
-        header_label.setWordWrap(True)
+        self._configure_wrapping_label(header_label, extra_width=40)
         header_label.setContentsMargins(0, 8, 0, 0)
         wl.addWidget(header_label)
         wl.addSpacing(6)
@@ -1312,7 +1378,7 @@ class GUIWindow(QWidget):
             content_label = QLabel(content_html)
             content_label.setObjectName("flowVersionCommentContent")
             content_label.setTextFormat(Qt.RichText)
-            content_label.setWordWrap(True)
+            self._configure_wrapping_label(content_label, extra_width=40)
             content_label.setContentsMargins(16, 0, 0, 0)
             wl.addWidget(content_label)
 
@@ -1413,6 +1479,8 @@ class GUIWindow(QWidget):
 
         self.setWindowFlags(self.windowFlags() | Qt.Window)
         self.show()
+        self._update_wrapping_widths()
+        QtCore.QTimer.singleShot(0, self._update_wrapping_widths)
         debug_print("Results displayed successfully.")
 
 
