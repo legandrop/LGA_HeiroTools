@@ -1,11 +1,12 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_Shot_info v1.90 | Lega
+  LGA_NKS_Flow_Shot_info v1.91 | Lega
 
   Imprime informacion del shot y las versiones de la task seleccionada
   (comp, roto o cleanup) en el playhead.
 
+  v1.91: Recupera descripcion de task inicial y texto del header de version.
   v1.90: Wrap de textos sin scroll horizontal y resaltado de comentarios de playlist.
   v1.89: Identacion comentarios, comentarios de playlist, colores de nombres de usuario
   v1.88: UI unificada con la de PipeSync (FlowNotesPopover).
@@ -238,6 +239,13 @@ QLabel#flowNotesTitle {
     font-weight: 500;
     font-size: 18px;
     background-color: transparent;
+}
+QLabel#flowTaskDescription {
+    background-color: transparent;
+    border: none;
+    font-size: 14px;
+    padding: 0px;
+    margin: 0px;
 }
 QScrollArea#flowNotesScrollArea {
     background-color: transparent;
@@ -1209,6 +1217,33 @@ class GUIWindow(QWidget):
             except RuntimeError:
                 continue
 
+    def create_task_description_widget(self, description):
+        """Crea el bloque inicial de descripcion general de la task."""
+        section = QWidget()
+        section.setMinimumWidth(0)
+        section.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        layout = QVBoxLayout(section)
+        layout.setContentsMargins(12, 0, 8, 0)
+        layout.setSpacing(0)
+
+        raw_description = (description or "").strip()
+        if not raw_description or raw_description == "No info available":
+            raw_description = "Sin descripcion"
+
+        esc_description = _html_escape(raw_description).replace("\n", "<br/>")
+        html = (
+            f"<span style='color: {COLORS['txt_desc_title']}; font-weight: 700; font-size: 15px;'>"
+            f"Descripción de task:</span> "
+            f"<span style='color: {COLORS['txt_body']};'>{esc_description}</span>"
+        )
+
+        label = QLabel(html)
+        label.setObjectName("flowTaskDescription")
+        label.setTextFormat(Qt.RichText)
+        self._configure_wrapping_label(label, extra_width=20)
+        layout.addWidget(label)
+        return section
+
     def create_version_widget(self, version):
         """Crea el widget contenedor para una version (header morado + descripcion + comentarios)."""
         container = QWidget()
@@ -1257,10 +1292,9 @@ class GUIWindow(QWidget):
         info_label.setObjectName("flowVersionInfo")
         info_label.setTextFormat(Qt.RichText)
         info_label.setMinimumWidth(0)
-        info_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        info_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         info_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        hl.addWidget(info_label)
-        hl.addStretch(1)
+        hl.addWidget(info_label, 1)
 
         time_text = _format_logged_time(version.get("logged_minutes", 0.0))
         if time_text:
@@ -1272,7 +1306,7 @@ class GUIWindow(QWidget):
             time_label.setObjectName("flowVersionTimeLogged")
             time_label.setTextFormat(Qt.RichText)
             time_label.setMinimumWidth(0)
-            time_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+            time_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
             time_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             hl.addWidget(time_label)
 
@@ -1474,6 +1508,9 @@ class GUIWindow(QWidget):
 
         for result in results:
             debug_print(f"Processing result: {result}")
+            self.scroll_layout.addWidget(
+                self.create_task_description_widget(result.get("description", ""))
+            )
             for version in result.get("versions", []):
                 self.scroll_layout.addWidget(self.create_version_widget(version))
 
