@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_ModifyShot v1.34 | Lega
+  LGA_NKS_Flow_ModifyShot v1.35 | Lega
 
   Script para modificar shots existentes en ShotGrid sin afectar estados.
   - Carga información actual del shot (descripción, tasks) desde Flow.
@@ -10,6 +10,8 @@ ____________________________________________________________________
   - El número de versión siempre coincide con Create Shot para compatibilidad.
   - Desde v1.33, Create Shot dispara este flujo automáticamente cuando detecta un shot único que ya existe.
 
+  v1.35: El diálogo de configuración heredado de Create Shot ahora corre
+         no modal y continúa por callback, evitando bloquear el foco de Hiero.
   v1.34: Creación automática de carpetas para nuevas tasks agregadas
          Integración con módulo LGA_NKS_Flow_CreateShot_Folders
 ____________________________________________________________________
@@ -289,6 +291,7 @@ class ModifyShotWorker(QRunnable):
 
 _loader_window = None
 _status_window = None
+_config_dialog = None
 
 
 def _show_error(message):
@@ -298,8 +301,12 @@ def _show_error(message):
 def _launch_config_dialog(
     clip_info, sequence_name, shot_data, tasks, project_id, loader_window
 ):
+    global _loader_window, _config_dialog
+
     if loader_window:
         loader_window.hide()
+    if _loader_window is loader_window:
+        _loader_window = None
 
     debug_print("Mostrando dialogo de configuracion en modo Modify Shot")
     dialog = ShotConfigDialog(
@@ -315,18 +322,42 @@ def _launch_config_dialog(
         shot_data, existing_tasks_map, lock_existing_task_fields=True
     )
 
-    if dialog.exec_() != QDialog.Accepted:
+    _config_dialog = dialog
+    dialog.finished.connect(
+        lambda result, config_dialog=dialog: _handle_config_dialog_finished(
+            result,
+            config_dialog,
+            clip_info,
+            shot_data,
+            tasks,
+            project_id,
+        )
+    )
+    dialog.show()
+
+
+def _handle_config_dialog_finished(
+    result, dialog, clip_info, shot_data, tasks, project_id
+):
+    global _config_dialog, _status_window
+
+    if result != QDialog.Accepted:
         debug_print("Dialogo Modify Shot cancelado por el usuario", level="warning")
         dialog.cleanup_thumbnail()
+        if _config_dialog is dialog:
+            _config_dialog = None
+        dialog.deleteLater()
         return
 
     shot_config = dialog.get_config()
     dialog.cleanup_thumbnail()
+    if _config_dialog is dialog:
+        _config_dialog = None
+    dialog.deleteLater()
     if not shot_config:
         debug_print("No se obtuvo configuracion para Modify Shot", level="warning")
         return
 
-    global _status_window
     _status_window = FlowStatusWindow("modificar shot")
     _status_window.show()
     _status_window.show_processing_message()

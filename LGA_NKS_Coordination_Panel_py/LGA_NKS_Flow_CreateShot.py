@@ -1,11 +1,14 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_CreateShot v1.34 | Lega
+  LGA_NKS_Flow_CreateShot v1.35 | Lega
 
   Script para crear shots en ShotGrid basado en el nombre del clip seleccionado en Hiero.
   SIN usar templates predefinidos - crea tasks manualmente para mayor control.
 
+  v1.35: El diálogo de configuración ahora se muestra no modal con show()
+         y continúa el flujo por callback al cerrar/aceptar.
+         Evita que la ventana tome el foco bloqueando Hiero/Nuke Studio.
   v1.34: Creación automática de estructura de carpetas por task
          Integración con módulo LGA_NKS_Flow_CreateShot_Folders
          Crea carpetas automáticamente después de crear shot y tasks en Flow
@@ -441,7 +444,9 @@ class ShotConfigDialog(QDialog):
         self.setWindowTitle(
             "Flow | Modify Shot" if dialog_mode == "modify" else "Flow | Shot Creation"
         )
-        self.setModal(True)
+        self.setModal(False)
+        self.setWindowModality(Qt.NonModal)
+        self.setAttribute(Qt.WA_DeleteOnClose, False)
         self.setMinimumWidth(600)
         self.setMinimumHeight(400)
 
@@ -2149,6 +2154,7 @@ def get_flow_credentials_secure():
 
 # Variables globales para mantener referencias
 _status_window = None
+_config_dialog = None
 
 
 def cleanup_thumbnail_file(thumbnail_path):
@@ -2305,23 +2311,46 @@ def handle_shot_existence_result(existing_shots, clips_info, sequence_name):
 
 
 def show_shot_config_dialog(clips_info, sequence_name):
-    """Muestra el dialogo de configuración y lanza la creación."""
+    """Muestra el dialogo de configuración de forma no modal."""
+    global _config_dialog
+
     debug_print("Mostrando dialogo de configuracion de shots")
     config_dialog = ShotConfigDialog(clips_info, sequence_name)
-    if config_dialog.exec_() != QDialog.Accepted:
+    _config_dialog = config_dialog
+    config_dialog.finished.connect(
+        lambda result, dialog=config_dialog: handle_shot_config_finished(
+            result, dialog, clips_info
+        )
+    )
+    config_dialog.show()
+
+
+def handle_shot_config_finished(result, config_dialog, clips_info):
+    """Continua el flujo de Create Shot cuando cierra el dialogo no modal."""
+    global _config_dialog, _status_window
+
+    if result != QDialog.Accepted:
         debug_print("Dialogo cancelado por el usuario", level="warning")
         config_dialog.cleanup_thumbnail()
+        if _config_dialog is config_dialog:
+            _config_dialog = None
+        config_dialog.deleteLater()
         return
 
     shot_config = config_dialog.get_config()
     if not shot_config:
         debug_print("No se obtuvo configuracion del dialogo", level="warning")
         config_dialog.cleanup_thumbnail()
+        if _config_dialog is config_dialog:
+            _config_dialog = None
+        config_dialog.deleteLater()
         return
 
     thumbnail_path = config_dialog.thumbnail_path
+    if _config_dialog is config_dialog:
+        _config_dialog = None
+    config_dialog.deleteLater()
 
-    global _status_window
     _status_window = FlowStatusWindow("crear shot")
     _status_window.show()
     _status_window.show_processing_message()
