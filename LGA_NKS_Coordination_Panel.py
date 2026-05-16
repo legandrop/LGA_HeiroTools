@@ -902,3 +902,32 @@ class FlowProdPanel(QtWidgets.QWidget):
 flowProdPanel = FlowProdPanel()
 wm = hiero.ui.windowManager()
 wm.addWindow(flowProdPanel)
+
+
+# Iniciar el watcher de reconexion automatica de "Download Clip".
+# Se carga aca (el panel siempre se ejecuta al iniciar Hiero) para que el
+# watcher arranque junto con Hiero. Se mantiene una referencia al modulo
+# para evitar que el garbage collector detenga el QTimer.
+download_clip_watcher_module = None
+try:
+    import importlib.util
+
+    _watcher_path = os.path.join(
+        os.path.dirname(__file__),
+        "LGA_NKS_Coordination_Panel_py",
+        "LGA_NKS_DownloadClip_Watcher.py",
+    )
+    if os.path.exists(_watcher_path):
+        _watcher_spec = importlib.util.spec_from_file_location(
+            "LGA_NKS_DownloadClip_Watcher", _watcher_path
+        )
+        if _watcher_spec is not None and _watcher_spec.loader is not None:
+            download_clip_watcher_module = importlib.util.module_from_spec(_watcher_spec)
+            _watcher_spec.loader.exec_module(download_clip_watcher_module)
+            debug_print("Watcher de Download Clip iniciado")
+    else:
+        debug_print(
+            f"Watcher de Download Clip no encontrado: {_watcher_path}", level="warning"
+        )
+except Exception as e:
+    debug_print(f"No se pudo iniciar el watcher de Download Clip: {e}", level="error")

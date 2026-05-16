@@ -1,12 +1,26 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_FileManager_DownloadClip v0.02 | Lega
+  LGA_NKS_FileManager_DownloadClip v0.04 | Lega
 
-  Descarga un clip individual (secuencia de imagenes o archivo de video)
-  desde Wasabi S3 usando FileManager CLI.
+  Descarga el/los clip(s) seleccionado(s) desde Wasabi S3 usando
+  FileManager CLI. A diferencia de "Download Shot", descarga solo el
+  media del clip, no la carpeta entera del shot.
 
-  v0.02: Usa el Método 1 (selección pura de clips, sin playhead).
+  - Archivo de video unico (.mov, .mp4)  -> FileManager --download-file <archivo>
+  - Secuencia de imagenes (%04d.exr ...) -> FileManager --download <carpeta de la secuencia>
+  Todos los clips seleccionados se envian en una sola llamada al CLI.
+
+  Pasa --notify-completion para que FileManager escriba un marcador al terminar
+  cada descarga; el watcher LGA_NKS_DownloadClip_Watcher.py lo detecta y reconecta
+  el clip offline automaticamente.
+
+  v0.04: Agrega --notify-completion para reconexion automatica del clip al terminar.
+
+  v0.03: Implementa la descarga real via FileManager CLI.
+         Distingue archivo unico (singleFile) vs secuencia.
+
+  v0.02: Usa el Metodo 1 (seleccion pura de clips, sin playhead).
          Soporta uno o varios clips seleccionados a la vez.
 
   v0.01: Solo imprime via debug_print:
@@ -19,6 +33,7 @@ ____________________________________________________________________
 from pathlib import Path
 import sys
 import os
+import subprocess
 import logging
 import queue
 from logging.handlers import QueueHandler, QueueListener
@@ -27,13 +42,27 @@ import time
 import traceback
 
 # Variables globales de logging
-DEBUG = True
-DEBUG_CONSOLE = True
+DEBUG = False
+DEBUG_CONSOLE = False
 DEBUG_LOG = True
 script_start_time = None
 debug_log_listener = None
 debug_logger = None
 _log_file_path_resolved = None
+
+# Variable de desarrollo para cambiar la ruta del ejecutable
+Desarrollo = True
+
+
+def get_notify_dir():
+    """Carpeta donde FileManager escribe los marcadores de finalizacion de descarga.
+
+    Es vigilada por LGA_NKS_DownloadClip_Watcher.py. Vive dentro de Startup/logs/.
+    """
+    notify_dir = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "logs", "download_clip_done"
+    )
+    return os.path.abspath(notify_dir)
 
 
 class RelativeTimeFormatter(logging.Formatter):
@@ -186,49 +215,126 @@ def _get_selected_clips():
     return []
 
 
-def _report_clip(clip, index, total):
-    """Imprime nombre, ruta y estado online/offline de un clip."""
-    debug_print(f"--- Clip {index}/{total} ---")
+def _inspect_clip(clip):
+    """Devuelve un dict con la info del clip o None si no se pudo resolver.
 
+    Claves del dict:
+      - name (str)
+      - file_path (str): ruta del media (con token de secuencia si aplica)
+      - is_single_file (bool): True si es archivo unico, False si es secuencia
+      - online (bool|None): estado del media
+    """
     try:
         clip_name = clip.name()
     except Exception as e:
         clip_name = f"<error: {e}>"
-    debug_print(f"Nombre del clip: {clip_name}")
 
     try:
         media_source = clip.source().mediaSource()
     except Exception as e:
         debug_print(f"No se pudo obtener mediaSource: {e}", level="error")
-        return
+        return None
 
+    file_path = None
     try:
         fileinfos = media_source.fileinfos()
+        if fileinfos:
+            file_path = fileinfos[0].filename()
     except Exception as e:
-        fileinfos = None
         debug_print(f"No se pudieron obtener fileinfos: {e}", level="error")
 
-    if fileinfos:
-        try:
-            file_path = fileinfos[0].filename()
-            debug_print(f"Ruta del clip: {file_path}")
-        except Exception as e:
-            debug_print(f"No se pudo leer filename(): {e}", level="error")
-    else:
-        debug_print("fileinfos vacio", level="warning")
+    if not file_path:
+        debug_print(f"Clip '{clip_name}' sin ruta de media", level="warning")
+        return None
 
+    # singleFile() True -> archivo unico (.mov); False -> secuencia de imagenes
     try:
-        is_present = media_source.isMediaPresent()
-        estado = "ONLINE" if is_present else "OFFLINE"
-        debug_print(f"Estado del media: {estado}")
+        is_single_file = bool(media_source.singleFile())
     except Exception as e:
         debug_print(
-            f"No se pudo determinar estado online/offline: {e}", level="warning"
+            f"No se pudo determinar singleFile(): {e} - se asume secuencia",
+            level="warning",
         )
+        is_single_file = False
+
+    try:
+        online = bool(media_source.isMediaPresent())
+    except Exception as e:
+        debug_print(
+            f"No se pudo determinar online/offline: {e}", level="warning"
+        )
+        online = None
+
+    return {
+        "name": clip_name,
+        "file_path": file_path,
+        "is_single_file": is_single_file,
+        "online": online,
+    }
+
+
+def _path_has_vfx_root(path):
+    """True si alguna parte de la ruta empieza con 'VFX-' (requisito del CLI)."""
+    parts = os.path.normpath(path).replace("\\", "/").split("/")
+    return any(p.upper().startswith("VFX-") for p in parts)
+
+
+def get_filemanager_exe():
+    """Devuelve la ruta del ejecutable de FileManager (Windows) o None en macOS."""
+    if sys.platform == "darwin":
+        return None
+
+    if Desarrollo:
+        dev_exe = r"C:\Portable\LGA_FileManager\build\FileManager.exe"
+        if os.path.exists(dev_exe):
+            debug_print("Usando version de desarrollo")
+            return dev_exe
+        debug_print("Version de desarrollo no encontrada, usando produccion")
+    return r"C:\Portable\LGA\FileManager\FileManager.exe"
+
+
+def build_filemanager_cmd(folder_paths, file_paths, notify_dir=None):
+    """Construye el comando del CLI con --download (carpetas) y --download-file (archivos).
+
+    Si notify_dir esta dado, agrega --notify-completion para que FileManager escriba
+    un marcador al terminar cada descarga.
+
+    Devuelve la lista de argumentos o None si no se puede construir.
+    """
+    cli_args = []
+    if folder_paths:
+        cli_args.append("--download")
+        cli_args.extend(folder_paths)
+    if file_paths:
+        cli_args.append("--download-file")
+        cli_args.extend(file_paths)
+
+    if not cli_args:
+        return None
+
+    if notify_dir:
+        cli_args.append("--notify-completion")
+        cli_args.append(notify_dir)
+
+    if sys.platform == "darwin":
+        wrapper_path = Path(__file__).parent / "fm_cli_mac.sh"
+        if wrapper_path.exists():
+            debug_print("Usando wrapper fm_cli_mac.sh (macOS)")
+            return ["bash", str(wrapper_path)] + cli_args
+        debug_print("Wrapper fm_cli_mac.sh no encontrado (macOS)", level="error")
+        return None
+
+    filemanager_exe = get_filemanager_exe()
+    if not os.path.exists(filemanager_exe):
+        debug_print(
+            f"No se encontro FileManager en: {filemanager_exe}", level="error"
+        )
+        return None
+    return [filemanager_exe] + cli_args
 
 
 def main():
-    """Imprime nombre, ruta y estado online/offline de los clips seleccionados."""
+    """Descarga el/los clip(s) seleccionado(s) desde Wasabi S3."""
     debug_print("=== FILEMANAGER DOWNLOAD CLIP ===")
     debug_print(f"log file: {_log_file_path_resolved}")
 
@@ -244,8 +350,68 @@ def main():
         total = len(clips)
         debug_print(f"Clips seleccionados: {total}")
 
+        folder_paths = []  # secuencias -> --download (carpeta contenedora)
+        file_paths = []    # archivos unicos -> --download-file
+
         for index, clip in enumerate(clips, start=1):
-            _report_clip(clip, index, total)
+            debug_print(f"--- Clip {index}/{total} ---")
+            info = _inspect_clip(clip)
+            if info is None:
+                continue
+
+            debug_print(f"Nombre del clip: {info['name']}")
+            debug_print(f"Ruta del clip: {info['file_path']}")
+            if info["online"] is None:
+                debug_print("Estado del media: DESCONOCIDO")
+            else:
+                debug_print(
+                    f"Estado del media: {'ONLINE' if info['online'] else 'OFFLINE'}"
+                )
+
+            file_path = info["file_path"]
+
+            if not _path_has_vfx_root(file_path):
+                debug_print(
+                    f"Ruta sin raiz 'VFX-', se omite (FileManager la rechazaria): {file_path}",
+                    level="warning",
+                )
+                continue
+
+            if info["is_single_file"]:
+                # Archivo de video unico: se descarga el archivo tal cual
+                debug_print(f"Tipo: archivo unico -> --download-file")
+                file_paths.append(file_path)
+            else:
+                # Secuencia de imagenes: se descarga la carpeta contenedora
+                seq_folder = os.path.dirname(file_path)
+                debug_print(f"Tipo: secuencia -> --download carpeta: {seq_folder}")
+                folder_paths.append(seq_folder)
+
+        if not folder_paths and not file_paths:
+            debug_print("No hay nada para descargar", level="warning")
+            return
+
+        notify_dir = get_notify_dir()
+        try:
+            os.makedirs(notify_dir, exist_ok=True)
+        except Exception as e:
+            debug_print(f"No se pudo crear la carpeta de notificacion: {e}", level="warning")
+        debug_print(f"Notify dir: {notify_dir}")
+
+        cmd = build_filemanager_cmd(folder_paths, file_paths, notify_dir)
+        if not cmd:
+            debug_print("No se pudo construir el comando de FileManager", level="error")
+            return
+
+        debug_print(f"Ejecutando: {' '.join(cmd)}")
+        try:
+            subprocess.Popen(cmd, shell=False)
+            debug_print(
+                f"FileManager iniciado: {len(folder_paths)} secuencia(s), "
+                f"{len(file_paths)} archivo(s)"
+            )
+        except Exception as cmd_error:
+            debug_print(f"Error al ejecutar FileManager: {cmd_error}", level="error")
 
     except Exception as e:
         debug_print(f"Error al procesar los clips: {e}", level="error")

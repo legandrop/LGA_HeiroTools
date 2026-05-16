@@ -38,6 +38,29 @@ FileManager.exe --upload "T:\VFX-TOC\From_Wanka\20250909\Probando"
 - Sube archivos desde carpeta local hacia Wasabi S3
 - Muestra progreso en tiempo real
 
+### 4. **Descargar un archivo individual desde Wasabi S3**
+```bash
+FileManager.exe --download-file "T:\VFX-MOR\102\MOR_2015_010\_input\MOR_2015_010_EditRef_v01.mov"
+```
+
+- Descarga **un único archivo** (no una carpeta) desde Wasabi
+- Crea solo la carpeta padre del archivo, no una carpeta con el nombre del archivo
+- Resuelve el tamaño real del objeto en S3 antes de encolar la descarga
+- Se descarga con `overwrite` activado
+- `--download` y `--download-file` aceptan **múltiples rutas** y pueden combinarse en una sola invocación:
+  ```bash
+  FileManager.exe --download "T:\VFX-MOR\102\SHOT\_input\seq_v01" --download-file "T:\VFX-MOR\102\SHOT\_input\ref.mov"
+  ```
+
+### 5. **Notificar a Hiero al terminar la descarga**
+```bash
+FileManager.exe --download-file "T:\VFX-MOR\102\SHOT\_input\ref.mov" --notify-completion "C:\Users\...\Startup\logs\download_clip_done"
+```
+
+- `--notify-completion "<carpeta>"` hace que FileManager escriba un marcador `.json` en `<carpeta>` cuando cada tarea de descarga termina
+- El valor es la **carpeta de salida** de los marcadores (Hiero le pasa su propia ruta, así no hay rutas hardcodeadas entre repos)
+- Solo afecta a las descargas de esa invocación; lo usa el botón **Download Clip** para disparar la reconexión automática
+
 ## 🔧 Cómo usar desde compilar.bat
 
 ```bash
@@ -145,13 +168,15 @@ Los siguientes botones están disponibles en el panel **Flow Production** de Hie
 - **Función**: Descarga **solo el/los clip(s) seleccionado(s)** desde Wasabi S3, no el shot completo
 - **Diferencia con Download Shot**: `Download Shot` descarga la carpeta entera del shot (unidad/proyecto/grupo/shot). `Download Clip` descarga únicamente el media del clip seleccionado.
 - **Selección de clip**: usa el **Método 1 (selección pura)** — opera sobre los clips realmente seleccionados en el timeline, **ignorando el playhead**. Soporta seleccionar y descargar **uno o varios clips a la vez**, de cualquier track.
-- **Lógica de ruta a descargar** (prevista, aún no implementada):
-  - Si el clip es un **archivo de video único** (ej: `.mov`): se envía a descargar solo ese archivo.
-  - Si el clip es una **secuencia de imágenes** (ej: `..._%04d.exr`): se envía a descargar la **carpeta** que contiene la secuencia.
-- **Estado actual**: el script solo imprime via `debug_print`, por cada clip seleccionado:
-  - Nombre del clip (`clip.name()`)
-  - Ruta del clip (`mediaSource().fileinfos()[0].filename()`)
-  - Estado online/offline (`mediaSource().isMediaPresent()`)
+- **Lógica de ruta a descargar** (según `mediaSource().singleFile()`):
+  - **Archivo de video único** (`.mov`, `.mp4` → `singleFile() == True`): se descarga ese archivo con `--download-file`.
+  - **Secuencia de imágenes** (`..._%04d.exr` → `singleFile() == False`): se descarga la **carpeta** que contiene la secuencia con `--download`.
+- **Comando**: arma **una sola llamada** combinando todos los clips seleccionados:
+  `FileManager.exe --download "<carpeta_seq1>" "<carpeta_seq2>" --download-file "<archivo1>" "<archivo2>" --notify-completion "<carpeta_marcadores>"`
+- **Overwrite**: los archivos individuales se descargan con `overwrite=true` (un clip online se puede re-descargar).
+- **Tabs**: a diferencia de los botones de shot, Download Clip **no abre ningún tab** en FileManager — solo dispara la descarga y FileManager cambia a la pestaña *Activity*.
+- **Reconexión automática**: el comando incluye `--notify-completion "<Startup>/logs/download_clip_done"`. FileManager escribe un marcador `.json` al terminar cada descarga; el watcher `LGA_NKS_DownloadClip_Watcher.py` lo detecta y reconecta el clip offline en Hiero automáticamente (ver sección **Reconexión automática** más abajo).
+- **Logging**: el script imprime via `debug_print`, por cada clip: nombre (`clip.name()`), ruta (`mediaSource().fileinfos()[0].filename()`), tipo (archivo/secuencia) y estado online/offline (`mediaSource().isMediaPresent()`).
 - **Color**: Gradiente magenta/violeta (`gradient_magenta_violet`)
 
 ### 📂 Estructura de Rutas
@@ -170,7 +195,7 @@ Los scripts ejecutan comandos CLI reales de FileManager:
 - **OpenPath**: `FileManager.exe --path "ruta_del_shot"`
 - **Download**: `FileManager.exe --download "ruta_del_shot"`
 - **Upload**: `FileManager.exe --upload "ruta_del_shot"`
-- **DownloadClip**: aún sin comando CLI; por ahora solo imprime nombre/ruta/estado de los clips seleccionados
+- **DownloadClip**: `FileManager.exe --download "<carpeta_secuencia>" ... --download-file "<archivo>" ... --notify-completion "<carpeta_marcadores>"` (una sola llamada combinada para todos los clips seleccionados, con notificación de finalización)
 
 **Cálculo de ruta del shot**: Los scripts detectan la carpeta del shot con lógica inteligente:
 
@@ -204,6 +229,32 @@ Los comandos se ejecutan de forma asíncrona (subprocess.Popen) para no bloquear
 
 ---
 
+## 🔄 Reconexión automática (Download Clip)
+
+Cuando se usa **Download Clip**, al terminar la descarga el clip se reconecta solo en Hiero, sin intervención del usuario. El mecanismo es **archivo marcador** (FileManager escribe, Hiero vigila):
+
+### Flujo
+
+1. **Download Clip** arma el comando agregando `--notify-completion "<Startup>/logs/download_clip_done"`.
+2. **FileManager** descarga normalmente. Al recibir la señal `celeryTaskCompleted` de una tarea lanzada con `--notify-completion`, escribe un marcador `.json` (de forma atómica: `.tmp` + rename) en esa carpeta:
+   ```json
+   { "task_id": "...", "success": true, "items": [ { "path": "T:/.../ref.mov", "kind": "file" } ] }
+   ```
+   `kind` es `"file"` (archivo único) o `"folder"` (carpeta de la secuencia).
+3. **El watcher** `LGA_NKS_Coordination_Panel_py/LGA_NKS_DownloadClip_Watcher.py` (lo arranca el Coordination Panel al iniciar Hiero) revisa esa carpeta cada ~5 s con un `QTimer`. Por cada marcador:
+   - Si `success` es `false` → no reconecta, descarta el marcador.
+   - Si `success` es `true` → busca el/los clip(s) cuyo media coincide (`file` = ruta exacta; `folder` = `dirname` del media de la secuencia), ejecuta `reconnectMedia()` con fallback `refresh()`, y borra el marcador.
+
+### Garantías de robustez
+
+- El watcher corre en el **hilo principal** de Hiero (la reconexión toca la API de Hiero). El `QTimer` no bloquea: el callback es trabajo de milisegundos.
+- Es **stateless** entre ticks: si la descarga se cancela, FileManager se cierra o crashea, **no se escribe marcador** → el watcher sigue idle y el clip queda offline (correcto).
+- Cada marcador se **borra siempre** tras procesarlo (haya match o no).
+- Marcadores sin clip que matchee (proyecto no cargado aún) se reintentan hasta un **TTL de 30 min** y luego se descartan → sin huérfanos eternos.
+- Escritura atómica del marcador (`.tmp` + rename) → el watcher nunca lee un `.json` a medio escribir.
+
+---
+
 ## 📚 Referencias Técnicas
 
 - **`LGA_NKS_Coordination_Panel.py`** (raíz de Startup)
@@ -223,14 +274,34 @@ Los comandos se ejecutan de forma asíncrona (subprocess.Popen) para no bloquear
   - `main()`, `get_shot_path()`, `build_filemanager_cmd()`: sube el shot completo.
 
 - **`LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_DownloadClip.py`**
-  - `main()`: itera los clips seleccionados e imprime su info.
+  - `main()`: itera los clips seleccionados, los clasifica en secuencias/archivos y dispara la descarga.
   - `_get_selected_clips()`: obtiene los clips seleccionados (Método 1, sin playhead).
-  - `_report_clip()`: imprime nombre, ruta y estado online/offline de un clip.
+  - `_inspect_clip()`: extrae nombre, ruta, tipo (`singleFile()`) y estado online/offline.
+  - `_path_has_vfx_root()`: valida que la ruta tenga raíz `VFX-` (requisito del CLI).
+  - `get_filemanager_exe()`, `build_filemanager_cmd()`: resuelven el ejecutable y arman la llamada combinada `--download` / `--download-file` / `--notify-completion`.
+  - `get_notify_dir()`: devuelve la carpeta de marcadores (`logs/download_clip_done`).
   - `setup_debug_logging()`, `debug_print()`: sistema de logging a archivo.
+
+- **`LGA_NKS_Coordination_Panel_py/LGA_NKS_DownloadClip_Watcher.py`** (lo arranca el Coordination Panel al iniciar Hiero)
+  - `DownloadClipWatcher`: `QObject` con un `QTimer` que vigila la carpeta de marcadores.
+  - `start_watcher()`: crea la instancia del watcher (se llama al cargarse el módulo).
+  - `_scan_markers()`, `_process_marker()`: leen y procesan los marcadores `.json`.
+  - `_find_and_reconnect()`: matchea la ruta del marcador con los clips de las secuencias.
+  - `_reconnect_clip()`: ejecuta `reconnectMedia()` con fallback `refresh()`.
+  - `get_marker_dir()`: carpeta vigilada (debe coincidir con `get_notify_dir()` del script anterior).
+
+- **`LGA_NKS_Coordination_Panel.py`**
+  - Al final del módulo carga e inicia `LGA_NKS_DownloadClip_Watcher.py` (mantiene la referencia en `download_clip_watcher_module`).
 
 - **`LGA_NKS_Shared/LGA_NKS_GetClip.py`**
   - `get_selected_clips()`: devuelve los clips seleccionados en el timeline (excluye efectos), usado por DownloadClip.
   - `get_clip_to_process()`: método híbrido playhead+selección, usado por Download/Upload/OpenPath.
+
+- **`C:\Portable\LGA_FileManager\src\main.cpp`** (repo de FileManager)
+  - `startCliDownloadFile()`: descarga un archivo individual (resuelve tamaño en S3, encola 1 objeto).
+  - `startCliDownload()`: descarga una carpeta completa (shots / secuencias).
+  - `registerCliNotifyTask()`, `writeCliCompletionMarker()`: registran la tarea y escriben el marcador `.json` al completarse (señal `celeryTaskCompleted`).
+  - Parseo CLI de `--download`, `--download-file` (ambos multi-ruta) y `--notify-completion`; transporte por IPC (`CliCommandPayload`).
 
 ---
 
