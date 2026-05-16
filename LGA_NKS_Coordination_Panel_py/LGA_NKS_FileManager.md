@@ -141,6 +141,19 @@ Los siguientes botones están disponibles en el panel **Flow Production** de Hie
 - **Uso**: Sincronizar archivos locales hacia remoto
 - **Color**: Marrón (#8e6c17)
 
+#### 🎬 **Download Clip**
+- **Función**: Descarga **solo el/los clip(s) seleccionado(s)** desde Wasabi S3, no el shot completo
+- **Diferencia con Download Shot**: `Download Shot` descarga la carpeta entera del shot (unidad/proyecto/grupo/shot). `Download Clip` descarga únicamente el media del clip seleccionado.
+- **Selección de clip**: usa el **Método 1 (selección pura)** — opera sobre los clips realmente seleccionados en el timeline, **ignorando el playhead**. Soporta seleccionar y descargar **uno o varios clips a la vez**, de cualquier track.
+- **Lógica de ruta a descargar** (prevista, aún no implementada):
+  - Si el clip es un **archivo de video único** (ej: `.mov`): se envía a descargar solo ese archivo.
+  - Si el clip es una **secuencia de imágenes** (ej: `..._%04d.exr`): se envía a descargar la **carpeta** que contiene la secuencia.
+- **Estado actual**: el script solo imprime via `debug_print`, por cada clip seleccionado:
+  - Nombre del clip (`clip.name()`)
+  - Ruta del clip (`mediaSource().fileinfos()[0].filename()`)
+  - Estado online/offline (`mediaSource().isMediaPresent()`)
+- **Color**: Gradiente magenta/violeta (`gradient_magenta_violet`)
+
 ### 📂 Estructura de Rutas
 
 Los botones operan sobre la **ruta del shot**, no del archivo individual:
@@ -157,6 +170,7 @@ Los scripts ejecutan comandos CLI reales de FileManager:
 - **OpenPath**: `FileManager.exe --path "ruta_del_shot"`
 - **Download**: `FileManager.exe --download "ruta_del_shot"`
 - **Upload**: `FileManager.exe --upload "ruta_del_shot"`
+- **DownloadClip**: aún sin comando CLI; por ahora solo imprime nombre/ruta/estado de los clips seleccionados
 
 **Cálculo de ruta del shot**: Los scripts detectan la carpeta del shot con lógica inteligente:
 
@@ -187,6 +201,36 @@ Los scripts ejecutan comandos CLI reales de FileManager:
 Los scripts incluyen una variable `Desarrollo = True` para alternar entre rutas con verificación automática.
 
 Los comandos se ejecutan de forma asíncrona (subprocess.Popen) para no bloquear la interfaz de Hiero/Nuke Studio.
+
+---
+
+## 📚 Referencias Técnicas
+
+- **`LGA_NKS_Coordination_Panel.py`** (raíz de Startup)
+  - Clase `FlowProdPanel`: define los botones del panel en `self.fixed_buttons`.
+  - `download_shot_from_filemanager()`: lanza `LGA_NKS_FileManager_Download.py`.
+  - `upload_shot_to_filemanager()`: lanza `LGA_NKS_FileManager_Upload.py`.
+  - `open_shot_in_filemanager()`: lanza `LGA_NKS_FileManager_OpenPath.py`.
+  - `download_clip_from_filemanager()`: lanza `LGA_NKS_FileManager_DownloadClip.py`.
+
+- **`LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_OpenPath.py`**
+  - `main()`, `get_shot_path()`, `build_filemanager_cmd()`: abre la carpeta del shot.
+
+- **`LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_Download.py`**
+  - `main()`, `get_shot_path()`, `build_filemanager_cmd()`: descarga el shot completo.
+
+- **`LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_Upload.py`**
+  - `main()`, `get_shot_path()`, `build_filemanager_cmd()`: sube el shot completo.
+
+- **`LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_DownloadClip.py`**
+  - `main()`: itera los clips seleccionados e imprime su info.
+  - `_get_selected_clips()`: obtiene los clips seleccionados (Método 1, sin playhead).
+  - `_report_clip()`: imprime nombre, ruta y estado online/offline de un clip.
+  - `setup_debug_logging()`, `debug_print()`: sistema de logging a archivo.
+
+- **`LGA_NKS_Shared/LGA_NKS_GetClip.py`**
+  - `get_selected_clips()`: devuelve los clips seleccionados en el timeline (excluye efectos), usado por DownloadClip.
+  - `get_clip_to_process()`: método híbrido playhead+selección, usado por Download/Upload/OpenPath.
 
 ---
 

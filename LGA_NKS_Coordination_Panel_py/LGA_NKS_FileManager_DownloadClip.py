@@ -1,15 +1,17 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_FileManager_DownloadClip v0.01 | Lega
+  LGA_NKS_FileManager_DownloadClip v0.02 | Lega
 
   Descarga un clip individual (secuencia de imagenes o archivo de video)
   desde Wasabi S3 usando FileManager CLI.
 
-  Por ahora solo imprime via debug_print:
-   - Nombre del clip
-   - Ruta del clip
-   - Estado online/offline del media
+  v0.02: Implementa el método híbrido playhead+selección para obtener el clip a descargar.
+
+  v0.01: Solo imprime via debug_print:
+        - Nombre del clip
+        - Ruta del clip
+        - Estado online/offline del media
 ____________________________________________________________________
 """
 
@@ -145,85 +147,107 @@ def debug_print(*message, level="info"):
         print(f"[{relative_time:.3f}s] {msg}")
 
 
-def _get_clip():
-    """Obtiene el clip a procesar. Usa el helper compartido; cae a selección directa si falla."""
+def _get_selected_clips():
+    """Obtiene los clips realmente seleccionados en el timeline (uno o varios).
+
+    Usa el Metodo 1 (seleccion pura, sin playhead, sin filtro de track) via el
+    helper compartido get_selected_clips(). Cae a seleccion directa si falla.
+    """
     try:
         utils_path = Path(__file__).parent.parent / "LGA_NKS_Shared"
         if utils_path.exists() and str(utils_path) not in sys.path:
             sys.path.insert(0, str(utils_path))
-        from LGA_NKS_Shared.LGA_NKS_GetClip import get_clip_to_process
-        return get_clip_to_process(track_name=None, prioritize_multiple_selection=False)
+        from LGA_NKS_Shared.LGA_NKS_GetClip import get_selected_clips
+        return get_selected_clips()
     except Exception as e:
-        debug_print(f"Fallback: no se pudo usar get_clip_to_process: {e}", level="warning")
+        debug_print(
+            f"Fallback: no se pudo usar get_selected_clips: {e}", level="warning"
+        )
 
-    # Fallback: tomar el primer clip seleccionado en el timeline
+    # Fallback: tomar la seleccion directamente del timeline
     try:
         import hiero.ui
         import hiero.core
-        view = hiero.ui.activeView()
-        if view is None:
-            debug_print("No hay activeView", level="warning")
-            return None
-        sel = view.selection() if hasattr(view, "selection") else []
-        for item in sel:
-            if isinstance(item, hiero.core.EffectTrackItem):
-                continue
-            return item
+
+        seq = hiero.ui.activeSequence()
+        if seq is None:
+            debug_print("No hay secuencia activa", level="warning")
+            return []
+        te = hiero.ui.getTimelineEditor(seq)
+        sel = te.selection() if te else []
+        return [
+            item
+            for item in sel
+            if not isinstance(item, hiero.core.EffectTrackItem)
+        ]
     except Exception as e:
-        debug_print(f"Fallback de selección falló: {e}", level="error")
-    return None
+        debug_print(f"Fallback de seleccion fallo: {e}", level="error")
+    return []
+
+
+def _report_clip(clip, index, total):
+    """Imprime nombre, ruta y estado online/offline de un clip."""
+    debug_print(f"--- Clip {index}/{total} ---")
+
+    try:
+        clip_name = clip.name()
+    except Exception as e:
+        clip_name = f"<error: {e}>"
+    debug_print(f"Nombre del clip: {clip_name}")
+
+    try:
+        media_source = clip.source().mediaSource()
+    except Exception as e:
+        debug_print(f"No se pudo obtener mediaSource: {e}", level="error")
+        return
+
+    try:
+        fileinfos = media_source.fileinfos()
+    except Exception as e:
+        fileinfos = None
+        debug_print(f"No se pudieron obtener fileinfos: {e}", level="error")
+
+    if fileinfos:
+        try:
+            file_path = fileinfos[0].filename()
+            debug_print(f"Ruta del clip: {file_path}")
+        except Exception as e:
+            debug_print(f"No se pudo leer filename(): {e}", level="error")
+    else:
+        debug_print("fileinfos vacio", level="warning")
+
+    try:
+        is_present = media_source.isMediaPresent()
+        estado = "ONLINE" if is_present else "OFFLINE"
+        debug_print(f"Estado del media: {estado}")
+    except Exception as e:
+        debug_print(
+            f"No se pudo determinar estado online/offline: {e}", level="warning"
+        )
 
 
 def main():
-    """Imprime nombre, ruta y estado online/offline del clip seleccionado."""
+    """Imprime nombre, ruta y estado online/offline de los clips seleccionados."""
     debug_print("=== FILEMANAGER DOWNLOAD CLIP ===")
     debug_print(f"log file: {_log_file_path_resolved}")
 
     try:
-        clip = _get_clip()
+        clips = _get_selected_clips()
 
-        if not clip:
-            debug_print("No se encontro clip para procesar", level="warning")
-            return
-
-        try:
-            clip_name = clip.name()
-        except Exception as e:
-            clip_name = f"<error: {e}>"
-        debug_print(f"Nombre del clip: {clip_name}")
-
-        try:
-            media_source = clip.source().mediaSource()
-        except Exception as e:
-            debug_print(f"No se pudo obtener mediaSource: {e}", level="error")
-            return
-
-        try:
-            fileinfos = media_source.fileinfos()
-        except Exception as e:
-            fileinfos = None
-            debug_print(f"No se pudieron obtener fileinfos: {e}", level="error")
-
-        if fileinfos:
-            try:
-                file_path = fileinfos[0].filename()
-                debug_print(f"Ruta del clip: {file_path}")
-            except Exception as e:
-                debug_print(f"No se pudo leer filename(): {e}", level="error")
-        else:
-            debug_print("fileinfos vacío", level="warning")
-
-        try:
-            is_present = media_source.isMediaPresent()
-            estado = "ONLINE" if is_present else "OFFLINE"
-            debug_print(f"Estado del media: {estado}")
-        except Exception as e:
+        if not clips:
             debug_print(
-                f"No se pudo determinar estado online/offline: {e}", level="warning"
+                "No hay clips seleccionados en el timeline", level="warning"
             )
+            return
+
+        total = len(clips)
+        debug_print(f"Clips seleccionados: {total}")
+
+        for index, clip in enumerate(clips, start=1):
+            _report_clip(clip, index, total)
 
     except Exception as e:
-        debug_print(f"Error al procesar el clip: {e}", level="error")
+        debug_print(f"Error al procesar los clips: {e}", level="error")
         debug_print(traceback.format_exc(), level="error")
 
 
