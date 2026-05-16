@@ -1,7 +1,12 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_DownloadClip_Watcher v1.01 | Lega
+  LGA_NKS_DownloadClip_Watcher v1.02 | Lega
+
+  v1.02: Tras reconectar, hace un toggle del estado enabled del track item
+         para forzar el refresco del viewer (evita que se vea negro).
+  v1.01: Watcher reubicado en la carpeta del panel; lo arranca el panel.
+  v1.00: Version inicial.
 
   Watcher de finalizacion de descargas del boton "Download Clip"
   (LGA_NKS_FileManager_DownloadClip.py).
@@ -253,6 +258,21 @@ def _reconnect_clip(item):
         now_online = item.source().mediaSource().isMediaPresent()
     except Exception:
         now_online = False
+
+    # Forzar el refresco del viewer: tras reconnectMedia el clip figura online
+    # pero el viewer mantiene cacheado el frame negro/offline. Un toggle del
+    # estado enabled del track item obliga a Hiero a re-renderizarlo (es el
+    # mismo efecto que el disable/enable manual). Se restaura el estado original.
+    try:
+        was_enabled = item.isEnabled()
+        item.setEnabled(not was_enabled)
+        item.setEnabled(was_enabled)
+        debug_print(f"Viewer refrescado (toggle enabled) para: {clip_name}")
+    except Exception as toggle_error:
+        debug_print(
+            f"No se pudo refrescar el viewer para '{clip_name}': {toggle_error}",
+            level="warning",
+        )
 
     debug_print(f"Clip '{clip_name}': online {was_online} -> {now_online}")
     return True

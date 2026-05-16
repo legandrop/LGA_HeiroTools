@@ -243,7 +243,9 @@ Cuando se usa **Download Clip**, al terminar la descarga el clip se reconecta so
    `kind` es `"file"` (archivo único) o `"folder"` (carpeta de la secuencia).
 3. **El watcher** `LGA_NKS_Coordination_Panel_py/LGA_NKS_DownloadClip_Watcher.py` (lo arranca el Coordination Panel al iniciar Hiero) revisa esa carpeta cada ~5 s con un `QTimer`. Por cada marcador:
    - Si `success` es `false` → no reconecta, descarta el marcador.
-   - Si `success` es `true` → busca el/los clip(s) cuyo media coincide (`file` = ruta exacta; `folder` = `dirname` del media de la secuencia), ejecuta `reconnectMedia()` con fallback `refresh()`, y borra el marcador.
+   - Si `success` es `true` → busca el/los clip(s) cuyo media coincide (`file` = ruta exacta; `folder` = `dirname` del media de la secuencia), ejecuta `reconnectMedia()` con fallback `refresh()`, hace un **toggle del estado `enabled`** del track item (restaurando el original) para forzar el refresco del viewer, y borra el marcador.
+
+   > **Por qué el toggle de `enabled`**: tras `reconnectMedia()` el clip figura online pero el viewer mantiene cacheado el frame negro/offline. Cambiar el estado `enabled` del track item y volverlo a su valor obliga a Hiero a re-renderizarlo (es el mismo efecto que el disable/enable manual). Flow Pull no sufre esto porque al final llama a `enable_or_disable_clips()`, que hace `setEnabled()` sobre cada clip.
 
 ### Garantías de robustez
 
@@ -287,7 +289,7 @@ Cuando se usa **Download Clip**, al terminar la descarga el clip se reconecta so
   - `start_watcher()`: crea la instancia del watcher (se llama al cargarse el módulo).
   - `_scan_markers()`, `_process_marker()`: leen y procesan los marcadores `.json`.
   - `_find_and_reconnect()`: matchea la ruta del marcador con los clips de las secuencias.
-  - `_reconnect_clip()`: ejecuta `reconnectMedia()` con fallback `refresh()`.
+  - `_reconnect_clip()`: ejecuta `reconnectMedia()` con fallback `refresh()` y un toggle de `setEnabled()` para refrescar el viewer.
   - `get_marker_dir()`: carpeta vigilada (debe coincidir con `get_notify_dir()` del script anterior).
 
 - **`LGA_NKS_Coordination_Panel.py`**
