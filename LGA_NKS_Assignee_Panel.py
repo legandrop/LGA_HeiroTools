@@ -1,11 +1,13 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_Assignee_Panel v1.54 | Lega
+  LGA_NKS_Flow_Assignee_Panel v1.55 | Lega
 
   Panel para obtener los asignados de la tarea del clip seleccionado en Flow,
   limpiarlos o sumar asignados a la tarea comp.
 
+  v1.55: Permite get/clear/assign de assignees en clips offline usando la ruta
+         registrada en mediaSource().fileinfos(), sin exigir media presente.
   v1.54: Agregado logging a archivo con switches de debug
   v1.53: Actualizado para usar scroll bar cuando es necesario
   v1.52: Actualizado para usar estilos dinámicos con bordes y hover para todos los botones
@@ -546,6 +548,32 @@ class AssigneePanel(QtWidgets.QWidget):
         base_name = clean_base_name(exr_name)
         return base_name
 
+    def _get_base_name_from_clip(self, item):
+        """Obtiene el base_name desde la ruta registrada, aunque el media este offline."""
+        media_source = item.source().mediaSource()
+
+        try:
+            online = bool(media_source.isMediaPresent())
+            debug_print(
+                f"Estado del media para '{item.name()}': {'ONLINE' if online else 'OFFLINE'}"
+            )
+        except Exception as e:
+            debug_print(
+                f"No se pudo determinar online/offline para '{item.name()}': {e}",
+                level="warning",
+            )
+
+        fileinfos = media_source.fileinfos()
+        if not fileinfos:
+            raise RuntimeError("El clip no tiene ruta de media registrada.")
+
+        file_path = fileinfos[0].filename()
+        exr_name = os.path.basename(file_path)
+        exr_name = exr_name.replace(".%", "_%")
+        debug_print(f"Ruta registrada del clip: {file_path}")
+        debug_print(f"Procesando archivo: {exr_name}")
+        return self.parse_exr_name(exr_name)
+
     def get_assignees_for_selected_clip(self):
         seq = hiero.ui.activeSequence()
         if not seq:
@@ -562,22 +590,11 @@ class AssigneePanel(QtWidgets.QWidget):
 
         for item in clips_to_process:
             if not isinstance(item, hiero.core.EffectTrackItem):
-                if item.source().mediaSource().isMediaPresent():
-                    fileinfos = item.source().mediaSource().fileinfos()
-                    if not fileinfos:
-                        continue
-                    file_path = fileinfos[0].filename()
-                    exr_name = os.path.basename(file_path)
-                    exr_name = exr_name.replace(".%", "_%")
-                    try:
-                        base_name = self.parse_exr_name(exr_name)
-                        self.call_assignee_script(base_name)
-                    except Exception as e:
-                        QtWidgets.QMessageBox.warning(self, "Formato Incorrecto", str(e))
-                else:
-                    QtWidgets.QMessageBox.warning(
-                        self, "Media Missing", "El clip no tiene media presente."
-                    )
+                try:
+                    base_name = self._get_base_name_from_clip(item)
+                    self.call_assignee_script(base_name)
+                except Exception as e:
+                    QtWidgets.QMessageBox.warning(self, "Formato Incorrecto", str(e))
 
     def call_assignee_script(self, base_name):
         # Importar y ejecutar la funcion del script LGA_NKS_Flow_Assignee.py directamente
@@ -626,22 +643,11 @@ class AssigneePanel(QtWidgets.QWidget):
 
         for item in clips_to_process:
             if not isinstance(item, hiero.core.EffectTrackItem):
-                if item.source().mediaSource().isMediaPresent():
-                    fileinfos = item.source().mediaSource().fileinfos()
-                    if not fileinfos:
-                        continue
-                    file_path = fileinfos[0].filename()
-                    exr_name = os.path.basename(file_path)
-                    exr_name = exr_name.replace(".%", "_%")
-                    try:
-                        base_name = self.parse_exr_name(exr_name)
-                        self.call_clear_assignees_script(base_name)
-                    except Exception as e:
-                        QtWidgets.QMessageBox.warning(self, "Formato Incorrecto", str(e))
-                else:
-                    QtWidgets.QMessageBox.warning(
-                        self, "Media Missing", "El clip no tiene media presente."
-                    )
+                try:
+                    base_name = self._get_base_name_from_clip(item)
+                    self.call_clear_assignees_script(base_name)
+                except Exception as e:
+                    QtWidgets.QMessageBox.warning(self, "Formato Incorrecto", str(e))
 
     def call_clear_assignees_script(self, base_name):
         script_path = os.path.join(
@@ -695,30 +701,16 @@ class AssigneePanel(QtWidgets.QWidget):
         debug_print(f"Procesando {len(clips_to_process)} clips")
         for item in clips_to_process:
             if not isinstance(item, hiero.core.EffectTrackItem):
-                if item.source().mediaSource().isMediaPresent():
-                    fileinfos = item.source().mediaSource().fileinfos()
-                    if not fileinfos:
-                        debug_print("No hay fileinfos para este item")
-                        continue
-                    file_path = fileinfos[0].filename()
-                    exr_name = os.path.basename(file_path)
-                    exr_name = exr_name.replace(".%", "_%")
-                    debug_print(f"Procesando archivo: {exr_name}")
-                    try:
-                        base_name = self.parse_exr_name(exr_name)
-                        debug_print(f"Base name extraido: {base_name}")
-                        debug_print(
-                            f"Llamando call_assign_assignee_script con user_name: {user_name}"
-                        )
-                        self.call_assign_assignee_script(base_name, user_name)
-                    except Exception as e:
-                        debug_print(f"Error parseando nombre: {e}")
-                        QtWidgets.QMessageBox.warning(self, "Formato Incorrecto", str(e))
-                else:
-                    debug_print("El clip no tiene media presente")
-                    QtWidgets.QMessageBox.warning(
-                        self, "Media Missing", "El clip no tiene media presente."
+                try:
+                    base_name = self._get_base_name_from_clip(item)
+                    debug_print(f"Base name extraido: {base_name}")
+                    debug_print(
+                        f"Llamando call_assign_assignee_script con user_name: {user_name}"
                     )
+                    self.call_assign_assignee_script(base_name, user_name)
+                except Exception as e:
+                    debug_print(f"Error resolviendo nombre del clip: {e}")
+                    QtWidgets.QMessageBox.warning(self, "Formato Incorrecto", str(e))
 
     def call_assign_assignee_script(self, base_name, user_name):
         debug_print(f"=== call_assign_assignee_script llamado ===")
