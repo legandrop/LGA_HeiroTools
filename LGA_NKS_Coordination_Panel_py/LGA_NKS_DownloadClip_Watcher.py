@@ -1,8 +1,10 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_DownloadClip_Watcher v1.02 | Lega
+  LGA_NKS_DownloadClip_Watcher v1.03 | Lega
 
+  v1.03: Soporta markers "latest" para subir version del clip en timeline
+         (flujo equivalente a Flow Pull: VersionScanner + setActiveVersion).
   v1.02: Tras reconectar, hace un toggle del estado enabled del track item
          para forzar el refresco del viewer (evita que se vea negro).
   v1.01: Watcher reubicado en la carpeta del panel; lo arranca el panel.
@@ -36,6 +38,7 @@ import sys
 import json
 import glob
 import time
+import re
 import logging
 import queue
 from logging.handlers import QueueHandler, QueueListener
@@ -225,6 +228,20 @@ def _iter_all_track_items():
             continue
 
 
+def _refresh_viewer_cache(item, clip_name):
+    """Fuerza refresco visual del viewer para evitar frame negro cacheado."""
+    try:
+        was_enabled = item.isEnabled()
+        item.setEnabled(not was_enabled)
+        item.setEnabled(was_enabled)
+        debug_print(f"Viewer refrescado (toggle enabled) para: {clip_name}")
+    except Exception as toggle_error:
+        debug_print(
+            f"No se pudo refrescar el viewer para '{clip_name}': {toggle_error}",
+            level="warning",
+        )
+
+
 def _reconnect_clip(item):
     """Reconecta el media de un track item (reconnectMedia con fallback refresh)."""
     try:
@@ -259,32 +276,156 @@ def _reconnect_clip(item):
     except Exception:
         now_online = False
 
-    # Forzar el refresco del viewer: tras reconnectMedia el clip figura online
-    # pero el viewer mantiene cacheado el frame negro/offline. Un toggle del
-    # estado enabled del track item obliga a Hiero a re-renderizarlo (es el
-    # mismo efecto que el disable/enable manual). Se restaura el estado original.
-    try:
-        was_enabled = item.isEnabled()
-        item.setEnabled(not was_enabled)
-        item.setEnabled(was_enabled)
-        debug_print(f"Viewer refrescado (toggle enabled) para: {clip_name}")
-    except Exception as toggle_error:
-        debug_print(
-            f"No se pudo refrescar el viewer para '{clip_name}': {toggle_error}",
-            level="warning",
-        )
+    # Forzar refresco del viewer para limpiar cache visual de offline.
+    _refresh_viewer_cache(item, clip_name)
 
     debug_print(f"Clip '{clip_name}': online {was_online} -> {now_online}")
     return True
 
 
-def _find_and_reconnect(target_path, kind):
-    """Busca y reconecta los clips cuyo media coincide con target_path.
+def _extract_version_number(text):
+    """Extrae el numero de version usando el ultimo token _v### del nombre."""
+    matches = list(re.finditer(r"_v(\d+)", str(text), re.IGNORECASE))
+    if not matches:
+        return -1
+    try:
+        return int(matches[-1].group(1))
+    except Exception:
+        return -1
 
-    kind == 'file'   -> match exacto contra la ruta del media.
-    kind == 'folder' -> match contra el dirname del media (secuencia).
-    Devuelve la cantidad de clips encontrados (procesados).
-    """
+
+def _get_highest_version(bin_item):
+    """Obtiene la version mas alta de un binItem (misma logica que Flow Pull)."""
+    try:
+        versions = list(bin_item.items())
+    except Exception:
+        return None
+    if not versions:
+        return None
+    try:
+        return max(versions, key=lambda v: _extract_version_number(v.name()))
+    except Exception:
+        return None
+
+
+def _switch_clip_to_highest_version(item):
+    """Sube el clip a la version mas alta disponible (flujo estilo Flow Pull)."""
+    try:
+        import hiero.core
+    except Exception as e:
+        debug_print(f"hiero.core no disponible para versionado: {e}", level="error")
+        return False
+
+    try:
+        clip_name = item.name()
+    except Exception:
+        clip_name = "<sin nombre>"
+
+    try:
+        source = item.source()
+        media_source = source.mediaSource()
+        was_online = media_source.isMediaPresent()
+    except Exception as e:
+        debug_print(
+            f"No se pudo acceder al media para versionado de '{clip_name}': {e}",
+            level="error",
+        )
+        return False
+
+    try:
+        bin_item = source.binItem()
+    except Exception:
+        bin_item = None
+    if not bin_item:
+        debug_print(f"No se pudo obtener binItem para '{clip_name}'", level="warning")
+        return False
+
+    try:
+        active_version = bin_item.activeVersion()
+    except Exception:
+        active_version = None
+    if not active_version:
+        debug_print(
+            f"No hay activeVersion disponible para '{clip_name}'", level="warning"
+        )
+        return False
+
+    try:
+        vc = hiero.core.VersionScanner()
+        vc.doScan(active_version)
+    except Exception as scan_error:
+        debug_print(
+            f"VersionScanner.doScan fallo para '{clip_name}': {scan_error}",
+            level="warning",
+        )
+
+    highest_version = _get_highest_version(bin_item)
+    if highest_version is None:
+        debug_print(
+            f"No se pudo determinar highest version para '{clip_name}'", level="warning"
+        )
+        return False
+
+    try:
+        old_name = active_version.name()
+    except Exception:
+        old_name = "<desconocida>"
+    try:
+        new_name = highest_version.name()
+    except Exception:
+        new_name = "<desconocida>"
+
+    try:
+        bin_item.setActiveVersion(highest_version)
+        debug_print(
+            f"setActiveVersion aplicado para '{clip_name}': {old_name} -> {new_name}"
+        )
+    except Exception as set_error:
+        debug_print(
+            f"No se pudo setActiveVersion para '{clip_name}': {set_error}",
+            level="error",
+        )
+        return False
+
+    # Si estaba offline (o sigue offline), intentar reconectar media del source.
+    try:
+        now_online = source.mediaSource().isMediaPresent()
+    except Exception:
+        now_online = False
+    if (not was_online) or (not now_online):
+        try:
+            source.reconnectMedia()
+            debug_print(f"reconnectMedia ejecutado tras cambio de version: {clip_name}")
+        except Exception as reconnect_error:
+            debug_print(
+                f"reconnectMedia fallo tras cambio de version ({reconnect_error}), "
+                "intentando refresh",
+                level="warning",
+            )
+            try:
+                source.mediaSource().refresh()
+            except Exception as refresh_error:
+                debug_print(
+                    f"refresh tambien fallo tras cambio de version: {refresh_error}",
+                    level="error",
+                )
+
+    try:
+        now_online = source.mediaSource().isMediaPresent()
+    except Exception:
+        now_online = False
+
+    _refresh_viewer_cache(item, clip_name)
+    debug_print(
+        f"Clip '{clip_name}' (versionado): online {was_online} -> {now_online}"
+    )
+    return True
+
+
+def _find_and_apply(target_path, kind, action_fn, action_name):
+    """Busca clips por path y aplica una accion (reconnect / latest switch)."""
+    if not target_path:
+        return 0
     target_norm = _normalize_path(target_path)
     matched = 0
 
@@ -309,21 +450,47 @@ def _find_and_reconnect(target_path, kind):
         except Exception:
             continue
 
-        if kind == "folder":
-            clip_key = _normalize_path(os.path.dirname(clip_path))
-        else:
-            clip_key = _normalize_path(clip_path)
+        clip_key = (
+            _normalize_path(os.path.dirname(clip_path))
+            if kind == "folder"
+            else _normalize_path(clip_path)
+        )
 
-        if clip_key == target_norm:
-            try:
-                item_name = item.name()
-            except Exception:
-                item_name = "?"
-            debug_print(f"Match ({kind}): clip '{item_name}' <- {target_path}")
-            _reconnect_clip(item)
-            matched += 1
+        if clip_key != target_norm:
+            continue
+
+        try:
+            item_name = item.name()
+        except Exception:
+            item_name = "?"
+        debug_print(f"Match ({kind}/{action_name}): clip '{item_name}' <- {target_path}")
+        try:
+            action_fn(item)
+        except Exception as action_error:
+            debug_print(
+                f"Error aplicando accion '{action_name}' a '{item_name}': {action_error}",
+                level="error",
+            )
+        matched += 1
 
     return matched
+
+
+def _find_and_reconnect(target_path, kind):
+    """Busca y reconecta los clips cuyo media coincide con target_path.
+
+    kind == 'file'   -> match exacto contra la ruta del media.
+    kind == 'folder' -> match contra el dirname del media (secuencia).
+    Devuelve la cantidad de clips encontrados (procesados).
+    """
+    return _find_and_apply(target_path, kind, _reconnect_clip, "reconnect")
+
+
+def _find_and_switch_to_latest(target_path, kind):
+    """Busca clips por path original y los sube a su highest version disponible."""
+    return _find_and_apply(
+        target_path, kind, _switch_clip_to_highest_version, "switch-latest"
+    )
 
 
 def _process_marker(marker_path):
@@ -352,11 +519,22 @@ def _process_marker(marker_path):
 
     total_matched = 0
     for entry in items:
-        path = entry.get("path")
+        path = entry.get("path")  # path resuelto/descargado
         kind = entry.get("kind", "file")
-        if not path:
-            continue
-        total_matched += _find_and_reconnect(path, kind)
+        requested_path = entry.get("requested_path")  # path original del clip
+        is_latest = bool(entry.get("latest", False))
+
+        if is_latest and requested_path:
+            # Modo latest: matchear por el path original del clip y subir version
+            matched_latest = _find_and_switch_to_latest(requested_path, kind)
+            total_matched += matched_latest
+            if matched_latest == 0 and path:
+                # Fallback: si no encontro por path original, intentar reconexion por path resuelto
+                total_matched += _find_and_reconnect(path, kind)
+        else:
+            if not path:
+                continue
+            total_matched += _find_and_reconnect(path, kind)
 
     if total_matched > 0:
         debug_print(

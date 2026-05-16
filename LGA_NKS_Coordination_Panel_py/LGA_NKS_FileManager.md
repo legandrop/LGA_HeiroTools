@@ -166,6 +166,9 @@ Los siguientes botones están disponibles en el panel **Flow Production** de Hie
 
 #### 🎬 **Download Clip**
 - **Función**: Descarga **solo el/los clip(s) seleccionado(s)** desde Wasabi S3, no el shot completo
+- **Doble acción**:
+  - **Click**: descarga la ruta actual del clip (comportamiento clásico).
+  - **Shift+Click**: descarga la **última versión disponible** del clip en Wasabi y dispara actualización de versión en timeline.
 - **Diferencia con Download Shot**: `Download Shot` descarga la carpeta entera del shot (unidad/proyecto/grupo/shot). `Download Clip` descarga únicamente el media del clip seleccionado.
 - **Selección de clip**: usa el **Método 1 (selección pura)** — opera sobre los clips realmente seleccionados en el timeline, **ignorando el playhead**. Soporta seleccionar y descargar **uno o varios clips a la vez**, de cualquier track.
 - **Lógica de ruta a descargar** (según `mediaSource().singleFile()`):
@@ -173,6 +176,8 @@ Los siguientes botones están disponibles en el panel **Flow Production** de Hie
   - **Secuencia de imágenes** (`..._%04d.exr` → `singleFile() == False`): se descarga la **carpeta** que contiene la secuencia con `--download`.
 - **Comando**: arma **una sola llamada** combinando todos los clips seleccionados:
   `FileManager.exe --download "<carpeta_seq1>" "<carpeta_seq2>" --download-file "<archivo1>" "<archivo2>" --notify-completion "<carpeta_marcadores>"`
+- **Comando en Shift+Click**: usa los nuevos flags de latest:
+  `FileManager.exe --download-latest "<carpeta_seq_v05>" --download-latest-file "<archivo_v05.mov>" --notify-completion "<carpeta_marcadores>"`
 - **Overwrite**: los archivos individuales se descargan con `overwrite=true` (un clip online se puede re-descargar).
 - **Tabs**: a diferencia de los botones de shot, Download Clip **no abre ningún tab** en FileManager — solo dispara la descarga y FileManager cambia a la pestaña *Activity*.
 - **Reconexión automática**: el comando incluye `--notify-completion "<Startup>/logs/download_clip_done"`. FileManager escribe un marcador `.json` al terminar cada descarga; el watcher `LGA_NKS_DownloadClip_Watcher.py` lo detecta y reconecta el clip offline en Hiero automáticamente (ver sección **Reconexión automática** más abajo).
@@ -225,6 +230,10 @@ Los scripts ejecutan comandos CLI reales de FileManager:
 
 Los scripts incluyen una variable `Desarrollo = True` para alternar entre rutas con verificación automática.
 
+**Download Clip sigue la misma lógica**: `get_filemanager_exe()` en `LGA_NKS_FileManager_DownloadClip.py` usa el mismo patrón. Por eso funciona tanto para quien tiene la versión build (la usa si existe) como para el resto de los usuarios (cae automáticamente a la versión instalada `C:\Portable\LGA\FileManager\FileManager.exe`). El watcher y el mecanismo de marcadores son independientes del ejecutable usado (la ruta de marcadores la pasa Hiero por `--notify-completion`).
+
+> **⚠️ Despliegue**: los flags `--download-file` y `--notify-completion` viven en el código fuente de FileManager (`src/main.cpp`). Una versión **build** recién compilada los tiene; la versión **instalada** que usan los demás usuarios solo los tendrá cuando se **redespliegue** FileManager desde el código actualizado. Hasta entonces, una versión instalada vieja ignoraría esos flags (las secuencias vía `--download` se descargarían igual, pero los archivos sueltos y la reconexión automática no funcionarían).
+
 Los comandos se ejecutan de forma asíncrona (subprocess.Popen) para no bloquear la interfaz de Hiero/Nuke Studio.
 
 ---
@@ -241,6 +250,11 @@ Cuando se usa **Download Clip**, al terminar la descarga el clip se reconecta so
    { "task_id": "...", "success": true, "items": [ { "path": "T:/.../ref.mov", "kind": "file" } ] }
    ```
    `kind` es `"file"` (archivo único) o `"folder"` (carpeta de la secuencia).
+   En modo latest puede incluir además:
+   ```json
+   { "requested_path": "T:/..._v05.mov", "latest": true }
+   ```
+   para que Hiero matchee el clip por ruta original y haga `setActiveVersion()` al nuevo media.
 3. **El watcher** `LGA_NKS_Coordination_Panel_py/LGA_NKS_DownloadClip_Watcher.py` (lo arranca el Coordination Panel al iniciar Hiero) revisa esa carpeta cada ~5 s con un `QTimer`. Por cada marcador:
    - Si `success` es `false` → no reconecta, descarta el marcador.
    - Si `success` es `true` → busca el/los clip(s) cuyo media coincide (`file` = ruta exacta; `folder` = `dirname` del media de la secuencia), ejecuta `reconnectMedia()` con fallback `refresh()`, hace un **toggle del estado `enabled`** del track item (restaurando el original) para forzar el refresco del viewer, y borra el marcador.
@@ -254,6 +268,70 @@ Cuando se usa **Download Clip**, al terminar la descarga el clip se reconecta so
 - Cada marcador se **borra siempre** tras procesarlo (haya match o no).
 - Marcadores sin clip que matchee (proyecto no cargado aún) se reintentan hasta un **TTL de 30 min** y luego se descartan → sin huérfanos eternos.
 - Escritura atómica del marcador (`.tmp` + rename) → el watcher nunca lee un `.json` a medio escribir.
+
+---
+
+## 🧪 Arquitectura tecnica: Shift+Click en Download Clip (ultima version)
+
+### Hallazgos de investigacion (estado actual)
+
+- **Panel con doble accion ya resuelta en otros botones**:
+  `LGA_NKS_Coordination_Panel.py` ya implementa `CustomButton` + `setShiftClickHandler()` para `Reveal in Flow` y `.Psync`, con tooltip explicito `Click` / `Shift+Click`.
+- **Download Clip actual en Startup**:
+  `LGA_NKS_FileManager_DownloadClip.py` soporta modo normal y modo latest:
+  - normal: `--download` / `--download-file`
+  - latest: `--download-latest` / `--download-latest-file`
+  ambos con `--notify-completion`.
+- **Watcher actual en Startup**:
+  `LGA_NKS_DownloadClip_Watcher.py` reconecta por matching de ruta y, cuando el marker indica `latest=true`, aplica flujo de cambio de version en timeline (VersionScanner + `setActiveVersion()` + reconexion/repaint).
+- **CLI de FileManager actual**:
+  `src/main.cpp` soporta `--download`, `--download-file`, `--download-latest`, `--download-latest-file`, `--upload`, `--notify-completion` (incluyendo multi-ruta + IPC cuando la app ya esta abierta).
+- **Infra de listado S3 ya existente y madura**:
+  `S3PythonManager` + `py_scr/s3_persistent_server.py` + `py_scr/s3_list.py` ya resuelven listados no recursivos/recursivos; `S3Celery_ConflictChecker` ya filtra versiones para otros flujos.
+- **Credenciales y seguridad**:
+  FileManager centraliza credenciales Wasabi via `SecureConfig` (C++) y `SecureConfig_Reader.py` (Python), evitando duplicar logica sensible en Hiero.
+
+### Decision tecnica recomendada
+
+- **Centralizar la deteccion de ultima version en FileManager (CLI nuevo)** y mantener Hiero como cliente liviano (seleccion + UI + disparo).
+- Motivo: evita duplicar parseo de versiones, acceso a credenciales y errores de S3 en dos repos distintos.
+
+### Implementacion aplicada
+
+1. **UI del panel (Startup)**
+   - `Download Clip` usa `CustomButton` con doble accion.
+   - Tooltip explicita `Click` vs `Shift+Click`.
+
+2. **Script Download Clip (Startup)**
+   - `LGA_NKS_FileManager_DownloadClip.py` incorpora parametro `download_latest`.
+   - Envia flags latest de FileManager cuando corresponde.
+
+3. **CLI nuevo en FileManager**
+   - `main.cpp` parsea y enruta `--download-latest` y `--download-latest-file`.
+   - Resuelve siblings por version y encola descarga en el mismo pipeline (S3Celery + Activity + notify marker).
+
+4. **Regla de version solicitada**
+   - Se toma el patron `_v##` o `_v###` del nombre.
+   - Si existen multiples `_v...`, se usa **el ultimo**.
+   - Para video: se lista carpeta padre del archivo.
+   - Para secuencias: se lista carpeta contenedora de las carpetas de version.
+
+5. **Reconexion con cambio de version en Hiero (alineado a Flow Pull)**
+   - El watcher soporta marker latest con `requested_path`.
+   - Cuando aplica, matchea el clip original y ejecuta subida de version en timeline (flujo equivalente a Flow Pull).
+
+6. **Verificacion**
+   - Casos: clip offline/online, video unico, secuencia, multiples clips seleccionados, markers sin match, path sin version, multiples `_v` en nombre.
+   - Confirmar que la UI no bloquea y que Activity/markers siguen funcionando igual que hoy.
+
+### Riesgos principales y mitigacion
+
+- **Riesgo**: marker con path distinto al media actual no matchea en watcher.  
+  **Mitigacion**: ampliar payload del marker y agregar estrategia de match por identidad/base de clip + subida de version.
+- **Riesgo**: ambiguedad de version por nombres no estandar.  
+  **Mitigacion**: regex explicita para "ultimo `_v\d+`" + logs de diagnostico por clip.
+- **Riesgo**: divergencia entre repos (Startup vs FileManager).  
+  **Mitigacion**: documentar contrato CLI y marker en ambos repos.
 
 ---
 
@@ -280,7 +358,7 @@ Cuando se usa **Download Clip**, al terminar la descarga el clip se reconecta so
   - `_get_selected_clips()`: obtiene los clips seleccionados (Método 1, sin playhead).
   - `_inspect_clip()`: extrae nombre, ruta, tipo (`singleFile()`) y estado online/offline.
   - `_path_has_vfx_root()`: valida que la ruta tenga raíz `VFX-` (requisito del CLI).
-  - `get_filemanager_exe()`, `build_filemanager_cmd()`: resuelven el ejecutable y arman la llamada combinada `--download` / `--download-file` / `--notify-completion`.
+  - `get_filemanager_exe()`, `build_filemanager_cmd()`: resuelven el ejecutable y arman la llamada combinada de modo normal (`--download` / `--download-file`) o latest (`--download-latest` / `--download-latest-file`) con `--notify-completion`.
   - `get_notify_dir()`: devuelve la carpeta de marcadores (`logs/download_clip_done`).
   - `setup_debug_logging()`, `debug_print()`: sistema de logging a archivo.
 
@@ -302,8 +380,9 @@ Cuando se usa **Download Clip**, al terminar la descarga el clip se reconecta so
 - **`C:\Portable\LGA_FileManager\src\main.cpp`** (repo de FileManager)
   - `startCliDownloadFile()`: descarga un archivo individual (resuelve tamaño en S3, encola 1 objeto).
   - `startCliDownload()`: descarga una carpeta completa (shots / secuencias).
+  - `startCliDownloadLatestFile()`, `startCliDownloadLatestFolder()`: resuelven sibling de versión más alta y delegan en el pipeline de descarga existente.
   - `registerCliNotifyTask()`, `writeCliCompletionMarker()`: registran la tarea y escriben el marcador `.json` al completarse (señal `celeryTaskCompleted`).
-  - Parseo CLI de `--download`, `--download-file` (ambos multi-ruta) y `--notify-completion`; transporte por IPC (`CliCommandPayload`).
+  - Parseo CLI de `--download`, `--download-file`, `--download-latest`, `--download-latest-file` (multi-ruta) y `--notify-completion`; transporte por IPC (`CliCommandPayload`).
 
 ---
 

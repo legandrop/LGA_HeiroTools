@@ -288,7 +288,7 @@ class FlowProdPanel(QtWidgets.QWidget):
                 self.download_clip_from_filemanager,
                 "gradient_magenta_violet",
                 None,
-                "Descargar clip individual desde Wasabi S3",
+                "Click: Descargar clip seleccionado\nShift+Click: Descargar ultima version del clip",
             ),
             (
                 "Reveal in Flow",
@@ -400,6 +400,10 @@ class FlowProdPanel(QtWidgets.QWidget):
                 button = CustomButton(name)
                 button.setCustomClickHandler(self.create_pipesync_token_file)
                 button.setShiftClickHandler(self.open_shot_in_pipesync)
+            elif name == "Download Clip":
+                button = CustomButton(name)
+                button.setCustomClickHandler(self.download_clip_from_filemanager)
+                button.setShiftClickHandler(self.download_latest_clip_from_filemanager)
             else:
                 button = QtWidgets.QPushButton(name)
                 button.clicked.connect(handler)
@@ -841,8 +845,8 @@ class FlowProdPanel(QtWidgets.QWidget):
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
 
-    def download_clip_from_filemanager(self):
-        """Llama al script FileManager para descargar el clip individual seleccionado"""
+    def _run_download_clip_from_filemanager(self, download_latest=False):
+        """Llama al script FileManager para descargar clip(s) seleccionado(s)."""
         script_path = os.path.join(
             os.path.dirname(__file__), "LGA_NKS_Coordination_Panel_py", "LGA_NKS_FileManager_DownloadClip.py"
         )
@@ -865,9 +869,17 @@ class FlowProdPanel(QtWidgets.QWidget):
                 )
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            module.main()
+            module.main(download_latest=download_latest)
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
+
+    def download_clip_from_filemanager(self):
+        """Descarga el clip seleccionado en modo normal."""
+        self._run_download_clip_from_filemanager(download_latest=False)
+
+    def download_latest_clip_from_filemanager(self):
+        """Descarga la ultima version disponible del clip (Shift+Click)."""
+        self._run_download_clip_from_filemanager(download_latest=True)
 
     def check_timeline_shots(self):
         """Llama al script de chequeo de shots en el timeline."""

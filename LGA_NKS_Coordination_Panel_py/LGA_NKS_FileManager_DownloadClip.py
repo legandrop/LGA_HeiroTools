@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_FileManager_DownloadClip v0.04 | Lega
+  LGA_NKS_FileManager_DownloadClip v1.00 | Lega
 
   Descarga el/los clip(s) seleccionado(s) desde Wasabi S3 usando
   FileManager CLI. A diferencia de "Download Shot", descarga solo el
@@ -14,6 +14,9 @@ ____________________________________________________________________
   Pasa --notify-completion para que FileManager escriba un marcador al terminar
   cada descarga; el watcher LGA_NKS_DownloadClip_Watcher.py lo detecta y reconecta
   el clip offline automaticamente.
+
+  v1.00: Soporta modo latest (Shift+Click) para descargar la version mas nueva
+         via CLI de FileManager (--download-latest / --download-latest-file).
 
   v0.04: Agrega --notify-completion para reconexion automatica del clip al terminar.
 
@@ -293,20 +296,43 @@ def get_filemanager_exe():
     return r"C:\Portable\LGA\FileManager\FileManager.exe"
 
 
-def build_filemanager_cmd(folder_paths, file_paths, notify_dir=None):
-    """Construye el comando del CLI con --download (carpetas) y --download-file (archivos).
+def _dedupe_preserve_order(paths):
+    """Devuelve la lista sin duplicados preservando el orden de aparicion."""
+    seen = set()
+    out = []
+    for p in paths:
+        key = os.path.normpath(str(p)).replace("\\", "/").lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(p)
+    return out
 
-    Si notify_dir esta dado, agrega --notify-completion para que FileManager escriba
-    un marcador al terminar cada descarga.
 
+def build_filemanager_cmd(folder_paths, file_paths, notify_dir=None, download_latest=False):
+    """Construye el comando del CLI para modo normal o latest.
+
+    - Modo normal:
+      --download (carpetas) y --download-file (archivos)
+    - Modo latest:
+      --download-latest (carpetas) y --download-latest-file (archivos)
+
+    Si notify_dir esta dado, agrega --notify-completion para que FileManager
+    escriba un marcador al terminar cada descarga.
     Devuelve la lista de argumentos o None si no se puede construir.
     """
+    folder_paths = _dedupe_preserve_order(folder_paths)
+    file_paths = _dedupe_preserve_order(file_paths)
+
+    folder_flag = "--download-latest" if download_latest else "--download"
+    file_flag = "--download-latest-file" if download_latest else "--download-file"
+
     cli_args = []
     if folder_paths:
-        cli_args.append("--download")
+        cli_args.append(folder_flag)
         cli_args.extend(folder_paths)
     if file_paths:
-        cli_args.append("--download-file")
+        cli_args.append(file_flag)
         cli_args.extend(file_paths)
 
     if not cli_args:
@@ -333,9 +359,10 @@ def build_filemanager_cmd(folder_paths, file_paths, notify_dir=None):
     return [filemanager_exe] + cli_args
 
 
-def main():
+def main(download_latest=False):
     """Descarga el/los clip(s) seleccionado(s) desde Wasabi S3."""
-    debug_print("=== FILEMANAGER DOWNLOAD CLIP ===")
+    mode_label = "LATEST" if download_latest else "NORMAL"
+    debug_print(f"=== FILEMANAGER DOWNLOAD CLIP ({mode_label}) ===")
     debug_print(f"log file: {_log_file_path_resolved}")
 
     try:
@@ -379,12 +406,23 @@ def main():
 
             if info["is_single_file"]:
                 # Archivo de video unico: se descarga el archivo tal cual
-                debug_print(f"Tipo: archivo unico -> --download-file")
+                debug_print(
+                    "Tipo: archivo unico -> "
+                    + ("--download-latest-file" if download_latest else "--download-file")
+                )
                 file_paths.append(file_path)
             else:
                 # Secuencia de imagenes: se descarga la carpeta contenedora
                 seq_folder = os.path.dirname(file_path)
-                debug_print(f"Tipo: secuencia -> --download carpeta: {seq_folder}")
+                debug_print(
+                    "Tipo: secuencia -> "
+                    + (
+                        "--download-latest carpeta: "
+                        if download_latest
+                        else "--download carpeta: "
+                    )
+                    + str(seq_folder)
+                )
                 folder_paths.append(seq_folder)
 
         if not folder_paths and not file_paths:
@@ -398,7 +436,9 @@ def main():
             debug_print(f"No se pudo crear la carpeta de notificacion: {e}", level="warning")
         debug_print(f"Notify dir: {notify_dir}")
 
-        cmd = build_filemanager_cmd(folder_paths, file_paths, notify_dir)
+        cmd = build_filemanager_cmd(
+            folder_paths, file_paths, notify_dir, download_latest=download_latest
+        )
         if not cmd:
             debug_print("No se pudo construir el comando de FileManager", level="error")
             return
@@ -407,7 +447,7 @@ def main():
         try:
             subprocess.Popen(cmd, shell=False)
             debug_print(
-                f"FileManager iniciado: {len(folder_paths)} secuencia(s), "
+                f"FileManager iniciado ({mode_label}): {len(folder_paths)} secuencia(s), "
                 f"{len(file_paths)} archivo(s)"
             )
         except Exception as cmd_error:
@@ -419,4 +459,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    latest_arg = any(
+        arg in ("--latest", "--download-latest", "--download-latest-file")
+        for arg in sys.argv[1:]
+    )
+    main(download_latest=latest_arg)
