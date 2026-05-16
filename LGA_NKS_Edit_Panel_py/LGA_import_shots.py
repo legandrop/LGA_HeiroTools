@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_import_shots v1.17 | Lega
+  LGA_import_shots v1.18 | Lega
 
   Importa shots al proyecto de Nuke Studio.
   Analiza la carpeta _input del shot, detecta plates/editrefs/seqrefs
@@ -9,6 +9,8 @@ ____________________________________________________________________
   alfabeticamente correcta.
 
 
+  v1.18: Fix apertura Import Shot: Rename ahora tolera items sin path valido
+         usando fallbacks y no bloquea la creacion de la ventana.
   v1.17: Si existe el shot en el timeline, permite igualmente continuar
   v1.16: Transcode Plates: Forzar dimensiones pares (recomendado) ahora visible
          en el tab Transcode. Y arreglo de UI
@@ -73,6 +75,7 @@ import platform
 import queue
 import subprocess
 import time
+import traceback
 from pathlib import Path
 from logging.handlers import QueueHandler, QueueListener
 
@@ -1913,9 +1916,12 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         self._connect_transcode_manager()
 
+        debug_print("ImportShotDialog init: set current tab Rename")
         self._tab_bar.setCurrentIndex(self.TAB_RENAME)
         self._tab_widget.setCurrentIndex(self.TAB_RENAME)
+        debug_print("ImportShotDialog init: updating rename page")
         self._update_rename_page()
+        debug_print("ImportShotDialog init complete window_id=%s" % self._window_id)
 
     # ── header ───────────────────────────────────────────────────
 
@@ -1934,7 +1940,9 @@ class ImportShotDialog(QtWidgets.QDialog):
         except Exception as exc:
             debug_print("TranscodeQueueManager open log error: %s" % exc, level="warning")
         debug_print("TranscodeQueueManager conectado window_id=%s" % self._window_id)
+        debug_print("TranscodeQueueManager snapshot request window_id=%s" % self._window_id)
         self._update_global_status_label(mgr.snapshot())
+        debug_print("TranscodeQueueManager snapshot applied window_id=%s" % self._window_id)
 
     def _make_footer_pair(self):
         """Crea (footer buttons, status widget) para integrar en la fila inferior."""
@@ -3602,6 +3610,12 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._update_rename_preset_combo_selection()
 
     def _update_rename_page(self):
+        debug_print(
+            "_update_rename_page start publish=%d input=%d" % (
+                len(getattr(self, "publish_items", []) or []),
+                len(getattr(self, "input_items", []) or []),
+            )
+        )
         all_items = []
         for p in getattr(self, "publish_items", []):
             if p.get("has_versions"):
@@ -3619,11 +3633,15 @@ class ImportShotDialog(QtWidgets.QDialog):
                 item["source"] = "refs"
                 all_items.append(item)
         self._rename_selected_rows = rename_mod.build_selected_rows(all_items)
+        debug_print("_update_rename_page selected rows=%d" % len(self._rename_selected_rows))
         self._refresh_rename_preview()
+        debug_print("_update_rename_page done")
 
     def _refresh_rename_preview(self):
         if not hasattr(self, "_rename_table"):
+            debug_print("_refresh_rename_preview skipped: no _rename_table", level="warning")
             return
+        debug_print("_refresh_rename_preview start")
 
         # Guardar estados de checkboxes actuales por item_path para preservarlos
         saved_chk_states = {}
@@ -3647,6 +3665,7 @@ class ImportShotDialog(QtWidgets.QDialog):
             shot_name=self.shot_name,
             shotname_color=SHOTNAME_COLOR,
         )
+        debug_print("_refresh_rename_preview computed rows=%d" % len(self._rename_preview_rows))
 
         # Construir display_rows: secciones intercaladas igual que la tabla principal
         _SECTION_META = {
@@ -3676,6 +3695,7 @@ class ImportShotDialog(QtWidgets.QDialog):
                 })
             display_rows.append({"type": "data", "preview_row": pr})
         self._rename_display_rows = display_rows
+        debug_print("_refresh_rename_preview display rows=%d" % len(display_rows))
 
         self._rename_table.clearSpans()
         self._rename_table.setRowCount(len(display_rows))
@@ -3770,6 +3790,7 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         self._update_rename_summary()
         self._update_rename_btn_state()
+        debug_print("_refresh_rename_preview done")
 
     def _update_import_handle_label(self):
         """Actualiza el label de handle auto-calculado debajo de la tabla de import preview."""
@@ -6468,18 +6489,27 @@ def main():
     # Abrir dialogo (no bloqueante — igual que CreateV000)
     global _import_shot_dialog_instance
 
-    dlg = ImportShotDialog(
-        shot_root, shot_name, seq,
-        insert_frame, frames_to_push,
-        prev_shot_name, next_shot_name,
-        input_items, publish_items,
-    )
+    debug_print("Creating ImportShotDialog...")
+    try:
+        dlg = ImportShotDialog(
+            shot_root, shot_name, seq,
+            insert_frame, frames_to_push,
+            prev_shot_name, next_shot_name,
+            input_items, publish_items,
+        )
+    except Exception as exc:
+        debug_print("ImportShotDialog creation failed: %s" % exc, level="error")
+        debug_print(traceback.format_exc(), level="error")
+        raise
+    debug_print("ImportShotDialog created")
     dlg.finished.connect(_clear_import_dialog)
     dlg.destroyed.connect(_clear_import_dialog)
     _import_shot_dialog_instance = dlg
+    debug_print("ImportShotDialog show...")
     dlg.show()
     dlg.raise_()
     dlg.activateWindow()
+    debug_print("ImportShotDialog shown")
 
 
 if __name__ == "__main__":

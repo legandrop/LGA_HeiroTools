@@ -207,14 +207,20 @@ def _apply_padding_stage(cur_text, cur_orig_map, cur_tags, digits, stage_id):
 def build_selected_rows(selected_items: list[dict]) -> list[dict]:
     rows = []
     for item in selected_items:
-        path = Path(item.get("path", ""))
         kind = item.get("kind")
         source = item.get("source", "")
+        raw_path = item.get("path") or item.get("version_dir") or item.get("first_file") or ""
+        if not raw_path:
+            continue
+        path = Path(raw_path)
 
         is_seq = False
         seq_info = None
-        if kind == "exr_seq" or (path.is_dir() and item.get("first_file")):
-            ff = Path(item.get("first_file", "")).name
+        first_file = item.get("first_file") or ""
+        if kind == "exr_seq" and first_file and path.suffix.lower() == ".exr":
+            path = Path(first_file).parent
+        if kind == "exr_seq" or (path.is_dir() and first_file):
+            ff = Path(first_file).name
             seq_info = _seq_info_from_file_name(ff)
             if seq_info:
                 is_seq = True
