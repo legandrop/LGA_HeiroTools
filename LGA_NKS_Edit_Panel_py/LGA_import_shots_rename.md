@@ -145,6 +145,13 @@ exactamente el ancho que tenía antes de existir las columnas 2 y 3 (~50% del an
     1. Fila `Preset:` + `_rename_preset_combo` (dropdown con presets).
     2. Botón `Save Preset` con estilo `_BTN_SMALL`.
     3. Botón `Reset Values` con estilo `_BTN_SMALL`
+
+Anchos actuales:
+
+- `opts_row` distribuye `col_left:right_wrap` con stretch `3:5` para restar ancho a Search & Replace y darselo al bloque derecho.
+- Dentro de `right_wrap`, `Prefix/Suffix:Delimiter/Digits` usa stretch `2:1`.
+- Las filas de `Prefix` y `Suffix` agregan `addSpacing(10)` a la derecha para igualar el padding visual de las otras columnas sin cambiar el ancho total.
+- El espacio libre a la derecha de Preset es `_RENAME_COL3_RIGHT_PADDING = 20`.
        (mismo estilo que `Select All` / `Clear` / `Plates` del tab Import).
   - `addSpacing(_RENAME_COL3_RIGHT_PADDING)` (variable local marcada con `✅✅` en el código)
     para dejar un margen libre a la derecha y que la columna 3 no quede pegada al borde

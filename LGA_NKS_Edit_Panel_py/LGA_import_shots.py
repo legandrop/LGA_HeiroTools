@@ -1,13 +1,16 @@
 """
 ____________________________________________________________________
 
-  LGA_import_shots v1.19 | Lega
+  LGA_import_shots v1.21 | Lega
 
   Importa shots al proyecto de Nuke Studio.
   Analiza la carpeta _input del shot, detecta plates/editrefs/seqrefs
   y versiones en publish, y los coloca en el timeline en la posicion
   alfabeticamente correcta.
 
+  v1.21: Agrega padding derecho interno a la columna Prefix/Suffix.
+  v1.20: Ajuste de anchos en Rename: Search & Replace pierde espacio,
+         Prefix/Suffix gana ese ancho mas padding liberado del preset.
   v1.19: Rename igualado a MediaTools: labels sin numero de step,
          nueva columna Prefix/Suffix persistente y en presets, boton
          "Reset Values", pipeline de preview de 6 stages.
@@ -3246,7 +3249,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         col_left.addLayout(sr2_row)
 
         col_left.addStretch()
-        opts_row.addLayout(col_left, 1)
+        opts_row.addLayout(col_left, 3)
 
         # Wrapper para todo lo que va a la derecha de col_left.
         # Tiene stretch=1 igual que col_left, asi col_left mantiene su ancho (~50%).
@@ -3272,6 +3275,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_prefix_input.setPlaceholderText("Prefix")
         self._rename_prefix_input.setStyleSheet(line_style)
         prefix_row.addWidget(self._rename_prefix_input, 1)
+        prefix_row.addSpacing(10)
         col_pref_suf.addLayout(prefix_row)
 
         col_pref_suf.addSpacing(8)
@@ -3282,10 +3286,11 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_suffix_input.setPlaceholderText("Suffix")
         self._rename_suffix_input.setStyleSheet(line_style)
         suffix_row.addWidget(self._rename_suffix_input, 1)
+        suffix_row.addSpacing(10)
         col_pref_suf.addLayout(suffix_row)
 
         col_pref_suf.addStretch()
-        right_wrap.addLayout(col_pref_suf, 1)
+        right_wrap.addLayout(col_pref_suf, 2)
 
         right_wrap.addSpacing(10)
         right_wrap.addWidget(_separator("v"))
@@ -3375,10 +3380,10 @@ class ImportShotDialog(QtWidgets.QDialog):
         right_wrap.addLayout(col_extra, 0)
 
         # Espacio libre a la derecha de la columna Preset
-        _RENAME_COL3_RIGHT_PADDING = 40
+        _RENAME_COL3_RIGHT_PADDING = 20
         right_wrap.addSpacing(_RENAME_COL3_RIGHT_PADDING)
 
-        opts_row.addLayout(right_wrap, 1)
+        opts_row.addLayout(right_wrap, 5)
 
         layout.addLayout(opts_row)
         layout.addWidget(_separator())
