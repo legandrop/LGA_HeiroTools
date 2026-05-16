@@ -130,20 +130,21 @@ Cada etapa tiene color propio, reutilizando la paleta ya existente de transcode:
 `opts_row` se divide en dos mitades con stretch=1 cada una para que la columna 1 conserve
 exactamente el ancho que tenía antes de existir las columnas 2 y 3 (~50% del ancho de la ventana):
 
-- **Mitad izquierda** = `col_left` (stretch 1): Step 1 (Search & Replace) + Step 2 (Search & Replace).
+- **Mitad izquierda** = `col_left` (stretch 1): `Search & Replace 1` + `Search & Replace 2`.
 - **Mitad derecha** = `right_wrap` (QHBoxLayout con stretch 1 dentro de `opts_row`), que contiene en orden:
   - `addSpacing(30)` — espacio libre entre `col_left` y el separador vertical.
   - **Separador vertical** entre col 1 y col 2.
   - `addSpacing(20)` — separación entre el separador y el contenido de la columna 2.
-  - **Columna 2** = `col_right` (stretch 1 dentro de `right_wrap`): Step 3 (Delimiter) + Step 4 (Frame Digits).
+  - **Columna 2** = `col_pref_suf` (stretch 1 dentro de `right_wrap`): `Prefix` + `Suffix`.
+  - **Columna 3** = `col_right` (stretch 1 dentro de `right_wrap`): `Delimiter` + `Frame Number Digit`.
   - `addSpacing(100)` para separar la columna 3 de la columna 2.
   - Separador vertical.
   - `addSpacing(20)` — separación entre el separador y el contenido de la columna 3.
   - **Columna 3** = `col_extra` (stretch 0, `setSpacing(12)` para más aire entre filas).
     Contiene en orden:
     1. Fila `Preset:` + `_rename_preset_combo` (dropdown con presets).
-    2. Botón `Save preset` con estilo `_BTN_SMALL`.
-    3. Botón `Reset` con estilo `_BTN_SMALL`
+    2. Botón `Save Preset` con estilo `_BTN_SMALL`.
+    3. Botón `Reset Values` con estilo `_BTN_SMALL`
        (mismo estilo que `Select All` / `Clear` / `Plates` del tab Import).
   - `addSpacing(_RENAME_COL3_RIGHT_PADDING)` (variable local marcada con `✅✅` en el código)
     para dejar un margen libre a la derecha y que la columna 3 no quede pegada al borde
@@ -151,7 +152,7 @@ exactamente el ancho que tenía antes de existir las columnas 2 y 3 (~50% del an
 
 ## Presets de rename
 
-El dropdown `Preset:` permite guardar y aplicar combinaciones completas de los 4 steps.
+El dropdown `Preset:` permite guardar y aplicar combinaciones completas de los 6 steps.
 
 ### Persistencia
 
@@ -159,10 +160,12 @@ Los presets viven en el mismo INI de rename (`%APPDATA%\LGA\HieroTools\ImportSho
 en secciones `[RenamePreset_0]`, `[RenamePreset_1]`, ... Cada sección tiene los campos:
 
 - `name` — nombre visible en el combo.
-- `sr1_search`, `sr1_replace`, `sr1_case` — Step 1.
-- `sr2_search`, `sr2_replace`, `sr2_case` — Step 2.
-- `delim` — Step 3 (`_` o `.`).
-- `digits` — Step 4 (string del int).
+- `sr1_search`, `sr1_replace`, `sr1_case` — Search & Replace 1.
+- `sr2_search`, `sr2_replace`, `sr2_case` — Search & Replace 2.
+- `prefix` — Prefix.
+- `suffix` — Suffix.
+- `delim` — Delimiter (`_` o `.`).
+- `digits` — Frame Number Digit (string del int).
 
 Funciones nuevas en `LGA_import_shots_rename_settings.py`:
 
@@ -190,7 +193,7 @@ Reusa por completo el patrón del combo `Destino:` de Transcode:
   deshabilitado (`setEnabled(False)`), no se puede abrir.
 - **Con presets**: el combo lista siempre el item virtual `----` en la posición 0 (no
   deletable, elegirlo desde el combo no hace nada) seguido de todos los presets reales.
-  En cada cambio de los 4 steps se evalúa el match contra todos los presets; si alguno
+  En cada cambio de los 6 steps se evalúa el match contra todos los presets; si alguno
   coincide exactamente queda seleccionado, sino se selecciona `----`.
 
 ### Comparación de match
@@ -238,21 +241,22 @@ El trash icon dispara `_on_rename_preset_delete(row)`:
 
 ### Sincronización con cambios manuales
 
-Cada vez que el usuario edita un widget de los 4 steps, `_on_rename_settings_changed` llama
+Cada vez que el usuario edita un widget de los 6 steps, `_on_rename_settings_changed` llama
 a `_update_rename_preset_combo_selection()` (excepto si está activa la bandera
 `_rename_applying_preset`). Ese método busca un preset que matchee el estado actual y
 selecciona el item correspondiente en el combo (`match_idx + 1` por el `----` en pos 0), o
 selecciona `----` si ninguno matchea. Las señales del combo se bloquean durante el cambio.
 
-### Botón `Reset`
+### Botón `Reset Values`
 
 Método: `_reset_rename_to_defaults()`.
 
 Acciones:
 
 - Vacía los 4 campos de texto: SR1 Search, SR1 Replace, SR2 Search, SR2 Replace.
-- Setea el combo de Step 3 (Delimiter) en `_`.
-- Setea el spinbox de Step 4 (Frame Digits) en `4`.
+- Limpia `Prefix` y `Suffix`.
+- Setea el combo de Delimiter en `_`.
+- Setea el spinbox de Frame Number Digit en `4`.
 
 Los `case_sensitive` de SR1/SR2 NO se tocan (no son parte del defaults requerido).
 
@@ -276,8 +280,8 @@ en:
 
 - Botones swap `⇄` (SR1 y SR2).
 - Checkboxes `Case Sensitive` (SR1 y SR2).
-- Combo de Step 3 (Delimiter) y spinbox de Step 4 (Frame Digits).
-- Combo `Preset:` y botones `Save preset` / `Reset` de col 3.
+- Combo de Delimiter y spinbox de Frame Number Digit.
+- Combo `Preset:` y botones `Save Preset` / `Reset Values`.
 - Botón `Run Rename` del footer.
 
 ## Botón ⇄ (Swap Search / Replace)
@@ -337,7 +341,7 @@ El estado inicial del checkbox en la nueva tabla se toma del estado guardado; si
 nuevo (no tenía estado previo), se usa el default (`True` para no bloqueados, `False` para
 bloqueados).
 
-## Dígitos mínimos por secuencia (Step 4)
+## Dígitos mínimos por secuencia (Frame Number Digit)
 
 El spinbox de "Frame Digits" fija el padding solicitado por el usuario (`user_digits`), pero
 `compute_preview` aplica un `effective_digits` por secuencia:
@@ -410,11 +414,14 @@ Secciones:
 
 - `[SearchReplace1]`
 - `[SearchReplace2]`
+- `[Prefix]`
+- `[Suffix]`
 - `[Delimiter]`
 - `[Padding]`
 
 Valores persistidos:
 
 - `search`, `replace`, `case_sensitive` (para SR1/SR2)
+- `text` (para Prefix/Suffix)
 - `char` (`_` o `.`)
 - `digits` (padding)

@@ -1,10 +1,13 @@
 """
 ____________________________________________________________________
 
-  LGA_import_shots_rename_settings v1.00 | Lega
+  LGA_import_shots_rename_settings v1.01 | Lega
 
   Persistencia de configuracion para la seccion Rename.
   INI: %APPDATA%\\LGA\\HieroTools\\ImportShotsRename.ini
+
+  Changelog:
+  - v1.01: Agrega persistencia y presets de Prefix/Suffix.
 
 ____________________________________________________________________
 """
@@ -20,6 +23,8 @@ CONFIG_FILE_NAME = "ImportShotsRename.ini"
 
 SEC_SR1 = "SearchReplace1"
 SEC_SR2 = "SearchReplace2"
+SEC_PREFIX = "Prefix"
+SEC_SUFFIX = "Suffix"
 SEC_DELIM = "Delimiter"
 SEC_PADDING = "Padding"
 
@@ -27,6 +32,9 @@ DEFAULTS_SR = {
     "search": "",
     "replace": "",
     "case_sensitive": "false",
+}
+DEFAULTS_TEXT = {
+    "text": "",
 }
 DEFAULTS_DELIM = {
     "char": "_",
@@ -85,6 +93,8 @@ def load_settings():
     return {
         "sr1": _section(SEC_SR1, DEFAULTS_SR),
         "sr2": _section(SEC_SR2, DEFAULTS_SR),
+        "prefix": _section(SEC_PREFIX, DEFAULTS_TEXT),
+        "suffix": _section(SEC_SUFFIX, DEFAULTS_TEXT),
         "delimiter": _section(SEC_DELIM, DEFAULTS_DELIM),
         "padding": _section(SEC_PADDING, DEFAULTS_PADDING),
     }
@@ -97,6 +107,8 @@ def save_settings(data):
     mapping = {
         "sr1": SEC_SR1,
         "sr2": SEC_SR2,
+        "prefix": SEC_PREFIX,
+        "suffix": SEC_SUFFIX,
         "delimiter": SEC_DELIM,
         "padding": SEC_PADDING,
     }
@@ -120,6 +132,8 @@ PRESET_FIELDS = (
     "sr2_search",
     "sr2_replace",
     "sr2_case",
+    "prefix",
+    "suffix",
     "delim",
     "digits",
 )

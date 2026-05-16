@@ -1,14 +1,16 @@
 """
 ____________________________________________________________________
 
-  LGA_import_shots v1.18 | Lega
+  LGA_import_shots v1.19 | Lega
 
   Importa shots al proyecto de Nuke Studio.
   Analiza la carpeta _input del shot, detecta plates/editrefs/seqrefs
   y versiones en publish, y los coloca en el timeline en la posicion
   alfabeticamente correcta.
 
-
+  v1.19: Rename igualado a MediaTools: labels sin numero de step,
+         nueva columna Prefix/Suffix persistente y en presets, boton
+         "Reset Values", pipeline de preview de 6 stages.
   v1.18: Fix apertura Import Shot: Rename ahora tolera items sin path valido
          usando fallbacks y no bloquea la creacion de la ventana.
   v1.17: Si existe el shot en el timeline, permite igualmente continuar
@@ -3191,11 +3193,11 @@ class ImportShotDialog(QtWidgets.QDialog):
         opts_row = QtWidgets.QHBoxLayout()
         opts_row.setSpacing(20)
 
-        # Columna izquierda — Step 1 + Step 2
+        # Columna izquierda - Search & Replace 1 + 2
         col_left = QtWidgets.QVBoxLayout()
         col_left.setSpacing(6)
 
-        col_left.addWidget(_section_label("Step 1 — Search & Replace"))
+        col_left.addWidget(_section_label("Search & Replace 1"))
         sr1_row = QtWidgets.QHBoxLayout()
         self._rename_sr1_search = QtWidgets.QLineEdit()
         self._rename_sr1_search.setPlaceholderText("Search")
@@ -3220,7 +3222,7 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         col_left.addSpacing(8)
 
-        col_left.addWidget(_section_label("Step 2 — Search & Replace"))
+        col_left.addWidget(_section_label("Search & Replace 2"))
         sr2_row = QtWidgets.QHBoxLayout()
         self._rename_sr2_search = QtWidgets.QLineEdit()
         self._rename_sr2_search.setPlaceholderText("Search")
@@ -3260,11 +3262,39 @@ class ImportShotDialog(QtWidgets.QDialog):
         # Espacio entre el separador y el contenido de col_right
         right_wrap.addSpacing(30)
 
-        # Columna derecha — Step 3 + Step 4
+        # Columna Prefix / Suffix + Delimiter / Digits
+        col_pref_suf = QtWidgets.QVBoxLayout()
+        col_pref_suf.setSpacing(6)
+
+        col_pref_suf.addWidget(_section_label("Prefix"))
+        prefix_row = QtWidgets.QHBoxLayout()
+        self._rename_prefix_input = QtWidgets.QLineEdit()
+        self._rename_prefix_input.setPlaceholderText("Prefix")
+        self._rename_prefix_input.setStyleSheet(line_style)
+        prefix_row.addWidget(self._rename_prefix_input, 1)
+        col_pref_suf.addLayout(prefix_row)
+
+        col_pref_suf.addSpacing(8)
+
+        col_pref_suf.addWidget(_section_label("Suffix"))
+        suffix_row = QtWidgets.QHBoxLayout()
+        self._rename_suffix_input = QtWidgets.QLineEdit()
+        self._rename_suffix_input.setPlaceholderText("Suffix")
+        self._rename_suffix_input.setStyleSheet(line_style)
+        suffix_row.addWidget(self._rename_suffix_input, 1)
+        col_pref_suf.addLayout(suffix_row)
+
+        col_pref_suf.addStretch()
+        right_wrap.addLayout(col_pref_suf, 1)
+
+        right_wrap.addSpacing(10)
+        right_wrap.addWidget(_separator("v"))
+        right_wrap.addSpacing(30)
+
         col_right = QtWidgets.QVBoxLayout()
         col_right.setSpacing(6)
 
-        col_right.addWidget(_section_label("Step 3 — Delimiter"))
+        col_right.addWidget(_section_label("Delimiter"))
         delim_inner = QtWidgets.QHBoxLayout()
         delim_lbl = QtWidgets.QLabel("Before frame:")
         delim_lbl.setStyleSheet("color:#a7a7a7;")
@@ -3281,7 +3311,7 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         col_right.addSpacing(8)
 
-        col_right.addWidget(_section_label("Step 4 — Frame Digits"))
+        col_right.addWidget(_section_label("Frame Number Digit"))
         pad_inner = QtWidgets.QHBoxLayout()
         pad_lbl = QtWidgets.QLabel("Digits:")
         pad_lbl.setStyleSheet("color:#a7a7a7;")
@@ -3308,7 +3338,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         # Espacio entre el separador y el contenido de col_extra
         right_wrap.addSpacing(30)
 
-        # Tercera columna — Presets + reset / utilidades
+        # Columna Preset
         col_extra = QtWidgets.QVBoxLayout()
         col_extra.setSpacing(12)
 
@@ -3330,13 +3360,13 @@ class ImportShotDialog(QtWidgets.QDialog):
         preset_row.addWidget(self._rename_preset_combo, 1)
         col_extra.addLayout(preset_row)
 
-        self._rename_save_preset_btn = QtWidgets.QPushButton("Save preset")
+        self._rename_save_preset_btn = QtWidgets.QPushButton("Save Preset")
         self._rename_save_preset_btn.setStyleSheet(_BTN_SMALL)
         self._rename_save_preset_btn.setFocusPolicy(QtCore.Qt.NoFocus)
         self._rename_save_preset_btn.clicked.connect(self._on_rename_save_preset_clicked)
         col_extra.addWidget(self._rename_save_preset_btn)
 
-        self._rename_clear_defaults_btn = QtWidgets.QPushButton("Reset")
+        self._rename_clear_defaults_btn = QtWidgets.QPushButton("Reset Values")
         self._rename_clear_defaults_btn.setStyleSheet(_BTN_SMALL)
         self._rename_clear_defaults_btn.setFocusPolicy(QtCore.Qt.NoFocus)
         self._rename_clear_defaults_btn.clicked.connect(self._reset_rename_to_defaults)
@@ -3344,8 +3374,8 @@ class ImportShotDialog(QtWidgets.QDialog):
         col_extra.addStretch()
         right_wrap.addLayout(col_extra, 0)
 
-        # ✅✅ Espacio libre a la derecha de la tercera columna (ajustar a gusto)
-        _RENAME_COL3_RIGHT_PADDING = 200
+        # Espacio libre a la derecha de la columna Preset
+        _RENAME_COL3_RIGHT_PADDING = 40
         right_wrap.addSpacing(_RENAME_COL3_RIGHT_PADDING)
 
         opts_row.addLayout(right_wrap, 1)
@@ -3392,6 +3422,9 @@ class ImportShotDialog(QtWidgets.QDialog):
         QtWidgets.QWidget.setTabOrder(self._rename_sr1_search,  self._rename_sr1_replace)
         QtWidgets.QWidget.setTabOrder(self._rename_sr1_replace, self._rename_sr2_search)
         QtWidgets.QWidget.setTabOrder(self._rename_sr2_search,  self._rename_sr2_replace)
+        QtWidgets.QWidget.setTabOrder(self._rename_sr2_replace, self._rename_prefix_input)
+        QtWidgets.QWidget.setTabOrder(self._rename_prefix_input, self._rename_suffix_input)
+        QtWidgets.QWidget.setTabOrder(self._rename_suffix_input, self._rename_sr1_search)
         self._refresh_rename_preview()
         return page
 
@@ -3403,6 +3436,8 @@ class ImportShotDialog(QtWidgets.QDialog):
             (self._rename_sr2_search, "textChanged"),
             (self._rename_sr2_replace, "textChanged"),
             (self._rename_sr2_case, "stateChanged"),
+            (self._rename_prefix_input, "textChanged"),
+            (self._rename_suffix_input, "textChanged"),
             (self._rename_delim_combo, "currentIndexChanged"),
             (self._rename_digits_spin, "valueChanged"),
         ]:
@@ -3412,6 +3447,8 @@ class ImportShotDialog(QtWidgets.QDialog):
         s = self._rename_settings
         sr1 = s.get("sr1", {})
         sr2 = s.get("sr2", {})
+        prefix = s.get("prefix", {})
+        suffix = s.get("suffix", {})
         dm = s.get("delimiter", {})
         pd = s.get("padding", {})
         self._rename_sr1_search.setText(sr1.get("search", ""))
@@ -3420,6 +3457,8 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_sr2_search.setText(sr2.get("search", ""))
         self._rename_sr2_replace.setText(sr2.get("replace", ""))
         self._rename_sr2_case.setChecked(sr2.get("case_sensitive", "false").lower() == "true")
+        self._rename_prefix_input.setText(prefix.get("text", ""))
+        self._rename_suffix_input.setText(suffix.get("text", ""))
         d = dm.get("char", "_")
         self._rename_delim_combo.setCurrentIndex(1 if d == "." else 0)
         try:
@@ -3438,6 +3477,12 @@ class ImportShotDialog(QtWidgets.QDialog):
                 "search": self._rename_sr2_search.text(),
                 "replace": self._rename_sr2_replace.text(),
                 "case_sensitive": str(self._rename_sr2_case.isChecked()).lower(),
+            },
+            "prefix": {
+                "text": self._rename_prefix_input.text(),
+            },
+            "suffix": {
+                "text": self._rename_suffix_input.text(),
             },
             "delimiter": {
                 "char": self._rename_delim_combo.currentText(),
@@ -3466,15 +3511,19 @@ class ImportShotDialog(QtWidgets.QDialog):
     def _reset_rename_to_defaults(self):
         self._rename_sr1_search.setText("")
         self._rename_sr1_replace.setText("")
+        self._rename_sr1_case.setChecked(False)
         self._rename_sr2_search.setText("")
         self._rename_sr2_replace.setText("")
+        self._rename_sr2_case.setChecked(False)
+        self._rename_prefix_input.setText("")
+        self._rename_suffix_input.setText("")
         self._rename_delim_combo.setCurrentIndex(0)  # "_"
         self._rename_digits_spin.setValue(4)
 
     # ── Presets de rename ──────────────────────────────────────────────────────
 
     def _current_rename_preset_dict(self):
-        """Snapshot de los 4 steps en formato preset (sin nombre)."""
+        """Snapshot de los 6 steps en formato preset (sin nombre)."""
         return {
             "sr1_search":  self._rename_sr1_search.text(),
             "sr1_replace": self._rename_sr1_replace.text(),
@@ -3482,6 +3531,8 @@ class ImportShotDialog(QtWidgets.QDialog):
             "sr2_search":  self._rename_sr2_search.text(),
             "sr2_replace": self._rename_sr2_replace.text(),
             "sr2_case":    "true" if self._rename_sr2_case.isChecked() else "false",
+            "prefix":      self._rename_prefix_input.text(),
+            "suffix":      self._rename_suffix_input.text(),
             "delim":       self._rename_delim_combo.currentText(),
             "digits":      str(self._rename_digits_spin.value()),
         }
@@ -3531,7 +3582,7 @@ class ImportShotDialog(QtWidgets.QDialog):
 
     def _update_rename_preset_combo_selection(self):
         """Selecciona en el combo el preset que matchea con el estado actual de
-        los 4 steps, o '----' si ninguno matchea. No hace nada si no hay
+        los 6 steps, o '----' si ninguno matchea. No hace nada si no hay
         presets cargados (combo en '(sin presets)' deshabilitado)."""
         if not self._rename_presets:
             return
@@ -3568,6 +3619,8 @@ class ImportShotDialog(QtWidgets.QDialog):
             self._rename_sr2_case.setChecked(
                 str(preset.get("sr2_case", "false")).lower() == "true"
             )
+            self._rename_prefix_input.setText(preset.get("prefix", ""))
+            self._rename_suffix_input.setText(preset.get("suffix", ""))
             d = preset.get("delim", "_")
             self._rename_delim_combo.setCurrentIndex(1 if d == "." else 0)
             try:
@@ -3655,8 +3708,10 @@ class ImportShotDialog(QtWidgets.QDialog):
         colors = {
             1: _CLR_COMP_DWAA,  # verde suave (antes amarillo, choca con step 4)
             2: _CLR_PAR,
-            3: _CLR_COMP,
-            4: _CLR_FRAMES,
+            3: "#c678dd",
+            4: "#e5c07b",
+            5: _CLR_COMP,
+            6: _CLR_FRAMES,
         }
         self._rename_preview_rows = rename_mod.compute_preview(
             getattr(self, "_rename_selected_rows", []),

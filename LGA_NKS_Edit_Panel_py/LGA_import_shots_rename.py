@@ -1,9 +1,12 @@
 """
 ____________________________________________________________________
 
-  LGA_import_shots_rename v1.00 | Lega
+  LGA_import_shots_rename v1.01 | Lega
 
   Helpers de logica para la seccion Rename de LGA_import_shots.
+
+  Changelog:
+  - v1.01: Agrega stages Prefix/Suffix al preview, rename real y colores.
 
 ____________________________________________________________________
 """
@@ -204,6 +207,47 @@ def _apply_padding_stage(cur_text, cur_orig_map, cur_tags, digits, stage_id):
     return out_text, out_map, out_tags, changed_orig, True
 
 
+def _apply_prefix_stage(cur_text, cur_orig_map, cur_tags, prefix, stage_id):
+    if not prefix:
+        return cur_text, cur_orig_map, cur_tags, set(), False
+    out_text = prefix + cur_text
+    out_map = [None] * len(prefix) + list(cur_orig_map)
+    out_tags = [{stage_id} for _ in prefix] + [set(x) for x in cur_tags]
+    return out_text, out_map, out_tags, set(), True
+
+
+def _suffix_insert_pos(cur_text: str, is_sequence: bool) -> int:
+    if is_sequence:
+        m = re.match(r"^(.+?)(_[vV]\d+)([_.]\#+\.exr)$", cur_text, re.IGNORECASE)
+        if m:
+            return m.start(2)
+        m = re.match(r"^(.+?)([_.])(\#+)(\.exr)$", cur_text, re.IGNORECASE)
+        if m:
+            return m.start(2)
+
+    m = re.match(r"^(.+?)(_[vV]\d+)(\.[^.]+)$", cur_text)
+    if m:
+        return m.start(2)
+    m = re.match(r"^(.+?)(\.[^.]+)$", cur_text)
+    if m:
+        return m.start(2)
+    return len(cur_text)
+
+
+def _apply_suffix_stage(cur_text, cur_orig_map, cur_tags, suffix, is_sequence, stage_id):
+    if not suffix:
+        return cur_text, cur_orig_map, cur_tags, set(), False
+    pos = _suffix_insert_pos(cur_text, is_sequence)
+    out_text = cur_text[:pos] + suffix + cur_text[pos:]
+    out_map = list(cur_orig_map[:pos]) + [None] * len(suffix) + list(cur_orig_map[pos:])
+    out_tags = (
+        [set(x) for x in cur_tags[:pos]]
+        + [{stage_id} for _ in suffix]
+        + [set(x) for x in cur_tags[pos:]]
+    )
+    return out_text, out_map, out_tags, set(), True
+
+
 def build_selected_rows(selected_items: list[dict]) -> list[dict]:
     rows = []
     for item in selected_items:
@@ -270,8 +314,12 @@ def compute_preview(rows: list[dict], settings: dict, stage_colors: dict[int, st
                     shot_name: str = "", shotname_color: str = "") -> list[dict]:
     sr1 = settings.get("sr1", {})
     sr2 = settings.get("sr2", {})
+    prefix_cfg = settings.get("prefix", {})
+    suffix_cfg = settings.get("suffix", {})
     delimiter = settings.get("delimiter", {})
     padding = settings.get("padding", {})
+    prefix_text = prefix_cfg.get("text", "")
+    suffix_text = suffix_cfg.get("text", "")
     delimiter_char = delimiter.get("char", "_")
     if delimiter_char not in ("_", "."):
         delimiter_char = "_"
@@ -287,7 +335,7 @@ def compute_preview(rows: list[dict], settings: dict, stage_colors: dict[int, st
         cur = original
         cur_map = list(range(len(cur)))
         cur_tags = [set() for _ in cur]
-        orig_stage_marks = {1: set(), 2: set(), 3: set(), 4: set()}
+        orig_stage_marks = {1: set(), 2: set(), 3: set(), 4: set(), 5: set(), 6: set()}
         changed_any = False
         effective_digits = None
 
@@ -315,11 +363,32 @@ def compute_preview(rows: list[dict], settings: dict, stage_colors: dict[int, st
         orig_stage_marks[2].update(marks)
         changed_any = changed_any or changed
 
+        cur, cur_map, cur_tags, marks, changed = _apply_prefix_stage(
+            cur,
+            cur_map,
+            cur_tags,
+            prefix_text,
+            stage_id=3,
+        )
+        orig_stage_marks[3].update(marks)
+        changed_any = changed_any or changed
+
+        cur, cur_map, cur_tags, marks, changed = _apply_suffix_stage(
+            cur,
+            cur_map,
+            cur_tags,
+            suffix_text,
+            row.get("is_sequence"),
+            stage_id=4,
+        )
+        orig_stage_marks[4].update(marks)
+        changed_any = changed_any or changed
+
         if row.get("is_sequence"):
             cur, cur_map, cur_tags, marks, changed = _apply_delimiter_stage(
-                cur, cur_map, cur_tags, delimiter_char, stage_id=3
+                cur, cur_map, cur_tags, delimiter_char, stage_id=5
             )
-            orig_stage_marks[3].update(marks)
+            orig_stage_marks[5].update(marks)
             changed_any = changed_any or changed
 
             # Dígitos efectivos: nunca menor al mínimo necesario para el frame más alto
@@ -327,9 +396,9 @@ def compute_preview(rows: list[dict], settings: dict, stage_colors: dict[int, st
             effective_digits = max(user_digits, seq_min_digits)
 
             cur, cur_map, cur_tags, marks, changed = _apply_padding_stage(
-                cur, cur_map, cur_tags, effective_digits, stage_id=4
+                cur, cur_map, cur_tags, effective_digits, stage_id=6
             )
-            orig_stage_marks[4].update(marks)
+            orig_stage_marks[6].update(marks)
             changed_any = changed_any or changed
 
         renamed = cur
