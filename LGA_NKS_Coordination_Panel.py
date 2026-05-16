@@ -284,6 +284,13 @@ class FlowProdPanel(QtWidgets.QWidget):
                 "Subir shot a Wasabi S3",
             ),
             (
+                "Download Clip",
+                self.download_clip_from_filemanager,
+                "gradient_magenta_violet",
+                None,
+                "Descargar clip individual desde Wasabi S3",
+            ),
+            (
                 "Reveal in Flow",
                 self.show_in_flow_for_selected_clip,
                 "#1f1f1f",
@@ -830,6 +837,34 @@ class FlowProdPanel(QtWidgets.QWidget):
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             # Llamar a la función principal
+            module.main()
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
+
+    def download_clip_from_filemanager(self):
+        """Llama al script FileManager para descargar el clip individual seleccionado"""
+        script_path = os.path.join(
+            os.path.dirname(__file__), "LGA_NKS_Coordination_Panel_py", "LGA_NKS_FileManager_DownloadClip.py"
+        )
+        if not os.path.exists(script_path):
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Script no encontrado",
+                f"No se encontró el script en la ruta: {script_path}",
+            )
+            return
+        try:
+            import importlib.util
+
+            spec = importlib.util.spec_from_file_location(
+                "LGA_NKS_FileManager_DownloadClip", script_path
+            )
+            if spec is None or spec.loader is None:
+                raise ImportError(
+                    "No se pudo cargar el módulo LGA_NKS_FileManager_DownloadClip.py"
+                )
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
             module.main()
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
