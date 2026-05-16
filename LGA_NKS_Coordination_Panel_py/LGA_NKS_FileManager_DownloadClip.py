@@ -6,7 +6,8 @@ ____________________________________________________________________
   Descarga un clip individual (secuencia de imagenes o archivo de video)
   desde Wasabi S3 usando FileManager CLI.
 
-  v0.02: Implementa el método híbrido playhead+selección para obtener el clip a descargar.
+  v0.02: Usa el Método 1 (selección pura de clips, sin playhead).
+         Soporta uno o varios clips seleccionados a la vez.
 
   v0.01: Solo imprime via debug_print:
         - Nombre del clip
