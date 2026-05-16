@@ -1,13 +1,15 @@
 """
 ____________________________________________________________________
 
-  LGA_import_shots v1.21 | Lega
+  LGA_import_shots v1.22 | Lega
 
   Importa shots al proyecto de Nuke Studio.
   Analiza la carpeta _input del shot, detecta plates/editrefs/seqrefs
   y versiones en publish, y los coloca en el timeline en la posicion
   alfabeticamente correcta.
 
+  v1.22: Aumenta padding derecho interno en Prefix/Suffix y agrega
+         padding derecho a Delimiter/Frame Number Digit.
   v1.21: Agrega padding derecho interno a la columna Prefix/Suffix.
   v1.20: Ajuste de anchos en Rename: Search & Replace pierde espacio,
          Prefix/Suffix gana ese ancho mas padding liberado del preset.
@@ -3275,7 +3277,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_prefix_input.setPlaceholderText("Prefix")
         self._rename_prefix_input.setStyleSheet(line_style)
         prefix_row.addWidget(self._rename_prefix_input, 1)
-        prefix_row.addSpacing(10)
+        prefix_row.addSpacing(20)
         col_pref_suf.addLayout(prefix_row)
 
         col_pref_suf.addSpacing(8)
@@ -3286,7 +3288,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_suffix_input.setPlaceholderText("Suffix")
         self._rename_suffix_input.setStyleSheet(line_style)
         suffix_row.addWidget(self._rename_suffix_input, 1)
-        suffix_row.addSpacing(10)
+        suffix_row.addSpacing(20)
         col_pref_suf.addLayout(suffix_row)
 
         col_pref_suf.addStretch()
@@ -3312,6 +3314,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_delim_combo.setFocusPolicy(QtCore.Qt.NoFocus)
         delim_inner.addWidget(self._rename_delim_combo)
         delim_inner.addStretch()
+        delim_inner.addSpacing(20)
         col_right.addLayout(delim_inner)
 
         col_right.addSpacing(8)
@@ -3329,6 +3332,7 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._rename_digits_spin.setFocusPolicy(QtCore.Qt.NoFocus)
         pad_inner.addWidget(self._rename_digits_spin)
         pad_inner.addStretch()
+        pad_inner.addSpacing(20)
         col_right.addLayout(pad_inner)
 
         col_right.addStretch()

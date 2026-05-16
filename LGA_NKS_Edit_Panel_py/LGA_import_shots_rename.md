@@ -150,7 +150,8 @@ Anchos actuales:
 
 - `opts_row` distribuye `col_left:right_wrap` con stretch `3:5` para restar ancho a Search & Replace y darselo al bloque derecho.
 - Dentro de `right_wrap`, `Prefix/Suffix:Delimiter/Digits` usa stretch `2:1`.
-- Las filas de `Prefix` y `Suffix` agregan `addSpacing(10)` a la derecha para igualar el padding visual de las otras columnas sin cambiar el ancho total.
+- Las filas de `Prefix` y `Suffix` agregan `addSpacing(20)` a la derecha para igualar el padding visual de las otras columnas sin cambiar el ancho total.
+- Las filas de `Delimiter` y `Frame Number Digit` tambien agregan `addSpacing(20)` a la derecha.
 - El espacio libre a la derecha de Preset es `_RENAME_COL3_RIGHT_PADDING = 20`.
        (mismo estilo que `Select All` / `Clear` / `Plates` del tab Import).
   - `addSpacing(_RENAME_COL3_RIGHT_PADDING)` (variable local marcada con `✅✅` en el código)
