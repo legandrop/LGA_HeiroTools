@@ -1,11 +1,14 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_OpenInNukeX v1.30 | Lega
+  LGA_NKS_OpenInNukeX v1.31 | Lega
 
   Abre el script asociado al clip seleccionado en NukeX
   Verifica si hay una version mas reciente y pregunta si desea abrirla
-  Obtiene la ruta de NukeX desde la configuracion de LGA_OpenInNukeX
+  
+  
+  v1.31 - Si la version pedida no existe, permite seleccionar otra version disponible
+  v1.30 - Obtiene la ruta de NukeX desde la configuracion de LGA_OpenInNukeX
 ____________________________________________________________________
 
 """
@@ -118,10 +121,66 @@ def show_version_dialog(current_version, latest_version, current_path, latest_pa
     return result
 
 
+class VersionSelectionDialog(QtWidgets.QDialog):
+    def __init__(self, requested_label, versions, parent=None):
+        super().__init__(parent)
+        self.selected_path = None  # None = cancelado, str = ruta elegida
+
+        self.setWindowTitle("Version no encontrada")
+        self.setModal(True)
+
+        layout = QtWidgets.QVBoxLayout(self)
+
+        # Mensaje HTML
+        message_label = QtWidgets.QLabel()
+        message_label.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        message_label.setText(
+            f"<div style='text-align: center;'>"
+            f"<span style='color: #ff9900;'><b>Version no encontrada</b></span><br><br>"
+            f"La version <span style='color: #ff9900;'>{requested_label}</span> que intentas abrir no existe.<br><br>"
+            f"Selecciona una version disponible:</div>"
+        )
+        layout.addWidget(message_label)
+
+        # Combo con las versiones disponibles (ordenadas de mayor a menor)
+        self.combo = QtWidgets.QComboBox()
+        for version, path in versions:
+            label = get_version_label(os.path.basename(path)) or f"v{version}"
+            self.combo.addItem(label, path)
+        layout.addWidget(self.combo)
+
+        # Botones
+        button_layout = QtWidgets.QHBoxLayout()
+        self.open_button = QtWidgets.QPushButton("Abrir")
+        self.cancel_button = QtWidgets.QPushButton("Cancelar")
+        self.open_button.clicked.connect(self.accept_selection)
+        self.cancel_button.clicked.connect(self.reject)
+        button_layout.addWidget(self.open_button)
+        button_layout.addWidget(self.cancel_button)
+        layout.addLayout(button_layout)
+
+        self.open_button.setDefault(True)
+
+    def accept_selection(self):
+        self.selected_path = self.combo.currentData()
+        debug_print(f"Usuario eligio version: {self.selected_path}")
+        self.accept()
+
+    def get_selected_path(self):
+        return self.selected_path
+
+
+def show_version_selection_dialog(requested_label, versions):
+    debug_print("Ejecutando show_version_selection_dialog")
+    dialog = VersionSelectionDialog(requested_label, versions)
+    dialog.exec_()
+    return dialog.get_selected_path()
+
+
 def get_version_from_filename(filename):
     debug_print(f"Analizando version del archivo: {filename}")
-    # Busca patrones como _v00, _v01, etc. antes de la extension
-    match = re.search(r"_v(\d{2})\.nk$", filename)
+    # Busca patrones como _v0, _v00, _v000, etc. antes de la extension (1 a 3 digitos)
+    match = re.search(r"_v(\d{1,3})\.nk$", filename)
     if match:
         version = int(match.group(1))
         debug_print(f"Version encontrada: {version}")
@@ -130,19 +189,32 @@ def get_version_from_filename(filename):
     return 0
 
 
-def find_latest_version(script_path):
+def get_version_label(filename):
+    """Devuelve la etiqueta de version tal cual aparece en el nombre (ej: 'v000', 'v01')."""
+    match = re.search(r"_v(\d{1,3})\.nk$", filename)
+    if match:
+        return "v" + match.group(1)
+    return None
+
+
+def find_all_versions(script_path):
+    """Devuelve una lista de (version, ruta) de todas las versiones existentes, ordenada de mayor a menor."""
     debug_print(f"Buscando versiones en: {script_path}")
     directory = os.path.dirname(script_path)
     base_name = os.path.splitext(os.path.basename(script_path))[0]
     debug_print(f"Nombre base del archivo: {base_name}")
 
-    # Eliminar la version actual del nombre base si existe
-    base_name = re.sub(r"_v\d{2}$", "", base_name)
+    # Eliminar la version actual del nombre base si existe (1 a 3 digitos)
+    base_name = re.sub(r"_v\d{1,3}$", "", base_name)
     debug_print(f"Nombre base sin version: {base_name}")
 
-    # Buscar todos los archivos que coincidan con el patrón
-    pattern = re.compile(f"{base_name}_v\\d{{2}}\\.nk$")
     versions = []
+    if not os.path.isdir(directory):
+        debug_print(f"El directorio no existe: {directory}")
+        return versions
+
+    # Buscar todos los archivos que coincidan con el patrón (1 a 3 digitos)
+    pattern = re.compile(f"{re.escape(base_name)}_v\\d{{1,3}}\\.nk$")
 
     debug_print(f"Buscando archivos en directorio: {directory}")
     for file in os.listdir(directory):
@@ -153,12 +225,16 @@ def find_latest_version(script_path):
             versions.append((version, full_path))
             debug_print(f"Version valida encontrada: {version} en {full_path}")
 
+    # Ordenar por version de mayor a menor
+    versions.sort(key=lambda x: x[0], reverse=True)
+    return versions
+
+
+def find_latest_version(script_path):
+    versions = find_all_versions(script_path)
     if not versions:
         debug_print("No se encontraron versiones validas")
         return None, None
-
-    # Ordenar por version y obtener la mas alta
-    versions.sort(key=lambda x: x[0], reverse=True)
     latest = versions[0]
     debug_print(f"Version mas alta encontrada: {latest[0]} en {latest[1]}")
     return latest
@@ -373,9 +449,16 @@ def main():
 
                     if latest_version and latest_version > current_version:
                         debug_print("Se encontro una version mas reciente")
+                        current_label = (
+                            get_version_label(script_name) or f"v{current_version}"
+                        )
+                        latest_label = (
+                            get_version_label(os.path.basename(latest_path))
+                            or f"v{latest_version}"
+                        )
                         user_choice = show_version_dialog(
-                            f"v{current_version:02d}",
-                            f"v{latest_version:02d}",
+                            current_label,
+                            latest_label,
                             script_full_path,
                             latest_path,
                         )
@@ -394,12 +477,31 @@ def main():
                     open_nuke_script(script_full_path)
                 else:
                     debug_print(f"El script no existe en: {script_full_path}")
-                    formatted_message = (
-                        "<div style='text-align: left;'><b>Archivo no encontrado</b><br><br>"
-                        + script_full_path
-                        + "</div>"
-                    )
-                    show_message("Error", formatted_message)
+                    # La version pedida no existe: buscar otras versiones disponibles
+                    available_versions = find_all_versions(script_full_path)
+                    if available_versions:
+                        debug_print(
+                            f"Versiones disponibles encontradas: {len(available_versions)}"
+                        )
+                        requested_label = (
+                            get_version_label(script_name) or "desconocida"
+                        )
+                        selected_path = show_version_selection_dialog(
+                            requested_label, available_versions
+                        )
+                        if selected_path:
+                            debug_print(f"Abriendo version elegida: {selected_path}")
+                            open_nuke_script(selected_path)
+                        else:
+                            debug_print("Usuario cancelo la seleccion de version")
+                    else:
+                        debug_print("No hay ninguna version disponible")
+                        formatted_message = (
+                            "<div style='text-align: left;'><b>Archivo no encontrado</b><br><br>"
+                            + script_full_path
+                            + "</div>"
+                        )
+                        show_message("Error", formatted_message)
                 return
             except AttributeError as e:
                 debug_print(f"El clip no tiene una fuente valida: {e}")
