@@ -119,6 +119,18 @@ class FrameTask:
     dst: Path
 
 
+# ── Timeout adaptativo por frame ──────────────────────────────────────────────
+# Un oiiotool/exrmetrics colgado en un frame bloquearia toda la cola para siempre.
+# Para evitarlo se mide el tiempo tipico de los primeros frames OK y se fija un
+# timeout = max(piso, tipico * multiplicador). Si un frame supera ese timeout se
+# mata el proceso, se reintenta, y si agota los reintentos se marca como error.
+FRAME_TIMEOUT_WARMUP_SAMPLE = 5      # frames OK (1er intento) para fijar el baseline
+FRAME_TIMEOUT_MULTIPLIER = 20.0     # timeout = tiempo_tipico * multiplicador
+FRAME_TIMEOUT_MIN = 15.0            # piso del timeout adaptativo (segundos)
+FRAME_TIMEOUT_WARMUP = 120.0        # timeout usado hasta tener baseline (segundos)
+FRAME_MAX_RETRIES = 3               # reintentos adicionales tras timeout/fallo
+
+
 def tool_env(tool_dir: Path) -> dict[str, str]:
     env = os.environ.copy()
     env["PATH"] = str(tool_dir) + os.pathsep + env.get("PATH", "")
@@ -329,7 +341,13 @@ def build_oiiotool_command(task: FrameTask, options: ConvertOptions) -> tuple[li
     return args, tool_env(OIIOTOOL.parent)
 
 
-def convert_one(task: FrameTask, options: ConvertOptions, engine: str) -> dict[str, Any]:
+def convert_one(
+    task: FrameTask,
+    options: ConvertOptions,
+    engine: str,
+    timeout: float | None = None,
+    max_retries: int = 0,
+) -> dict[str, Any]:
     started = time.perf_counter()
     if not task.src.exists():
         return frame_result(task, engine, [], 0, started, "source does not exist")
@@ -346,17 +364,67 @@ def convert_one(task: FrameTask, options: ConvertOptions, engine: str) -> dict[s
         return frame_result(task, engine, args, 0, started, None, dry_run=True)
 
     task.dst.parent.mkdir(parents=True, exist_ok=True)
-    proc = run_command(args, env=env)
-    error = None if proc.returncode == 0 and task.dst.exists() else (proc.stderr or proc.stdout or "conversion failed")
+
+    total_attempts = max(1, int(max_retries) + 1)
+    timeout_int = int(timeout) if timeout and timeout > 0 else None
+    last_proc: subprocess.CompletedProcess[str] | None = None
+    last_error: str | None = None
+    timed_out = False
+    attempt = 0
+
+    while attempt < total_attempts:
+        attempt += 1
+        try:
+            # subprocess.run mata el hijo automaticamente al vencer el timeout.
+            proc = run_command(args, env=env, timeout=timeout_int)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            last_proc = None
+            last_error = f"timeout tras {timeout_int}s"
+            debug_print(
+                f"[timeout] {task.src.name}: proceso {engine} matado tras "
+                f"{timeout_int}s (intento {attempt}/{total_attempts})",
+                level="warning",
+            )
+            continue
+
+        timed_out = False
+        last_proc = proc
+        error = (
+            None
+            if proc.returncode == 0 and task.dst.exists()
+            else (proc.stderr or proc.stdout or "conversion failed")
+        )
+        if error is None:
+            return frame_result(
+                task, engine, args, proc.returncode, started, None,
+                stdout=proc.stdout, stderr=proc.stderr, attempts=attempt,
+            )
+        last_error = error
+        if attempt < total_attempts:
+            debug_print(
+                f"[retry] {task.src.name}: intento {attempt}/{total_attempts} "
+                f"fallo ({str(error).strip()[:120]}), reintentando",
+                level="warning",
+            )
+
+    if timed_out:
+        final_error = (
+            f"Frame colgado: '{task.src.name}' supero el timeout de "
+            f"{timeout_int}s en los {total_attempts} intentos."
+        )
+    else:
+        final_error = (
+            f"Frame con error: '{task.src.name}' fallo en los "
+            f"{total_attempts} intentos. {(last_error or 'conversion failed').strip()[:200]}"
+        )
     return frame_result(
-        task,
-        engine,
-        args,
-        proc.returncode,
-        started,
-        error,
-        stdout=proc.stdout,
-        stderr=proc.stderr,
+        task, engine, args,
+        last_proc.returncode if last_proc else -1,
+        started, final_error,
+        stdout=last_proc.stdout if last_proc else "",
+        stderr=last_proc.stderr if last_proc else "",
+        attempts=attempt, timed_out=timed_out,
     )
 
 
@@ -370,6 +438,8 @@ def frame_result(
     stdout: str = "",
     stderr: str = "",
     dry_run: bool = False,
+    attempts: int = 1,
+    timed_out: bool = False,
 ) -> dict[str, Any]:
     elapsed = time.perf_counter() - started
     return {
@@ -386,6 +456,8 @@ def frame_result(
         "stdout_tail": stdout[-2000:],
         "stderr_tail": stderr[-2000:],
         "dry_run": dry_run,
+        "attempts": attempts,
+        "timed_out": timed_out,
     }
 
 
@@ -439,16 +511,77 @@ def run_tasks(tasks: list[FrameTask], options: ConvertOptions) -> dict[str, Any]
     debug_print("engine:", engine, "| workers:", options.workers)
     started = time.perf_counter()
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=options.workers) as executor:
-        futures = [executor.submit(convert_one, task, options, engine) for task in tasks]
-        results = [future.result() for future in concurrent.futures.as_completed(futures)]
+    results: list[dict[str, Any]] = []
+    in_flight: dict[concurrent.futures.Future, FrameTask] = {}
+    total_frames = len(tasks)
+    next_idx = 0
+    max_workers = max(1, int(options.workers))
+
+    # Estado del timeout adaptativo: hasta tener baseline se usa FRAME_TIMEOUT_WARMUP.
+    warmup_samples: list[float] = []
+    adaptive_timeout: float | None = None
+    debug_print(
+        f"timeout adaptativo: warmup={FRAME_TIMEOUT_WARMUP:.0f}s hasta medir "
+        f"{FRAME_TIMEOUT_WARMUP_SAMPLE} frames OK, luego "
+        f"max({FRAME_TIMEOUT_MIN:.0f}s, tipico x{FRAME_TIMEOUT_MULTIPLIER:.0f}) "
+        f"| reintentos por frame={FRAME_MAX_RETRIES}"
+    )
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        while len(results) < total_frames:
+            while next_idx < total_frames and len(in_flight) < max_workers:
+                task = tasks[next_idx]
+                next_idx += 1
+                frame_timeout = (
+                    adaptive_timeout if adaptive_timeout is not None else FRAME_TIMEOUT_WARMUP
+                )
+                future = executor.submit(
+                    convert_one, task, options, engine, frame_timeout, FRAME_MAX_RETRIES
+                )
+                in_flight[future] = task
+
+            done, _pending = concurrent.futures.wait(
+                list(in_flight.keys()),
+                return_when=concurrent.futures.FIRST_COMPLETED,
+            )
+            for future in done:
+                task = in_flight.pop(future)
+                try:
+                    res = future.result()
+                except Exception as exc:
+                    res = frame_result(task, engine, [], -1, time.perf_counter(), str(exc))
+                results.append(res)
+
+                # Baseline del timeout adaptativo: solo frames OK al primer intento.
+                if adaptive_timeout is None and res.get("ok") and int(res.get("attempts", 1)) == 1:
+                    warmup_samples.append(float(res.get("elapsed_seconds") or 0.0))
+                    if len(warmup_samples) >= FRAME_TIMEOUT_WARMUP_SAMPLE:
+                        ordered = sorted(warmup_samples)
+                        typical = ordered[len(ordered) // 2]
+                        adaptive_timeout = max(FRAME_TIMEOUT_MIN, typical * FRAME_TIMEOUT_MULTIPLIER)
+                        debug_print(
+                            f"timeout adaptativo fijado: tipico={typical:.2f}s -> "
+                            f"timeout={adaptive_timeout:.0f}s (muestra={len(warmup_samples)} frames)"
+                        )
+
+                if not res.get("ok"):
+                    fname = Path(res.get("src", "")).name
+                    if res.get("timed_out"):
+                        debug_print(f"frame colgado definitivamente: {fname}", level="error")
+                    else:
+                        debug_print(f"frame con error definitivo: {fname}", level="error")
 
     results.sort(key=lambda item: item["src"].lower())
     elapsed = time.perf_counter() - started
     ok_count = sum(1 for item in results if item["ok"])
     debug_print(f"done: {ok_count}/{len(results)} OK en {elapsed:.1f}s ({len(results)/elapsed:.1f} fps)")
+    failed_items = [item for item in results if not item.get("ok")]
+    first_error = failed_items[0].get("error") if failed_items else None
+    if first_error and len(failed_items) > 1:
+        first_error = f"{first_error} (+{len(failed_items) - 1} frame(s) mas con error)"
     return {
         "ok": ok_count == len(results),
+        "error": first_error,
         "engine": engine,
         "workers": options.workers,
         "frame_count": len(results),

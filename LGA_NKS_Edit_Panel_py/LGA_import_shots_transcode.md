@@ -270,3 +270,24 @@ Una linea de texto sobre el log con totales (sin estimaciones):
 > (manifest JSON + subprocess) en un `QRunnable` separado para no bloquear la UI.
 > El consumo de CPU se controla desde la ventana `Import Shots - Transcode Queue`
 > mediante presets globales que escriben `workers` y `exrmetrics_threads` en el manifest.
+
+### Robustez ante frames colgados (timeout adaptativo)
+
+Si un proceso `oiiotool`/`exrmetrics` se cuelga convirtiendo un frame (EXR corrupto,
+stall de I/O en disco de red, etc.), antes el worker quedaba esperando ese frame
+para siempre y bloqueaba toda la cola. `LGA_NKS_Shared/LGA_EXR_Convert.py` ahora
+aplica un timeout por frame:
+
+- Durante un *warmup* de los primeros `5` frames OK se usa un timeout amplio
+  (`120s`). Con esas muestras se fija un **timeout adaptativo** =
+  `max(15s, tiempo_tipico x 20)` (mediana del warmup). Asi un frame
+  legitimamente lento nunca se mata, pero un cuelgue real se detecta.
+- Si un frame supera el timeout, el proceso se mata y el frame se **reintenta
+  hasta `3` veces**.
+- Si agota los reintentos, el frame se marca como error y la conversion termina
+  reportando el fallo (`report["error"]`) en vez de quedar colgada.
+- El timeout adaptativo calculado y los eventos de timeout/reintento se loguean
+  en `logs/debugPy_EXRConvert.log`.
+
+> Nota: la tool original de Hiero solo hace `EXR -> EXR`. El pipeline `MOV` y la
+> flag de debug `transcode_timeout` existen unicamente en la app `MediaTools`.
