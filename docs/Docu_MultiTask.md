@@ -132,7 +132,7 @@ Algunas herramientas (Shot_info, en el futuro Push y ReviewPic) actúan sobre **
 
 - Si el playhead no toca ningún track de task → devuelve `None` (la herramienta cae al fallback histórico, normalmente comp).
 - Si el playhead toca **una sola** task → la devuelve sin mostrar UI.
-- Si el playhead toca **varias** tasks → abre un popover modal "Select task" con un botón por task disponible.
+- Si el playhead toca **varias** tasks → abre un popover modal "Select task" con un botón por task disponible. Cada botón muestra a la izquierda un cuadradito con un número de atajo (1, 2, 3…); la task se elige con el mouse o presionando esa tecla.
 
 API:
 

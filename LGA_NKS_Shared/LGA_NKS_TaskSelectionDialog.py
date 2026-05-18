@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_TaskSelectionDialog v1.31 | Lega
+  LGA_NKS_TaskSelectionDialog v1.40 | Lega
 
   Detección y selección de task entre los tracks EXR del playhead.
 
@@ -22,6 +22,9 @@ ____________________________________________________________________
 
   Convención de nombres de tracks: docs/Docu_Logica_Nombres_Tracks.md
 
+  v1.40: Los botones del selector muestran un atajo de teclado (1-9) en un
+        cuadradito a la izquierda. Se puede elegir la task con el mouse o
+        presionando el numero correspondiente.
   v1.31: Actualizado para usar colores de tasks alineados con los colores de create v000
   v1.30: Corrección de compatibilidad Nuke 15/16. En PySide2 (Nuke 15) el objeto
         devuelto por `hiero.ui.mainWindow()` es un wrapper SIP incompatible con
@@ -103,8 +106,37 @@ def get_tasks_at_playhead(seq):
     return tasks
 
 
+class _TaskSelectionDialog(QtWidgets.QDialog):
+    """Diálogo modal de selección de task.
+
+    Permite elegir la task con el mouse (click en el botón) o con el teclado
+    presionando el número de atajo que muestra cada botón (1-9).
+    """
+
+    def __init__(self, task_names, parent=None):
+        super(_TaskSelectionDialog, self).__init__(parent)
+        self._task_names = task_names
+        self.selected_task = None
+
+    def select_task(self, task):
+        self.selected_task = task
+        self.accept()
+
+    def keyPressEvent(self, event):
+        key = event.key()
+        if QtCore.Qt.Key_1 <= key <= QtCore.Qt.Key_9:
+            index = key - QtCore.Qt.Key_1
+            if index < len(self._task_names):
+                self.select_task(self._task_names[index])
+                return
+        super(_TaskSelectionDialog, self).keyPressEvent(event)
+
+
 def prompt_task_selection(task_names, title="Select task"):
     """Muestra un diálogo modal con un botón por task y devuelve la elegida.
+
+    Cada botón muestra un número de atajo (1-9) en un cuadradito a la izquierda:
+    la task se puede elegir con el mouse o presionando esa tecla.
 
     Si la lista trae una sola task, la devuelve sin mostrar UI.
     Devuelve None si el usuario cierra el diálogo sin elegir.
@@ -119,7 +151,11 @@ def prompt_task_selection(task_names, title="Select task"):
         return None
 
     parent = _get_hiero_main_window()
-    dialog = QtWidgets.QDialog(parent) if parent is not None else QtWidgets.QDialog()
+    dialog = (
+        _TaskSelectionDialog(task_names, parent)
+        if parent is not None
+        else _TaskSelectionDialog(task_names)
+    )
     dialog.setWindowTitle("Select Task")
     dialog.setModal(True)
     dialog.setMinimumWidth(240)
@@ -147,28 +183,23 @@ def prompt_task_selection(task_names, title="Select task"):
     sep.setStyleSheet("color: #444444; margin: 0px;")
     layout.addWidget(sep)
 
-    state = {"task": None}
-
     def make_handler(task):
         def handler():
-            state["task"] = task
-            dialog.accept()
+            dialog.select_task(task)
         return handler
 
-    for task in task_names:
+    for index, task in enumerate(task_names):
         task_color = get_task_color(task)
-        btn = QtWidgets.QPushButton(task.capitalize())
+        shortcut = index + 1
+
+        btn = QtWidgets.QPushButton()
         btn.setMinimumHeight(32)
         btn.setStyleSheet(
             """
             QPushButton {
                 background-color: #2B2B2B;
                 border: 1px solid #444444;
-                color: %(color)s;
-                padding: 6px 14px;
                 border-radius: 3px;
-                font-weight: bold;
-                font-size: 12px;
             }
             QPushButton:hover {
                 background-color: #3a3a3a;
@@ -180,11 +211,46 @@ def prompt_task_selection(task_names, title="Select task"):
             """
             % {"color": task_color}
         )
+
+        # Layout interno: cuadradito de atajo a la izquierda y nombre centrado.
+        btn_layout = QtWidgets.QHBoxLayout(btn)
+        btn_layout.setContentsMargins(8, 0, 8, 0)
+        btn_layout.setSpacing(0)
+
+        # Cuadradito con el numero de atajo de teclado (1-9).
+        shortcut_label = QtWidgets.QLabel(str(shortcut))
+        shortcut_label.setFixedSize(18, 18)
+        shortcut_label.setAlignment(QtCore.Qt.AlignCenter)
+        # Transparente al mouse para que el click/hover llegue al boton.
+        shortcut_label.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, True)
+        shortcut_label.setStyleSheet(
+            "background: transparent; border: 1px solid #666666; "
+            "border-radius: 2px; color: #999999; font-size: 10px; font-weight: normal;"
+        )
+
+        # Nombre de la task, centrado en el ancho total del boton.
+        name_label = QtWidgets.QLabel(task.capitalize())
+        name_label.setAlignment(QtCore.Qt.AlignCenter)
+        name_label.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, True)
+        name_label.setStyleSheet(
+            "background: transparent; color: %s; font-weight: bold; font-size: 12px;"
+            % task_color
+        )
+
+        # Spacer del mismo ancho que el cuadradito para centrar el nombre.
+        spacer = QtWidgets.QWidget()
+        spacer.setFixedSize(18, 18)
+        spacer.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, True)
+
+        btn_layout.addWidget(shortcut_label)
+        btn_layout.addWidget(name_label, 1)
+        btn_layout.addWidget(spacer)
+
         btn.clicked.connect(make_handler(task))
         layout.addWidget(btn)
 
     dialog.exec_()
-    return state["task"]
+    return dialog.selected_task
 
 
 def resolve_task_at_playhead(seq, title="Select task"):
