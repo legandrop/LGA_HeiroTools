@@ -1,9 +1,11 @@
 """
 ____________________________________________________________________
 
-  LGA_ReviewPanel v2.79 | Lega
+  LGA_ReviewPanel v2.80 | Lega
 
   Tools panel for Hiero / Nuke Studio
+
+  v2.80: Agregado boton Contact Sheet para pegar clips seleccionados en NukeX
 
   v2.79: Agregado botón ON OFF _roto_ con shortcut Ctrl+Shift+D
   v2.78: Agregado sistema de scroll, logging a archivo y gap vertical
@@ -209,6 +211,7 @@ class ReviewPanel(QtWidgets.QWidget):
             ),
             ("Compare Versions", self.execute_CompareVersions, "#273c24", None, "Crea un nuevo track 'COMPARE' con una versión anterior del clip seleccionado y pone al track en modo difference"),
             ("Compare OFF", self.execute_CompareVersionsOff, "#273c24", None, "Remueve el track 'COMPARE' y desactiva el modo Difference"),
+            ("Contact Sheet", self.execute_ContactSheet, "#273c24", None, "Crear en NukeX un LGA_Contact_Sheet con los clips seleccionados"),
             (
                 "Reveal in &Explorer",
                 self.execute_RevealInExplorer,
@@ -467,6 +470,9 @@ class ReviewPanel(QtWidgets.QWidget):
 
     def execute_CompareVersionsOff(self):
         self.execute_external_script("LGA_NKS_Compare_Versions_OFF.py")
+
+    def execute_ContactSheet(self):
+        self.execute_external_script("LGA_Contact_Sheet_OpenInNukeX.py")
 
     def execute_RevealInExplorer(self):
         self.execute_external_script("LGA_NKS_RevealInExplorer.py")
