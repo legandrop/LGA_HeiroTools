@@ -1,12 +1,13 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_Pull v3.41 | Lega
+  LGA_NKS_Flow_Pull v3.42 | Lega
 
   Compara los estados de las task Comp de los shots del timeline de Hiero
   con los estados registrados en un archivo JSON basado en Flow PT
   Tambien aplica tags con los colores de los estados en xyplorer
 
+  v3.42: Fix crash al procesar clips offline sin versiones escaneadas. Cuando doScan no encontraba versiones nuevas devolvía un bin item sin número de versión en el nombre, y el split("_v")[-1] + int() reventaba con ValueError cortando el pull completo. Reemplazado por extract_version_number() que ya maneja ese caso devolviendo 0.
   v3.41: Filtro de filename ya no exige "_comp_". Acepta cualquier task de TASK_EXR_TRACKS (comp, roto, cleanup). Antes los clips de roto/cleanup entraban al loop y eran descartados con continue, así que el shift+click sobre clips de roto no detectaba cambios.
   v3.40: Tabla de cambios incluye columna "Task" (al lado del Shot) con la task detectada del filename del clip. Permite distinguir de qué task son la versión y el status reportados.
   v3.39: Comparación de versión SG vs NKS por task. find_highest_version_for_task recorre solo las versiones de la task del clip y devuelve el string como _{task}_v{n}. Antes mezclaba todas las tasks del shot y rotulaba como _comp_, generando falsos Version Mismatch (ej: comp v9 en NKS comparado contra roto v33 en SG).
@@ -961,10 +962,7 @@ class HieroOperations:
                                     )
                                     # Extraer el nuevo numero de version del clip actualizado
                                     if highest_version:
-                                        new_version_str = highest_version.name().split(
-                                            "_v"
-                                        )[-1]
-                                        new_version_number = int(new_version_str)
+                                        new_version_number = extract_version_number(highest_version.name())
                                     else:
                                         new_version_number = version_number
 
