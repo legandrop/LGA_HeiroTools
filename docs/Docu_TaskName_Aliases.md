@@ -138,7 +138,7 @@ Leyenda:
 | `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.py` | 🔵 Analizado · no necesitaba cambio — no filtra clips por task name ni busca en DB por task |
 | `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ModifyShot.py` | 🔵 Analizado · no necesitaba cambio — ídem CreateShot |
 | `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CheckTimelineShots.py` | 🔵 Analizado · no necesitaba cambio — no usa task name en absoluto |
-| `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShotPriority.py` | ⬜ |
+| `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShotPriority.py` | 🔵 Analizado · no necesitaba cambio — no filtra clips por task name del filename |
 
 ### FileManager Panel
 
@@ -152,4 +152,4 @@ Leyenda:
 
 | Script | Estado |
 |--------|--------|
-| `LGA_NKS_Edit_Panel_py/LGA_NKS_MatchVerToEXR.py` | ⬜ |
+| `LGA_NKS_Edit_Panel_py/LGA_NKS_MatchVerToEXR.py` | ✅ Actualizado v0.81 — filtro `_comp_` expandido con aliases de `TASK_NAME_ALIASES` para no descartar clips `_Compo_` del track _comp_ |

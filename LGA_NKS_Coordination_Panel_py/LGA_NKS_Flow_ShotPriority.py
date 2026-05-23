@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_ShotPriority v1.00 | Lega
+  LGA_NKS_Flow_ShotPriority v1.01 | Lega
 
   Script para cambiar la prioridad de shots en ShotGrid basado en el clip seleccionado.
   - Si la prioridad es normal (o no existe) → cambia a alta
@@ -10,6 +10,10 @@ ____________________________________________________________________
   Compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
+
+  v1.01: Extrae project_name desde el segmento VFX-NOMBRE del path en lugar
+         del primer bloque del filename (corrige proyectos como MORLASP cuyos
+         shots tienen prefijo MOR en el filename).
 ____________________________________________________________________
 """
 
@@ -34,6 +38,7 @@ from SecureConfig_Reader import get_flow_credentials
 from LGA_NKS_Flow_NamingUtils import (
     extract_shot_code,
     extract_project_name,
+    extract_project_name_from_path,
     clean_base_name,
 )
 
@@ -156,7 +161,12 @@ class HieroOperations:
                 base_name = clean_base_name(exr_name)
 
                 # Usar funciones de naming utils para extraer información
-                project_name = extract_project_name(base_name)
+                project_name = extract_project_name_from_path(file_path)
+                if project_name:
+                    debug_print(f"Project name (from path): {project_name}")
+                else:
+                    project_name = extract_project_name(base_name)
+                    debug_print(f"Project name (from filename fallback): {project_name}")
                 shot_code = extract_shot_code(base_name)
 
                 clips_info.append(

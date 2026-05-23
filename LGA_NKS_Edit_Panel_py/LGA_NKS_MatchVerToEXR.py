@@ -1,11 +1,14 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_MatchVerToEXR v0.80 | Lega
+  LGA_NKS_MatchVerToEXR v0.81 | Lega
 
   Busca la version actual de los clips del track _comp_ (TRACK_comp_EXR) e
   intenta subir la versión de los clips correspondientes del track _compRev_ (TRACK_comp_REV) a la misma versión.
 
+  v0.81: Expande el filtro de clips EXR para incluir aliases de task name
+         (compo → comp) evitando descartar clips con _Compo_ en el filename
+         que están correctamente en el track _comp_.
   v0.80: Renombra TRACK_comp_REV de "_compMov_" a "_compRev_" (nueva convención taskRev)
   v0.70: Actualiza fallback de TRACK_comp_REV a "_compMov_" (renombrado desde "_rev_")
   v0.60: Usa módulo centralizado LGA_NKS_GetClip para obtener clips (método híbrido: selecciones múltiples > playhead > selección)
@@ -35,12 +38,14 @@ if naming_utils_path.exists():
         from LGA_NKS_Flow_NamingUtils import (
             extract_shot_code,
             clean_base_name,
+            TASK_NAME_ALIASES,
         )
     except ImportError:
         if DEBUG:
             print("ERROR: No se encontró el módulo LGA_NKS_Flow_NamingUtils")
         extract_shot_code = None
         clean_base_name = None
+        TASK_NAME_ALIASES = {}
 else:
     if DEBUG:
         print("ERROR: No se encontró el directorio LGA_NKS_Shared")
@@ -465,8 +470,10 @@ class HieroOperations:
             if not file_path:
                 continue
 
-            # Solo procesar archivos que contengan "_comp_"
-            if "_comp_" not in os.path.basename(file_path).lower():
+            # Solo procesar archivos que contengan "_comp_" o un alias conocido (ej. "_compo_")
+            exr_basename = os.path.basename(file_path).lower()
+            comp_patterns = ["_comp_"] + [f"_{alias}_" for alias in TASK_NAME_ALIASES.keys()]
+            if not any(pat in exr_basename for pat in comp_patterns):
                 continue
 
             base_name, version_str = self.parse_exr_name(os.path.basename(file_path))

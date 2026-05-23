@@ -129,7 +129,7 @@ Leyenda:
 | `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.py` | ✅ Actualizado v1.36 — fix en `get_selected_clips_info()` |
 | `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ModifyShot.py` | 🔵 Analizado · hereda `get_selected_clips_info()` de CreateShot — fix automático con v1.36 |
 | `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CheckTimelineShots.py` | ✅ Actualizado v1.01 — fix en `_collect_shots_from_track()` |
-| `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShotPriority.py` | ⬜ |
+| `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShotPriority.py` | ✅ Actualizado v1.01 — fix en `get_selected_clips_info()` |
 
 ### FileManager Panel
 
@@ -143,7 +143,7 @@ Leyenda:
 
 | Script | Estado |
 |--------|--------|
-| `LGA_NKS_Edit_Panel_py/LGA_NKS_MatchVerToEXR.py` | ⬜ |
+| `LGA_NKS_Edit_Panel_py/LGA_NKS_MatchVerToEXR.py` | 🔵 Analizado · no aplica — no interactúa con Flow ni DB, solo compara versiones dentro de Hiero |
 
 ---
 
