@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Projects_Panel_SwitchSequence v2.27 | Lega
+  LGA_NKS_Projects_Panel_SwitchSequence v2.28 | Lega
 
   Hiero / Nuke Studio - Switch V3: HÍBRIDO OPTIMIZADO + LIMPIEZA TOTAL + CROSS-PROJECT
 
@@ -19,6 +19,7 @@ ____________________________________________________________________
   INTEGRACIÓN EN PANEL DE PROYECTOS:
   from switch_sequence_v3_final import switch_to_sequence_hybrid
 
+  v2.28: Fix: el check "Ya activa" ahora compara también el proyecto. Antes, si dos proyectos abiertos tenían una secuencia con el mismo nombre (ej: "101" en MORLASP y en MOR), el switch hacia el proyecto incorrecto era ignorado porque el nombre coincidía con la secuencia activa de otro proyecto.
   v2.27: Desactiva el Frame Number del ViewerTL al finalizar cada cambio de secuencia
   v2.26: Reinicia el log en cada cambio de timeline e inyecta el logger del Projects Panel en scripts shared
   v2.25: Agregado timeline pre-cleanup sobre la secuencia nueva.
@@ -709,8 +710,26 @@ def switch_to_sequence_hybrid(target_sequence_name, target_project=None):
         active_seq = None
 
     if active_seq and active_seq.name() == target_sequence_name:
-        debug_print("✅ Ya activa - sin cambios")
-        return True
+        # Si hay un proyecto objetivo, verificar que la secuencia activa pertenece al mismo proyecto.
+        # Dos proyectos distintos pueden tener secuencias con el mismo nombre (ej: "101" en MORLASP y en MOR).
+        if target_project is not None:
+            try:
+                active_project = active_seq.project()
+                if active_project != target_project:
+                    debug_print(
+                        f"   ├── '{target_sequence_name}' activa pero en otro proyecto "
+                        f"({active_project.name()} ≠ {target_project.name()}), continuando switch..."
+                    )
+                    # No retornar: el switch debe seguir adelante hacia el proyecto correcto
+                else:
+                    debug_print("✅ Ya activa - sin cambios")
+                    return True
+            except Exception as _e:
+                debug_print(f"   ├── No se pudo comparar proyectos ({_e}), continuando switch...")
+                # En caso de error comparando, procedemos con el switch para no quedar bloqueados
+        else:
+            debug_print("✅ Ya activa - sin cambios")
+            return True
 
     # 3. Capturar ajustes del viewer ACTUAL (gain/gamma para transferir)
     step_start = time.time()

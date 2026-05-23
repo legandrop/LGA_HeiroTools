@@ -173,6 +173,12 @@ Scrolled to position -266.
 
 ## Problemas Conocidos
 
+### ✅ **RESUELTO: Dos proyectos con secuencia del mismo nombre**
+
+**Problema:** Si dos proyectos abiertos tienen secuencias con el mismo nombre (ej: "101" en MORLASP y "101" en MOR), al clickear "101" de MOR el switch era ignorado porque el check "Ya activa" comparaba solo el nombre sin considerar el proyecto. Devolvía "✅ Ya activa" aunque la activa fuera la del otro proyecto.
+
+**✅ Solución (v2.28):** El check ahora compara también el proyecto usando `active_seq.project()`. Si el nombre coincide pero el proyecto difiere, el switch continúa hacia el proyecto correcto.
+
 ### ✅ **RESUELTO: Cambio entre Proyectos Diferentes**
 
 **Problema original:** La función buscaba secuencias únicamente en el proyecto activo.
