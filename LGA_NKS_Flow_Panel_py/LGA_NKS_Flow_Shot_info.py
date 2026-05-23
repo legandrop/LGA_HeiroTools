@@ -6,6 +6,9 @@ ____________________________________________________________________
   Imprime informacion del shot y las versiones de la task seleccionada
   (comp, roto o cleanup) en el playhead.
 
+  v1.92: Project name extraído desde el segmento VFX-NOMBRE del path del archivo
+         (con fallback al primer bloque del filename si el path no contiene VFX-).
+         Corrige proyectos como MORLASP cuyos shots tienen prefijo MOR en el filename.
   v1.91: Recupera descripcion de task inicial y texto del header de version.
   v1.90: Wrap de textos sin scroll horizontal y resaltado de comentarios de playlist.
   v1.89: Identacion comentarios, comentarios de playlist, colores de nombres de usuario
@@ -178,6 +181,7 @@ sys.path.append(str(flow_shared_dir))
 from LGA_NKS_Flow_NamingUtils import (
     extract_shot_code,
     extract_project_name,
+    extract_project_name_from_path,
     clean_base_name,
 )
 
@@ -1046,7 +1050,12 @@ class HieroOperations:
                 clip_name = exr_name
 
             # Usar funciones compartidas para extraer información
-            project_name = extract_project_name(base_name)
+            project_name = extract_project_name_from_path(file_path)
+            if project_name:
+                debug_print(f"Project name (from path): {project_name}")
+            else:
+                project_name = extract_project_name(base_name)
+                debug_print(f"Project name (from filename fallback): {project_name}")
             shot_code = extract_shot_code(base_name)
             debug_print(
                 "Clip context:",

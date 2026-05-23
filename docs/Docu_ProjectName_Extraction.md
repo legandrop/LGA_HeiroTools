@@ -109,7 +109,8 @@ Leyenda:
 | `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py` | ✅ Actualizado v3.44 |
 | `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py` | ✅ Actualizado v4.01 |
 | `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push_connector.py` | ✅ Actualizado v1.01 — proceso separado; recibe file_path vía JSON |
-| `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Shot_info.py` | ⬜ |
+| `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Shot_info.py` | ✅ Actualizado v1.92 — fix en `process_selected_clips()` |
+| `LGA_NKS_Flow_Panel_py/LGA_NKS_ReviewPic.py` | 🔵 Analizado · no necesitaba cambio — solo cache local, no extrae project_name |
 
 ### Assignee Panel
 
@@ -129,6 +130,14 @@ Leyenda:
 | `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ModifyShot.py` | 🔵 Analizado · hereda `get_selected_clips_info()` de CreateShot — fix automático con v1.36 |
 | `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CheckTimelineShots.py` | ✅ Actualizado v1.01 — fix en `_collect_shots_from_track()` |
 | `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShotPriority.py` | ⬜ |
+
+### FileManager Panel
+
+| Script | Estado |
+|--------|--------|
+| `LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_Download.py` | 🔵 Analizado · no aplica — pasa shot_path directo al CLI de FileManager |
+| `LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_Upload.py` | 🔵 Analizado · no aplica — ídem |
+| `LGA_NKS_Coordination_Panel_py/LGA_NKS_FileManager_DownloadClip.py` | 🔵 Analizado · no aplica — pasa file_path directo al CLI |
 
 ### Edit Panel
 

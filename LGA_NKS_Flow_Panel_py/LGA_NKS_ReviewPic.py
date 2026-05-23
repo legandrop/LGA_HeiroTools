@@ -9,6 +9,8 @@ ____________________________________________________________________
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 
+  v1.21: Task alias normalizado (compo → comp) en resolve_task_with_mismatch_check
+         para evitar falsa advertencia de mismatch en clips con _Compo_ en el filename.
   v1.20: Imports de TaskSelectionDialog movidos a lazy (dentro de main()) para evitar
          "QWidget: Must construct a QApplication before a QWidget" en Nuke 15 (PySide2).
          Compatible con Nuke 15 y 16 usando LGA_QtAdapter_HieroTools.
@@ -156,7 +158,11 @@ def main():
         resolve_task_with_mismatch_check,
         track_for_task,
     )
-    from LGA_NKS_Shared.LGA_NKS_Flow_NamingUtils import extract_task_name, clean_base_name
+    from LGA_NKS_Shared.LGA_NKS_Flow_NamingUtils import extract_task_name, clean_base_name, normalize_task_name
+
+    def _extract_task_normalized(base_name):
+        raw = extract_task_name(base_name)
+        return normalize_task_name(raw) if raw else raw
 
     # Resolver task activa en el playhead (comp/roto/cleanup) con chequeo de mismatch
     seq = hiero.ui.activeSequence()
@@ -165,7 +171,7 @@ def main():
         return
 
     task = resolve_task_with_mismatch_check(
-        seq, extract_task_name, clean_base_name,
+        seq, _extract_task_normalized, clean_base_name,
         title="Review Pic — Seleccionar task"
     )
     if task is None:
