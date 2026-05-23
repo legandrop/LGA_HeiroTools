@@ -1,13 +1,14 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_ShowInFlow v1.29 | Lega
+  LGA_NKS_Flow_ShowInFlow v1.30 | Lega
 
   Abre la URL de la task Comp del shot, tomando información del clip en TRACK_comp_EXR bajo el playhead.
   Si no hay clip en playhead, usa el clip seleccionado como fallback.
   Verifica si existe más de un shot con el mismo nombre y te pide que selecciones uno.
   Usa el módulo utilitario LGA_NKS_GetClip para obtener clips.
 
+  v1.30: Eliminado navegador hardcodeado (Chrome). Usa el navegador por defecto del sistema.
   v1.29: Project name extraído desde el segmento VFX-NOMBRE del path del archivo
          (con fallback al primer bloque del filename si el path no contiene VFX-).
          Corrige proyectos como MORLASP cuyos shots tienen prefijo MOR en el filename.
@@ -26,7 +27,6 @@ import platform
 import hiero.core
 import hiero.ui
 import webbrowser
-import subprocess
 import base64  # Importar base64
 import binascii  # Importar binascii para la excepcion
 from pathlib import Path
@@ -146,16 +146,6 @@ class ShotSelectionDialog(QDialog):
         self.result_value = index
         self.accept()
 
-
-# Verificacion del sistema operativo y configuracion de la ruta del navegador
-if platform.system() == "Windows":
-    browser_path = "C:/Program Files/Google/Chrome/Application/chrome.exe %s"
-elif platform.system() == "Darwin":  # macOS
-    browser_path = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-else:
-    browser_path = ""
-
-use_default_browser = False  # Si esta en True, usa el navegador por defecto
 
 
 class ShotGridManager:
@@ -306,10 +296,7 @@ class HieroOperations:
                 )
                 target_url = shot_url
 
-            if use_default_browser:
-                webbrowser.open(target_url)
-            else:
-                self.open_url_in_browser(target_url)
+            webbrowser.open(target_url)
             return True
         else:
             debug_print(
@@ -319,19 +306,8 @@ class HieroOperations:
 
 
     def open_url_in_browser(self, url):
-        if platform.system() == "Darwin":  # macOS
-            try:
-                subprocess.run([browser_path, url])
-                debug_print(f"Opening {url} in specified browser on macOS...")
-            except Exception as e:
-                debug_print(f"Failed to open URL in specified browser on macOS: {e}")
-        elif platform.system() == "Windows":
-            debug_print("Windows")
-            try:
-                webbrowser.get(browser_path).open(url)
-                debug_print(f"Opening {url} in specified browser on Windows...")
-            except Exception as e:
-                debug_print(f"Failed to open URL in specified browser on Windows: {e}")
+        webbrowser.open(url)
+        debug_print(f"Opening {url} in default browser...")
 
 
 class ShowInFlowWorkerSignals(QObject):
@@ -497,26 +473,14 @@ def show_in_flow_from_selected_clip():
                         debug_print(f"No hay task Comp. Abriendo URL del shot: {shot_url}")
                         target_url = shot_url
 
-                    # Usar la misma lógica que en el flujo normal
-                    if use_default_browser:
-                        webbrowser.open(target_url)
-                    else:
-                        hiero_ops = HieroOperations(sg_manager)
-                        hiero_ops.open_url_in_browser(target_url)
-        
+                    # Abrir URL con el navegador por defecto
+                    webbrowser.open(target_url)
+
         elif isinstance(result, tuple) and result[0] == "OPEN_URL":
             # Abrir URL directamente
             target_url = result[1]
-            if use_default_browser:
-                webbrowser.open(target_url)
-            else:
-                # Necesitamos crear un manager solo para abrir la URL
-                url, login, password = get_flow_credentials()
-                if url and login and password:
-                    sg_manager = ShotGridManager(url, login, password)
-                    hiero_ops = HieroOperations(sg_manager)
-                    hiero_ops.open_url_in_browser(target_url)
-    
+            webbrowser.open(target_url)
+
     def handle_error(error_msg, clip_info):
         """Maneja errores del procesamiento de un clip"""
         file_path, exr_name = clip_info
@@ -597,25 +561,13 @@ def show_shot_in_flow_from_selected_clip():
                     debug_print(f"Abriendo URL del shot: {shot_url}")
                     target_url = shot_url
 
-                    # Usar la misma lógica que en el flujo normal
-                    if use_default_browser:
-                        webbrowser.open(target_url)
-                    else:
-                        hiero_ops = HieroOperations(sg_manager)
-                        hiero_ops.open_url_in_browser(target_url)
+                    # Abrir URL con el navegador por defecto
+                    webbrowser.open(target_url)
 
         elif isinstance(result, tuple) and result[0] == "OPEN_URL":
             # Abrir URL directamente
             target_url = result[1]
-            if use_default_browser:
-                webbrowser.open(target_url)
-            else:
-                # Necesitamos crear un manager solo para abrir la URL
-                url, login, password = get_flow_credentials()
-                if url and login and password:
-                    sg_manager = ShotGridManager(url, login, password)
-                    hiero_ops = HieroOperations(sg_manager)
-                    hiero_ops.open_url_in_browser(target_url)
+            webbrowser.open(target_url)
 
     def handle_error(error_msg, clip_info):
         """Maneja errores del procesamiento de un clip"""
