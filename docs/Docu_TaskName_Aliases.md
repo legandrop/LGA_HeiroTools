@@ -134,8 +134,9 @@ Leyenda:
 |--------|--------|
 | `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShowInFlow.py` | ⬜ |
 | `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_Thumbs.py` | ⬜ |
-| `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.py` | ⬜ |
-| `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CheckTimelineShots.py` | ⬜ |
+| `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.py` | 🔵 Analizado · no necesitaba cambio — no filtra clips por task name ni busca en DB por task |
+| `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ModifyShot.py` | 🔵 Analizado · no necesitaba cambio — ídem CreateShot |
+| `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CheckTimelineShots.py` | 🔵 Analizado · no necesitaba cambio — no usa task name en absoluto |
 | `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShotPriority.py` | ⬜ |
 
 ### Edit Panel

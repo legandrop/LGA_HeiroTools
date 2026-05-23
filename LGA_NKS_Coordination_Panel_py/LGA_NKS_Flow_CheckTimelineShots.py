@@ -1,10 +1,14 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_CheckTimelineShots v1.00 | Lega
+  LGA_NKS_Flow_CheckTimelineShots v1.01 | Lega
 
   Chequea si los shots del track comp del timeline existen en Flow.
   Muestra una ventana con la lista de shots existentes y los faltantes.
+
+  v1.01: Project name extraído desde el segmento VFX-NOMBRE del path del archivo
+         (con fallback al primer bloque del filename si el path no contiene VFX-).
+         Corrige proyectos como MORLASP cuyos shots tienen prefijo MOR en el filename.
 ____________________________________________________________________
 """
 
@@ -50,6 +54,7 @@ from LGA_NKS_Flow_CreateShot import (
 sys.path.append(str(Path(__file__).parent.parent / "LGA_NKS_Shared"))
 from LGA_NKS_Flow_NamingUtils import (
     extract_project_name,
+    extract_project_name_from_path,
     extract_shot_code,
     clean_base_name,
 )
@@ -211,7 +216,12 @@ def _collect_shots_from_track(seq, track_name):
 
         base_source = os.path.basename(file_path) if file_path else clip_name
         base_name = clean_base_name(base_source)
-        project_name = extract_project_name(base_name)
+        project_name = extract_project_name_from_path(file_path)
+        if project_name:
+            debug_print(f"Project name (from path): {project_name}")
+        else:
+            project_name = extract_project_name(base_name)
+            debug_print(f"Project name (from filename fallback): {project_name}")
         shot_code = extract_shot_code(base_name)
 
         if shot_code and shot_code not in seen:

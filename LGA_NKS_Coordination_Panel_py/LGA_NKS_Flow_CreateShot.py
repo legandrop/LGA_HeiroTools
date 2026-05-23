@@ -1,11 +1,14 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_CreateShot v1.35 | Lega
+  LGA_NKS_Flow_CreateShot v1.36 | Lega
 
   Script para crear shots en ShotGrid basado en el nombre del clip seleccionado en Hiero.
   SIN usar templates predefinidos - crea tasks manualmente para mayor control.
 
+  v1.36: Project name extraído desde el segmento VFX-NOMBRE del path del archivo
+         (con fallback al primer bloque del filename si el path no contiene VFX-).
+         Corrige proyectos como MORLASP cuyos shots tienen prefijo MOR en el filename.
   v1.35: El diálogo de configuración ahora se muestra no modal con show()
          y continúa el flujo por callback al cerrar/aceptar.
          Evita que la ventana tome el foco bloqueando Hiero/Nuke Studio.
@@ -91,6 +94,7 @@ from SecureConfig_Reader import get_flow_credentials
 from LGA_NKS_Flow_NamingUtils import (
     extract_shot_code,
     extract_project_name,
+    extract_project_name_from_path,
     clean_base_name,
 )
 
@@ -1867,7 +1871,12 @@ class HieroOperations:
                 base_name, version_number = self.parse_exr_name(exr_name)
 
                 # Usar funciones de naming utils para extraer información
-                project_name = extract_project_name(base_name)
+                project_name = extract_project_name_from_path(file_path)
+                if project_name:
+                    debug_print(f"Project name (from path): {project_name}")
+                else:
+                    project_name = extract_project_name(base_name)
+                    debug_print(f"Project name (from filename fallback): {project_name}")
                 shot_code = extract_shot_code(base_name)
 
                 clips_info.append(
