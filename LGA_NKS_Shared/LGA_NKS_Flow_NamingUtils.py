@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_NamingUtils v1.10 | Lega
+  LGA_NKS_Flow_NamingUtils v1.12 | Lega
 
   Utilidades para detectar y extraer información de nombres de archivos/shots
   Compatible con sistemas de nomenclatura actuales y series:
@@ -32,6 +32,14 @@ ____________________________________________________________________
   - LGA_NKS_Edit_Panel_py/LGA_NKS_SetShotName.py
   - LGA_NKS_Edit_Panel_py/LGA_NKS_CompareVerToEditref.py
   - LGA_NKS_Edit_Panel_py/LGA_NKS_CompareEXR_to_aPlate.py
+
+  v1.12: extract_project_name_from_path(): extrae el nombre de proyecto desde
+         el segmento de ruta "VFX-NOMBRE" en lugar del prefijo del filename.
+         Fallback: extract_project_name() (comportamiento anterior).
+         Ver docs/Docu_ProjectName_Extraction.md para el patrón completo.
+  v1.11: Aliases de task: TASK_NAME_ALIASES y normalize_task_name().
+         extract_task_name() normaliza el resultado para que "compo" → "comp"
+         en toda la pipeline que use este módulo.
 ____________________________________________________________________________________
 """
 
@@ -39,6 +47,19 @@ import re
 import os
 
 _VERSION_RE = re.compile(r"^v\d+$", re.IGNORECASE)
+
+# Aliases de task: nombres alternativos que deben tratarse como su canonical.
+# Ej: archivos llamados "Compo" pertenecen a la task "comp".
+TASK_NAME_ALIASES = {
+    "compo": "comp",
+}
+
+
+def normalize_task_name(name):
+    """Devuelve el nombre canonical de una task, resolviendo aliases conocidos."""
+    if not name:
+        return name
+    return TASK_NAME_ALIASES.get(name.lower(), name.lower())
 
 
 def _strip_version_suffix(parts):
@@ -128,19 +149,55 @@ def extract_shot_code(base_name):
 
 def extract_project_name(base_name):
     """
-    Extrae el nombre del proyecto del nombre base del archivo.
-    
+    Extrae el nombre del proyecto del nombre base del archivo (primer bloque antes de _).
+    Ej: "MOR_1048_060_Compo" → "MOR".
+
+    NOTA: Este método es el fallback. Prefiere extract_project_name_from_path()
+    cuando tenés la ruta completa del archivo disponible.
+
     Args:
         base_name (str): Nombre base del archivo
-        
+
     Returns:
         str: Nombre del proyecto (primer campo)
     """
     if not base_name:
         return ""
-    
+
     parts = base_name.split("_")
     return parts[0] if parts else ""
+
+
+def extract_project_name_from_path(file_path):
+    """
+    Extrae el nombre del proyecto desde el segmento de ruta "VFX-NOMBRE".
+
+    Los proyectos VFX siempre viven bajo una carpeta raíz con el patrón "VFX-NOMBRE"
+    (ej: T:/VFX-MORLASP/...). El nombre del proyecto en la DB es "NOMBRE"
+    (sin el prefijo "VFX-").
+
+    Si no se encuentra ningún segmento con ese patrón, retorna None para que
+    el caller pueda hacer fallback a extract_project_name().
+
+    Ej:
+        "T:/VFX-MORLASP/101/MOR_1048_060/..." → "MORLASP"
+        "T:/VFX-BRDA/102/..."                 → "BRDA"
+        "/path/sin/prefijo/vfx/..."           → None
+
+    Args:
+        file_path (str): Ruta completa del archivo.
+
+    Returns:
+        str | None: Nombre del proyecto, o None si no se encuentra el patrón.
+    """
+    if not file_path:
+        return None
+    import os as _os
+    normalized = _os.path.normpath(file_path)
+    for part in normalized.split(_os.sep):
+        if part.upper().startswith("VFX-") and len(part) > 4:
+            return part[4:]  # strip "VFX-"
+    return None
 
 
 def clean_base_name(file_name):

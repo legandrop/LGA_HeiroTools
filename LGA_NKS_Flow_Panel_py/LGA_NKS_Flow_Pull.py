@@ -1,12 +1,20 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_Pull v3.42 | Lega
+  LGA_NKS_Flow_Pull v3.43 | Lega
 
   Compara los estados de las task Comp de los shots del timeline de Hiero
   con los estados registrados en un archivo JSON basado en Flow PT
   Tambien aplica tags con los colores de los estados en xyplorer
 
+  v3.44: Extracción de project_name desde el segmento de ruta "VFX-NOMBRE"
+         en lugar del prefijo del filename. Fallback al método anterior si
+         no se encuentra el patrón. Ver docs/Docu_ProjectName_Extraction.md.
+  v3.43: Normalización de alias de task: "compo" se trata como "comp".
+         El filtro de filename ahora acepta _compo_ (y cualquier alias definido
+         en TASK_NAME_ALIASES). extract_task_name ya normaliza internamente, así
+         que la búsqueda en SG y el check de mismatch también quedan corregidos.
+         enable_or_disable_clips incluye los aliases en su regex de versión.
   v3.42: Fix crash al procesar clips offline sin versiones escaneadas. Cuando doScan no encontraba versiones nuevas devolvía un bin item sin número de versión en el nombre, y el split("_v")[-1] + int() reventaba con ValueError cortando el pull completo. Reemplazado por extract_version_number() que ya maneja ese caso devolviendo 0.
   v3.41: Filtro de filename ya no exige "_comp_". Acepta cualquier task de TASK_EXR_TRACKS (comp, roto, cleanup). Antes los clips de roto/cleanup entraban al loop y eran descartados con continue, así que el shift+click sobre clips de roto no detectaba cambios.
   v3.40: Tabla de cambios incluye columna "Task" (al lado del Shot) con la task detectada del filename del clip. Permite distinguir de qué task son la versión y el status reportados.
@@ -51,8 +59,11 @@ sys.path.append(str(flow_shared_dir))
 from LGA_NKS_Flow_NamingUtils import (
     extract_shot_code,
     extract_project_name,
+    extract_project_name_from_path,
     extract_task_name,
     clean_base_name,
+    TASK_NAME_ALIASES,
+    normalize_task_name,
 )
 
 # Importar utilidades para obtener clips
@@ -739,8 +750,13 @@ class HieroOperations:
                     debug_print(f"[MismatchCheck] Tracks en sequence: {track_names_dump}")
                 except Exception as _e_tracks:
                     debug_print(f"[MismatchCheck] No se pudieron listar tracks: {_e_tracks}")
+                def _extract_task_normalized(base_name):
+                    """Wrapper local: extrae task del filename y aplica aliases (compo→comp)."""
+                    raw = extract_task_name(base_name)
+                    return normalize_task_name(raw) if raw else raw
+
                 task_mismatches = collect_task_mismatches(
-                    selected_clips, seq, TASK_EXR_TRACKS, extract_task_name, clean_base_name,
+                    selected_clips, seq, TASK_EXR_TRACKS, _extract_task_normalized, clean_base_name,
                     debug_log=debug_print,
                 )
                 debug_print(
@@ -781,9 +797,11 @@ class HieroOperations:
                         file_basename = os.path.basename(file_path).lower()
                         debug_print(f"Basename del archivo: {file_basename}")
 
-                        if not any(t in file_basename for t in TASK_EXR_TRACKS):
+                        _alias_patterns = {f"_{k}_" for k in TASK_NAME_ALIASES}
+                        _all_task_patterns = set(TASK_EXR_TRACKS) | _alias_patterns
+                        if not any(t in file_basename for t in _all_task_patterns):
                             debug_print(
-                                f"El archivo no contiene ninguna task conocida ({TASK_EXR_TRACKS}) en el nombre: {file_basename}"
+                                f"El archivo no contiene ninguna task conocida ({sorted(_all_task_patterns)}) en el nombre: {file_basename}"
                             )
                             continue
                         exr_name = os.path.basename(file_path)
@@ -799,17 +817,24 @@ class HieroOperations:
                         )  # Use extracted version number
                         debug_print(f"Version extraida: {version_number} de {version_str}")
 
-                        # Usar funciones compartidas para extraer información
-                        project_name = extract_project_name(base_name)
-                        debug_print(f"Project name: {project_name}")
+                        # Extraer project_name desde el segmento "VFX-NOMBRE" de la ruta.
+                        # Fallback: primer bloque del filename (comportamiento anterior).
+                        project_name = extract_project_name_from_path(file_path)
+                        if project_name:
+                            debug_print(f"Project name (from path): {project_name}")
+                        else:
+                            project_name = extract_project_name(base_name)
+                            debug_print(f"Project name (from filename fallback): {project_name}")
 
                         shot_code = extract_shot_code(base_name)
                         debug_print(f"Shot code: {shot_code}")
 
-                        # Extraer task_name usando función compartida
+                        # Extraer task_name usando función compartida.
+                        # normalize_task_name resuelve aliases del filename ("compo" → "comp")
+                        # para que la búsqueda en la DB use siempre el nombre canonical.
                         task_name_extracted = extract_task_name(base_name)
                         if task_name_extracted:
-                            task_name = task_name_extracted.lower()
+                            task_name = normalize_task_name(task_name_extracted)
                         else:
                             # Fallback: buscar task antes de la versión en el nombre original
                             parts_original = exr_name.split("_")
@@ -1147,9 +1172,10 @@ class HieroOperations:
                         # Obtener el color actual del clip para verificar si está en review
                         current_color_hex = self.get_current_clip_color(item)
 
-                        # Patrón regex para detectar versiones de 2 o 3 dígitos en cualquier task track
-                        # Ej: _comp_v007, _roto_v003, _cmp_v01
-                        task_pattern = "|".join(t.strip("_") for t in TASK_EXR_TRACKS) + "|cmp"
+                        # Patrón regex para detectar versiones de 2 o 3 dígitos en cualquier task track.
+                        # Incluye aliases (ej: _compo_v007) además de los tracks canónicos.
+                        _task_names = [t.strip("_") for t in TASK_EXR_TRACKS] + ["cmp"] + list(TASK_NAME_ALIASES.keys())
+                        task_pattern = "|".join(_task_names)
                         version_pattern = re.compile(rf'_(?:{task_pattern})_v(\d{{2,3}})', re.IGNORECASE)
                         version_match = version_pattern.search(filename.lower())
                         
