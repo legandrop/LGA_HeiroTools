@@ -107,7 +107,8 @@ Leyenda:
 | Script | Estado |
 |--------|--------|
 | `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Pull.py` | ✅ Actualizado v3.44 |
-| `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py` | ⬜ |
+| `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push.py` | ✅ Actualizado v4.01 |
+| `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Push_connector.py` | ✅ Actualizado v1.01 — proceso separado; recibe file_path vía JSON |
 | `LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Shot_info.py` | ⬜ |
 
 ### Assignee Panel
