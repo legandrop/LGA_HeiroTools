@@ -1,10 +1,14 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_Clear_Assignees v1.24 | Lega
+  LGA_NKS_Flow_Clear_Assignees v1.25 | Lega
 
   Elimina los asignados de una tarea en ShotGrid (Flow) a partir del base_name
 
+  v1.25: Recibe file_path desde el panel para extraer project_name desde el
+         segmento VFX-NOMBRE del path (corrige proyectos como MORLASP con
+         prefijo MOR en el filename). Normaliza default_task para aliases
+         (compo → comp) evitando pre-selección incorrecta en el diálogo.
   v1.24: Actualiza la UI para mostrar las tasks y los asignados en Flow.
          Funciona con todas las tasks disponibles en Flow.
   v1.23: Actualiza la base de datos local pipesync.db con la eliminación de asignados
@@ -54,7 +58,9 @@ from SecureConfig_Reader import get_flow_credentials
 from LGA_NKS_Flow_NamingUtils import (
     extract_shot_code,
     extract_project_name,
+    extract_project_name_from_path,
     extract_task_name,
+    normalize_task_name,
 )
 from LGA_NKS_Shared.LGA_NKS_Flow_Task_Config import (
     DEFAULT_TASK_NAME,
@@ -627,9 +633,10 @@ class TaskFetchSignals(QObject):
 
 
 class ShotTaskDiscoveryWorker(QRunnable):
-    def __init__(self, base_name):
+    def __init__(self, base_name, file_path=None):
         super(ShotTaskDiscoveryWorker, self).__init__()
         self.base_name = base_name
+        self.file_path = file_path
         self.signals = TaskFetchSignals()
 
     @Slot()
@@ -642,9 +649,14 @@ class ShotTaskDiscoveryWorker(QRunnable):
                 )
                 return
 
-            project_name = extract_project_name(self.base_name)
+            project_name = extract_project_name_from_path(self.file_path)
+            if project_name:
+                debug_print(f"Project name (from path): {project_name}")
+            else:
+                project_name = extract_project_name(self.base_name)
+                debug_print(f"Project name (from filename fallback): {project_name}")
             shot_code = extract_shot_code(self.base_name)
-            default_task = extract_task_name(self.base_name) or DEFAULT_TASK_NAME
+            default_task = normalize_task_name(extract_task_name(self.base_name)) or DEFAULT_TASK_NAME
 
             sg_manager = ShotGridManager(sg_url, sg_login, sg_password)
             if not sg_manager.sg:
@@ -779,12 +791,13 @@ def get_flow_credentials_secure():
 _status_window = None
 
 
-def clear_task_assignees_from_base_name(base_name):
+def clear_task_assignees_from_base_name(base_name, file_path=None):
     """
     Función principal del script de limpiar asignados.
 
     Args:
         base_name (str): Nombre base del clip
+        file_path (str): Ruta completa del clip (para extraer project_name desde VFX-NOMBRE)
     """
     global _status_window
 
@@ -859,7 +872,7 @@ def clear_task_assignees_from_base_name(base_name):
             action_label="Limpiar en Flow",
         )
 
-    discovery_worker = ShotTaskDiscoveryWorker(base_name)
+    discovery_worker = ShotTaskDiscoveryWorker(base_name, file_path=file_path)
     discovery_worker.signals.ready.connect(handle_task_selection)
     discovery_worker.signals.error.connect(
         lambda error_msg, window=_status_window: window.show_error(error_msg)

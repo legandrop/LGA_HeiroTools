@@ -125,9 +125,9 @@ Leyenda:
 
 | Script | Estado |
 |--------|--------|
-| `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assignee.py` | ⬜ |
-| `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assign_Assignee.py` | ⬜ |
-| `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Clear_Assignees.py` | ⬜ |
+| `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assignee.py` | ✅ Actualizado v1.25 — normalize_task_name aplicado a default_task en ShotTaskDiscoveryWorker.run() |
+| `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assign_Assignee.py` | ✅ Actualizado v1.25 — ídem |
+| `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Clear_Assignees.py` | ✅ Actualizado v1.25 — ídem |
 
 ### Coordination Panel
 

@@ -116,9 +116,9 @@ Leyenda:
 
 | Script | Estado |
 |--------|--------|
-| `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assignee.py` | ⬜ |
-| `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assign_Assignee.py` | ⬜ |
-| `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Clear_Assignees.py` | ⬜ |
+| `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assignee.py` | ✅ Actualizado v1.25 — file_path propagado desde panel v1.56; ShotTaskDiscoveryWorker extrae project_name desde VFX-NOMBRE del path |
+| `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Assign_Assignee.py` | ✅ Actualizado v1.25 — ídem |
+| `LGA_NKS_Assignee_Panel_py/LGA_NKS_Flow_Clear_Assignees.py` | ✅ Actualizado v1.25 — ídem |
 
 ### Coordination Panel
 

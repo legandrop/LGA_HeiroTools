@@ -1,11 +1,14 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_Assignee_Panel v1.55 | Lega
+  LGA_NKS_Flow_Assignee_Panel v1.56 | Lega
 
   Panel para obtener los asignados de la tarea del clip seleccionado en Flow,
   limpiarlos o sumar asignados a la tarea comp.
 
+  v1.56: Propaga file_path junto con base_name a los tres scripts del panel
+         para permitir extracción de project_name desde el segmento VFX-NOMBRE
+         del path (corrige proyectos como MORLASP con prefijo MOR en el filename).
   v1.55: Permite get/clear/assign de assignees en clips offline usando la ruta
          registrada en mediaSource().fileinfos(), sin exigir media presente.
   v1.54: Agregado logging a archivo con switches de debug
@@ -549,7 +552,7 @@ class AssigneePanel(QtWidgets.QWidget):
         return base_name
 
     def _get_base_name_from_clip(self, item):
-        """Obtiene el base_name desde la ruta registrada, aunque el media este offline."""
+        """Obtiene (base_name, file_path) desde la ruta registrada, aunque el media este offline."""
         media_source = item.source().mediaSource()
 
         try:
@@ -572,7 +575,7 @@ class AssigneePanel(QtWidgets.QWidget):
         exr_name = exr_name.replace(".%", "_%")
         debug_print(f"Ruta registrada del clip: {file_path}")
         debug_print(f"Procesando archivo: {exr_name}")
-        return self.parse_exr_name(exr_name)
+        return self.parse_exr_name(exr_name), file_path
 
     def get_assignees_for_selected_clip(self):
         seq = hiero.ui.activeSequence()
@@ -591,12 +594,12 @@ class AssigneePanel(QtWidgets.QWidget):
         for item in clips_to_process:
             if not isinstance(item, hiero.core.EffectTrackItem):
                 try:
-                    base_name = self._get_base_name_from_clip(item)
-                    self.call_assignee_script(base_name)
+                    base_name, file_path = self._get_base_name_from_clip(item)
+                    self.call_assignee_script(base_name, file_path)
                 except Exception as e:
                     QtWidgets.QMessageBox.warning(self, "Formato Incorrecto", str(e))
 
-    def call_assignee_script(self, base_name):
+    def call_assignee_script(self, base_name, file_path=None):
         # Importar y ejecutar la funcion del script LGA_NKS_Flow_Assignee.py directamente
         script_path = os.path.join(
             os.path.dirname(__file__),
@@ -622,8 +625,8 @@ class AssigneePanel(QtWidgets.QWidget):
                 )
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            # Llamar a la función principal pasando el base_name
-            module.show_task_assignees_from_base_name(base_name)
+            # Llamar a la función principal pasando el base_name y file_path
+            module.show_task_assignees_from_base_name(base_name, file_path=file_path)
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
 
@@ -644,12 +647,12 @@ class AssigneePanel(QtWidgets.QWidget):
         for item in clips_to_process:
             if not isinstance(item, hiero.core.EffectTrackItem):
                 try:
-                    base_name = self._get_base_name_from_clip(item)
-                    self.call_clear_assignees_script(base_name)
+                    base_name, file_path = self._get_base_name_from_clip(item)
+                    self.call_clear_assignees_script(base_name, file_path)
                 except Exception as e:
                     QtWidgets.QMessageBox.warning(self, "Formato Incorrecto", str(e))
 
-    def call_clear_assignees_script(self, base_name):
+    def call_clear_assignees_script(self, base_name, file_path=None):
         script_path = os.path.join(
             os.path.dirname(__file__),
             "LGA_NKS_Assignee_Panel_py",
@@ -674,8 +677,8 @@ class AssigneePanel(QtWidgets.QWidget):
                 )
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            # Llamar a la función principal pasando el base_name
-            module.clear_task_assignees_from_base_name(base_name)
+            # Llamar a la función principal pasando el base_name y file_path
+            module.clear_task_assignees_from_base_name(base_name, file_path=file_path)
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
 
@@ -702,17 +705,17 @@ class AssigneePanel(QtWidgets.QWidget):
         for item in clips_to_process:
             if not isinstance(item, hiero.core.EffectTrackItem):
                 try:
-                    base_name = self._get_base_name_from_clip(item)
+                    base_name, file_path = self._get_base_name_from_clip(item)
                     debug_print(f"Base name extraido: {base_name}")
                     debug_print(
                         f"Llamando call_assign_assignee_script con user_name: {user_name}"
                     )
-                    self.call_assign_assignee_script(base_name, user_name)
+                    self.call_assign_assignee_script(base_name, user_name, file_path)
                 except Exception as e:
                     debug_print(f"Error resolviendo nombre del clip: {e}")
                     QtWidgets.QMessageBox.warning(self, "Formato Incorrecto", str(e))
 
-    def call_assign_assignee_script(self, base_name, user_name):
+    def call_assign_assignee_script(self, base_name, user_name, file_path=None):
         debug_print(f"=== call_assign_assignee_script llamado ===")
         debug_print(f"base_name: {base_name}")
         debug_print(f"user_name: {user_name}")
@@ -749,7 +752,7 @@ class AssigneePanel(QtWidgets.QWidget):
             debug_print(
                 f"Llamando assign_assignee_to_task con: '{base_name}', '{user_name}'"
             )
-            module.assign_assignee_to_task(base_name, user_name)
+            module.assign_assignee_to_task(base_name, user_name, file_path=file_path)
         except Exception as e:
             debug_print(f"Error ejecutando script: {e}")
             QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
