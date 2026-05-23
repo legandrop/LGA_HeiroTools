@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_Thumbs v1.01 | Lega
+  LGA_NKS_Flow_Thumbs v1.02 | Lega
 
   Crea un snapshot del viewer actual con zoom to fill y lo guarda en N:/(proyecto)/Thumbs.
   Organiza por nombre de proyecto extraído del archivo.
@@ -9,6 +9,10 @@ ____________________________________________________________________
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
+
+  v1.02: Project name extraído desde el segmento VFX-NOMBRE del path del archivo
+         (con fallback al primer bloque del filename si el path no contiene VFX-).
+         Corrige proyectos como MORLASP cuyos shots tienen prefijo MOR en el filename.
 ____________________________________________________________________
 """
 
@@ -29,6 +33,7 @@ sys.path.append(str(Path(__file__).parent.parent / "LGA_NKS_Shared"))
 from LGA_NKS_Flow_NamingUtils import (
     extract_shot_code,
     extract_project_name,
+    extract_project_name_from_path,
     clean_base_name,
 )
 
@@ -70,13 +75,16 @@ def get_project_name_from_clip():
         base_name = clean_base_name(filename)
         
         # Usar función compartida para extraer el nombre del proyecto
+        project_name = extract_project_name_from_path(file_path)
+        if project_name:
+            debug_print(f"Nombre del proyecto extraído (from path): {project_name}")
+            return project_name
         project_name = extract_project_name(base_name)
         if project_name:
-            debug_print(f"Nombre del proyecto extraído: {project_name}")
+            debug_print(f"Nombre del proyecto extraído (from filename fallback): {project_name}")
             return project_name
-        else:
-            debug_print("No se pudo extraer el nombre del proyecto")
-            return None
+        debug_print("No se pudo extraer el nombre del proyecto")
+        return None
 
     except Exception as e:
         debug_print(f"Error extrayendo nombre del proyecto: {e}")

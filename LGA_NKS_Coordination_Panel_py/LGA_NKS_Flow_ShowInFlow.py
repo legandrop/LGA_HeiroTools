@@ -1,13 +1,16 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_ShowInFlow v1.28 | Lega
+  LGA_NKS_Flow_ShowInFlow v1.29 | Lega
 
   Abre la URL de la task Comp del shot, tomando información del clip en TRACK_comp_EXR bajo el playhead.
   Si no hay clip en playhead, usa el clip seleccionado como fallback.
   Verifica si existe más de un shot con el mismo nombre y te pide que selecciones uno.
   Usa el módulo utilitario LGA_NKS_GetClip para obtener clips.
 
+  v1.29: Project name extraído desde el segmento VFX-NOMBRE del path del archivo
+         (con fallback al primer bloque del filename si el path no contiene VFX-).
+         Corrige proyectos como MORLASP cuyos shots tienen prefijo MOR en el filename.
   v1.28: Actualizado para usar shift+click para abrir el shot completo en Flow
   v1.27: Agrega manejo con hilos secundarios para procesar los clips en paralelo sin bloquear el hilo principal
   v1.26: Actualizado para ser compatible con ambos sistemas de nomenclatura:
@@ -88,6 +91,7 @@ from SecureConfig_Reader import get_flow_credentials
 from LGA_NKS_Flow_NamingUtils import (
     extract_shot_code,
     extract_project_name,
+    extract_project_name_from_path,
     clean_base_name,
 )
 
@@ -261,7 +265,12 @@ class HieroOperations:
         )
 
         # Usar funciones compartidas para extraer información (compatible con ambos formatos)
-        project_name = extract_project_name(base_name)
+        project_name = extract_project_name_from_path(file_path)
+        if project_name:
+            debug_print(f"Project name (from path): {project_name}")
+        else:
+            project_name = extract_project_name(base_name)
+            debug_print(f"Project name (from filename fallback): {project_name}")
         shot_code = extract_shot_code(base_name)
         debug_print(f"Project name: {project_name}, shot code: {shot_code}")
 
@@ -365,7 +374,12 @@ class ShowInFlowWorker(QRunnable):
             )
 
             # Usar funciones compartidas para extraer información (compatible con ambos formatos)
-            project_name = extract_project_name(base_name)
+            project_name = extract_project_name_from_path(file_path)
+            if project_name:
+                debug_print(f"Project name (from path): {project_name}")
+            else:
+                project_name = extract_project_name(base_name)
+                debug_print(f"Project name (from filename fallback): {project_name}")
             shot_code = extract_shot_code(base_name)
             debug_print(f"Project name: {project_name}, shot code: {shot_code}")
 
@@ -677,7 +691,12 @@ class ShowShotInFlowWorker(QRunnable):
             )
 
             # Usar funciones compartidas para extraer información (compatible con ambos formatos)
-            project_name = extract_project_name(base_name)
+            project_name = extract_project_name_from_path(file_path)
+            if project_name:
+                debug_print(f"Project name (from path): {project_name}")
+            else:
+                project_name = extract_project_name(base_name)
+                debug_print(f"Project name (from filename fallback): {project_name}")
             shot_code = extract_shot_code(base_name)
             debug_print(f"Project name: {project_name}, shot code: {shot_code}")
 

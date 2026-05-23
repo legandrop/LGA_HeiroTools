@@ -123,8 +123,8 @@ Leyenda:
 
 | Script | Estado |
 |--------|--------|
-| `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShowInFlow.py` | ⬜ |
-| `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_Thumbs.py` | ⬜ |
+| `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShowInFlow.py` | ✅ Actualizado v1.29 — 3 call sites: `HieroOperations.process_clip()`, `ShowInFlowWorker.run()`, `ShowShotInFlowWorker.run()` |
+| `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_Thumbs.py` | ✅ Actualizado v1.02 — fix en `get_project_name_from_clip()` |
 | `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.py` | ✅ Actualizado v1.36 — fix en `get_selected_clips_info()` |
 | `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ModifyShot.py` | 🔵 Analizado · hereda `get_selected_clips_info()` de CreateShot — fix automático con v1.36 |
 | `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CheckTimelineShots.py` | ✅ Actualizado v1.01 — fix en `_collect_shots_from_track()` |
