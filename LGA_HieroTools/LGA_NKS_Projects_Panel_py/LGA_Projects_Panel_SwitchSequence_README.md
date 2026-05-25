@@ -217,10 +217,10 @@ Una vez probado y funcionando en la ventana de testing:
 
 ## Referencias tecnicas
 
-- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Projects_Panel_py\LGA_Projects_Panel_SwitchSequence.py` - `switch_to_sequence_hybrid()`, `disable_frame_number_on_active_sequence()`, `_apply_rec709_if_available()`, `reduce_sequence_window()`, `scroll_to_top_track()`
-- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_ViewerTL_Panel_py\LGA_NKS_FrameNumber.py` - `find_frame_only_effect()`, `print_box_values()`
-- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Shared\LGA_NKS_Timeline_PreCleanup.py` - `main()`, `remove_nukevfx_tracks()`, `extend_burnin_to_last_visible()`
-- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Shared\LGA_NKS_ScrollTo_TopTrack.py` - `main()`, `scroll_to_position()`
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Projects_Panel_py\LGA_Projects_Panel_SwitchSequence.py` - `switch_to_sequence_hybrid()`, `disable_frame_number_on_active_sequence()`, `_apply_rec709_if_available()`, `reduce_sequence_window()`, `scroll_to_top_track()`
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_ViewerTL_Panel_py\LGA_NKS_FrameNumber.py` - `find_frame_only_effect()`, `print_box_values()`
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Shared\LGA_NKS_Timeline_PreCleanup.py` - `main()`, `remove_nukevfx_tracks()`, `extend_burnin_to_last_visible()`
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Shared\LGA_NKS_ScrollTo_TopTrack.py` - `main()`, `scroll_to_position()`
 
 ## Referencias historicas
 

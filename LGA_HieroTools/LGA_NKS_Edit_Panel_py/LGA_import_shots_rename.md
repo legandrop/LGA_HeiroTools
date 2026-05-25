@@ -15,18 +15,18 @@ Permitir renombrado masivo con preview en vivo, de forma segura y modular.
 
 ## Archivos involucrados
 
-- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_import_shots.py`
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_import_shots.py`
   - `ImportShotDialog._build_page_rename()`
   - `ImportShotDialog._update_rename_page()`
   - `ImportShotDialog._refresh_rename_preview()`
   - `ImportShotDialog._run_rename()`
-- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_import_shots_rename.py`
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_import_shots_rename.py`
   - `build_selected_rows()`
   - `compute_preview()`
   - `build_row_ops_for_ui()` (liviana, para preview/colisiones)
   - `build_row_ops()` (pesada, para ejecutar)
   - `execute_ops()`
-- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_import_shots_rename_settings.py`
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_import_shots_rename_settings.py`
   - `load_settings()`
   - `save_settings()`
   - `get_settings_path()`

@@ -13,9 +13,9 @@ La herramienta crea archivos en disco, importa la v000 al bin correcto del proye
 
 ## Archivos principales
 
-- **Script principal:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py`
-- **Panel de control:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel.py`
-- **Plan / log de desarrollo:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000_Plan.md`
+- **Script principal:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py`
+- **Panel de control:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel.py`
+- **Plan / log de desarrollo:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000_Plan.md`
 
 ## Acceso
 
@@ -33,7 +33,7 @@ El script usa el sistema de logging dual documentado en `docs\Docu_Logging_Syste
 - `DEBUG_CONSOLE = False`
 - `DEBUG_LOG = True`
 
-La salida de debug no se propaga a consola y se escribe en `C:\Users\leg4-pc\.nuke\Python\Startup\logs\debugPy_CreateV000.log`.
+La salida de debug no se propaga a consola y se escribe en `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\logs\debugPy_CreateV000.log`.
 
 El archivo se reinicia en cada carga del modulo con encabezado `Fecha: YYYY-MM-DD HH:MM:SS` y usa formato relativo `[0.123s] mensaje`.
 
@@ -468,7 +468,7 @@ La version siempre es `v000` (constante `VERSION`).
 La secuencia se crea en dos pasos usando `oiiotool.exe` vendorizado en `LGA_NKS_Shared`:
 
 ```
-C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Shared\OIIO_Win\oiiotool.exe
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Shared\OIIO_Win\oiiotool.exe
 ```
 
 **Paso 1 - Crear el primer frame negro:**
@@ -669,9 +669,9 @@ track_item.setEnabled(False)                    # La v000 queda deshabilitada en
 **Scripts de exploracion de referencia:**
 
 ```
-C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-CreateV000_ImportExplore.py
-C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-TrackItem_LinkStatus_Explore.py
-C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-TrackItem_LinkStatus_SetSelected.py
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\+Building_Blocks\Hiero\Timeline\LGA_H-CreateV000_ImportExplore.py
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\+Building_Blocks\Hiero\Timeline\LGA_H-TrackItem_LinkStatus_Explore.py
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\+Building_Blocks\Hiero\Timeline\LGA_H-TrackItem_LinkStatus_SetSelected.py
 ```
 
 ---

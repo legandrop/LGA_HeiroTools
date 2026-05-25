@@ -12,7 +12,7 @@ import argparse
 import os
 import re
 
-DEFAULT_LOG = r"C:\Users\leg4-pc\.nuke\Python\Startup\logs\debugPy.log"
+DEFAULT_LOG = r"C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\logs\debugPy.log"
 LOG_RE = re.compile(r"^\[(\d+\.\d{3})s\]\s*(.*)$")
 
 

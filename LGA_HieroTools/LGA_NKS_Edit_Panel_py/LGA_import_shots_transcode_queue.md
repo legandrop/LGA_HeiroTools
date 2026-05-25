@@ -490,7 +490,7 @@ La cola vive solo en memoria:
 El manager escribe en un log propio:
 
 ```text
-C:\Users\leg4-pc\.nuke\Python\Startup\logs\debugPy_ImportShotsTranscodeQueue.log
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\logs\debugPy_ImportShotsTranscodeQueue.log
 ```
 
 Este log se reinicia cuando el modulo de queue se recarga. Si hay ventanas `Import Shot`
@@ -533,7 +533,7 @@ Eventos minimos:
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_import_shots.py` | `ImportShotDialog`, `_run_transcode()`, `_start_next_sequence()`, `_on_sequence_started()`, `_poll_transcode_progress()`, `_on_sequence_done()`, `_on_worker_batch_done()`, `_finalize_transcode()`, `_on_transcode_error()` |
-| `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_import_shots_transcode.py` | `TranscodeWorkerSignals`, `TranscodeWorker`, `build_manifest_for_sequence()`, `check_existing_outputs()`, `delete_existing_outputs()`, `show_overwrite_warning()` |
-| `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Shared\LGA_EXR_Convert.py` | `run_tasks()`, `convert_one()`, `build_exrmetrics_command()`, `build_oiiotool_command()`, `main()` |
-| `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Shared\LGA_EXR_Convert.MD` | Manifest JSON, parametros de conversion, comportamiento del motor EXR |
+| `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_import_shots.py` | `ImportShotDialog`, `_run_transcode()`, `_start_next_sequence()`, `_on_sequence_started()`, `_poll_transcode_progress()`, `_on_sequence_done()`, `_on_worker_batch_done()`, `_finalize_transcode()`, `_on_transcode_error()` |
+| `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_import_shots_transcode.py` | `TranscodeWorkerSignals`, `TranscodeWorker`, `build_manifest_for_sequence()`, `check_existing_outputs()`, `delete_existing_outputs()`, `show_overwrite_warning()` |
+| `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Shared\LGA_EXR_Convert.py` | `run_tasks()`, `convert_one()`, `build_exrmetrics_command()`, `build_oiiotool_command()`, `main()` |
+| `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Shared\LGA_EXR_Convert.MD` | Manifest JSON, parametros de conversion, comportamiento del motor EXR |

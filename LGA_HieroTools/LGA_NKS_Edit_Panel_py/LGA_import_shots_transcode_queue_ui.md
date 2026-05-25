@@ -238,7 +238,7 @@ clase vieja, senales duplicadas o una ventana desconectada del manager actual.
 
 | Archivo | Funciones / clases clave |
 |---------|--------------------------|
-| `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_import_shots.py` | `_make_footer_pair()`, `_focus_import_shot_window()`, boton `Open Queue` |
-| `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_import_shots_transcode_queue.py` | `TranscodeQueueManager`, `snapshot()`, `queue_changed`, `sequence_started`, `sequence_done`, `job_cancelled` |
-| `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_import_shots_transcode_queue.md` | Especificacion funcional de la cola global |
-| `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_import_shots_transcode_queue_PLAN.md` | Plan de implementacion por etapas |
+| `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_import_shots.py` | `_make_footer_pair()`, `_focus_import_shot_window()`, boton `Open Queue` |
+| `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_import_shots_transcode_queue.py` | `TranscodeQueueManager`, `snapshot()`, `queue_changed`, `sequence_started`, `sequence_done`, `job_cancelled` |
+| `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_import_shots_transcode_queue.md` | Especificacion funcional de la cola global |
+| `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_import_shots_transcode_queue_PLAN.md` | Plan de implementacion por etapas |

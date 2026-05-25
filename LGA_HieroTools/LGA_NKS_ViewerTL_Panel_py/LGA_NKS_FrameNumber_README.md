@@ -97,10 +97,10 @@ El cálculo de posición es consistente para ambos ejes (X e Y): se calcula el c
 **Script auxiliar**: `LGA_NKS_ViewerTL_Panel_py/LGA_NKS_FrameNumber_Create.py` (creación automática del efecto)
 
 ## Referencias tecnicas
-- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_ViewerTL_Panel.py`: `ViewerPanel.frame_number_position()`.
-- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_ViewerTL_Panel_py\LGA_NKS_FrameNumber.py`: `print_box_values()`, `find_frame_only_effect()`.
-- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_ViewerTL_Panel_py\LGA_NKS_FrameNumber_Create.py`: `create_frame_only_effect()`.
-- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Projects_Panel_py\LGA_Projects_Panel_SwitchSequence.py`: `disable_frame_number_on_active_sequence()`.
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_ViewerTL_Panel.py`: `ViewerPanel.frame_number_position()`.
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_ViewerTL_Panel_py\LGA_NKS_FrameNumber.py`: `print_box_values()`, `find_frame_only_effect()`.
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_ViewerTL_Panel_py\LGA_NKS_FrameNumber_Create.py`: `create_frame_only_effect()`.
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Projects_Panel_py\LGA_Projects_Panel_SwitchSequence.py`: `disable_frame_number_on_active_sequence()`.
 
 ## Dependencias
 

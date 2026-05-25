@@ -650,7 +650,7 @@ wm.showWindow(timeline_widget)  # ← Mostrar
 1. **Ejecutar script:**
    ```python
    import sys
-   sys.path.append(r"c:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks")
+   sys.path.append(r"c:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\+Building_Blocks")
    import test_candidatos_prometedores
    test_candidatos_prometedores.main()
    ```

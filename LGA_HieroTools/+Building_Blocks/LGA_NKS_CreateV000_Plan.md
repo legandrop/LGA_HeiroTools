@@ -2,7 +2,7 @@
 
 Documento actualizado para reflejar la implementacion actual de:
 
-`C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py`
+`C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py`
 
 La herramienta ya crea la secuencia EXR v000 en Windows usando `oiiotool`
 vendorizado dentro de `LGA_NKS_Shared`.
@@ -43,7 +43,7 @@ Si la carpeta de salida ya existe y contiene EXR, muestra una confirmacion con:
 
 Archivo:
 
-`C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel.py`
+`C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel.py`
 
 Estado:
 
@@ -416,7 +416,7 @@ Nota: `selected_plates` conserva el nombre historico de la key, pero actualmente
 Backend actual:
 
 ```text
-C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Shared\OIIO_Win\oiiotool.exe
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Shared\OIIO_Win\oiiotool.exe
 ```
 
 Flujo:
@@ -457,14 +457,14 @@ macOS:
 Archivos relevantes:
 
 ```text
-C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Shared\LGA_NKS_GetClip.py
-C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Shared\LGA_NKS_TaskSelectionDialog.py
-C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Shared\LGA_NKS_Flow_NamingUtils.py
-C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_NKS_SetShotName.py
-C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_NKS_Trim_In.py
-C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_NKS_Trim_Out.py
-C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_NKS_CompareEXR_to_aPlate.py
-C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_NKS_MatchVerToEXR.py
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Shared\LGA_NKS_GetClip.py
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Shared\LGA_NKS_TaskSelectionDialog.py
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Shared\LGA_NKS_Flow_NamingUtils.py
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_NKS_SetShotName.py
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_NKS_Trim_In.py
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_NKS_Trim_Out.py
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_NKS_CompareEXR_to_aPlate.py
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_NKS_MatchVerToEXR.py
 ```
 
 ---
@@ -525,7 +525,7 @@ Antes de implementar, hay que confirmar con documentacion y pruebas:
 Para bins/organizacion:
 
 ```text
-C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_NKS_OrganizeProject.py
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_NKS_OrganizeProject.py
 ```
 
 Ese script organiza clips en bins segun la ruta del archivo. La v000 importada deberia seguir esa misma estructura, por ejemplo:
@@ -539,7 +539,7 @@ o la estructura exacta que use `Organize Project` para el material existente.
 Para naming del clip:
 
 ```text
-C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_NKS_SetShotName.py
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_NKS_SetShotName.py
 ```
 
 La v000 importada deberia recibir el shot name correcto como si se ejecutara `Set Shot Name` sobre ese nuevo clip importado.
@@ -551,7 +551,7 @@ Crear un script de prueba en `+Building_Blocks`, no en el script final todavia.
 Ubicacion sugerida:
 
 ```text
-C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-CreateV000_ImportExplore.py
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\+Building_Blocks\Hiero\Timeline\LGA_H-CreateV000_ImportExplore.py
 ```
 
 Este script de exploracion primero deberia comprobar que existen y funcionan los metodos necesarios, sin hacer todavia la importacion definitiva.
@@ -611,9 +611,9 @@ Fecha: 2026-05-03
 Scripts de exploracion usados:
 
 ```text
-C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-CreateV000_ImportExplore.py
-C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-TrackItem_LinkStatus_Explore.py
-C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-TrackItem_LinkStatus_SetSelected.py
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\+Building_Blocks\Hiero\Timeline\LGA_H-CreateV000_ImportExplore.py
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\+Building_Blocks\Hiero\Timeline\LGA_H-TrackItem_LinkStatus_Explore.py
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\+Building_Blocks\Hiero\Timeline\LGA_H-TrackItem_LinkStatus_SetSelected.py
 ```
 
 ### Media EXR
@@ -785,7 +785,7 @@ El crash se produjo al llamar `setVersionLinkedToBin` sobre un `TrackItem` todav
 Implementado y probado en:
 
 ```text
-C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_NKS_CreateV000.py
 ```
 
 Funciona:
@@ -848,7 +848,7 @@ Notas de seguridad:
 Exploracion de borrado validada:
 
 ```text
-C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\Hiero\Timeline\LGA_H-CreateV000_RemoveOverlap_Explore.py
+C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\+Building_Blocks\Hiero\Timeline\LGA_H-CreateV000_RemoveOverlap_Explore.py
 ```
 
 Resultado:

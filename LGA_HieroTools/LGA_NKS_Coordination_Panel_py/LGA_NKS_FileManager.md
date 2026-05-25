@@ -54,7 +54,7 @@ FileManager.exe --download-file "T:\VFX-MOR\102\MOR_2015_010\_input\MOR_2015_010
 
 ### 5. **Notificar a Hiero al terminar la descarga**
 ```bash
-FileManager.exe --download-file "T:\VFX-MOR\102\SHOT\_input\ref.mov" --notify-completion "C:\Users\...\Startup\logs\download_clip_done"
+FileManager.exe --download-file "T:\VFX-MOR\102\SHOT\_input\ref.mov" --notify-completion "C:\Users\...\Startup\LGA_HieroTools\logs\download_clip_done"
 ```
 
 - `--notify-completion "<carpeta>"` hace que FileManager escriba un marcador `.json` en `<carpeta>` cuando cada tarea de descarga termina

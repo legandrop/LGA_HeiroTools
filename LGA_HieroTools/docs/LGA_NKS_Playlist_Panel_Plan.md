@@ -66,7 +66,7 @@ El panel debe permitir:
 
 Queda confirmado que el `Flow Panel` ya maneja comentarios y attachments de forma no lineal en `Shot Info`.
 
-En `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Flow_Panel_py\LGA_NKS_Flow_Shot_info.py`:
+En `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Flow_Panel_py\LGA_NKS_Flow_Shot_info.py`:
 
 - se consultan notas desde `version_notes`;
 - se cargan `local_attachment_paths`;
@@ -804,12 +804,12 @@ Antes de dar por terminada esta primera etapa, debe quedar probado que:
 
 ## Referencias tecnicas
 
-- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Flow_Panel.py`
-- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Flow_Panel_py\LGA_NKS_Flow_Shot_info.py`
-- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Flow_Panel_py\LGA_NKS_Flow_Push.py`
-- `C:\Users\leg4-pc\.nuke\Python\Startup\docs\Docu_Logging_System.md`
-- `C:\Users\leg4-pc\.nuke\Python\Startup\docs\Docu_Logica_Nombres_Tracks.md`
-- `C:\Users\leg4-pc\.nuke\Python\Startup\docs\Docu_Metodos_Seleccion_Clip.md`
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Flow_Panel.py`
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Flow_Panel_py\LGA_NKS_Flow_Shot_info.py`
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Flow_Panel_py\LGA_NKS_Flow_Push.py`
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\docs\Docu_Logging_System.md`
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\docs\Docu_Logica_Nombres_Tracks.md`
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\docs\Docu_Metodos_Seleccion_Clip.md`
 - `C:\Portable\LGA_PipeSync_2\Docs\Doc_DB_Playlist.md`
 - `C:\Portable\LGA_PipeSync_2\Docs\Doc_Tab_Playlist.md`
 - `C:\Portable\LGA_PipeSync_2\Docs\Doc_Tab_Playlist_Plan.md`

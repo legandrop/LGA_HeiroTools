@@ -32,9 +32,9 @@ un track secundario no puede acortar el rango master del shot.
 
 ## Archivos principales
 
-- **Script principal:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_import_shots.py` (v1.07)
+- **Script principal:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_import_shots.py` (v1.07)
 - **Boton:** Edit Panel → "Import shot" (verde `#2a4d3a`)
-- **Plan de desarrollo:** `C:\Users\leg4-pc\.nuke\Python\Startup\docs\LGA_import_shots_PLAN.md`
+- **Plan de desarrollo:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\docs\LGA_import_shots_PLAN.md`
 
 ### Modulos auxiliares
 
@@ -190,7 +190,7 @@ Transcode_TEST_Mode = False   # Output a /test_transcode; checkboxes de
 
 ### Archivo de log
 
-`C:\Users\leg4-pc\.nuke\Python\Startup\logs\debugPy_ImportShots.log`
+`C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\logs\debugPy_ImportShots.log`
 
 Formato: `[0.123s] mensaje` antes de elegir shot, y `[0.123s] [SHOT] mensaje`
 cuando ya existe contexto de shot.
@@ -525,7 +525,7 @@ Estilo PowerRename: find/replace con preview en tiempo real sobre los nombres
 de los items marcados.
 
 > **Estado actual:** implementado.
-> Documentación detallada: `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel_py\LGA_import_shots_rename.md`
+> Documentación detallada: `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_import_shots_rename.md`
 
 ### Coloreado del shotname en la tabla de Rename
 

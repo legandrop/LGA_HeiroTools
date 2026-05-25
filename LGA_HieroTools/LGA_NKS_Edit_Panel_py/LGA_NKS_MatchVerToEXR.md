@@ -15,8 +15,8 @@ Busca la versión actual de los clips del track `_comp_` (configurado en `TRACK_
 
 ## Archivos principales
 
-- **Script principal:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit\LGA_NKS_MatchVerToEXR.py`
-- **Panel de control:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Edit_Panel.py`
+- **Script principal:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit\LGA_NKS_MatchVerToEXR.py`
+- **Panel de control:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel.py`
 
 ## Acceso
 

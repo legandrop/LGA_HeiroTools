@@ -236,7 +236,7 @@ Por eso `FlowPlaylist_Shot_info.py` debe:
 
 ## Referencias tecnicas
 
-- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Playlist_Panel_py\LGA_NKS_FlowPlaylist_Shot_info.py`
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Playlist_Panel_py\LGA_NKS_FlowPlaylist_Shot_info.py`
   - `MainDbManager`
   - `PlaylistDbManager`
   - `HieroOperations::process_selected_clips()`
@@ -248,4 +248,4 @@ Por eso `FlowPlaylist_Shot_info.py` debe:
   - `GUIWindow::create_thumbnails_widget()`
 - `C:\Portable\LGA_PipeSync_2\Docs\Doc_DB_Playlist.md`
 - `C:\Portable\LGA_PipeSync_2\Docs\Doc_Tab_Playlist.md`
-- `C:\Users\leg4-pc\.nuke\Python\Startup\docs\LGA_NKS_Playlist_Panel_Plan.md`
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\docs\LGA_NKS_Playlist_Panel_Plan.md`

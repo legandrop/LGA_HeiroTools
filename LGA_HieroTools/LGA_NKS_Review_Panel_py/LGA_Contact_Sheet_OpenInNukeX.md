@@ -46,12 +46,12 @@ El comando `paste_clipboard` debe ejecutarse con NukeX ya abierto y con el servi
 
 ## Referencias tecnicas
 
-- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Review_Panel.py`
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Review_Panel.py`
   - `ReviewPanel.buttons`: define el boton `Contact Sheet`.
   - `ReviewPanel.execute_ContactSheet()`: ejecuta el script externo.
   - `ReviewPanel.execute_external_script()`: carga y llama `main()` en scripts del folder `LGA_NKS_Review_Panel_py`.
 
-- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Review_Panel_py\LGA_Contact_Sheet_OpenInNukeX.py`
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Review_Panel_py\LGA_Contact_Sheet_OpenInNukeX.py`
   - `get_selected_clips()`: obtiene la seleccion explicita del timeline y filtra efectos.
   - `trigger_hiero_copy()`: dispara `foundry.application.copy`.
   - `send_paste_clipboard_to_nukex()`: valida `ping` y envia `paste_clipboard`.
@@ -62,5 +62,5 @@ El comando `paste_clipboard` debe ejecutarse con NukeX ya abierto y con el servi
   - `paste_clipboard_with_logging()`: ejecuta `nuke.nodePaste("%clipboard%")` sin cerrar ni abrir scripts.
   - `nuke_server()`: escucha en `localhost:54325`.
 
-- `C:\Users\leg4-pc\.nuke\Python\Startup\docs\Docu_Metodos_Seleccion_Clip.md`
+- `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\docs\Docu_Metodos_Seleccion_Clip.md`
   - Documenta `te.selection()` como metodo de seleccion explicita independiente del playhead.

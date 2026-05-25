@@ -150,7 +150,7 @@ def main():
     sequence_name = "103"
     description = "Descripcion test"
     task_template_name = "Template_comp"
-    thumbnail_path = r"C:\Users\leg4-pc\.nuke\Python\Startup\LGA_NKS_Flow\ShotThumbs_Cache\ETDM_3028_0060_DeAging_CasaSangre_1752722135.jpg"
+    thumbnail_path = r"C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Flow\ShotThumbs_Cache\ETDM_3028_0060_DeAging_CasaSangre_1752722135.jpg"
 
     # Variables de entorno para ShotGrid
     sg_url = os.getenv("SHOTGRID_URL")

@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 # Obtener la ruta del directorio Startup (donde están todos los scripts)
-# El directorio Startup está en: C:\Users\leg4-pc\.nuke\Python\Startup\
+# El directorio Startup está en: C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\
 # Y dentro está la carpeta LGA_NKS
 
 lga_nks_path = None

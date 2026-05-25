@@ -524,7 +524,7 @@ Si `openInNewViewer()` funciona → sabemos que solo `openInTimeline()` está ro
 
 **Ejecuta en Hiero 16:**
 ```python
-exec(open(r"C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\test_teoria_2.py").read())
+exec(open(r"C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\+Building_Blocks\test_teoria_2.py").read())
 ```
 
 **Reporta:**
@@ -607,7 +607,7 @@ hiero.ui.openInTimeline(seq)
 
 **Ejecuta en Hiero 16:**
 ```python
-exec(open(r"C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\test_teoria_2.py").read())
+exec(open(r"C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\+Building_Blocks\test_teoria_2.py").read())
 ```
 
 **¿Qué esperamos?**
@@ -734,7 +734,7 @@ def safe_open_timeline_with_version_detection(seq):
 
 **Ejecuta CAMINO 4** (script ya actualizado):
 ```python
-exec(open(r"C:\Users\leg4-pc\.nuke\Python\Startup\+Building_Blocks\test_teoria_2.py").read())
+exec(open(r"C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\+Building_Blocks\test_teoria_2.py").read())
 ```
 
 **Reporta:**
