@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_Panel v2.51 | Lega
+  LGA_NKS_Flow_Panel v2.52 | Lega
 
   Panel con herramientas que interactuan con las tasks de Flow Production Tracking
   que fueron descargadas previamente con la app LGA_NKS_Flow_Downloader
@@ -9,6 +9,7 @@ ____________________________________________________________________
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 
+  v2.52: Agregado Rev Charly a la lista de botones
   v2.51: Agregado logging a archivo con switches de debug
   v2.50: Actualizado para usar scroll bar cuando es necesario
   v2.49: Actualizado para usar estilos dinámicos con bordes y hover para todos los botones
@@ -234,6 +235,12 @@ class ColorChangeWidget(QtWidgets.QWidget):
                 "name": "Rev Sebas",
                 "color": QtGui.QColor(189, 127, 159),
                 "style": "#bd7f9f",
+                "action": "color",
+            },
+            {
+                "name": "Rev Charly",
+                "color": QtGui.QColor(169, 144, 157),
+                "style": "#a9909d",
                 "action": "color",
             },
             {

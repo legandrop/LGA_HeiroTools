@@ -142,6 +142,7 @@ status_translation = {
     "Corrections": "corr",
     "Corrs_Lega": "revleg",
     "Rev Sebas": "rev_su",
+    "Rev Charly": "revcha",
     "Rev Juano": "revjua",
     "Rev Javi": "revjav",
     "Rev Lega": "revleg",
@@ -720,7 +721,7 @@ def execute_full_push_operation(
                 sg_manager.find_highest_version_for_shot(shot["id"])
             )
 
-        if sg_status in ["rev_di", "corr", "revleg", "revjua", "revjav"]:
+        if sg_status in ["rev_di", "corr", "revleg", "revcha", "revjua", "revjav"]:
             debug_print(f"Actualizando versión a vwd")
             sg_manager.update_version_status(
                 project_name, shot_code, version_number_str, "vwd"

@@ -34,6 +34,7 @@ class ShotGridManager:
             'corr': 'Corrections', 'progre': 'In Progress', 'noread': 'Not Ready To Start',
             'rev': 'Pending Review', 'pubsh': 'Publish', 'pbshed': 'Published',
             'ready': 'Ready To Start', 'rev_di': 'Review Dir', 'rev_su': 'Review Sup',
+            'revcha': 'Review Charly', 'review_charly': 'Review Charly',
             'revjua': 'Review Juano', 'revjav': 'Review Javi',
             'vwd': 'Viewed', 'check': 'Delivery Checked'
         }
@@ -130,7 +131,7 @@ sg_password = os.getenv('SHOTGRID_PASSWORD')
 
 if not sg_url or not sg_login or not sg_password:
     print("Las variables de entorno SHOTGRID_URL, SHOTGRID_LOGIN y SHOTGRID_PASSWORD deben estar configuradas.")
-    return
+    sys.exit(1)
 
 sg_manager = ShotGridManager(sg_url, sg_login, sg_password)
 hiero_ops = HieroOperations(sg_manager)

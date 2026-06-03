@@ -123,6 +123,8 @@ class ShotGridManager:
             "progre": ("In Progress", "#7d4cff", None),
             "corr": ("Corrections", "#2e77d4", "Corrections"),
             "rev_su": ("Review Sup", "#bd7f9f", "Rev_Sup"),
+            "revcha": ("Review Charly", "#a9909d", "Rev_Sup"),
+            "review_charly": ("Review Charly", "#a9909d", "Rev_Sup"),
             "revjua": ("Review Juano", "#7F4B69", "Rev_Sup"),
             "revjav": ("Review Javi", "#9c3e5e", "Rev_Sup"),
             "revleg": ("Review Lega", "#69135e", "Rev_Lega"),

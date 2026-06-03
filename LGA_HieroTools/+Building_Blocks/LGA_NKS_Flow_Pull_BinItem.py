@@ -1,6 +1,6 @@
 """
-LGA_NKS_Flow_Pull_BinItem v1.0 | Versión que usa binItem.items() directamente
-Esta versión omite doScan y usa las versiones ya disponibles en el binItem
+LGA_NKS_Flow_Pull_BinItem v1.0 | Version que usa binItem.items() directamente
+Esta version omite doScan y usa las versiones ya disponibles en el binItem
 """
 
 import json
@@ -47,7 +47,7 @@ def setup_debug_logging():
     # Configurar el logger
     logger = logging.getLogger('debug_logger')
     logger.setLevel(logging.DEBUG)
-    # 🔑 CLAVE: Desactivar propagación al logger root (consola CMD)
+    # CLAVE: Desactivar propagacion al logger root (consola CMD)
     logger.propagate = False
 
     # Limpiar handlers existentes para evitar duplicados
@@ -68,7 +68,7 @@ def setup_debug_logging():
 
 
 def clear_debug_log():
-    """Limpia el archivo de log al iniciar cada ejecución."""
+    """Limpia el archivo de log al iniciar cada ejecucion."""
     log_file_path = os.path.join(os.path.dirname(__file__), '..', 'logs', 'debugPy.log')
     try:
         with open(log_file_path, 'w', encoding='utf-8') as f:
@@ -82,7 +82,7 @@ debug_logger = setup_debug_logging()
 
 
 def debug_print(*message):
-    """Función de debug para logging"""
+    """Funcion de debug para logging"""
     msg = ' '.join(str(arg) for arg in message)
     print(msg)  # Mantener el print original
     debug_logger.info(msg)  # Agregar escritura al archivo de log
@@ -123,6 +123,8 @@ class ShotGridManager:
             "progre": ("In Progress", "#7d4cff", None),
             "corr": ("Corrections", "#2e77d4", "Corrections"),
             "rev_su": ("Review Sup", "#bd7f9f", "Rev_Sup"),
+            "revcha": ("Review Charly", "#a9909d", "Rev_Sup"),
+            "review_charly": ("Review Charly", "#a9909d", "Rev_Sup"),
             "revjua": ("Review Juano", "#7F4B69", "Rev_Sup"),
             "revjav": ("Review Javi", "#9c3e5e", "Rev_Sup"),
             "revleg": ("Review Lega", "#69135e", "Rev_Lega"),
@@ -204,7 +206,7 @@ class ShotGridManager:
         return None
 
 class VersionManager:
-    """Clase para manejar cambios de versión usando binItem.items() directamente"""
+    """Clase para manejar cambios de version usando binItem.items() directamente"""
 
     def __init__(self, sg_manager):
         self.sg_manager = sg_manager
@@ -234,11 +236,11 @@ class VersionManager:
             return None
 
     def change_clip_to_highest_version(self, clip):
-        """Cambia un clip a su versión más alta usando binItem.items() directamente."""
+        """Cambia un clip a su version mas alta usando binItem.items() directamente."""
         debug_print(f"Procesando clip: {clip.name()}")
 
         try:
-            # Obtener información del clip
+            # Obtener informacion del clip
             file_path = clip.source().mediaSource().fileinfos()[0].filename() if clip.source().mediaSource().fileinfos() else None
             if not file_path:
                 debug_print(f"No se puede obtener file_path para {clip.name()}")
@@ -248,7 +250,7 @@ class VersionManager:
                 debug_print(f"El archivo no contiene '_comp_': {file_path}")
                 return False
 
-            # Extraer información del proyecto/shot
+            # Extraer informacion del proyecto/shot
             base_name = os.path.basename(file_path)
             base_name_clean = clean_base_name(base_name)
 
@@ -271,22 +273,22 @@ class VersionManager:
 
             highest_sg_version = self.sg_manager.find_highest_version_for_shot(shot)
             if not highest_sg_version:
-                debug_print("No se encontró versión en SG")
+                debug_print("No se encontro version en SG")
                 return False
 
             sg_version_num = extract_version_number(highest_sg_version["version_number"])
 
-            # Verificar si el clip necesita actualización
+            # Verificar si el clip necesita actualizacion
             current_version_str = os.path.basename(file_path)
             current_version_num = extract_version_number(current_version_str)
 
-            debug_print(f"Versión actual: v{current_version_num:03d}, Versión SG: v{sg_version_num:03d}")
+            debug_print(f"Version actual: v{current_version_num:03d}, Version SG: v{sg_version_num:03d}")
 
             if sg_version_num <= current_version_num:
-                debug_print(f"Clip ya está en versión correcta o superior")
+                debug_print(f"Clip ya esta en version correcta o superior")
                 return True
 
-            # Cambiar versión del clip
+            # Cambiar version del clip
             bin_item = clip.source().binItem()
             if not bin_item:
                 debug_print(f"No se puede obtener binItem")
@@ -294,7 +296,7 @@ class VersionManager:
 
             highest_version = self.get_highest_version(bin_item)
             if not highest_version:
-                debug_print(f"No se pudo encontrar versión más alta")
+                debug_print(f"No se pudo encontrar version mas alta")
                 return False
 
             debug_print(f"Cambiando de {bin_item.activeVersion().name()} a {highest_version.name()}")
@@ -303,7 +305,7 @@ class VersionManager:
             # Verificar cambio
             new_version = bin_item.activeVersion()
             new_version_num = extract_version_number(new_version.name())
-            debug_print(f"Versión cambiada exitosamente a: {new_version.name()}")
+            debug_print(f"Version cambiada exitosamente a: {new_version.name()}")
 
             return new_version_num >= sg_version_num
 
@@ -314,7 +316,7 @@ class VersionManager:
 def run_pull_with_binitem():
     """Ejecuta el pull usando binItem.items() directamente para el cambio de versiones"""
 
-    # Limpiar el log al inicio de cada ejecución
+    # Limpiar el log al inicio de cada ejecucion
     clear_debug_log()
 
     # Configurar DB path
@@ -344,7 +346,7 @@ def run_pull_with_binitem():
     selected_clips = te.selection() if te else []
 
     if not selected_clips:
-        # Si no hay selección, procesar todos los clips del track comp
+        # Si no hay seleccion, procesar todos los clips del track comp
         all_tracks = seq.videoTracks()
         selected_clips = []
         for track in all_tracks:
