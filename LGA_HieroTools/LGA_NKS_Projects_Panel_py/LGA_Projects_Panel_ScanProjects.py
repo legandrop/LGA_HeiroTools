@@ -2,7 +2,7 @@
 """
 ____________________________________________________________________
 
-  LGA_Projects_Panel_ScanProjects v1.01 | Lega
+  LGA_Projects_Panel_ScanProjects v1.03 | Lega
 
   Módulo de escaneo reutilizable para el Panel de Proyectos LGA.
   - Escanea proyectos en disco
@@ -10,6 +10,8 @@ ____________________________________________________________________
   - Verifica si un proyecto está abierto
   - Obtiene secuencias de un proyecto
 
+  v1.03: Normalizados paths, barras y filtros case-insensitive para VFX/SUP/.hrox
+  v1.02: Agregados logs de diagnostico para AltTPath, base_path y filtros VFX/SUP
   v1.01: Conectado al logger compartido del Projects Panel para respetar flags y salida a archivo
   v1.00: Versión inicial del módulo de escaneo reutilizable
 ____________________________________________________________________
@@ -19,7 +21,6 @@ ____________________________________________________________________
 import hiero.core
 import hiero.ui
 import os
-import glob
 import re
 import sys
 from pathlib import Path
@@ -89,6 +90,48 @@ except ImportError as e:
     raise ImportError(f"No se pudo importar funciones de LGA_NKS_CheckProjectVersions: {e}")
 
 
+def normalize_scan_path(path_value):
+    """Normaliza un path de escaneo sin alterar el casing real de carpetas listadas."""
+    if path_value is None:
+        return None
+
+    normalized = os.path.expanduser(str(path_value).strip().strip('"').strip("'"))
+    if not normalized:
+        return ""
+
+    normalized = normalized.replace("/", os.sep).replace("\\", os.sep)
+    normalized = os.path.normpath(normalized)
+
+    if re.match(r"^[A-Za-z]:$", normalized):
+        normalized += os.sep
+
+    return normalized
+
+
+def _is_vfx_folder_name(name):
+    return str(name).casefold().startswith("vfx-")
+
+
+def _is_sup_folder_name(name):
+    return str(name).casefold().endswith("_sup")
+
+
+def _is_hrox_file_name(name):
+    return str(name).casefold().endswith(".hrox")
+
+
+def _list_hrox_files(folder_path):
+    try:
+        return [
+            os.path.join(folder_path, item)
+            for item in os.listdir(folder_path)
+            if os.path.isfile(os.path.join(folder_path, item)) and _is_hrox_file_name(item)
+        ]
+    except Exception as e:
+        debug_print(f"      ⚠️ Error listando archivos .hrox en {folder_path}: {type(e).__name__}: {e}")
+        return []
+
+
 def get_base_scan_path(default_path="T:\\"):
     """
     Obtiene la ruta base para escaneo desde PipeSync (AltTPath) si existe y es valida.
@@ -98,33 +141,58 @@ def get_base_scan_path(default_path="T:\\"):
         from LGA_NKS_Shared.SecureConfig_Reader import read_secure_config
     except Exception as e:
         debug_print(f"⚠️ No se pudo importar SecureConfig_Reader: {e}")
-        return default_path
+        return normalize_scan_path(default_path)
 
     config = read_secure_config()
     if not isinstance(config, dict):
         debug_print("⚠️ Configuracion segura no disponible; usando default.")
-        return default_path
+        return normalize_scan_path(default_path)
 
     app_cfg = config.get("App", {})
+    debug_print(f"🔎 Config segura leida. Secciones disponibles: {sorted(config.keys())}")
+    if isinstance(app_cfg, dict):
+        debug_print(f"🔎 Config App keys: {sorted(app_cfg.keys())}")
+    else:
+        debug_print(f"⚠️ Config App no es dict: {type(app_cfg).__name__}")
+
     alt_path = app_cfg.get("AltTPath") if isinstance(app_cfg, dict) else None
+    debug_print(f"🔎 AltTPath raw: {repr(alt_path)}")
     if not alt_path:
         debug_print("⚠️ AltTPath no configurado; usando default.")
-        return default_path
+        return normalize_scan_path(default_path)
 
-    alt_path = os.path.expanduser(str(alt_path))
-    if os.path.exists(alt_path):
-        debug_print(f"✅ Usando AltTPath: {alt_path}")
+    alt_path = normalize_scan_path(alt_path)
+    debug_print(f"🔎 AltTPath normalizado: {repr(alt_path)}")
+    debug_print(f"🔎 AltTPath exists={os.path.exists(alt_path)} isdir={os.path.isdir(alt_path)}")
+    if os.path.isdir(alt_path):
+        debug_print(f"✅ Usando AltTPath normalizado: {alt_path}")
         return alt_path
 
     debug_print(f"⚠️ AltTPath configurado pero no existe: {alt_path}")
-    return default_path
+    return normalize_scan_path(default_path)
+
+
+def _log_base_path_diagnostics(base_path):
+    """Loguea diagnostico de acceso/listado para entender fallas de escaneo."""
+    try:
+        debug_print(f"🧭 cwd: {os.getcwd()}")
+    except Exception as e:
+        debug_print(f"⚠️ No se pudo obtener cwd: {e}")
+
+    try:
+        debug_print(f"🧭 base_path repr: {repr(base_path)}")
+        debug_print(f"🧭 base_path abspath: {os.path.abspath(base_path)}")
+        debug_print(f"🧭 base_path normpath: {os.path.normpath(base_path)}")
+        debug_print(f"🧭 base_path exists={os.path.exists(base_path)} isdir={os.path.isdir(base_path)}")
+    except Exception as e:
+        debug_print(f"⚠️ No se pudo diagnosticar base_path: {e}")
 
 
 def scan_projects_on_disk(base_path=None):
     """
     Escanea el disco buscando proyectos VFX y retorna información de cada uno.
 
-    Busca carpetas que empiecen con 'VFX-' y dentro busca carpetas '*_SUP'.
+    Busca carpetas tipo 'VFX-' y dentro carpetas '*_SUP' sin depender del casing.
     En cada carpeta SUP encuentra el archivo .hrox con la versión más alta.
 
     Args:
@@ -143,43 +211,97 @@ def scan_projects_on_disk(base_path=None):
     """
     if base_path is None:
         base_path = get_base_scan_path()
+    else:
+        original_base_path = base_path
+        base_path = normalize_scan_path(base_path)
+        debug_print(f"🔧 Base path recibido normalizado: {repr(original_base_path)} -> {repr(base_path)}")
+
     debug_print("🔍 Iniciando escaneo de proyectos en:", base_path)
+    _log_base_path_diagnostics(base_path)
     proyectos_encontrados = []
     
     if not os.path.exists(base_path):
+        debug_print(f"❌ Base path no existe, se omite escaneo: {base_path}")
+        return proyectos_encontrados
+    if not os.path.isdir(base_path):
+        debug_print(f"❌ Base path existe pero no es directorio, se omite escaneo: {base_path}")
         return proyectos_encontrados
     
     try:
         # Buscar carpetas que empiecen con VFX-
         items = os.listdir(base_path)
+        debug_print(f"📋 os.listdir({repr(base_path)}) devolvio {len(items)} item(s)")
+        debug_print(f"📋 Primeros items top-level: {items[:50]}")
+        vfx_like_items = [item for item in items if "vfx" in item.casefold()]
+        debug_print(f"📋 Items que contienen 'vfx' (case-insensitive): {vfx_like_items}")
+
+        for item in sorted(items, key=lambda value: value.casefold()):
+            item_path = os.path.join(base_path, item)
+            try:
+                is_dir = os.path.isdir(item_path)
+                starts_exact = item.startswith("VFX-")
+                starts_ci = _is_vfx_folder_name(item)
+                debug_print(
+                    f"   🔎 Top-level item: {repr(item)} "
+                    f"isdir={is_dir} startswith_VFX_exact={starts_exact} "
+                    f"startswith_VFX_casefold={starts_ci}"
+                )
+            except Exception as e:
+                debug_print(f"   ⚠️ Error evaluando item top-level {repr(item)}: {e}")
+
         vfx_folders = [
             item
             for item in items
-            if os.path.isdir(os.path.join(base_path, item)) and item.startswith("VFX-")
+            if os.path.isdir(os.path.join(base_path, item)) and _is_vfx_folder_name(item)
         ]
         debug_print(f"📁 Encontradas {len(vfx_folders)} carpetas VFX:", vfx_folders)
+        if vfx_folders:
+            debug_print("✅ Filtro VFX case-insensitive aplicado. Se conservan los nombres reales del disco.")
+        elif vfx_like_items:
+            debug_print("⚠️ Hay items tipo VFX pero ninguno paso el filtro case-insensitive.")
         
-        for vfx_folder in sorted(vfx_folders):
+        for vfx_folder in sorted(vfx_folders, key=lambda value: value.casefold()):
             vfx_path = os.path.join(base_path, vfx_folder)
             debug_print(f"🔍 Procesando VFX: {vfx_folder}")
 
             try:
                 # Buscar carpetas que terminen con _SUP
                 subitems = os.listdir(vfx_path)
+                debug_print(f"   📋 os.listdir({repr(vfx_path)}) devolvio {len(subitems)} item(s)")
+                debug_print(f"   📋 Primeros items dentro de VFX: {subitems[:50]}")
+                sup_like_items = [item for item in subitems if "sup" in item.casefold()]
+                debug_print(f"   📋 Items que contienen 'sup' (case-insensitive): {sup_like_items}")
+                for item in sorted(subitems, key=lambda value: value.casefold()):
+                    item_path = os.path.join(vfx_path, item)
+                    try:
+                        is_dir = os.path.isdir(item_path)
+                        ends_exact = item.endswith("_SUP")
+                        ends_ci = _is_sup_folder_name(item)
+                        debug_print(
+                            f"      🔎 VFX child item: {repr(item)} "
+                            f"isdir={is_dir} endswith_SUP_exact={ends_exact} "
+                            f"endswith_SUP_casefold={ends_ci}"
+                        )
+                    except Exception as e:
+                        debug_print(f"      ⚠️ Error evaluando item VFX {repr(item)}: {e}")
+
                 sup_folders = [
                     item
                     for item in subitems
-                    if os.path.isdir(os.path.join(vfx_path, item)) and item.endswith("_SUP")
+                    if os.path.isdir(os.path.join(vfx_path, item)) and _is_sup_folder_name(item)
                 ]
                 debug_print(f"   📂 Encontradas {len(sup_folders)} carpetas SUP:", sup_folders)
+                if sup_folders:
+                    debug_print("   ✅ Filtro SUP case-insensitive aplicado. Se conservan los nombres reales del disco.")
+                elif sup_like_items:
+                    debug_print("   ⚠️ Hay items tipo SUP pero ninguno paso el filtro case-insensitive.")
                 
-                for sup_folder in sup_folders:
+                for sup_folder in sorted(sup_folders, key=lambda value: value.casefold()):
                     sup_path = os.path.join(vfx_path, sup_folder)
                     debug_print(f"   🔎 Procesando SUP: {sup_folder}")
 
-                    # Buscar archivos .hrox en la carpeta SUP
-                    hrox_pattern = os.path.join(sup_path, "*.hrox")
-                    hrox_files = glob.glob(hrox_pattern)
+                    # Buscar archivos .hrox sin depender del casing de la extension
+                    hrox_files = _list_hrox_files(sup_path)
                     debug_print(f"      📄 Encontrados {len(hrox_files)} archivos .hrox:", [os.path.basename(f) for f in hrox_files])
                     
                     if not hrox_files:
@@ -230,13 +352,18 @@ def scan_projects_on_disk(base_path=None):
                         
             except PermissionError:
                 # Ignorar carpetas sin permisos
+                debug_print(f"   ⚠️ PermissionError al acceder a VFX: {vfx_path}")
                 continue
-            except Exception:
+            except Exception as e:
                 # Ignorar errores en carpetas individuales
+                debug_print(f"   ⚠️ Error procesando VFX {vfx_path}: {type(e).__name__}: {e}")
                 continue
                 
-    except Exception:
+    except Exception as e:
         # Retornar lista vacía si hay error general
+        debug_print(f"💥 Error general durante scan_projects_on_disk: {type(e).__name__}: {e}")
+        import traceback
+        debug_print(f"Traceback scan_projects_on_disk: {traceback.format_exc()}")
         pass
 
     debug_print(f"✅ Escaneo completado. Proyectos encontrados: {len(proyectos_encontrados)}")
@@ -276,7 +403,10 @@ def get_open_projects_info():
     
     for proyecto in proyectos:
         try:
-            ruta_disco = proyecto.path()
+            ruta_disco_raw = proyecto.path()
+            ruta_disco = normalize_scan_path(ruta_disco_raw)
+            if ruta_disco != ruta_disco_raw:
+                debug_print(f"      🔧 Ruta de proyecto normalizada: {repr(ruta_disco_raw)} -> {repr(ruta_disco)}")
             nombre_base = obtener_nombre_base_proyecto(ruta_disco)
             debug_print(f"   🔎 Procesando proyecto: {proyecto.name()} - Ruta: {ruta_disco}")
 
@@ -327,6 +457,11 @@ def is_project_open(ruta_hrox, proyectos_abiertos_info):
     Returns:
         bool: True si el proyecto está abierto, False si no
     """
+    ruta_hrox_original = ruta_hrox
+    ruta_hrox = normalize_scan_path(ruta_hrox)
+    if ruta_hrox != ruta_hrox_original:
+        debug_print(f"   🔧 Ruta .hrox normalizada: {repr(ruta_hrox_original)} -> {repr(ruta_hrox)}")
+
     debug_print(f"🔍 Verificando si proyecto está abierto: {os.path.basename(ruta_hrox) if ruta_hrox else 'None'}")
 
     if not ruta_hrox or not os.path.exists(ruta_hrox):
