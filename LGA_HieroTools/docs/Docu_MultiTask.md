@@ -103,7 +103,7 @@ Nada pendiente.
 | [LGA_NKS_EXRTrack_Difference.py](../LGA_NKS_Review_Panel_py/LGA_NKS_EXRTrack_Difference.py) | ✅ | ❌ | ❌ | Hardcodeado a `TRACK_comp_EXR` |
 | [LGA_NKS_Compare_Versions.py](../LGA_NKS_Review_Panel_py/LGA_NKS_Compare_Versions.py) | ✅ | ❌ | ❌ | Hardcodeado a `TRACK_comp_EXR` |
 | [LGA_NKS_Compare_Versions_OFF.py](../LGA_NKS_Review_Panel_py/LGA_NKS_Compare_Versions_OFF.py) | ✅ | ❌ | ❌ | Hardcodeado a `TRACK_comp_EXR` |
-| [LGA_NKS_ON_Clips_OFF_v00-Clips.py](../LGA_NKS_Review_Panel_py/LGA_NKS_ON_Clips_OFF_v00-Clips.py) | ✅ | ❌ | ❌ | Regex `_comp_v(\d{2,3})` hardcodeado; no detecta roto/cleanup |
+| [LGA_NKS_ON_Clips_OFF_v00-Clips.py](../LGA_NKS_Review_Panel_py/LGA_NKS_ON_Clips_OFF_v00-Clips.py) | ✅ | ✅ | ✅ | v1.30: identifica por track (`TASK_EXR_TRACKS`/`TASK_REV_TRACKS`). EXR: v00/v000 OFF, resto ON. Rev: siempre OFF. Tracks no-task: ON |
 
 **Pendiente en Review Panel:**
 - Agregar botón y wrapper `ON OFF _cleanup_` análogo a los de comp y roto.
@@ -184,13 +184,12 @@ Una fila por clip con tres columnas: **Clip**, **Task (filename)**, **Track**.
 Lista de pendientes concretos, en orden sugerido:
 
 1. **Review Panel** — crear wrapper y botón para `ON OFF _cleanup_`.
-2. **Review Panel** — revisar regex hardcoded de `_comp_v` en `LGA_NKS_ON_Clips_OFF_v00-Clips.py`.
-3. **Flow Push** — migrar `_show_task_selection_dialog` interno al helper compartido `LGA_NKS_TaskSelectionDialog`.
-4. **Flow Push** — decidir política del assignee del shot (`get_comp_assignee`) y ajustar si corresponde.
-5. **Flow ReviewPic** — auditar hardcodes a comp e integrar `LGA_NKS_TaskSelectionDialog`.
-6. **Edit Panel** — extender MatchVerToEXR y CompareVerToEditref a operar por task iterando `TASK_EXR_TRACKS` / `TASK_REV_TRACKS`.
-7. **Review Panel** — evaluar si EXRTrack_Difference y Compare_Versions deben trabajar por task o seguir siendo comp-only.
-8. **Scripts no auditados** — pasar el filtro de hardcodes por Coordination, Assignee, ViewerTL.
+2. **Flow Push** — migrar `_show_task_selection_dialog` interno al helper compartido `LGA_NKS_TaskSelectionDialog`.
+3. **Flow Push** — decidir política del assignee del shot (`get_comp_assignee`) y ajustar si corresponde.
+4. **Flow ReviewPic** — auditar hardcodes a comp e integrar `LGA_NKS_TaskSelectionDialog`.
+5. **Edit Panel** — extender MatchVerToEXR y CompareVerToEditref a operar por task iterando `TASK_EXR_TRACKS` / `TASK_REV_TRACKS`.
+6. **Review Panel** — evaluar si EXRTrack_Difference y Compare_Versions deben trabajar por task o seguir siendo comp-only.
+7. **Scripts no auditados** — pasar el filtro de hardcodes por Coordination, Assignee, ViewerTL.
 
 ## 7. Tests manuales sugeridos
 
