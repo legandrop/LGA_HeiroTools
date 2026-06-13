@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_NamingUtils v1.12 | Lega
+  LGA_NKS_Flow_NamingUtils v1.13 | Lega
 
   Utilidades para detectar y extraer información de nombres de archivos/shots
   Compatible con sistemas de nomenclatura actuales y series:
@@ -32,7 +32,17 @@ ____________________________________________________________________
   - LGA_NKS_Edit_Panel_py/LGA_NKS_SetShotName.py
   - LGA_NKS_Edit_Panel_py/LGA_NKS_CompareVerToEditref.py
   - LGA_NKS_Edit_Panel_py/LGA_NKS_CompareEXR_to_aPlate.py
+  - LGA_NKS_Edit_Panel_py/LGA_NKS_CreateV000.py
+  - LGA_NKS_Playlist_Panel_py/LGA_NKS_FlowPlaylist_Pull.py
+  - LGA_NKS_Playlist_Panel_py/LGA_NKS_FlowPlaylist_Push.py
+  - LGA_NKS_Playlist_Panel_py/LGA_NKS_FlowPlaylist_Push_connector.py
+  - LGA_NKS_Playlist_Panel_py/LGA_NKS_FlowPlaylist_Shot_info.py
 
+  v1.13: extract_sequence_name_from_path(): extrae el nombre de secuencia desde
+         el segmento de ruta que sigue a "VFX-NOMBRE" (estructura
+         VFX-PROYECTO/SECUENCIA/SHOT) en lugar del nombre del timeline de Hiero.
+         Fallback: nombre del timeline (comportamiento anterior).
+         Ver docs/Docu_ProjectName_Extraction.md para el patrón completo.
   v1.12: extract_project_name_from_path(): extrae el nombre de proyecto desde
          el segmento de ruta "VFX-NOMBRE" en lugar del prefijo del filename.
          Fallback: extract_project_name() (comportamiento anterior).
@@ -197,6 +207,45 @@ def extract_project_name_from_path(file_path):
     for part in normalized.split(_os.sep):
         if part.upper().startswith("VFX-") and len(part) > 4:
             return part[4:]  # strip "VFX-"
+    return None
+
+
+def extract_sequence_name_from_path(file_path):
+    """
+    Extrae el nombre de la secuencia desde el segmento de ruta que sigue
+    inmediatamente a la carpeta "VFX-NOMBRE".
+
+    La estructura en disco siempre es:
+        .../VFX-PROYECTO/SECUENCIA/SHOT/...
+
+    El segmento siguiente al "VFX-NOMBRE" es la secuencia (en Flow, el code de
+    la entidad Sequence).
+
+    Si no se encuentra el patrón (no hay segmento "VFX-*" o no hay segmento
+    siguiente), retorna None para que el caller pueda hacer fallback al nombre
+    del timeline de Hiero (comportamiento anterior).
+
+    Ej:
+        "T:/VFX-MORLASP/101/MOR_1048_060/..." → "101"
+        "T:/VFX-BRDA/080/BRDA_080_010/..."    → "080"
+        "/path/sin/prefijo/vfx/..."           → None
+
+    Args:
+        file_path (str): Ruta completa del archivo.
+
+    Returns:
+        str | None: Nombre de la secuencia, o None si no se encuentra el patrón.
+    """
+    if not file_path:
+        return None
+    import os as _os
+    normalized = _os.path.normpath(file_path)
+    parts = normalized.split(_os.sep)
+    for idx, part in enumerate(parts):
+        if part.upper().startswith("VFX-") and len(part) > 4:
+            if idx + 1 < len(parts):
+                return parts[idx + 1]
+            return None
     return None
 
 

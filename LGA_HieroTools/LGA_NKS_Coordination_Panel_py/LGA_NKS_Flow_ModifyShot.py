@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_ModifyShot v1.35 | Lega
+  LGA_NKS_Flow_ModifyShot v1.36 | Lega
 
   Script para modificar shots existentes en ShotGrid sin afectar estados.
   - Carga información actual del shot (descripción, tasks) desde Flow.
@@ -10,6 +10,9 @@ ____________________________________________________________________
   - El número de versión siempre coincide con Create Shot para compatibilidad.
   - Desde v1.33, Create Shot dispara este flujo automáticamente cuando detecta un shot único que ya existe.
 
+  v1.36: La secuencia se obtiene del segmento de carpeta que sigue a VFX-NOMBRE
+         en el path del clip (get_active_sequence_name(file_path)), con fallback
+         al nombre del timeline de Hiero. Ver docs/Docu_ProjectName_Extraction.md.
   v1.35: El diálogo de configuración heredado de Create Shot ahora corre
          no modal y continúa por callback, evitando bloquear el foco de Hiero.
   v1.34: Creación automática de carpetas para nuevas tasks agregadas
@@ -420,7 +423,9 @@ def modify_shot_from_selected_clip():
         _show_error("No se pudo extraer el proyecto o shot del clip seleccionado.")
         return
 
-    sequence_name = get_active_sequence_name()
+    # Secuencia: primario desde la ruta del clip (segmento despues de VFX-NOMBRE),
+    # fallback al nombre del timeline de Hiero. Ver docs/Docu_ProjectName_Extraction.md.
+    sequence_name = get_active_sequence_name(clip_info.get("file_path"))
     if not sequence_name:
         debug_print("No se pudo obtener nombre de secuencia activa", level="warning")
         _show_error(

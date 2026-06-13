@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_FlowPlaylist_Push_connector v0.01 | Lega
+  LGA_NKS_FlowPlaylist_Push_connector v0.02 | Lega
 
   Conector simple para operaciones de red con Flow
   Este script se ejecuta con Python personalizado para evitar problemas de dependencias
@@ -10,6 +10,11 @@ ____________________________________________________________________
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
   - PROYECTO_TEMP_EP_SEQ_SHOT_DESC1_DESC2 (6 bloques con descripción)
   - PROYECTO_TEMP_EP_SEQ_SHOT (4 bloques simplificado)
+
+  v0.02: project_name se extrae del segmento "VFX-NOMBRE" de la ruta
+         (extract_project_name_from_path); fallback al primer bloque del filename.
+         file_path se recibe vía JSON (kwargs) en execute_full_push y check_version.
+         Ver docs/Docu_ProjectName_Extraction.md.
 ____________________________________________________________________
 """
 
@@ -58,6 +63,7 @@ try:
     from LGA_NKS_Flow_NamingUtils import (
         extract_shot_code,
         extract_project_name,
+        extract_project_name_from_path,
         extract_task_name,
     )
     debug_print("✅ Usando funciones del módulo LGA_NKS_Flow_NamingUtils")
@@ -581,7 +587,13 @@ class ShotGridManager:
 
 
 def execute_full_push_operation(
-    sg_manager, button_name, base_name, message, review_images, original_file_name=None
+    sg_manager,
+    button_name,
+    base_name,
+    message,
+    review_images,
+    original_file_name=None,
+    file_path=None,
 ):
     """
     Ejecuta todo el proceso de push en una sola operación para mayor eficiencia
@@ -606,8 +618,15 @@ def execute_full_push_operation(
                         f"execute_full_push: Usando base_name con versión para detección: {base_name_for_detection}"
                     )
 
-        # Usar funciones compartidas para extraer información
-        project_name = extract_project_name(base_name_for_detection)
+        # Extraer project_name desde el segmento "VFX-NOMBRE" de la ruta (fallback al filename)
+        project_name = extract_project_name_from_path(file_path)
+        if project_name:
+            debug_print(f"execute_full_push: project_name (from path): {project_name}")
+        else:
+            project_name = extract_project_name(base_name_for_detection)
+            debug_print(
+                f"execute_full_push: project_name (from filename fallback): {project_name}"
+            )
         shot_code = extract_shot_code(base_name_for_detection)
 
         debug_print(
@@ -938,6 +957,7 @@ def execute_flow_operation(operation, **kwargs):
             message = kwargs.get("message")
             review_images = kwargs.get("review_images", [])
             original_file_name = kwargs.get("original_file_name")
+            file_path = kwargs.get("file_path")
 
             return execute_full_push_operation(
                 sg_manager,
@@ -946,6 +966,7 @@ def execute_flow_operation(operation, **kwargs):
                 message,
                 review_images,
                 original_file_name,
+                file_path=file_path,
             )
 
         elif operation == "check_version":
@@ -971,8 +992,11 @@ def execute_flow_operation(operation, **kwargs):
                             f"check_version: Usando base_name con versión para detección: {base_name_for_detection}"
                         )
 
-            # Usar funciones compartidas para extraer información
-            project_name = extract_project_name(base_name_for_detection)
+            # Extraer project_name desde el segmento "VFX-NOMBRE" de la ruta (fallback al filename)
+            file_path_cv = kwargs.get("file_path")
+            project_name = extract_project_name_from_path(file_path_cv)
+            if not project_name:
+                project_name = extract_project_name(base_name_for_detection)
             shot_code = extract_shot_code(base_name_for_detection)
 
             # Extraer número de versión

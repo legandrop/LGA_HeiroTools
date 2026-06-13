@@ -7,7 +7,7 @@ Archivo: [LGA_NKS_Flow_Panel_py/LGA_NKS_Flow_Shot_info.py](../LGA_NKS_Flow_Panel
 ## Flujo general
 
 1. Se resuelve la task del playhead (`comp` / `roto` / `cleanup`). Si hay varias tasks en el mismo frame, se abre `LGA_NKS_TaskSelectionDialog`, donde la task se elige con el mouse o con las teclas de atajo (1-9) que muestra cada botón.
-2. Se parsea el nombre del clip para obtener `project_name` y `shot_code`.
+2. Se obtiene el `project_name` del segmento `VFX-NOMBRE` de la ruta del clip (`extract_project_name_from_path`), con fallback al primer bloque del nombre del clip; el `shot_code` se parsea del nombre del clip. Ver [Docu_ProjectName_Extraction.md](Docu_ProjectName_Extraction.md).
 3. Se consulta `pipesync.db` (`ShotGridManager`) y se arma una estructura `shot -> tasks -> versions -> comments`.
 4. Si el timeline activo es un proyecto vendor (prefijo distinto al del clip) y el `Playlist Panel` esta registrado o el usuario es Master, se delega a `LGA_NKS_FlowPlaylist_Shot_info`.
 5. La GUI (`GUIWindow`) lista cabecera del shot, descripcion, versiones y comentarios con thumbnails clickeables.

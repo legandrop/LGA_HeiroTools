@@ -1,7 +1,7 @@
-# Extracción de Project Name — Patrón Canónico
+# Extracción de Project Name (y Sequence) desde el path — Patrón Canónico
 
-**Fecha:** 2026-05-22  
-**Afecta a:** todos los scripts que busquen shots/tasks en la DB de PipeSync usando `project_name`.
+**Fecha:** 2026-05-22 (extendido 2026-06-13: Playlist Panel + Edit/CreateV000 + sequence desde el path en CreateShot/ModifyShot)  
+**Afecta a:** todos los scripts que busquen shots/tasks en la DB de PipeSync usando `project_name`, y los que asignen `sg_sequence` al crear/modificar shots en Flow.
 
 ---
 
@@ -69,6 +69,44 @@ if not project_name:
 
 ---
 
+## Extensión: Sequence Name desde el path
+
+El mismo problema aplica a la **secuencia**. Históricamente la secuencia para Flow
+(`sg_sequence`) se tomaba del **nombre del timeline de Hiero** (`seq.name()`), que
+puede no coincidir con el code de la Sequence en Flow (ej. un timeline llamado
+`MORLASP_SUP_v004`).
+
+La estructura en disco **siempre** es `…/VFX-PROYECTO/SECUENCIA/SHOT/…`, así que la
+secuencia es el segmento que **sigue inmediatamente** al `VFX-NOMBRE`:
+
+```
+T:/VFX-MORLASP/101/MOR_1048_060/Comp/4_publish/...
+                ^^^
+                segmento de secuencia
+```
+
+```python
+from LGA_NKS_Flow_NamingUtils import extract_sequence_name_from_path
+
+# Primario: segmento despues de VFX-NOMBRE
+sequence_name = extract_sequence_name_from_path(file_path)
+
+# Fallback: nombre del timeline de Hiero (comportamiento anterior)
+if not sequence_name:
+    sequence_name = seq.name()
+```
+
+### `extract_sequence_name_from_path(file_path)`
+- Busca el segmento `VFX-*` y devuelve el **siguiente** segmento de la ruta.
+- Devuelve `None` si no hay `VFX-*` o no hay segmento siguiente → usar fallback.
+
+> Nota: **Pull / Push no usan secuencia** — buscan shots existentes por
+> `(project_name, shot_code)`, y el `shot_code` ya trae el bloque SEQ desde el
+> filename. La secuencia para Flow solo se asigna al **crear/modificar** shots
+> (`CreateShot`, `ModifyShot`).
+
+---
+
 ## Patrón de implementación
 
 Buscar en cada script el bloque donde se extrae `project_name` y reemplazarlo:
@@ -126,8 +164,8 @@ Leyenda:
 |--------|--------|
 | `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShowInFlow.py` | ✅ Actualizado v1.29 — 3 call sites: `HieroOperations.process_clip()`, `ShowInFlowWorker.run()`, `ShowShotInFlowWorker.run()` |
 | `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_Thumbs.py` | ✅ Actualizado v1.02 — fix en `get_project_name_from_clip()` |
-| `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.py` | ✅ Actualizado v1.36 — fix en `get_selected_clips_info()` |
-| `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ModifyShot.py` | 🔵 Analizado · hereda `get_selected_clips_info()` de CreateShot — fix automático con v1.36 |
+| `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CreateShot.py` | ✅ project_name v1.36 (`get_selected_clips_info()`); **sequence v1.37** — `create_shot()` toma `sg_sequence` del segmento post-`VFX-` por clip (`get_active_sequence_name(file_path)` para el default del diálogo) |
+| `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ModifyShot.py` | ✅ project_name hereda de CreateShot v1.36; **sequence v1.36** — `get_active_sequence_name(clip_info["file_path"])` |
 | `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_CheckTimelineShots.py` | ✅ Actualizado v1.01 — fix en `_collect_shots_from_track()` |
 | `LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_ShotPriority.py` | ✅ Actualizado v1.01 — fix en `get_selected_clips_info()` |
 
@@ -144,6 +182,21 @@ Leyenda:
 | Script | Estado |
 |--------|--------|
 | `LGA_NKS_Edit_Panel_py/LGA_NKS_MatchVerToEXR.py` | 🔵 Analizado · no aplica — no interactúa con Flow ni DB, solo compara versiones dentro de Hiero |
+| `LGA_NKS_Edit_Panel_py/LGA_NKS_CreateV000.py` | ✅ Actualizado v1.08 — fix en `_collect_context()`; usa `default_plate["media_path"]` |
+
+### Playlist Panel
+
+> El Playlist Panel es un panel WIP (todos sus scripts en título `v0.01`). Su
+> changelog interno hereda numeración de los scripts Flow originales; las entradas
+> propias del panel arrancan en `v0.02`.
+
+| Script | Estado |
+|--------|--------|
+| `LGA_NKS_Playlist_Panel_py/LGA_NKS_FlowPlaylist_Pull.py` | ✅ Actualizado v0.02 — `file_path` ya estaba en scope del loop de clips |
+| `LGA_NKS_Playlist_Panel_py/LGA_NKS_FlowPlaylist_Push.py` | ✅ Actualizado v0.02 — `file_path` propagado por `InputDialog`, `Worker`, `Push_Task_Status` y `push_from_selected_clips`; fix en `get_shot_assignee()` y `update_local_database()` |
+| `LGA_NKS_Playlist_Panel_py/LGA_NKS_FlowPlaylist_Push_connector.py` | ✅ Actualizado v0.02 — proceso separado; recibe `file_path` vía JSON en `execute_full_push` y `check_version`. ⚠️ Nota: `FlowPlaylist_Push.py` apunta su `connector_script` a `LGA_NKS_Flow_Push_connector.py` (nombre inexistente en la carpeta del panel) — bug preexistente del panel WIP, no relacionado con este cambio |
+| `LGA_NKS_Playlist_Panel_py/LGA_NKS_FlowPlaylist_Shot_info.py` | ✅ Actualizado v0.02 — path como primario; fallback a nombre del timeline / filename en `process_selected_clips()` |
+| `LGA_NKS_Playlist_Panel_py/LGA_NKS_FlowPlaylist_ReviewPic.py` | 🔵 Analizado · no necesitaba cambio — solo cache local, no extrae project_name (espejo de `LGA_NKS_ReviewPic.py`) |
 
 ---
 

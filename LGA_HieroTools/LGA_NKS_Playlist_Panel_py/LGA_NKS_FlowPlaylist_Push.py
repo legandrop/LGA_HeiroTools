@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_FlowPlaylist_Push v0.01 | Lega
+  LGA_NKS_FlowPlaylist_Push v0.02 | Lega
 
   Envia a flow nuevos estados de las tasks comps.
   En algunos estados permite enviar un mensaje a la version
@@ -12,6 +12,10 @@ ____________________________________________________________________
   - PROYECTO_SEQ_SHOT_DESC1_DESC2 (5 bloques con descripción)
   - PROYECTO_SEQ_SHOT (3 bloques simplificado)
 
+  v0.02: project_name se extrae del segmento "VFX-NOMBRE" de la ruta
+         (extract_project_name_from_path); fallback al primer bloque del filename.
+         file_path se propaga por InputDialog/Worker/Push_Task_Status y al conector
+         vía JSON. Ver docs/Docu_ProjectName_Extraction.md.
   v3.98: Prioriza selección explícita del usuario sobre playhead en push multi-task.
          Mejora logs para detallar clips seleccionados, filtrados y procesados.
   v3.97: Soporte multi-task: Push busca clips en todos los TASK_EXR_TRACKS (comp + roto).
@@ -68,6 +72,7 @@ from SecureConfig_Reader import get_flow_credentials
 from LGA_NKS_Flow_NamingUtils import (
     extract_shot_code,
     extract_project_name,
+    extract_project_name_from_path,
     extract_task_name,
     clean_base_name,
 )
@@ -744,18 +749,19 @@ class DBManager:
 
 
 class InputDialog(QDialog):
-    def __init__(self, base_name, original_file_name=None):
+    def __init__(self, base_name, original_file_name=None, file_path=None):
         super(InputDialog, self).__init__()
         self.setWindowTitle("Input Dialog")
         self.base_name = base_name
         self.original_file_name = original_file_name
+        self.file_path = file_path
         self.review_images = []
         self.delete_images_checkbox = None
 
         self.layout = QVBoxLayout(self)
 
         # Obtener información del shot y assignee desde la DB
-        assignee = self.get_shot_assignee(base_name)
+        assignee = self.get_shot_assignee(base_name, file_path=file_path)
 
         # Label para el mensaje con formato HTML usando los mismos colores que Shot_info
         if assignee:
@@ -807,14 +813,17 @@ class InputDialog(QDialog):
         # Ajustar el tamaño del diálogo para que se ajuste a su contenido (ahora solo ajusta la altura)
         self.adjustSize()
 
-    def get_shot_assignee(self, base_name):
+    def get_shot_assignee(self, base_name, file_path=None):
         """
         Obtiene el assignee de la task comp para el shot especificado.
         Retorna el nombre del assignee o None si no se encuentra.
         """
         try:
-            # Extraer información del base_name
-            project_name = extract_project_name(base_name)
+            # Extraer project_name desde el segmento "VFX-NOMBRE" de la ruta.
+            # Fallback: primer bloque del filename (comportamiento anterior).
+            project_name = extract_project_name_from_path(file_path)
+            if not project_name:
+                project_name = extract_project_name(base_name)
             shot_code = extract_shot_code(base_name)
 
             if not project_name or not shot_code:
@@ -1489,6 +1498,7 @@ class Worker(QRunnable):
         review_images=None,
         should_delete_images=False,
         original_file_name=None,
+        file_path=None,
     ):
         super(Worker, self).__init__()
         self.button_name = button_name
@@ -1497,6 +1507,7 @@ class Worker(QRunnable):
         self.review_images = review_images or []
         self.should_delete_images = should_delete_images
         self.original_file_name = original_file_name
+        self.file_path = file_path
         self.signals = WorkerSignals()
 
     @Slot()
@@ -1538,6 +1549,7 @@ class Worker(QRunnable):
                 message=self.message,
                 review_images=self.review_images,
                 original_file_name=getattr(self, "original_file_name", None),
+                file_path=getattr(self, "file_path", None),
             )
 
             # Capturar información para el resumen
@@ -1606,6 +1618,7 @@ class Worker(QRunnable):
             self.review_images,
             self.should_delete_images,
             self.original_file_name,
+            getattr(self, "file_path", None),
         )
 
         # Conectar las mismas señales
@@ -1626,8 +1639,13 @@ class Worker(QRunnable):
     def update_local_database(self, db_manager):
         """Actualiza la base de datos local con los cambios"""
         try:
-            # Usar funciones compartidas para extraer información
-            project_name = extract_project_name(self.base_name)
+            # Extraer project_name desde el segmento "VFX-NOMBRE" de la ruta.
+            # Fallback: primer bloque del filename (comportamiento anterior).
+            project_name = extract_project_name_from_path(
+                getattr(self, "file_path", None)
+            )
+            if not project_name:
+                project_name = extract_project_name(self.base_name)
             shot_code = extract_shot_code(self.base_name)
 
             # Extraer task_name usando función compartida o método alternativo
@@ -2117,7 +2135,7 @@ def handle_version_check_result(version_check_result, worker, update_callback):
 
 
 def Push_Task_Status(
-    button_name, base_name, update_callback=None, original_file_name=None
+    button_name, base_name, update_callback=None, original_file_name=None, file_path=None
 ):
     global msg_manager
     debug_print(
@@ -2237,7 +2255,7 @@ def Push_Task_Status(
         if app is None:
             app = QApplication([])
 
-        input_dialog = InputDialog(base_name, original_file_name)
+        input_dialog = InputDialog(base_name, original_file_name, file_path=file_path)
         message = input_dialog.get_text()
         if message is None:
             # Operación cancelada por el usuario al cerrar el diálogo de comentarios
@@ -2286,6 +2304,7 @@ def Push_Task_Status(
             review_images,
             should_delete_images,
             original_file_name,
+            file_path,
         )
         # Conectar señales
         worker.signals.result_ready.connect(handle_results)
@@ -2298,7 +2317,9 @@ def Push_Task_Status(
             worker.signals.task_finished.connect(update_callback)
         QThreadPool.globalInstance().start(worker)
     else:
-        worker = Worker(button_name, base_name, None, [], False, original_file_name)
+        worker = Worker(
+            button_name, base_name, None, [], False, original_file_name, file_path
+        )
         worker.signals.result_ready.connect(handle_results)
         worker.signals.debug_output.connect(lambda: print_debug_messages())
         worker.signals.resumen_output.connect(lambda: print_resumen())
@@ -2670,7 +2691,7 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
                 # Un solo clip: usar Push_Task_Status con callback
                 clip_callback = create_clip_callback(clip, base_name, exr_name)
                 result = Push_Task_Status(
-                    button_name, base_name, clip_callback, exr_name
+                    button_name, base_name, clip_callback, exr_name, file_path=file_path
                 )
             else:
                 # Múltiples clips: pasar el mensaje compartido directamente
@@ -2685,6 +2706,7 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
                         shared_review_images,
                         should_delete_images,
                         exr_name,
+                        file_path,
                     )
                     worker.signals.result_ready.connect(handle_results)
                     worker.signals.debug_output.connect(lambda: print_debug_messages())
@@ -2697,7 +2719,7 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
                     # Estados que NO necesitan mensaje: usar Push_Task_Status con callback
                     clip_callback = create_clip_callback(clip, base_name, exr_name)
                     result = Push_Task_Status(
-                        button_name, base_name, clip_callback, exr_name
+                        button_name, base_name, clip_callback, exr_name, file_path=file_path
                     )
 
             if result:

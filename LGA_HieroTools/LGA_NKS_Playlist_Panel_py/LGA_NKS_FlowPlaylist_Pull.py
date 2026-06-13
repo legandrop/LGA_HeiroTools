@@ -1,12 +1,15 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_FlowPlaylist_Pull v0.01 | Lega
+  LGA_NKS_FlowPlaylist_Pull v0.02 | Lega
 
   Compara los estados de las task Comp de los shots del timeline de Hiero
   con los estados registrados en un archivo JSON basado en Flow PT
   Tambien aplica tags con los colores de los estados en xyplorer
 
+  v0.02: project_name se extrae del segmento "VFX-NOMBRE" de la ruta
+         (extract_project_name_from_path); fallback al primer bloque del filename.
+         Ver docs/Docu_ProjectName_Extraction.md.
   v3.37: Fix crash en pull batch cuando un clip entra en Version Mismatch y la task no tiene assignee.
   v3.36: Soporte multi-task: itera sobre TASK_EXR_TRACKS (comp + roto) en lugar de solo TRACK_comp_EXR
   v3.35: Eliminar spameo en consola con LGA_DEBUG_CONSOLE=0
@@ -46,6 +49,7 @@ sys.path.append(str(flow_shared_dir))
 from LGA_NKS_Flow_NamingUtils import (
     extract_shot_code,
     extract_project_name,
+    extract_project_name_from_path,
     extract_task_name,
     clean_base_name,
 )
@@ -759,9 +763,16 @@ class HieroOperations:
                         )  # Use extracted version number
                         debug_print(f"Version extraida: {version_number} de {version_str}")
 
-                        # Usar funciones compartidas para extraer información
-                        project_name = extract_project_name(base_name)
-                        debug_print(f"Project name: {project_name}")
+                        # Extraer project_name desde el segmento "VFX-NOMBRE" de la ruta.
+                        # Fallback: primer bloque del filename (comportamiento anterior).
+                        project_name = extract_project_name_from_path(file_path)
+                        if project_name:
+                            debug_print(f"Project name (from path): {project_name}")
+                        else:
+                            project_name = extract_project_name(base_name)
+                            debug_print(
+                                f"Project name (from filename fallback): {project_name}"
+                            )
 
                         shot_code = extract_shot_code(base_name)
                         debug_print(f"Shot code: {shot_code}")

@@ -215,18 +215,27 @@ y en DB el proyecto real es:
 
 - `MORLASP`
 
-Por eso `FlowPlaylist_Shot_info.py` debe:
+Por eso `FlowPlaylist_Shot_info.py` debe (desde v0.02):
 
-1. resolver el proyecto del timeline activo
+0. **Primario:** extraer `project_name` del segmento `VFX-NOMBRE` de la ruta del
+   clip con `extract_project_name_from_path(file_path)`. Esta es la fuente de
+   verdad: el folder en disco siempre lleva el nombre real del proyecto.
+1. **Fallback:** resolver el proyecto del timeline activo
 2. normalizarlo a `project_name` real de PipeSync
-3. usar ese valor para buscar en `pipesync.db`
+3. si tampoco hay contexto de timeline, caer al `project_name` parseado del filename
+4. usar ese valor para buscar en `pipesync.db`
+
+> El paso 0 cubre el caso en que el prefijo del shot no coincide con el nombre del
+> proyecto (ej: shots `MOR_...` que en realidad son del proyecto `MORLASP`).
+> Ver `docs/Docu_ProjectName_Extraction.md`.
 
 ## Estado actual de implementacion
 
 `FlowPlaylist_Shot_info.py` ya implementa:
 
 - logging avanzado a archivo
-- lookup vendor con proyecto del timeline normalizado
+- lookup vendor con `project_name` desde el path (`VFX-NOMBRE`) como primario,
+  con fallback al proyecto del timeline normalizado y luego al parseado del filename
 - `Descripcion Tarea` desde `pipesync.db`
 - `Descripcion Version` desde `pipesync_playlists.db`
 - notas desde `playlist_notes`

@@ -1,10 +1,13 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_FlowPlaylist_Shot_info v0.01 | Lega
+  LGA_NKS_FlowPlaylist_Shot_info v0.02 | Lega
 
   Muestra informacion hibrida del shot y detalle de playlists vendor.
 
+  v0.02: project_name se extrae del segmento "VFX-NOMBRE" de la ruta
+         (extract_project_name_from_path); fallback al nombre del timeline o al
+         primer bloque del filename. Ver docs/Docu_ProjectName_Extraction.md.
   v0.01: Logging avanzado a archivo
          Lookup vendor usando proyecto del timeline normalizado
          Descripcion Tarea desde pipesync.db
@@ -149,6 +152,7 @@ sys.path.append(str(flow_shared_dir))
 from LGA_NKS_Flow_NamingUtils import (  # noqa: E402
     extract_shot_code,
     extract_project_name,
+    extract_project_name_from_path,
     clean_base_name,
 )
 
@@ -662,7 +666,16 @@ class HieroOperations:
             normalized_timeline_project_name = self.normalize_timeline_project_name(
                 timeline_project_name
             )
-            project_name = normalized_timeline_project_name or parsed_project_name
+            # Primario: project_name desde el segmento "VFX-NOMBRE" de la ruta.
+            # Fallback: nombre del timeline o primer bloque del filename (comportamiento anterior).
+            project_name = extract_project_name_from_path(file_path)
+            if project_name:
+                debug_print(f"Project name (from path): {project_name}")
+            else:
+                project_name = normalized_timeline_project_name or parsed_project_name
+                debug_print(
+                    f"Project name (from timeline/filename fallback): {project_name}"
+                )
 
             debug_print(
                 "Clip context:",

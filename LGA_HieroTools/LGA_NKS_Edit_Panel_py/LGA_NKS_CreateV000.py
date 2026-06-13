@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_CreateV000 v1.07 | Lega
+  LGA_NKS_CreateV000 v1.08 | Lega
 
   Crea una secuencia EXR negra v000 para el shot activo en Hiero/Nuke Studio.
   Permite elegir frame range, resolucion, handle persistente y una o varias
@@ -15,6 +15,9 @@ ____________________________________________________________________
   crear solo los EXRs, crear/importar al bin sin insertar, o reemplazar los
   clips solapados por la nueva v000.
 
+  v1.08: project_name se extrae del segmento "VFX-NOMBRE" de la ruta del plate
+         (extract_project_name_from_path); fallback al primer bloque del filename.
+         Ver docs/Docu_ProjectName_Extraction.md.
   v1.07: Fix undo extra por task: clip.rescan() generaba su propia entrada de undo en Hiero
          (con el nombre del clip) aunque estuviera dentro del beginUndo. Reemplazado por
          _verify_clip_range() que solo comprueba el rango sin llamar rescan; los EXRs ya
@@ -110,7 +113,12 @@ if str(STARTUP_DIR) not in sys.path:
     sys.path.insert(0, str(STARTUP_DIR))
 
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
-from LGA_NKS_Flow_NamingUtils import clean_base_name, extract_project_name, extract_shot_code
+from LGA_NKS_Flow_NamingUtils import (
+    clean_base_name,
+    extract_project_name,
+    extract_project_name_from_path,
+    extract_shot_code,
+)
 from LGA_NKS_TaskSelectionDialog import track_for_task
 from LGA_NKS_Flow_Task_Config import get_task_color
 
@@ -1324,8 +1332,17 @@ def _collect_context():
         return None, "Could not detect shot."
 
     width, height = _timeline_resolution(seq)
+    # Extraer project_name desde el segmento "VFX-NOMBRE" de la ruta del plate.
+    # Fallback: primer bloque del filename (comportamiento anterior).
     try:
-        project_name = extract_project_name(clean_base_name(_clip_file_name(default_plate["clip"]))) or ""
+        project_name = extract_project_name_from_path(default_plate["media_path"]) or ""
+        if not project_name:
+            project_name = (
+                extract_project_name(
+                    clean_base_name(_clip_file_name(default_plate["clip"]))
+                )
+                or ""
+            )
     except Exception:
         project_name = ""
     return {

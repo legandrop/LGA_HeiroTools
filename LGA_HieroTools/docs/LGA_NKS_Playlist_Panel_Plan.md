@@ -163,8 +163,9 @@ Estado actual implementado:
 
 - `FlowPlaylist_Shot_info.py` ya tiene logging avanzado con `.log` propio por defecto;
 - el lookup del shot para contexto vendor ya no usa solo el `project_name` parseado del filename;
-- primero resuelve el proyecto del timeline activo;
-- luego normaliza ese nombre para llevarlo al `project_name` real de PipeSync.
+- desde v0.02, primero extrae el `project_name` del segmento `VFX-NOMBRE` de la ruta del clip;
+- si no hay ruta valida, resuelve el proyecto del timeline activo y lo normaliza al `project_name` real de PipeSync;
+- como ultimo recurso cae al `project_name` parseado del filename.
 - el `Shot Info` ya fue migrado a modelo hibrido real:
   - `Descripcion Tarea` desde `pipesync.db`
   - `Descripcion Version`, notas, replies y attachments desde `pipesync_playlists.db`
@@ -176,12 +177,14 @@ Ejemplo validado:
 - proyecto real en `pipesync.db`: `MORLASP`
 - shot buscado: `MOR_2004_030`
 
-Regla actual de busqueda:
+Regla actual de busqueda (desde v0.02):
 
+- `project_name` desde el path (`VFX-NOMBRE`) es el **primario** (`extract_project_name_from_path`);
 - `parsed_project_name` se sigue registrando en el log como referencia;
 - `timeline_project_name` se obtiene desde la secuencia activa;
 - `normalized_timeline_project_name` se deriva desde el nombre del proyecto abierto;
-- `search_project_name` usa ese valor normalizado, y solo cae al parseado si no hay contexto de timeline.
+- `search_project_name` usa el valor del path; si no hay ruta valida, cae al normalizado del timeline y, en ultimo caso, al parseado del filename.
+- ver `docs/Docu_ProjectName_Extraction.md`.
 
 Logging requerido:
 

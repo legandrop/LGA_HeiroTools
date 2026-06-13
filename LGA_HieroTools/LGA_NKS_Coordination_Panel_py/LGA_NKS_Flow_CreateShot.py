@@ -1,11 +1,16 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_CreateShot v1.36 | Lega
+  LGA_NKS_Flow_CreateShot v1.37 | Lega
 
   Script para crear shots en ShotGrid basado en el nombre del clip seleccionado en Hiero.
   SIN usar templates predefinidos - crea tasks manualmente para mayor control.
 
+  v1.37: Sequence (sg_sequence) extraída desde el segmento de carpeta que sigue a
+         VFX-NOMBRE en el path (estructura VFX-PROYECTO/SECUENCIA/SHOT), por clip,
+         en lugar del nombre del timeline de Hiero. Fallback: valor del diálogo /
+         nombre del timeline. get_active_sequence_name() acepta file_path.
+         Ver docs/Docu_ProjectName_Extraction.md.
   v1.36: Project name extraído desde el segmento VFX-NOMBRE del path del archivo
          (con fallback al primer bloque del filename si el path no contiene VFX-).
          Corrige proyectos como MORLASP cuyos shots tienen prefijo MOR en el filename.
@@ -95,6 +100,7 @@ from LGA_NKS_Flow_NamingUtils import (
     extract_shot_code,
     extract_project_name,
     extract_project_name_from_path,
+    extract_sequence_name_from_path,
     clean_base_name,
 )
 
@@ -242,13 +248,26 @@ except Exception:
     pass
 
 
-def get_active_sequence_name():
-    """Obtiene el nombre de la secuencia activa en Hiero"""
+def get_active_sequence_name(file_path=None):
+    """Obtiene el nombre de la secuencia para Flow.
+
+    Primario: segmento de carpeta que sigue a "VFX-NOMBRE" en la ruta del clip
+    (estructura VFX-PROYECTO/SECUENCIA/SHOT). Fallback: nombre de la secuencia
+    activa en Hiero (comportamiento anterior).
+    Ver docs/Docu_ProjectName_Extraction.md.
+    """
+    # Primario: desde la ruta del archivo
+    seq_from_path = extract_sequence_name_from_path(file_path) if file_path else None
+    if seq_from_path:
+        debug_print(f"Secuencia (from path): {seq_from_path}")
+        return seq_from_path
+
+    # Fallback: nombre del timeline de Hiero
     try:
         seq = hiero.ui.activeSequence()
         if seq:
             sequence_name = seq.name()
-            debug_print(f"Secuencia activa encontrada: {sequence_name}")
+            debug_print(f"Secuencia (from timeline fallback): {sequence_name}")
             return sequence_name
         else:
             debug_print("ERROR: No se encontro una secuencia activa")
@@ -1506,7 +1525,7 @@ class ShotGridManager:
 
         debug_print("No se encontro el shot. Creando shot...")
         created_shot = self.create_shot(
-            project_id, shot_code, shot_config, thumbnail_path
+            project_id, shot_code, shot_config, thumbnail_path, file_path=file_path
         )
         if created_shot:
             tasks = self.find_tasks_for_shot(created_shot["id"])
@@ -1627,13 +1646,23 @@ class ShotGridManager:
         except Exception as e:
             debug_print(f"Error actualizando task description: {e}")
 
-    def create_shot(self, project_id, shot_code, shot_config, thumbnail_path=None):
+    def create_shot(
+        self, project_id, shot_code, shot_config, thumbnail_path=None, file_path=None
+    ):
         """Crea un shot en ShotGrid SIN usar templates - crea tasks manualmente."""
         if not self.sg:
             debug_print("Conexion a ShotGrid no esta inicializada")
             return None
 
-        sequence_name = shot_config.get("sequence_name")
+        # Secuencia: primario desde la ruta del clip (segmento despues de
+        # VFX-NOMBRE), fallback al valor del dialog (que por defecto ya viene del
+        # path del primer clip o del nombre del timeline de Hiero).
+        sequence_name = extract_sequence_name_from_path(file_path)
+        if sequence_name:
+            debug_print(f"Secuencia (from path): {sequence_name}")
+        else:
+            sequence_name = shot_config.get("sequence_name")
+            debug_print(f"Secuencia (from dialog/timeline fallback): {sequence_name}")
         debug_print(f"Creando shot '{shot_code}' manualmente sin template...")
 
         # Buscar secuencia
@@ -2229,8 +2258,10 @@ def create_shots_from_selected_clips():
         )
         return
 
-    # Obtener nombre de la secuencia activa
-    sequence_name = get_active_sequence_name()
+    # Obtener nombre de la secuencia: primario desde la ruta del primer clip
+    # (segmento despues de VFX-NOMBRE), fallback al nombre del timeline de Hiero.
+    first_file_path = clips_info[0].get("file_path") if clips_info else None
+    sequence_name = get_active_sequence_name(first_file_path)
     if not sequence_name:
         debug_print("No se pudo obtener el nombre de la secuencia activa", level="warning")
         QMessageBox.warning(
