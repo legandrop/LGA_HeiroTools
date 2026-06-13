@@ -92,7 +92,8 @@ Tools for assigning artists to Flow tasks and managing related Wasabi access pol
 Production-facing tools for Flow, FileManager, PipeSync, and shot creation / update workflows.
 
 - **Thumbnail**  
-  Creates a thumbnail in Flow based on the selected clip.
+  Click: saves a viewer snapshot (zoom-to-fill, cropped to the sequence aspect) to `N:/<project>/Thumbs`.  
+  Shift+Click: replaces the shot's thumbnail in Flow with that snapshot. Opens a confirmation window showing the current Flow thumbnail vs the new one, and uploads on a background thread.
 - **Create Shot**  
   Creates a shot in Flow based on the selected clip.
 - **Modify Shot**  

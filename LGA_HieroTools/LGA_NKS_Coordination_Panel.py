@@ -225,7 +225,8 @@ class FlowProdPanel(QtWidgets.QWidget):
                 self.create_thumbnail_for_selected_clip,
                 "#3a2a4d",
                 None,
-                "Crear thumbnail en Flow basado en el clip seleccionado",
+                "Click: guardar snapshot del viewer en N:/proyecto/Thumbs\n"
+                "Shift+Click: reemplazar el thumbnail del shot en Flow con el snapshot",
             ),
             (
                 "Create Shot",
@@ -392,7 +393,13 @@ class FlowProdPanel(QtWidgets.QWidget):
                 """
 
             # Usar CustomButton para el bot?n "Reveal in Flow" para soportar Shift+Click
-            if name == "Reveal in Flow":
+            if name == "Thumbnail":
+                button = CustomButton(name)
+                button.setCustomClickHandler(handler)
+                button.setShiftClickHandler(
+                    self.update_thumbnail_in_flow_for_selected_clip
+                )
+            elif name == "Reveal in Flow":
                 button = CustomButton(name)
                 button.setCustomClickHandler(handler)
                 button.setShiftClickHandler(self.show_shot_in_flow_for_selected_clip)
@@ -612,6 +619,37 @@ class FlowProdPanel(QtWidgets.QWidget):
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             # Llamar a la función principal
+            module.main()
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
+
+    def update_thumbnail_in_flow_for_selected_clip(self):
+        """Shift+Click del boton Thumbnail: reemplaza el thumbnail del shot en Flow
+        con un snapshot del viewer (abre ventana de confirmacion)."""
+        script_path = os.path.join(
+            os.path.dirname(__file__),
+            "LGA_NKS_Coordination_Panel_py",
+            "LGA_NKS_Flow_UpdateThumb.py",
+        )
+        if not os.path.exists(script_path):
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Script no encontrado",
+                f"No se encontró el script en la ruta: {script_path}",
+            )
+            return
+        try:
+            import importlib.util
+
+            spec = importlib.util.spec_from_file_location(
+                "LGA_NKS_Flow_UpdateThumb", script_path
+            )
+            if spec is None or spec.loader is None:
+                raise ImportError(
+                    "No se pudo cargar el módulo LGA_NKS_Flow_UpdateThumb.py"
+                )
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
             module.main()
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, "Error al ejecutar", str(e))
