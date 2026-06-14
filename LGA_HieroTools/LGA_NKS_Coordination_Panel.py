@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________________________
 
-  LGA_NKS_Flow_FlowProd_Panel v1.23 | Lega
+  LGA_NKS_Flow_FlowProd_Panel v1.24 | Lega
   Panel para operaciones de producción con Flow:
   - Revelar clips en Flow
   - Crear shots automáticamente
@@ -10,6 +10,11 @@ ________________________________________________________________________________
   - Integración con FileManager (Open, Download, Upload)
 
 
+  v1.24: El boton "Thumbnail" ahora soporta Shift+Click: reemplaza el thumbnail
+         del shot en Flow con un snapshot del viewer, mostrando una ventana de
+         comparacion (actual vs nuevo) y subiendo en un hilo separado.
+         Ver LGA_NKS_Coordination_Panel_py/LGA_NKS_Flow_UpdateThumb.py.
+         Tooltip del boton actualizado (Click vs Shift+Click).
   v1.23: Agregado sistema de scroll, logging a archivo y gap vertical
   v1.22: Boton Check Shots Exist para chequear si los shots del track comp existen en Flow
   v1.21: Actualizado para usar estilos dinámicos con bordes y hover para todos los botones

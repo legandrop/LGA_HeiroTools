@@ -1,11 +1,17 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_UpdateThumb v1.00 | Lega
+  LGA_NKS_Flow_UpdateThumb v1.01 | Lega
 
   Reemplaza el thumbnail de un shot existente en Flow (ShotGrid) con un snapshot
   del viewer actual de Hiero. Pensado para el Shift+Click del boton "Thumbnail"
   del Coordination Panel.
+
+  v1.01: La ventana se auto-cierra tras un reemplazo exitoso, con cuenta regresiva
+         en el boton Close. Configurable con AUTO_CLOSE_SECONDS (arriba); 0 lo
+         desactiva.
+  v1.00: Version inicial. Captura el viewer, compara contra el thumbnail actual
+         del shot en Flow y lo reemplaza (upload en hilo separado).
 
   Flujo:
   1. Toma el clip bajo el playhead (fallback a la seleccion).
@@ -47,8 +53,13 @@ QPixmap = QtGui.QPixmap
 QObject = QtCore.QObject
 QRunnable = QtCore.QRunnable
 QThreadPool = QtCore.QThreadPool
+QTimer = QtCore.QTimer
 Signal = QtCore.Signal
 Slot = QtCore.Slot
+
+# Segundos para el auto-cierre de la ventana tras un reemplazo exitoso.
+# Poner 0 (o menos) para desactivar el auto-cierre.
+AUTO_CLOSE_SECONDS = 4
 
 # shotgun_api3 + utilidades compartidas
 shared_dir = Path(__file__).parent.parent / "LGA_NKS_Shared"
@@ -354,6 +365,8 @@ class ThumbReplaceDialog(QDialog):
         self.new_thumb_path = new_thumb_path
         self.replace_callback = None
         self._uploading = False
+        self._countdown_timer = None
+        self._countdown_remaining = 0
 
         self.setWindowTitle("Flow | Update Thumbnail")
         self.setModal(False)
@@ -518,6 +531,27 @@ class ThumbReplaceDialog(QDialog):
         self.status_label.setText(f"<span style='color: #00ff00;'>{message}</span>")
         self.replace_button.setEnabled(False)
         self.cancel_button.setText("Close")
+        self._start_auto_close()
+
+    def _start_auto_close(self):
+        """Inicia la cuenta regresiva que auto-cierra la ventana."""
+        if AUTO_CLOSE_SECONDS <= 0:
+            return  # Auto-cierre desactivado
+        self._countdown_remaining = AUTO_CLOSE_SECONDS
+        self.cancel_button.setText(f"Close ({self._countdown_remaining})")
+        self._countdown_timer = QTimer(self)
+        self._countdown_timer.setInterval(1000)
+        self._countdown_timer.timeout.connect(self._on_countdown_tick)
+        self._countdown_timer.start()
+
+    def _on_countdown_tick(self):
+        self._countdown_remaining -= 1
+        if self._countdown_remaining <= 0:
+            if self._countdown_timer:
+                self._countdown_timer.stop()
+            self.close()
+        else:
+            self.cancel_button.setText(f"Close ({self._countdown_remaining})")
 
     def show_error(self, message):
         self._uploading = False
@@ -539,8 +573,12 @@ class ThumbReplaceDialog(QDialog):
         # No permitir cerrar mientras se esta subiendo a Flow
         if self._uploading:
             event.ignore()
-        else:
-            event.accept()
+            return
+        # Detener la cuenta regresiva si el usuario cierra manualmente antes de tiempo
+        if self._countdown_timer:
+            self._countdown_timer.stop()
+            self._countdown_timer = None
+        event.accept()
 
 
 # ----------------------------------------------------------------------------
