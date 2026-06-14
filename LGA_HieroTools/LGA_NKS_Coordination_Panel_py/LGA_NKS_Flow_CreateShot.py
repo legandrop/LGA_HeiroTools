@@ -1,11 +1,14 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_CreateShot v1.37 | Lega
+  LGA_NKS_Flow_CreateShot v1.38 | Lega
 
   Script para crear shots en ShotGrid basado en el nombre del clip seleccionado en Hiero.
   SIN usar templates predefinidos - crea tasks manualmente para mayor control.
 
+  v1.38: ShotConfigDialog acepta existing_thumb_path para mostrar el thumbnail
+         actual del shot (usado por Modify Shot). find_shot_and_tasks() ahora
+         tambien devuelve el campo "image". Nuevo metodo show_existing_thumbnail().
   v1.37: Sequence (sg_sequence) extraída desde el segmento de carpeta que sigue a
          VFX-NOMBRE en el path (estructura VFX-PROYECTO/SECUENCIA/SHOT), por clip,
          en lugar del nombre del timeline de Hiero. Fallback: valor del diálogo /
@@ -460,10 +463,12 @@ class ShotConfigDialog(QDialog):
         dialog_mode="create",
         action_button_label=None,
         allow_thumbnail_creation=True,
+        existing_thumb_path=None,
     ):
         super(ShotConfigDialog, self).__init__(parent)
         self.dialog_mode = dialog_mode
         self.allow_thumbnail_creation = allow_thumbnail_creation
+        self.existing_thumb_path = existing_thumb_path
         self.setWindowTitle(
             "Flow | Modify Shot" if dialog_mode == "modify" else "Flow | Shot Creation"
         )
@@ -720,6 +725,9 @@ class ShotConfigDialog(QDialog):
         if self.allow_thumbnail_creation and len(self.clips_info) == 1:
             debug_print("[INFO] Creando thumbnail para clip unico...")
             self.create_and_show_thumbnail()
+        elif self.existing_thumb_path:
+            debug_print("[INFO] Mostrando thumbnail actual del shot desde Flow...")
+            self.show_existing_thumbnail(self.existing_thumb_path)
         else:
             debug_print("[INFO] No se crea thumbnail (modo modify o multiples clips)")
 
@@ -1213,6 +1221,26 @@ class ShotConfigDialog(QDialog):
             """
             )
 
+    def show_existing_thumbnail(self, thumb_path):
+        """Muestra en el placeholder el thumbnail actual del shot (descargado de Flow).
+        Usado en Modify Shot para ver el thumb que el shot ya tiene en Flow."""
+        try:
+            if thumb_path and os.path.exists(thumb_path):
+                pixmap = QPixmap(thumb_path)
+                if not pixmap.isNull():
+                    scaled_pixmap = pixmap.scaledToHeight(80, Qt.SmoothTransformation)
+                    self.thumbnail_placeholder.setText("")
+                    self.thumbnail_placeholder.setPixmap(scaled_pixmap)
+                    label_width = min(scaled_pixmap.width() + 10, 120)
+                    self.thumbnail_placeholder.setFixedSize(label_width, 80)
+                    debug_print(f"✅ Thumbnail actual de Flow mostrado: {thumb_path}")
+                    return
+            # Sin thumbnail en Flow o no se pudo cargar
+            self.thumbnail_placeholder.setText("Sin\nthumbnail")
+            debug_print("ℹ️ El shot no tiene thumbnail en Flow (o no se pudo cargar)")
+        except Exception as e:
+            debug_print(f"❌ Error mostrando el thumbnail actual: {e}")
+
     def cleanup_thumbnail(self):
         """Limpia el archivo temporal del thumbnail"""
         if self.thumbnail_path and os.path.exists(self.thumbnail_path):
@@ -1221,6 +1249,15 @@ class ShotConfigDialog(QDialog):
                 debug_print(f"✅ Archivo temporal eliminado: {self.thumbnail_path}")
             except Exception as e:
                 debug_print(f"❌ Error eliminando archivo temporal: {e}")
+        # Tambien limpiar el thumbnail actual descargado de Flow (Modify Shot)
+        if self.existing_thumb_path and os.path.exists(self.existing_thumb_path):
+            try:
+                os.remove(self.existing_thumb_path)
+                debug_print(
+                    f"✅ Archivo temporal (thumb Flow) eliminado: {self.existing_thumb_path}"
+                )
+            except Exception as e:
+                debug_print(f"❌ Error eliminando thumb temporal de Flow: {e}")
 
     def closeEvent(self, event):
         """Sobrescribe el evento de cierre para limpiar archivos temporales"""
@@ -1502,6 +1539,7 @@ class ShotGridManager:
             "sg_prioridad",
             "sg_sequence",
             "project",
+            "image",  # URL del thumbnail actual del shot (para mostrarlo en Modify Shot)
         ]
         shots = self.sg.find("Shot", filters, fields)
         if shots:

@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_ModifyShot v1.36 | Lega
+  LGA_NKS_Flow_ModifyShot v1.37 | Lega
 
   Script para modificar shots existentes en ShotGrid sin afectar estados.
   - Carga información actual del shot (descripción, tasks) desde Flow.
@@ -10,6 +10,9 @@ ____________________________________________________________________
   - El número de versión siempre coincide con Create Shot para compatibilidad.
   - Desde v1.33, Create Shot dispara este flujo automáticamente cuando detecta un shot único que ya existe.
 
+  v1.37: Muestra el thumbnail actual del shot (descargado de Flow) en el
+         placeholder del dialogo. La descarga ocurre en el LoadShotInfoWorker
+         (hilo) y se pasa al dialogo via existing_thumb_path.
   v1.36: La secuencia se obtiene del segmento de carpeta que sigue a VFX-NOMBRE
          en el path del clip (get_active_sequence_name(file_path)), con fallback
          al nombre del timeline de Hiero. Ver docs/Docu_ProjectName_Extraction.md.
@@ -32,6 +35,9 @@ Slot = QtCore.Slot
 
 # Agregar el directorio actual al sys.path para importar módulos locales
 import sys
+import os
+import tempfile
+import urllib.request
 from pathlib import Path
 current_dir = Path(__file__).parent
 if str(current_dir) not in sys.path:
@@ -51,6 +57,26 @@ from LGA_NKS_Flow_CreateShot import (
 
 # Importar módulo de creación de carpetas
 from LGA_NKS_Flow_CreateShot_Folders import create_folders_for_shot_tasks
+
+
+def _download_thumbnail(image_url):
+    """Descarga la URL del thumbnail actual del shot a un JPG temporal.
+    Returns: ruta temporal o None si no hay URL o falla la descarga."""
+    if not image_url:
+        return None
+    try:
+        fd, temp_path = tempfile.mkstemp(prefix="LGA_ModifyThumb_", suffix=".jpg")
+        os.close(fd)
+        with urllib.request.urlopen(image_url, timeout=15) as resp:
+            data = resp.read()
+        with open(temp_path, "wb") as f:
+            f.write(data)
+        if os.path.getsize(temp_path) > 0:
+            return temp_path
+        return None
+    except Exception as e:
+        debug_print(f"No se pudo descargar el thumbnail actual del shot: {e}")
+        return None
 
 
 class ShotDataSignals(QObject):
@@ -108,6 +134,10 @@ class LoadShotInfoWorker(QRunnable):
                     f"El shot '{self.shot_code}' no existe en Flow (usa Create Shot)."
                 )
                 return
+
+            # Descargar el thumbnail actual del shot (si tiene) para mostrarlo en el
+            # dialogo. Se hace aca porque ya estamos en un hilo separado.
+            shot["_local_thumb_path"] = _download_thumbnail(shot.get("image"))
 
             debug_print(
                 f"Informacion cargada correctamente para shot '{self.shot_code}'"
@@ -318,6 +348,7 @@ def _launch_config_dialog(
         dialog_mode="modify",
         action_button_label="Modify Shot",
         allow_thumbnail_creation=False,
+        existing_thumb_path=shot_data.get("_local_thumb_path"),
     )
 
     existing_tasks_map = {task["content"]: task for task in tasks}
