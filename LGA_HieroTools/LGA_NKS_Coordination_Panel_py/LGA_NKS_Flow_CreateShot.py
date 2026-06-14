@@ -1,11 +1,16 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_CreateShot v1.40 | Lega
+  LGA_NKS_Flow_CreateShot v1.41 | Lega
 
   Script para crear shots en ShotGrid basado en el nombre del clip seleccionado en Hiero.
   SIN usar templates predefinidos - crea tasks manualmente para mayor control.
 
+  v1.41: ColoredStatusComboBox pinta el combo cerrado a mano (paintEvent): fondo del
+         color del estado, texto contrastado dibujado UNA sola vez (fix del
+         doble-texto en negro), linea vertical separadora y flecha SVG
+         (dropdown_arrow[_white].svg desde LGA_NKS_Shared/icons via ICONS_DIR,
+         ruta derivada de __file__). El popup usa el delegate sobre la view.
   v1.40: Estado de shot y de task pasan de checkbox a dropdowns coloreados
          (ColoredStatusComboBox; SHOT_STATES/TASK_STATES). Create Shot escribe el
          sg_status_list elegido (default ready). Modify prefilea el estado real.
@@ -503,6 +508,9 @@ TASK_STATES = [
 # Estado por defecto en Create Shot (shot y task)
 DEFAULT_STATE_CODE = "ready"
 
+# Carpeta de iconos (ruta derivada del __file__ del script, nunca absoluta hardcodeada)
+ICONS_DIR = Path(__file__).parent.parent / "LGA_NKS_Shared" / "icons"
+
 # Mapeo de los reviewers de la UI (clave interna) al nombre real en Flow.
 REVIEWER_KEY_TO_NAME = {
     "lega_pugliese": "Lega Pugliese",
@@ -580,13 +588,32 @@ class _StatusItemDelegate(QStyledItemDelegate):
 
 
 class ColoredStatusComboBox(QComboBox):
-    """ComboBox cuyos items muestran el color del estado (texto contrastado).
-    El combo cerrado tambien toma el color del estado seleccionado."""
+    """ComboBox de estados. El combo CERRADO se pinta entero a mano (fondo del color
+    del estado, texto contrastado dibujado UNA sola vez, linea vertical y flecha SVG),
+    evitando el doble-texto que produce el estilo nativo. El POPUP usa
+    _StatusItemDelegate para colorear cada item."""
+
+    _ARROW_DARK = None
+    _ARROW_WHITE = None
 
     def __init__(self, states, parent=None):
         super(ColoredStatusComboBox, self).__init__(parent)
         self._code_to_index = {}
-        self.setItemDelegate(_StatusItemDelegate(self))
+        self._states = list(states)  # (name, code, color)
+
+        # Popup con delegate coloreado
+        self.setView(QtWidgets.QListView())
+        self.view().setItemDelegate(_StatusItemDelegate(self))
+
+        # Cargar las flechas una sola vez (ruta relativa al .py via ICONS_DIR)
+        if ColoredStatusComboBox._ARROW_DARK is None:
+            ColoredStatusComboBox._ARROW_DARK = QPixmap(
+                str(ICONS_DIR / "dropdown_arrow.svg")
+            )
+            ColoredStatusComboBox._ARROW_WHITE = QPixmap(
+                str(ICONS_DIR / "dropdown_arrow_white.svg")
+            )
+
         for idx, (name, code, color) in enumerate(states):
             self.addItem(name)
             self.setItemData(idx, code, Qt.UserRole)
@@ -595,25 +622,55 @@ class ColoredStatusComboBox(QComboBox):
                 idx, QBrush(QColor(_contrast_text_color(color))), Qt.ForegroundRole
             )
             self._code_to_index[code] = idx
-        self.currentIndexChanged.connect(self._update_closed_style)
-        self._update_closed_style()
 
-    def _update_closed_style(self, *_):
-        bg_brush = self.itemData(self.currentIndex(), Qt.BackgroundRole)
-        fg_brush = self.itemData(self.currentIndex(), Qt.ForegroundRole)
-        if bg_brush is None:
-            return
-        bg = bg_brush.color().name() if hasattr(bg_brush, "color") else str(bg_brush)
-        fg = (
-            fg_brush.color().name()
-            if (fg_brush is not None and hasattr(fg_brush, "color"))
-            else "#000000"
-        )
+        # Ocultar frame/arrow nativos: el combo cerrado lo pintamos en paintEvent.
         self.setStyleSheet(
-            f"QComboBox {{ background-color: {bg}; color: {fg}; font-weight: bold;"
-            f" border: 1px solid #555555; border-radius: 3px; padding: 3px 6px; }}"
-            f" QComboBox::drop-down {{ border: none; width: 18px; }}"
+            "QComboBox { border: none; border-radius: 3px; padding: 0px;"
+            " min-height: 22px; }"
+            " QComboBox::drop-down { width: 0px; border: none; }"
+            " QComboBox::down-arrow { image: none; width: 0px; height: 0px; }"
+            " QComboBox QAbstractItemView { background-color: #2B2B2B; outline: 0;"
+            " border: 1px solid #555555; }"
         )
+
+    def paintEvent(self, event):
+        idx = self.currentIndex()
+        if idx < 0 or idx >= len(self._states):
+            super(ColoredStatusComboBox, self).paintEvent(event)
+            return
+        name, code, color = self._states[idx]
+        text_color = _contrast_text_color(color)
+
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+        r = self.rect()
+
+        # Fondo redondeado con el color del estado + borde sutil
+        painter.setPen(QColor("#555555"))
+        painter.setBrush(QColor(color))
+        painter.drawRoundedRect(r.adjusted(0, 0, -1, -1), 3, 3)
+
+        # Texto del estado (UNA sola vez)
+        painter.setPen(QColor(text_color))
+        painter.drawText(
+            r.adjusted(8, 0, -26, 0), Qt.AlignVCenter | Qt.AlignLeft, name
+        )
+
+        # Linea vertical separadora antes de la flecha
+        line_x = r.right() - 22
+        sep = QColor(text_color)
+        sep.setAlpha(120)
+        painter.setPen(sep)
+        painter.drawLine(line_x, r.top() + 4, line_x, r.bottom() - 4)
+
+        # Flecha (SVG segun contraste del fondo)
+        arrow = self._ARROW_WHITE if text_color == "#ffffff" else self._ARROW_DARK
+        if arrow is not None and not arrow.isNull():
+            aw = ah = 10
+            ax = r.right() - 17
+            ay = r.center().y() - ah // 2
+            painter.drawPixmap(ax, ay, aw, ah, arrow)
+        painter.end()
 
     def current_code(self):
         return self.itemData(self.currentIndex(), Qt.UserRole)
