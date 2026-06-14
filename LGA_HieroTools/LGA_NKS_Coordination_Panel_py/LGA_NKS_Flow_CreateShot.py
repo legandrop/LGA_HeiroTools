@@ -1,11 +1,16 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_CreateShot v1.38 | Lega
+  LGA_NKS_Flow_CreateShot v1.39 | Lega
 
   Script para crear shots en ShotGrid basado en el nombre del clip seleccionado en Hiero.
   SIN usar templates predefinidos - crea tasks manualmente para mayor control.
 
+  v1.39: Cuando el shot no tiene thumbnail en Flow (Modify Shot), el placeholder
+         muestra un boton "Take Snapshot" que captura el viewer y lo deja listo en
+         self.thumbnail_path (no se sube hasta confirmar). Nuevos metodos:
+         _show_take_snapshot_button(), _on_take_snapshot_clicked(),
+         _show_captured_thumbnail_pixmap().
   v1.38: ShotConfigDialog acepta existing_thumb_path para mostrar el thumbnail
          actual del shot (usado por Modify Shot). find_shot_and_tasks() ahora
          tambien devuelve el campo "image". Nuevo metodo show_existing_thumbnail().
@@ -721,15 +726,20 @@ class ShotConfigDialog(QDialog):
         # Thumbnail del shot (solo si hay un clip seleccionado)
         self.thumbnail_label = None
         self.thumbnail_path = None
+        self.take_snapshot_button = None
         debug_print(f"[INFO] Numero de clips seleccionados: {len(self.clips_info)}")
         if self.allow_thumbnail_creation and len(self.clips_info) == 1:
             debug_print("[INFO] Creando thumbnail para clip unico...")
             self.create_and_show_thumbnail()
-        elif self.existing_thumb_path:
-            debug_print("[INFO] Mostrando thumbnail actual del shot desde Flow...")
+        elif self.dialog_mode == "modify":
+            # En Modify Shot siempre: si hay thumb en Flow lo muestra; si no, ofrece
+            # el boton "Take Snapshot" (existing_thumb_path puede venir None).
+            debug_print(
+                "[INFO] Modify Shot: mostrando thumb actual de Flow o boton Take Snapshot..."
+            )
             self.show_existing_thumbnail(self.existing_thumb_path)
         else:
-            debug_print("[INFO] No se crea thumbnail (modo modify o multiples clips)")
+            debug_print("[INFO] No se crea thumbnail (multiples clips en create)")
 
         # Espaciador
         layout.addStretch()
@@ -1223,7 +1233,8 @@ class ShotConfigDialog(QDialog):
 
     def show_existing_thumbnail(self, thumb_path):
         """Muestra en el placeholder el thumbnail actual del shot (descargado de Flow).
-        Usado en Modify Shot para ver el thumb que el shot ya tiene en Flow."""
+        Usado en Modify Shot para ver el thumb que el shot ya tiene en Flow.
+        Si el shot no tiene thumbnail, ofrece un boton para capturar uno."""
         try:
             if thumb_path and os.path.exists(thumb_path):
                 pixmap = QPixmap(thumb_path)
@@ -1235,11 +1246,59 @@ class ShotConfigDialog(QDialog):
                     self.thumbnail_placeholder.setFixedSize(label_width, 80)
                     debug_print(f"✅ Thumbnail actual de Flow mostrado: {thumb_path}")
                     return
-            # Sin thumbnail en Flow o no se pudo cargar
-            self.thumbnail_placeholder.setText("Sin\nthumbnail")
-            debug_print("ℹ️ El shot no tiene thumbnail en Flow (o no se pudo cargar)")
+            # Sin thumbnail en Flow (o no se pudo cargar): ofrecer capturar uno
+            debug_print("ℹ️ El shot no tiene thumbnail en Flow: ofreciendo Take Snapshot")
+            self._show_take_snapshot_button()
         except Exception as e:
             debug_print(f"❌ Error mostrando el thumbnail actual: {e}")
+
+    def _show_take_snapshot_button(self):
+        """Reemplaza el placeholder vacio por un boton para capturar un snapshot del
+        viewer. El snapshot NO se sube a Flow hasta confirmar con 'Modify Shot'."""
+        self.thumbnail_placeholder.hide()
+        self.thumbnail_placeholder.setParent(None)
+        self.take_snapshot_button = QPushButton("Take\nSnapshot")
+        self.take_snapshot_button.setFixedSize(120, 80)
+        self.take_snapshot_button.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #443a91;
+                color: #b2b2b2;
+                border: 1px solid #555555;
+                border-radius: 3px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #774dcb; color: #CCCCCC; }
+            """
+        )
+        self.take_snapshot_button.clicked.connect(self._on_take_snapshot_clicked)
+        self.thumbnail_placeholder_layout.addWidget(self.take_snapshot_button)
+
+    def _on_take_snapshot_clicked(self):
+        """Captura un snapshot del viewer y lo muestra. Queda en self.thumbnail_path
+        para que Modify Shot lo suba a Flow al confirmar."""
+        thumbnail_path = create_shot_thumbnail()
+        if not thumbnail_path:
+            debug_print("❌ No se pudo capturar el snapshot del viewer (reintentar)")
+            return  # dejar el boton para reintentar
+        self.thumbnail_path = thumbnail_path
+        if self.take_snapshot_button is not None:
+            self.take_snapshot_button.hide()
+            self.take_snapshot_button.setParent(None)
+            self.take_snapshot_button = None
+        self._show_captured_thumbnail_pixmap(thumbnail_path)
+        debug_print(f"✅ Snapshot capturado (sin subir aun): {thumbnail_path}")
+
+    def _show_captured_thumbnail_pixmap(self, thumbnail_path):
+        """Muestra el snapshot recien capturado en la columna del thumbnail."""
+        self.thumbnail_label = QLabel()
+        self.thumbnail_label.setAlignment(Qt.AlignCenter)
+        pixmap = QPixmap(thumbnail_path)
+        if not pixmap.isNull():
+            scaled = pixmap.scaledToHeight(80, Qt.SmoothTransformation)
+            self.thumbnail_label.setPixmap(scaled)
+            self.thumbnail_label.setFixedSize(min(scaled.width() + 10, 120), 80)
+        self.thumbnail_placeholder_layout.addWidget(self.thumbnail_label)
 
     def cleanup_thumbnail(self):
         """Limpia el archivo temporal del thumbnail"""

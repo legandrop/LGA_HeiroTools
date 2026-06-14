@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_ModifyShot v1.37 | Lega
+  LGA_NKS_Flow_ModifyShot v1.38 | Lega
 
   Script para modificar shots existentes en ShotGrid sin afectar estados.
   - Carga información actual del shot (descripción, tasks) desde Flow.
@@ -10,6 +10,9 @@ ____________________________________________________________________
   - El número de versión siempre coincide con Create Shot para compatibilidad.
   - Desde v1.33, Create Shot dispara este flujo automáticamente cuando detecta un shot único que ya existe.
 
+  v1.38: Si el shot no tiene thumbnail en Flow, el dialogo ofrece "Take Snapshot"
+         para capturar uno; al confirmar "Modify Shot" el ModifyShotWorker lo sube
+         a Flow (sg.upload_thumbnail) y borra el temporal.
   v1.37: Muestra el thumbnail actual del shot (descargado de Flow) en el
          placeholder del dialogo. La descarga ocurre en el LoadShotInfoWorker
          (hilo) y se pasa al dialogo via existing_thumb_path.
@@ -159,6 +162,7 @@ class ModifyShotWorker(QRunnable):
         existing_tasks,
         project_id,
         original_description,
+        thumbnail_path=None,
     ):
         super(ModifyShotWorker, self).__init__()
         self.shot_config = shot_config
@@ -167,6 +171,7 @@ class ModifyShotWorker(QRunnable):
         self.existing_tasks = existing_tasks or []
         self.project_id = project_id
         self.original_description = original_description or ""
+        self.thumbnail_path = thumbnail_path
         self.signals = WorkerSignals()
 
     @Slot()
@@ -298,9 +303,18 @@ class ModifyShotWorker(QRunnable):
                 for task in updated_tasks:
                     sg_manager.update_task_description(task["id"], new_description)
 
+            # Subir el thumbnail capturado en el dialogo (si el usuario tomo uno)
+            thumb_uploaded = False
+            if self.thumbnail_path:
+                self.signals.step_update.emit("Subiendo thumbnail a Flow...")
+                if sg_manager.upload_thumbnail("Shot", shot_id, self.thumbnail_path):
+                    thumb_uploaded = True
+                else:
+                    self.signals.step_update.emit("ERROR subiendo el thumbnail.")
+
             self.signals.debug_output.emit()
 
-            if any([created_count, deleted_count, description_changed]):
+            if any([created_count, deleted_count, description_changed, thumb_uploaded]):
                 summary_parts = []
                 if created_count:
                     summary_parts.append(f"{created_count} task(s) nueva(s)")
@@ -308,6 +322,8 @@ class ModifyShotWorker(QRunnable):
                     summary_parts.append(f"{deleted_count} task(s) eliminada(s)")
                 if description_changed:
                     summary_parts.append("descripcion actualizada")
+                if thumb_uploaded:
+                    summary_parts.append("thumbnail actualizado")
                 summary = ", ".join(summary_parts)
                 self.signals.finished.emit(
                     True, f"Shot modificado correctamente ({summary})."
@@ -320,6 +336,13 @@ class ModifyShotWorker(QRunnable):
             debug_print(f"Error en ModifyShotWorker: {e}")
             self.signals.debug_output.emit()
             self.signals.error.emit(f"Error modificando shot: {str(e)}")
+        finally:
+            # Borrar el thumbnail temporal capturado (ya fue subido o ya no se usa)
+            if self.thumbnail_path and os.path.exists(self.thumbnail_path):
+                try:
+                    os.remove(self.thumbnail_path)
+                except Exception as e:
+                    debug_print(f"No se pudo borrar el thumbnail temporal: {e}")
 
 
 _loader_window = None
@@ -384,12 +407,22 @@ def _handle_config_dialog_finished(
         return
 
     shot_config = dialog.get_config()
+    # Snapshot capturado en el dialogo (Take Snapshot), si hubo. Lo leemos ANTES de
+    # cleanup y lo desligamos del dialogo para que cleanup_thumbnail no lo borre:
+    # lo sube y lo borra el worker.
+    new_thumbnail_path = dialog.thumbnail_path
+    dialog.thumbnail_path = None
     dialog.cleanup_thumbnail()
     if _config_dialog is dialog:
         _config_dialog = None
     dialog.deleteLater()
     if not shot_config:
         debug_print("No se obtuvo configuracion para Modify Shot", level="warning")
+        if new_thumbnail_path and os.path.exists(new_thumbnail_path):
+            try:
+                os.remove(new_thumbnail_path)
+            except Exception:
+                pass
         return
 
     _status_window = FlowStatusWindow("modificar shot")
@@ -403,6 +436,7 @@ def _handle_config_dialog_finished(
         existing_tasks=tasks,
         project_id=project_id,
         original_description=shot_data.get("description", "") or "",
+        thumbnail_path=new_thumbnail_path,
     )
 
     worker.signals.shot_info_ready.connect(
