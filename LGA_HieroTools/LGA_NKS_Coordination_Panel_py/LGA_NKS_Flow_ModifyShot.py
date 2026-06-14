@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_ModifyShot v1.38 | Lega
+  LGA_NKS_Flow_ModifyShot v1.39 | Lega
 
   Script para modificar shots existentes en ShotGrid sin afectar estados.
   - Carga información actual del shot (descripción, tasks) desde Flow.
@@ -10,6 +10,10 @@ ____________________________________________________________________
   - El número de versión siempre coincide con Create Shot para compatibilidad.
   - Desde v1.33, Create Shot dispara este flujo automáticamente cuando detecta un shot único que ya existe.
 
+  v1.39: Campos EDITABLES y prefilled con datos reales de Flow (estado del shot y
+         de cada task con dropdowns coloreados, prioridad, reviewers). El
+         ModifyShotWorker aplica los cambios de estado de shot, prioridad, y estado
+         + reviewers de tasks existentes. Ver docs/Docu_Flow_Estados_Colores.md.
   v1.38: Si el shot no tiene thumbnail en Flow, el dialogo ofrece "Take Snapshot"
          para capturar uno; al confirmar "Modify Shot" el ModifyShotWorker lo sube
          a Flow (sg.upload_thumbnail) y borra el temporal.
@@ -56,6 +60,7 @@ from LGA_NKS_Flow_CreateShot import (
     get_active_sequence_name,
     get_flow_credentials_secure,
     print_debug_messages,
+    reviewers_config_from_task,
 )
 
 # Importar módulo de creación de carpetas
@@ -303,6 +308,50 @@ class ModifyShotWorker(QRunnable):
                 for task in updated_tasks:
                     sg_manager.update_task_description(task["id"], new_description)
 
+            # ----- Estado y prioridad del SHOT -----
+            shot_status_changed = False
+            new_shot_status = self.shot_config.get("shot_status")
+            if new_shot_status and new_shot_status != self.shot_data.get("sg_status_list"):
+                self.signals.step_update.emit("Actualizando estado del shot...")
+                if sg_manager.update_shot_status(shot_id, new_shot_status):
+                    shot_status_changed = True
+
+            priority_changed = False
+            new_priority = "high" if self.shot_config.get("high_priority") else "normal"
+            old_priority = (self.shot_data.get("sg_prioridad") or "normal").lower()
+            if new_priority != old_priority:
+                self.signals.step_update.emit("Actualizando prioridad del shot...")
+                if sg_manager.update_shot_priority(shot_id, new_priority):
+                    priority_changed = True
+
+            # ----- Estado y reviewers de TASKS existentes habilitadas -----
+            tasks_updated = 0
+            for task_name, task_cfg in tasks_config.items():
+                if not task_cfg.get("enabled", False):
+                    continue
+                existing = existing_task_map.get(task_name)
+                if not existing:
+                    continue  # task nueva: ya se creo con su estado/reviewers
+                changed_here = False
+                new_status = task_cfg.get("task_status")
+                if new_status and new_status != existing.get("sg_status_list"):
+                    self.signals.step_update.emit(
+                        f"Actualizando estado de task '{task_name}'..."
+                    )
+                    if sg_manager.update_task_status(existing["id"], new_status):
+                        changed_here = True
+                # Reviewers: comparar UI vs Flow y actualizar solo si cambiaron
+                desired_rev = task_cfg.get("reviewers", {})
+                current_rev = reviewers_config_from_task(existing)
+                if desired_rev != current_rev:
+                    self.signals.step_update.emit(
+                        f"Actualizando reviewers de task '{task_name}'..."
+                    )
+                    if sg_manager.update_task_reviewers(existing["id"], desired_rev):
+                        changed_here = True
+                if changed_here:
+                    tasks_updated += 1
+
             # Subir el thumbnail capturado en el dialogo (si el usuario tomo uno)
             thumb_uploaded = False
             if self.thumbnail_path:
@@ -314,7 +363,17 @@ class ModifyShotWorker(QRunnable):
 
             self.signals.debug_output.emit()
 
-            if any([created_count, deleted_count, description_changed, thumb_uploaded]):
+            if any(
+                [
+                    created_count,
+                    deleted_count,
+                    description_changed,
+                    shot_status_changed,
+                    priority_changed,
+                    tasks_updated,
+                    thumb_uploaded,
+                ]
+            ):
                 summary_parts = []
                 if created_count:
                     summary_parts.append(f"{created_count} task(s) nueva(s)")
@@ -322,6 +381,12 @@ class ModifyShotWorker(QRunnable):
                     summary_parts.append(f"{deleted_count} task(s) eliminada(s)")
                 if description_changed:
                     summary_parts.append("descripcion actualizada")
+                if shot_status_changed:
+                    summary_parts.append("estado del shot")
+                if priority_changed:
+                    summary_parts.append("prioridad")
+                if tasks_updated:
+                    summary_parts.append(f"{tasks_updated} task(s) actualizada(s)")
                 if thumb_uploaded:
                     summary_parts.append("thumbnail actualizado")
                 summary = ", ".join(summary_parts)
@@ -375,8 +440,10 @@ def _launch_config_dialog(
     )
 
     existing_tasks_map = {task["content"]: task for task in tasks}
+    # Modify Shot: campos EDITABLES (estado, prioridad, reviewers) y prefilled con
+    # los valores reales de Flow.
     dialog.prefill_from_existing_shot(
-        shot_data, existing_tasks_map, lock_existing_task_fields=True
+        shot_data, existing_tasks_map, lock_existing_task_fields=False
     )
 
     _config_dialog = dialog

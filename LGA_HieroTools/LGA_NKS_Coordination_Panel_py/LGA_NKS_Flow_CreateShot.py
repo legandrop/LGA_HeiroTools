@@ -1,11 +1,17 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_CreateShot v1.39 | Lega
+  LGA_NKS_Flow_CreateShot v1.40 | Lega
 
   Script para crear shots en ShotGrid basado en el nombre del clip seleccionado en Hiero.
   SIN usar templates predefinidos - crea tasks manualmente para mayor control.
 
+  v1.40: Estado de shot y de task pasan de checkbox a dropdowns coloreados
+         (ColoredStatusComboBox; SHOT_STATES/TASK_STATES). Create Shot escribe el
+         sg_status_list elegido (default ready). Modify prefilea el estado real.
+         Reviewers: helpers resolve_reviewer_ids() y reviewers_config_from_task()
+         (ida/vuelta UI <-> Flow). Nuevos update_shot_status/priority/task_reviewers.
+         Ver docs/Docu_Flow_Estados_Colores.md.
   v1.39: Cuando el shot no tiene thumbnail en Flow (Modify Shot), el placeholder
          muestra un boton "Take Snapshot" que captura el viewer y lo deja listo en
          self.thumbnail_path (no se sube hasta confirmar). Nuevos metodos:
@@ -83,8 +89,12 @@ QTextEdit = QtWidgets.QTextEdit
 QCheckBox = QtWidgets.QCheckBox
 QFrame = QtWidgets.QFrame
 QLineEdit = QtWidgets.QLineEdit
+QComboBox = QtWidgets.QComboBox
+QStyledItemDelegate = QtWidgets.QStyledItemDelegate
 QFont = QtGui.QFont
 QPixmap = QtGui.QPixmap
+QColor = QtGui.QColor
+QBrush = QtGui.QBrush
 QRect = QtCore.QRect
 QRunnable = QtCore.QRunnable
 Slot = QtCore.Slot
@@ -459,6 +469,164 @@ def create_shot_thumbnail():
 
 
 # Clase de ventana de configuracion para shots
+# ============================================================================
+# Estados de Flow para los dropdowns (nombre visible, codigo SG, color UI).
+# Fuente de verdad: docs/Docu_Flow_Estados_Colores.md
+# ============================================================================
+SHOT_STATES = [
+    ("Not ready", "noread", "#d3d3d3"),
+    ("Omited", "omit", "#78b487"),
+    ("Ready to start", "ready", "#c2b234"),
+    ("In progress", "progre", "#6443bf"),
+    ("In playlist", "plylst", "#99c153"),
+    ("Approved", "apr", "#244c19"),
+    ("Delivery Ok", "check", "#52c233"),
+]
+
+TASK_STATES = [
+    ("Not ready", "noread", "#d3d3d3"),
+    ("Omited", "omit", "#78b487"),
+    ("Ready to start", "ready", "#c2b234"),
+    ("In progress", "progre", "#6443bf"),
+    ("Corrections", "corr", "#2e77d4"),
+    ("Review Sebas", "rev_su", "#a65680"),
+    ("Review Charly", "revcha", "#a9909d"),
+    ("Review Juano", "revjua", "#7f4b69"),
+    ("Review Javi", "revjav", "#8f3f72"),
+    ("Review Lega", "revleg", "#68135d"),
+    ("Review Hold", "revhld", "#9e6a15"),
+    ("Review Dir", "rev_di", "#99c153"),
+    ("Approved", "apr", "#244c19"),
+    ("Delivery Ok", "check", "#52c233"),
+]
+
+# Estado por defecto en Create Shot (shot y task)
+DEFAULT_STATE_CODE = "ready"
+
+# Mapeo de los reviewers de la UI (clave interna) al nombre real en Flow.
+REVIEWER_KEY_TO_NAME = {
+    "lega_pugliese": "Lega Pugliese",
+    "sebas_romano": "Sebas Romano",
+    "juano": "Juan Olivares",
+    "javi_bravo": "Javi Bravo",
+}
+
+
+def resolve_reviewer_ids(sg, reviewers_config):
+    """Convierte el dict de reviewers de la UI en lista de {type, id} de HumanUser."""
+    ids = []
+    for key, selected in (reviewers_config or {}).items():
+        if not selected:
+            continue
+        name = REVIEWER_KEY_TO_NAME.get(key)
+        if not name:
+            continue
+        try:
+            users = sg.find("HumanUser", [["name", "is", name]], ["id"])
+            if users:
+                ids.append({"type": "HumanUser", "id": users[0]["id"]})
+            else:
+                debug_print(f"Reviewer '{name}' no encontrado en Flow")
+        except Exception as e:
+            debug_print(f"Error buscando reviewer '{name}': {e}")
+    return ids
+
+
+def reviewers_config_from_task(task_data):
+    """Construye el dict de reviewers de la UI desde el campo task_reviewers de Flow."""
+    names = set()
+    for user in (task_data or {}).get("task_reviewers") or []:
+        n = user.get("name") if isinstance(user, dict) else None
+        if n:
+            names.add(n)
+    return {key: (name in names) for key, name in REVIEWER_KEY_TO_NAME.items()}
+
+
+def _contrast_text_color(hex_color):
+    """Devuelve '#000000' o '#ffffff' segun la luminancia del color de fondo,
+    para que el texto sea siempre legible."""
+    h = (hex_color or "").lstrip("#")
+    try:
+        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    except Exception:
+        return "#ffffff"
+    luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0
+    return "#000000" if luminance > 0.55 else "#ffffff"
+
+
+class _StatusItemDelegate(QStyledItemDelegate):
+    """Pinta cada item del popup con el color del estado y texto contrastado."""
+
+    def paint(self, painter, option, index):
+        bg = index.data(Qt.BackgroundRole)
+        fg = index.data(Qt.ForegroundRole)
+        painter.save()
+        if bg is not None:
+            painter.fillRect(option.rect, bg)
+        if option.state & QtWidgets.QStyle.State_Selected:
+            painter.fillRect(option.rect, QColor(255, 255, 255, 40))
+        text = index.data(Qt.DisplayRole) or ""
+        if fg is not None:
+            pen_color = fg.color() if hasattr(fg, "color") else QColor(fg)
+            painter.setPen(pen_color)
+        rect = option.rect.adjusted(8, 0, -8, 0)
+        painter.drawText(rect, Qt.AlignVCenter | Qt.AlignLeft, text)
+        painter.restore()
+
+    def sizeHint(self, option, index):
+        size = super(_StatusItemDelegate, self).sizeHint(option, index)
+        size.setHeight(max(size.height(), 22))
+        return size
+
+
+class ColoredStatusComboBox(QComboBox):
+    """ComboBox cuyos items muestran el color del estado (texto contrastado).
+    El combo cerrado tambien toma el color del estado seleccionado."""
+
+    def __init__(self, states, parent=None):
+        super(ColoredStatusComboBox, self).__init__(parent)
+        self._code_to_index = {}
+        self.setItemDelegate(_StatusItemDelegate(self))
+        for idx, (name, code, color) in enumerate(states):
+            self.addItem(name)
+            self.setItemData(idx, code, Qt.UserRole)
+            self.setItemData(idx, QBrush(QColor(color)), Qt.BackgroundRole)
+            self.setItemData(
+                idx, QBrush(QColor(_contrast_text_color(color))), Qt.ForegroundRole
+            )
+            self._code_to_index[code] = idx
+        self.currentIndexChanged.connect(self._update_closed_style)
+        self._update_closed_style()
+
+    def _update_closed_style(self, *_):
+        bg_brush = self.itemData(self.currentIndex(), Qt.BackgroundRole)
+        fg_brush = self.itemData(self.currentIndex(), Qt.ForegroundRole)
+        if bg_brush is None:
+            return
+        bg = bg_brush.color().name() if hasattr(bg_brush, "color") else str(bg_brush)
+        fg = (
+            fg_brush.color().name()
+            if (fg_brush is not None and hasattr(fg_brush, "color"))
+            else "#000000"
+        )
+        self.setStyleSheet(
+            f"QComboBox {{ background-color: {bg}; color: {fg}; font-weight: bold;"
+            f" border: 1px solid #555555; border-radius: 3px; padding: 3px 6px; }}"
+            f" QComboBox::drop-down {{ border: none; width: 18px; }}"
+        )
+
+    def current_code(self):
+        return self.itemData(self.currentIndex(), Qt.UserRole)
+
+    def set_code(self, code):
+        """Selecciona el item por codigo SG. Si no existe, no cambia nada."""
+        idx = self._code_to_index.get(code)
+        if idx is not None:
+            self.setCurrentIndex(idx)
+            return True
+        return False
+
+
 class ShotConfigDialog(QDialog):
     def __init__(
         self,
@@ -654,10 +822,9 @@ class ShotConfigDialog(QDialog):
         shot_status_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 5px;")
         shot_status_layout.addWidget(shot_status_label)
 
-        self.shot_ready_cb = QCheckBox("Ready to start")
-        self.shot_ready_cb.setChecked(True)  # Activado por defecto
-        self.shot_ready_cb.setStyleSheet("color: #a7a7a7; padding: 2px;")
-        shot_status_layout.addWidget(self.shot_ready_cb)
+        self.shot_status_combo = ColoredStatusComboBox(SHOT_STATES)
+        self.shot_status_combo.set_code(DEFAULT_STATE_CODE)  # Ready to start por defecto
+        shot_status_layout.addWidget(self.shot_status_combo)
         status_priority_column_layout.addLayout(shot_status_layout)
 
         # Espacio entre status y priority
@@ -896,13 +1063,12 @@ class ShotConfigDialog(QDialog):
         status_label.setStyleSheet("color: #CCCCCC; font-weight: bold; padding-top: 0px;")
         status_layout.addWidget(status_label)
 
-        task_ready_cb = QCheckBox("Ready to start")
-        task_ready_cb.setChecked(True)  # Activado por defecto
-        task_ready_cb.setStyleSheet("color: #a7a7a7; padding: 5px;")
-        status_layout.addWidget(task_ready_cb)
+        task_status_combo = ColoredStatusComboBox(TASK_STATES)
+        task_status_combo.set_code(DEFAULT_STATE_CODE)  # Ready to start por defecto
+        status_layout.addWidget(task_status_combo)
         task_layout.addWidget(status_widget, 1)
-        
-        self.task_widgets[task_name]["task_ready"] = task_ready_cb
+
+        self.task_widgets[task_name]["task_status"] = task_status_combo
         self.task_widgets[task_name]["status_label"] = status_label
         self.task_widgets[task_name]["status_widget"] = status_widget
 
@@ -1020,7 +1186,7 @@ class ShotConfigDialog(QDialog):
         widgets = self.task_widgets.get(task_name, {})
         field_keys = [
             "estimated_days",
-            "task_ready",
+            "task_status",
             "copy_description",
             "reviewer_lega",
             "reviewer_sebas",
@@ -1034,8 +1200,8 @@ class ShotConfigDialog(QDialog):
 
     def set_shot_fields_editable(self, editable):
         """Habilita o deshabilita los campos generales del shot."""
-        if hasattr(self, "shot_ready_cb"):
-            self.shot_ready_cb.setEnabled(editable)
+        if hasattr(self, "shot_status_combo"):
+            self.shot_status_combo.setEnabled(editable)
         if hasattr(self, "high_priority_cb"):
             self.high_priority_cb.setEnabled(editable)
 
@@ -1062,8 +1228,8 @@ class ShotConfigDialog(QDialog):
         if sequence_value:
             self.sequence_line_edit.setText(sequence_value)
 
-        # Estados actuales (solo informativos en modo modify)
-        self.shot_ready_cb.setChecked(shot_data.get("sg_status_list") == "ready")
+        # Estado y prioridad REALES del shot desde Flow
+        self.shot_status_combo.set_code(shot_data.get("sg_status_list"))
         self.high_priority_cb.setChecked(
             (shot_data.get("sg_prioridad") or "").lower() == "high"
         )
@@ -1085,6 +1251,24 @@ class ShotConfigDialog(QDialog):
             self.toggle_task_fields(task_name, True)
             widgets["enabled"].setProperty("existing_task", True)
 
+            # Estado REAL de la task desde Flow
+            widgets["task_status"].set_code(task_info.get("sg_status_list"))
+
+            # Reviewers REALES desde Flow (task_reviewers)
+            rev_cfg = reviewers_config_from_task(task_info)
+            widgets["reviewer_lega"].setChecked(rev_cfg.get("lega_pugliese", False))
+            widgets["reviewer_sebas"].setChecked(rev_cfg.get("sebas_romano", False))
+            widgets["reviewer_juano"].setChecked(rev_cfg.get("juano", False))
+            widgets["reviewer_javi"].setChecked(rev_cfg.get("javi_bravo", False))
+
+            # Dias estimados reales (si los hay) - solo informativo
+            est = task_info.get("sg_estdias")
+            if est:
+                try:
+                    widgets["estimated_days"].setText(str(est))
+                except Exception:
+                    pass
+
             if lock_existing_task_fields:
                 self.set_task_fields_editable(task_name, False)
     
@@ -1101,7 +1285,7 @@ class ShotConfigDialog(QDialog):
         self.shot_config = {
             "description": self.description_text.toPlainText(),
             "sequence_name": self.sequence_line_edit.text().strip(),
-            "shot_ready": self.shot_ready_cb.isChecked(),
+            "shot_status": self.shot_status_combo.current_code(),
             "high_priority": self.high_priority_cb.isChecked(),
         }
         
@@ -1117,7 +1301,7 @@ class ShotConfigDialog(QDialog):
             
             tasks_config[task_name] = {
                 "enabled": widgets["enabled"].isChecked(),
-                "task_ready": widgets["task_ready"].isChecked(),
+                "task_status": widgets["task_status"].current_code(),
                 "copy_description": widgets["copy_description"].isChecked(),
                 "estimated_days": estimated_days,
                 "reviewers": {
@@ -1709,17 +1893,42 @@ class ShotGridManager:
             debug_print(f"Error actualizando descripcion del shot: {e}")
             return False
 
-    def update_shot_status_if_needed(self, shot_id, shot_config):
-        """Actualiza el estado del shot si es necesario."""
+    def update_shot_status(self, shot_id, status_code):
+        """Actualiza el estado (sg_status_list) de un shot."""
+        if not self.sg or not status_code:
+            return False
+        try:
+            self.sg.update("Shot", shot_id, {"sg_status_list": status_code})
+            debug_print(f"Shot status actualizado a '{status_code}'")
+            return True
+        except Exception as e:
+            debug_print(f"Error actualizando shot status: {e}")
+            return False
+
+    def update_shot_priority(self, shot_id, priority_code):
+        """Actualiza la prioridad (sg_prioridad) de un shot ('high'/'normal')."""
+        if not self.sg or not priority_code:
+            return False
+        try:
+            self.sg.update("Shot", shot_id, {"sg_prioridad": priority_code})
+            debug_print(f"Shot prioridad actualizada a '{priority_code}'")
+            return True
+        except Exception as e:
+            debug_print(f"Error actualizando shot prioridad: {e}")
+            return False
+
+    def update_task_reviewers(self, task_id, reviewers_config):
+        """Actualiza los reviewers (task_reviewers) de una task desde el dict de la UI."""
         if not self.sg:
-            debug_print("Conexion a ShotGrid no esta inicializada")
-            return
-        if shot_config["shot_ready"]:
-            try:
-                self.sg.update("Shot", shot_id, {"sg_status_list": "ready"})
-                debug_print("Shot status actualizado a 'ready'")
-            except Exception as e:
-                debug_print(f"Error actualizando shot status: {e}")
+            return False
+        reviewer_ids = resolve_reviewer_ids(self.sg, reviewers_config)
+        try:
+            self.sg.update("Task", task_id, {"task_reviewers": reviewer_ids})
+            debug_print(f"Reviewers de task {task_id} actualizados ({len(reviewer_ids)})")
+            return True
+        except Exception as e:
+            debug_print(f"Error actualizando reviewers: {e}")
+            return False
 
     def update_task_status(self, task_id, status):
         """Actualiza el estado de una tarea."""
@@ -1784,9 +1993,8 @@ class ShotGridManager:
             # NOTA: No se incluye "task_template" para evitar usar templates predefinidos
         }
 
-        # Agregar status si esta configurado
-        if shot_config["shot_ready"]:
-            shot_data["sg_status_list"] = "ready"
+        # Estado del shot desde el dropdown (default: ready)
+        shot_data["sg_status_list"] = shot_config.get("shot_status", DEFAULT_STATE_CODE)
 
         # Agregar prioridad alta si esta configurada
         if shot_config.get("high_priority", False):
@@ -1895,10 +2103,9 @@ class ShotGridManager:
             if step_id:
                 task_data["step"] = {"type": "Step", "id": step_id}
             
-            # Aplicar configuración de status
-            if task_config.get("task_ready", False):
-                task_data["sg_status_list"] = "ready"
-            
+            # Estado de la task desde el dropdown (default: noread)
+            task_data["sg_status_list"] = task_config.get("task_status", "noread")
+
             # Copiar descripción del shot si está habilitado
             if task_config.get("copy_description", False) and shot_description:
                 task_data["sg_description"] = shot_description
@@ -1916,32 +2123,11 @@ class ShotGridManager:
             new_task = self.sg.create("Task", task_data)
             debug_print(f"Task '{task_name}' creada exitosamente (ID: {new_task['id']})")
             
-            # Asignar reviewers
-            reviewers_config = task_config.get("reviewers", {})
-            selected_reviewer_ids = []
-            reviewer_names_to_assign = []
-            
-            if reviewers_config.get("lega_pugliese", False):
-                reviewer_names_to_assign.append("Lega Pugliese")
-            if reviewers_config.get("sebas_romano", False):
-                reviewer_names_to_assign.append("Sebas Romano")
-            if reviewers_config.get("juano", False):
-                reviewer_names_to_assign.append("Juan Olivares")
-            if reviewers_config.get("javi_bravo", False):
-                reviewer_names_to_assign.append("Javi Bravo")
-            
-            # Buscar IDs de todos los reviewers seleccionados
-            for reviewer_name in reviewer_names_to_assign:
-                try:
-                    users = self.sg.find("HumanUser", [["name", "is", reviewer_name]], ["id", "name"])
-                    if users:
-                        selected_reviewer_ids.append({"type": "HumanUser", "id": users[0]["id"]})
-                        debug_print(f"Reviewer '{reviewer_name}' encontrado (ID: {users[0]['id']})")
-                    else:
-                        debug_print(f"Usuario '{reviewer_name}' no encontrado")
-                except Exception as e:
-                    debug_print(f"Error buscando reviewer '{reviewer_name}': {e}")
-            
+            # Asignar reviewers (resuelve nombres -> HumanUser ids con el helper compartido)
+            selected_reviewer_ids = resolve_reviewer_ids(
+                self.sg, task_config.get("reviewers", {})
+            )
+
             # Asignar todos los reviewers a la task usando task_reviewers
             if selected_reviewer_ids:
                 try:
