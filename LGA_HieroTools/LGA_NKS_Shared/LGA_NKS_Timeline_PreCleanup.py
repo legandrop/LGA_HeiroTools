@@ -1,12 +1,14 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Timeline_PreCleanup v1.01 | Lega
+  LGA_NKS_Timeline_PreCleanup v1.02 | Lega
 
   Limpieza previa del timeline para Refresh Timeline y Switch Sequence.
   Elimina tracks NukeVFX y extiende los efectos de BurnIn hasta el
   último clip real del timeline, incluso si esta offline.
 
+  v1.02: Los tracks NukeVFX solo se eliminan si están vacíos (sin clips).
+         Si tienen contenido se omiten y se loguea un aviso.
   v1.01: Agregado hook de debug handler para reutilizar el logger del panel que lo invoque
   v1.00: Version inicial. Elimina tracks con tag icon 'icons:NukeVFX.png'
          y extiende los efectos del track BurnIn hasta el timelineOut
@@ -67,15 +69,27 @@ def has_nukevfx_tag(track):
     return False
 
 
+def is_track_empty(track):
+    try:
+        return len(list(track.items())) == 0
+    except Exception:
+        return False
+
+
 def remove_nukevfx_tracks(seq):
-    tracks_to_remove = [track for track in seq.videoTracks() if has_nukevfx_tag(track)]
+    nukevfx_tracks = [track for track in seq.videoTracks() if has_nukevfx_tag(track)]
 
-    for track in tracks_to_remove:
+    removed = 0
+    for track in nukevfx_tracks:
         track_name = safe_call(track, "name", "<sin nombre>")
-        seq.removeTrack(track)
-        debug_print(f"Track NukeVFX eliminado: {track_name}")
+        if is_track_empty(track):
+            seq.removeTrack(track)
+            debug_print(f"Track NukeVFX eliminado: {track_name}")
+            removed += 1
+        else:
+            debug_print(f"Track NukeVFX con contenido, se omite: {track_name}")
 
-    return len(tracks_to_remove)
+    return removed
 
 
 def clip_counts_for_timeline_extent(item):
