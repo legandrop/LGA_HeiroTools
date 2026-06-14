@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Timeline_Refresh_Wrap v1.41 | Lega
+  LGA_NKS_Timeline_Refresh_Wrap v1.42 | Lega
 
   Wrapper que ejecuta una secuencia de scripts para refrescar el timeline manteniendo el nivel de zoom original:
 
@@ -14,6 +14,8 @@ ____________________________________________________________________
   7. Scrollea al track superior
   8. Restaura el estado original (dos intentos) usando los valores exactos del slider y scrollbar
 
+  v1.42: Sistema A de logging — solo archivo, sin consola. Wirea set_debug_handler en
+         PreCleanup y ScrollToTopTrack para que usen el mismo logger.
   v1.41: Agregado pre-cleanup del timeline antes del refresh.
          Elimina tracks con tag icon 'icons:NukeVFX.png' y extiende BurnIn hasta el último clip visible.
   v1.40: Implementado cierre simultáneo de viewers + timelines para mantener equilibrio delicado de Hiero
@@ -24,15 +26,95 @@ import hiero.core
 import hiero.ui
 import os
 import importlib.util
+import logging
+import queue
+from logging.handlers import QueueHandler, QueueListener
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtCore
 import time
 
-# Variable global para activar o desactivar los prints
 DEBUG = True
+DEBUG_CONSOLE = False
+DEBUG_LOG = True
 
-def debug_print(*message):
-    if DEBUG:
-        print(*message)
+script_start_time = None
+debug_log_listener = None
+
+
+class RelativeTimeFormatter(logging.Formatter):
+    def format(self, record):
+        global script_start_time
+        if script_start_time is None:
+            script_start_time = record.created
+        record.relative_time = f"{record.created - script_start_time:.3f}s"
+        return super().format(record)
+
+
+def setup_debug_logging(script_name="TimelineRefreshWrap"):
+    global debug_log_listener
+
+    log_file_path = os.path.join(
+        os.path.dirname(__file__), "..", "logs", f"debugPy_{script_name}.log"
+    )
+    os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+
+    try:
+        with open(log_file_path, "w", encoding="utf-8") as f:
+            f.write(f"Fecha: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+    except Exception:
+        pass
+
+    logger = logging.getLogger(f"{script_name.lower()}_logger")
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+
+    if logger.handlers:
+        logger.handlers.clear()
+
+    file_handler = logging.FileHandler(log_file_path, encoding="utf-8")
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(RelativeTimeFormatter("[%(relative_time)s] %(message)s"))
+
+    log_queue = queue.Queue()
+    queue_handler = QueueHandler(log_queue)
+    queue_handler.setLevel(logging.DEBUG)
+    logger.addHandler(queue_handler)
+
+    if debug_log_listener:
+        try:
+            debug_log_listener.stop()
+        except Exception:
+            pass
+
+    debug_log_listener = QueueListener(log_queue, file_handler, respect_handler_level=True)
+    debug_log_listener.daemon = True
+    debug_log_listener.start()
+
+    return logger
+
+
+debug_logger = setup_debug_logging(script_name="TimelineRefreshWrap")
+
+
+def debug_print(*message, level="info"):
+    global script_start_time
+    msg = " ".join(str(arg) for arg in message)
+
+    if DEBUG and DEBUG_LOG:
+        if script_start_time is None:
+            script_start_time = time.time()
+        if level == "debug":
+            debug_logger.debug(msg)
+        elif level == "warning":
+            debug_logger.warning(msg)
+        elif level == "error":
+            debug_logger.error(msg)
+        else:
+            debug_logger.info(msg)
+
+    if DEBUG and DEBUG_CONSOLE:
+        if script_start_time is None:
+            script_start_time = time.time()
+        print(f"[{time.time() - script_start_time:.3f}s] {msg}")
 
 def get_timeline_state(timeline_editor=None):
     """
@@ -399,6 +481,8 @@ def main():
         start_time = time.time()
         precleanup_module = import_script('LGA_NKS_Timeline_PreCleanup')
         if precleanup_module:
+            if hasattr(precleanup_module, 'set_debug_handler'):
+                precleanup_module.set_debug_handler(debug_print)
             try:
                 precleanup_result = precleanup_module.main()
                 debug_print(f"Resultado pre-cleanup: {precleanup_result}")
@@ -492,6 +576,8 @@ def main():
         start_time = time.time()
         scroll_module = import_script('LGA_NKS_ScrollTo_TopTrack')
         if scroll_module:
+            if hasattr(scroll_module, 'set_debug_handler'):
+                scroll_module.set_debug_handler(debug_print)
             scroll_module.main(new_timeline)  # Pasar el timeline nuevo
             QtCore.QThread.msleep(10)
             QtCore.QCoreApplication.processEvents()

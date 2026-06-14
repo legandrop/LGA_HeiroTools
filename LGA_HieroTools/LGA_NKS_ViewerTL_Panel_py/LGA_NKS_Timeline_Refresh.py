@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Timeline_Refresh v1.20 | Lega
+  LGA_NKS_Timeline_Refresh v1.21 | Lega
 
   Refresca el timeline cerrándolo y volviéndolo a abrir,
   manteniendo los ajustes del viewer:
@@ -9,17 +9,102 @@ ____________________________________________________________________
   2. Cierra el viewer activo.
   3. Reabre la misma secuencia en un nuevo timeline viewer.
   4. Restaura los ajustes del viewer.
+
+  v1.21: Sistema A de logging — solo archivo, sin consola.
 ____________________________________________________________________
 """
 
 import hiero.core
 import hiero.ui
+import os
+import logging
+import queue
+from logging.handlers import QueueHandler, QueueListener
+import time
 
 DEBUG = True
+DEBUG_CONSOLE = False
+DEBUG_LOG = True
 
-def debug_print(*message):
-    if DEBUG:
-        print(*message)
+script_start_time = None
+debug_log_listener = None
+
+
+class RelativeTimeFormatter(logging.Formatter):
+    def format(self, record):
+        global script_start_time
+        if script_start_time is None:
+            script_start_time = record.created
+        record.relative_time = f"{record.created - script_start_time:.3f}s"
+        return super().format(record)
+
+
+def setup_debug_logging(script_name="TimelineRefresh"):
+    global debug_log_listener
+
+    log_file_path = os.path.join(
+        os.path.dirname(__file__), "..", "logs", f"debugPy_{script_name}.log"
+    )
+    os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+
+    try:
+        with open(log_file_path, "w", encoding="utf-8") as f:
+            f.write(f"Fecha: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+    except Exception:
+        pass
+
+    logger = logging.getLogger(f"{script_name.lower()}_logger")
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+
+    if logger.handlers:
+        logger.handlers.clear()
+
+    file_handler = logging.FileHandler(log_file_path, encoding="utf-8")
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(RelativeTimeFormatter("[%(relative_time)s] %(message)s"))
+
+    log_queue = queue.Queue()
+    queue_handler = QueueHandler(log_queue)
+    queue_handler.setLevel(logging.DEBUG)
+    logger.addHandler(queue_handler)
+
+    if debug_log_listener:
+        try:
+            debug_log_listener.stop()
+        except Exception:
+            pass
+
+    debug_log_listener = QueueListener(log_queue, file_handler, respect_handler_level=True)
+    debug_log_listener.daemon = True
+    debug_log_listener.start()
+
+    return logger
+
+
+debug_logger = setup_debug_logging(script_name="TimelineRefresh")
+
+
+def debug_print(*message, level="info"):
+    global script_start_time
+    msg = " ".join(str(arg) for arg in message)
+
+    if DEBUG and DEBUG_LOG:
+        if script_start_time is None:
+            script_start_time = time.time()
+        if level == "debug":
+            debug_logger.debug(msg)
+        elif level == "warning":
+            debug_logger.warning(msg)
+        elif level == "error":
+            debug_logger.error(msg)
+        else:
+            debug_logger.info(msg)
+
+    if DEBUG and DEBUG_CONSOLE:
+        if script_start_time is None:
+            script_start_time = time.time()
+        print(f"[{time.time() - script_start_time:.3f}s] {msg}")
 
 def get_viewer_state(viewer):
     """
