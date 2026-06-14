@@ -19,8 +19,12 @@ Flow, los nombres reales de Flow y el color usado en la UI (dropdowns).
   independientes de los dropdowns).
 - **Color de Flow (`bg_color`):** se documenta solo como referencia; no se usa.
 
-El texto de cada item se pinta blanco o negro segun el contraste del color de
-fondo (luminancia), para que siempre sea legible.
+Render de los dropdowns (`ColoredStatusComboBox`):
+- **Combo cerrado:** fondo del color del estado, texto contrastado (negro en
+  fondos claros, `#cccccc` en fondos oscuros), linea vertical + flecha SVG.
+- **Popup abierto:** fondo uniforme `#272727`; cada item con una **bolita** del
+  color del estado a la izquierda y el nombre en `#cccccc`; hover/seleccion
+  aclara la fila (`#3a3a3a`).
 
 ## Estados de SHOT (`Shot.sg_status_list`) — 7
 

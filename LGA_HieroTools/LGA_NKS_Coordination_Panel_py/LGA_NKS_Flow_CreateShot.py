@@ -1,11 +1,15 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_CreateShot v1.42 | Lega
+  LGA_NKS_Flow_CreateShot v1.43 | Lega
 
   Script para crear shots en ShotGrid basado en el nombre del clip seleccionado en Hiero.
   SIN usar templates predefinidos - crea tasks manualmente para mayor control.
 
+  v1.43: Popup de los dropdowns: fondo uniforme #272727 con una bolita del color
+         del estado a la izquierda de cada nombre (en vez de cada fila coloreada),
+         texto #cccccc y hover (#3a3a3a). El blanco de contraste pasa de #ffffff a
+         #cccccc (combo cerrado y popup).
   v1.42: Dropdowns de estado con ancho fijo 140px. Nuevo reviewer "Charly"
          (Charly Villafañe, id 2002) entre Juano y Javi, en create y modify.
   v1.41: ColoredStatusComboBox pinta el combo cerrado a mano (paintEvent): fondo del
@@ -554,39 +558,62 @@ def reviewers_config_from_task(task_data):
 
 
 def _contrast_text_color(hex_color):
-    """Devuelve '#000000' o '#ffffff' segun la luminancia del color de fondo,
-    para que el texto sea siempre legible."""
+    """Devuelve '#000000' (fondos claros) o '#cccccc' (fondos oscuros) segun la
+    luminancia del color de fondo, para que el texto sea legible."""
     h = (hex_color or "").lstrip("#")
     try:
         r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
     except Exception:
-        return "#ffffff"
+        return "#cccccc"
     luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0
-    return "#000000" if luminance > 0.55 else "#ffffff"
+    return "#000000" if luminance > 0.55 else "#cccccc"
 
 
 class _StatusItemDelegate(QStyledItemDelegate):
-    """Pinta cada item del popup con el color del estado y texto contrastado."""
+    """Pinta cada item del popup con fondo oscuro uniforme (#272727), una bolita
+    del color del estado a la izquierda y el nombre en #cccccc. Hover/seleccion
+    aclara la fila."""
+
+    _BG = "#272727"
+    _BG_HOVER = "#3a3a3a"
+    _TEXT = "#cccccc"
+    _DOT = 10  # diametro de la bolita
 
     def paint(self, painter, option, index):
-        bg = index.data(Qt.BackgroundRole)
-        fg = index.data(Qt.ForegroundRole)
+        state_brush = index.data(Qt.BackgroundRole)
+        dot_color = (
+            state_brush.color()
+            if (state_brush is not None and hasattr(state_brush, "color"))
+            else QColor("#888888")
+        )
         painter.save()
-        if bg is not None:
-            painter.fillRect(option.rect, bg)
-        if option.state & QtWidgets.QStyle.State_Selected:
-            painter.fillRect(option.rect, QColor(255, 255, 255, 40))
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+
+        # Fondo del item (uniforme), mas claro en hover/seleccion
+        hovered = option.state & (
+            QtWidgets.QStyle.State_Selected | QtWidgets.QStyle.State_MouseOver
+        )
+        painter.fillRect(option.rect, QColor(self._BG_HOVER if hovered else self._BG))
+
+        # Bolita con el color del estado
+        r = option.rect
+        d = self._DOT
+        dot_x = r.left() + 8
+        dot_y = r.center().y() - d // 2
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(dot_color)
+        painter.drawEllipse(dot_x, dot_y, d, d)
+
+        # Nombre del estado
+        painter.setPen(QColor(self._TEXT))
         text = index.data(Qt.DisplayRole) or ""
-        if fg is not None:
-            pen_color = fg.color() if hasattr(fg, "color") else QColor(fg)
-            painter.setPen(pen_color)
-        rect = option.rect.adjusted(8, 0, -8, 0)
-        painter.drawText(rect, Qt.AlignVCenter | Qt.AlignLeft, text)
+        text_rect = r.adjusted(8 + d + 8, 0, -8, 0)
+        painter.drawText(text_rect, Qt.AlignVCenter | Qt.AlignLeft, text)
         painter.restore()
 
     def sizeHint(self, option, index):
         size = super(_StatusItemDelegate, self).sizeHint(option, index)
-        size.setHeight(max(size.height(), 22))
+        size.setHeight(max(size.height(), 24))
         return size
 
 
@@ -633,7 +660,7 @@ class ColoredStatusComboBox(QComboBox):
             " min-height: 22px; }"
             " QComboBox::drop-down { width: 0px; border: none; }"
             " QComboBox::down-arrow { image: none; width: 0px; height: 0px; }"
-            " QComboBox QAbstractItemView { background-color: #2B2B2B; outline: 0;"
+            " QComboBox QAbstractItemView { background-color: #272727; outline: 0;"
             " border: 1px solid #555555; }"
         )
 
@@ -667,8 +694,8 @@ class ColoredStatusComboBox(QComboBox):
         painter.setPen(sep)
         painter.drawLine(line_x, r.top() + 4, line_x, r.bottom() - 4)
 
-        # Flecha (SVG segun contraste del fondo)
-        arrow = self._ARROW_WHITE if text_color == "#ffffff" else self._ARROW_DARK
+        # Flecha (SVG segun contraste del fondo): clara salvo en fondos claros
+        arrow = self._ARROW_DARK if text_color == "#000000" else self._ARROW_WHITE
         if arrow is not None and not arrow.isNull():
             aw = ah = 10
             ax = r.right() - 17
