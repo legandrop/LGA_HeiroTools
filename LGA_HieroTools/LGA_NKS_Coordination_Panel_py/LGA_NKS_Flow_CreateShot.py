@@ -1,11 +1,13 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_CreateShot v1.41 | Lega
+  LGA_NKS_Flow_CreateShot v1.42 | Lega
 
   Script para crear shots en ShotGrid basado en el nombre del clip seleccionado en Hiero.
   SIN usar templates predefinidos - crea tasks manualmente para mayor control.
 
+  v1.42: Dropdowns de estado con ancho fijo 140px. Nuevo reviewer "Charly"
+         (Charly Villafañe, id 2002) entre Juano y Javi, en create y modify.
   v1.41: ColoredStatusComboBox pinta el combo cerrado a mano (paintEvent): fondo del
          color del estado, texto contrastado dibujado UNA sola vez (fix del
          doble-texto en negro), linea vertical separadora y flecha SVG
@@ -516,6 +518,7 @@ REVIEWER_KEY_TO_NAME = {
     "lega_pugliese": "Lega Pugliese",
     "sebas_romano": "Sebas Romano",
     "juano": "Juan Olivares",
+    "charly_villafane": "Charly Villafañe",
     "javi_bravo": "Javi Bravo",
 }
 
@@ -600,6 +603,7 @@ class ColoredStatusComboBox(QComboBox):
         super(ColoredStatusComboBox, self).__init__(parent)
         self._code_to_index = {}
         self._states = list(states)  # (name, code, color)
+        self.setFixedWidth(140)  # ancho fijo para shot y task
 
         # Popup con delegate coloreado
         self.setView(QtWidgets.QListView())
@@ -1181,6 +1185,11 @@ class ShotConfigDialog(QDialog):
         reviewer_juano_cb.setStyleSheet("color: #a7a7a7; padding: 2px;")
         reviewers_checkboxes_layout.addWidget(reviewer_juano_cb)
 
+        reviewer_charly_cb = QCheckBox("Charly")
+        reviewer_charly_cb.setChecked(True)
+        reviewer_charly_cb.setStyleSheet("color: #a7a7a7; padding: 2px;")
+        reviewers_checkboxes_layout.addWidget(reviewer_charly_cb)
+
         reviewer_javi_cb = QCheckBox("Javi")
         reviewer_javi_cb.setChecked(True)
         reviewer_javi_cb.setStyleSheet("color: #a7a7a7; padding: 2px;")
@@ -1192,6 +1201,7 @@ class ShotConfigDialog(QDialog):
         self.task_widgets[task_name]["reviewer_lega"] = reviewer_lega_cb
         self.task_widgets[task_name]["reviewer_sebas"] = reviewer_sebas_cb
         self.task_widgets[task_name]["reviewer_juano"] = reviewer_juano_cb
+        self.task_widgets[task_name]["reviewer_charly"] = reviewer_charly_cb
         self.task_widgets[task_name]["reviewer_javi"] = reviewer_javi_cb
         self.task_widgets[task_name]["reviewers_label"] = reviewers_label
         self.task_widgets[task_name]["reviewers_widget"] = reviewers_widget
@@ -1248,6 +1258,7 @@ class ShotConfigDialog(QDialog):
             "reviewer_lega",
             "reviewer_sebas",
             "reviewer_juano",
+            "reviewer_charly",
             "reviewer_javi",
         ]
         for key in field_keys:
@@ -1316,6 +1327,7 @@ class ShotConfigDialog(QDialog):
             widgets["reviewer_lega"].setChecked(rev_cfg.get("lega_pugliese", False))
             widgets["reviewer_sebas"].setChecked(rev_cfg.get("sebas_romano", False))
             widgets["reviewer_juano"].setChecked(rev_cfg.get("juano", False))
+            widgets["reviewer_charly"].setChecked(rev_cfg.get("charly_villafane", False))
             widgets["reviewer_javi"].setChecked(rev_cfg.get("javi_bravo", False))
 
             # Dias estimados reales (si los hay) - solo informativo
@@ -1365,6 +1377,7 @@ class ShotConfigDialog(QDialog):
                     "lega_pugliese": widgets["reviewer_lega"].isChecked(),
                     "sebas_romano": widgets["reviewer_sebas"].isChecked(),
                     "juano": widgets["reviewer_juano"].isChecked(),
+                    "charly_villafane": widgets["reviewer_charly"].isChecked(),
                     "javi_bravo": widgets["reviewer_javi"].isChecked(),
                 }
             }

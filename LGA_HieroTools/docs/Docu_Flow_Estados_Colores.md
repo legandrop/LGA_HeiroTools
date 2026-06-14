@@ -72,12 +72,13 @@ fondo (luminancia), para que siempre sea legible.
 Los reviewers son **asignaciones de personas** a la task (no un estado). En la UI
 son checkboxes (Lega, Sebas, Juano, Javi) y se mapean a usuarios de Flow:
 
-| Checkbox UI | Clave interna   |
-|-------------|-----------------|
-| Lega        | `lega_pugliese` |
-| Sebas       | `sebas_romano`  |
-| Juano       | `juano`         |
-| Javi        | `javi_bravo`    |
+| Checkbox UI | Clave interna       | Nombre real en Flow |
+|-------------|---------------------|---------------------|
+| Lega        | `lega_pugliese`     | Lega Pugliese       |
+| Sebas       | `sebas_romano`      | Sebas Romano        |
+| Juano       | `juano`             | Juan Olivares       |
+| Charly      | `charly_villafane`  | Charly Villafañe    |
+| Javi        | `javi_bravo`        | Javi Bravo          |
 
 ## Referencias tecnicas
 
