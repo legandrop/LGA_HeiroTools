@@ -230,8 +230,8 @@ class FlowProdPanel(QtWidgets.QWidget):
                 self.create_thumbnail_for_selected_clip,
                 "#3a2a4d",
                 None,
-                "Click: guardar snapshot del viewer en N:/proyecto/Thumbs\n"
-                "Shift+Click: reemplazar el thumbnail del shot en Flow con el snapshot",
+                "Click: reemplazar el thumbnail del shot en Flow con un snapshot\n"
+                "Shift+Click: guardar snapshot del viewer en N:/proyecto/Thumbs",
             ),
             (
                 "Create Shot",
@@ -400,10 +400,10 @@ class FlowProdPanel(QtWidgets.QWidget):
             # Usar CustomButton para el bot?n "Reveal in Flow" para soportar Shift+Click
             if name == "Thumbnail":
                 button = CustomButton(name)
-                button.setCustomClickHandler(handler)
-                button.setShiftClickHandler(
+                button.setCustomClickHandler(
                     self.update_thumbnail_in_flow_for_selected_clip
                 )
+                button.setShiftClickHandler(handler)
             elif name == "Reveal in Flow":
                 button = CustomButton(name)
                 button.setCustomClickHandler(handler)
