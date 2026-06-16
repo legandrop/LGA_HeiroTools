@@ -1,12 +1,15 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_Pull v3.44 | Lega
+  LGA_NKS_Flow_Pull v3.45 | Lega
 
   Compara los estados de las task Comp de los shots del timeline de Hiero
   con los estados registrados en un archivo JSON basado en Flow PT
   Tambien aplica tags con los colores de los estados en xyplorer
 
+  v3.45: La tabla de resultados del Pull navega primero al proyecto/secuencia
+         correctos usando switch_to_sequence_hybrid del Projects Panel. Esto
+         evita abrir o seleccionar clips en timelines homonimos de otros proyectos.
   v3.44: Extracción de project_name desde el segmento de ruta "VFX-NOMBRE"
          en lugar del prefijo del filename. Fallback al método anterior si
          no se encuentra el patrón. Ver docs/Docu_ProjectName_Extraction.md.
@@ -75,6 +78,21 @@ else:
     # Fallback si no se encuentra el módulo
     TRACK_comp_EXR = "_comp_"
     TASK_EXR_TRACKS = [TRACK_comp_EXR]
+
+tools_root = Path(__file__).parent.parent
+if str(tools_root) not in sys.path:
+    sys.path.insert(0, str(tools_root))
+
+projects_panel_path = tools_root / "LGA_NKS_Projects_Panel_py"
+if projects_panel_path.exists() and str(projects_panel_path) not in sys.path:
+    sys.path.insert(0, str(projects_panel_path))
+
+try:
+    from LGA_Projects_Panel_SwitchSequence import (
+        switch_to_sequence_hybrid as switch_to_sequence,
+    )
+except ImportError:
+    switch_to_sequence = None
 
 
 def track_for_task_from_registered_tracks(task_name):
@@ -169,8 +187,55 @@ def _find_clip_for_navigation(nav_data):
     return None, seq
 
 
+def _get_project_from_sequence(seq):
+    try:
+        return seq.project()
+    except Exception:
+        return None
+
+
+def _ensure_pull_result_sequence_active(nav_data):
+    seq = nav_data.get("sequence")
+    if not seq:
+        return True
+
+    if switch_to_sequence is None:
+        debug_print("Projects Panel switch no disponible; se cancela la navegacion.")
+        return False
+
+    target_project = nav_data.get("project") or _get_project_from_sequence(seq)
+    try:
+        target_project_name = target_project.name() if target_project else None
+    except Exception:
+        target_project_name = None
+
+    debug_print(
+        f"Navegando primero a secuencia='{seq.name()}' "
+        f"project='{target_project_name}' via Projects Panel"
+    )
+    try:
+        switched = bool(switch_to_sequence(seq.name(), target_project=target_project))
+        if switched:
+            try:
+                QtCore.QCoreApplication.processEvents()
+            except Exception:
+                pass
+        return switched
+    except Exception as e:
+        debug_print(f"Error ejecutando switch del Projects Panel: {e}")
+        return False
+
+
 def navigate_to_pull_result(nav_data):
     """Abre/enfoca el timeline y ubica el playhead en el clip de la fila."""
+    if not _ensure_pull_result_sequence_active(nav_data):
+        QMessageBox.warning(
+            None,
+            "Timeline switch failed",
+            "No se pudo cambiar al proyecto/secuencia correspondiente.",
+        )
+        return False
+
     target_clip, seq = _find_clip_for_navigation(nav_data)
     if not target_clip or not seq:
         QMessageBox.warning(
@@ -182,10 +247,6 @@ def navigate_to_pull_result(nav_data):
 
     try:
         timeline_editor = hiero.ui.getTimelineEditor(seq)
-        if not timeline_editor:
-            debug_print(f"Abriendo timeline para secuencia: {seq.name()}")
-            timeline_editor = hiero.ui.openInTimeline(seq)
-
         if not timeline_editor:
             timeline_editor = hiero.ui.getTimelineEditor(seq)
 
@@ -802,10 +863,12 @@ class HieroOperations:
                 timeline_out = clip.timelineOut()
         except Exception as e:
             debug_print(f"No se pudieron obtener metadatos de navegacion: {e}")
+        project = _get_project_from_sequence(sequence) if sequence else None
         gui_table.add_navigation_data(
             {
                 "clip": clip,
                 "sequence": sequence,
+                "project": project,
                 "file_path": file_path,
                 "shot_code": shot_code,
                 "task_name": task_name,
