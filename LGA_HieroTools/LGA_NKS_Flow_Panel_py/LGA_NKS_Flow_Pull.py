@@ -1,7 +1,7 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_Pull v3.43 | Lega
+  LGA_NKS_Flow_Pull v3.44 | Lega
 
   Compara los estados de las task Comp de los shots del timeline de Hiero
   con los estados registrados en un archivo JSON basado en Flow PT
@@ -75,6 +75,152 @@ else:
     # Fallback si no se encuentra el módulo
     TRACK_comp_EXR = "_comp_"
     TASK_EXR_TRACKS = [TRACK_comp_EXR]
+
+
+def track_for_task_from_registered_tracks(task_name):
+    """Devuelve el track EXR registrado para una task sin hardcodear nombres."""
+    if not task_name:
+        return None
+
+    normalized_task = normalize_task_name(str(task_name).strip().strip("_").lower())
+    for track_name in TASK_EXR_TRACKS:
+        track_task = str(track_name).strip("_").lower()
+        if normalize_task_name(track_task) == normalized_task:
+            return track_name
+    return None
+
+
+def _safe_clip_file_path(clip):
+    try:
+        fileinfos = clip.source().mediaSource().fileinfos()
+        if fileinfos:
+            return fileinfos[0].filename()
+    except Exception:
+        pass
+    return None
+
+
+def _clip_matches_navigation_data(clip, nav_data):
+    try:
+        file_path = _safe_clip_file_path(clip)
+        if file_path and nav_data.get("file_path"):
+            if os.path.normcase(os.path.normpath(file_path)) == os.path.normcase(
+                os.path.normpath(nav_data["file_path"])
+            ):
+                return True
+
+        clip_base = ""
+        if file_path:
+            clip_base = clean_base_name(os.path.basename(file_path))
+        elif hasattr(clip, "name"):
+            clip_base = clean_base_name(clip.name())
+
+        shot_code = nav_data.get("shot_code")
+        task_name = nav_data.get("task_name")
+        if shot_code and task_name:
+            clip_shot = extract_shot_code(clip_base)
+            clip_task = extract_task_name(clip_base)
+            if clip_task:
+                clip_task = normalize_task_name(clip_task)
+            if clip_shot == shot_code and clip_task == normalize_task_name(task_name):
+                return True
+
+        if (
+            nav_data.get("timeline_in") is not None
+            and nav_data.get("timeline_out") is not None
+        ):
+            return (
+                clip.timelineIn() == nav_data["timeline_in"]
+                and clip.timelineOut() == nav_data["timeline_out"]
+            )
+    except Exception as e:
+        debug_print(f"Error comparando clip para navegacion: {e}")
+    return False
+
+
+def _find_clip_for_navigation(nav_data):
+    seq = nav_data.get("sequence") or hiero.ui.activeSequence()
+    if not seq:
+        debug_print("No hay secuencia disponible para navegar desde la tabla.")
+        return None, None
+
+    target_track_name = nav_data.get("track_name") or track_for_task_from_registered_tracks(
+        nav_data.get("task_name")
+    )
+    tracks = []
+    for track in seq.videoTracks():
+        if target_track_name:
+            if track.name() == target_track_name:
+                tracks.append(track)
+        elif track.name() in TASK_EXR_TRACKS:
+            tracks.append(track)
+
+    for track in tracks:
+        for item in track.items():
+            if isinstance(item, hiero.core.EffectTrackItem):
+                continue
+            if _clip_matches_navigation_data(item, nav_data):
+                return item, seq
+
+    clip = nav_data.get("clip")
+    if clip:
+        return clip, seq
+
+    return None, seq
+
+
+def navigate_to_pull_result(nav_data):
+    """Abre/enfoca el timeline y ubica el playhead en el clip de la fila."""
+    target_clip, seq = _find_clip_for_navigation(nav_data)
+    if not target_clip or not seq:
+        QMessageBox.warning(
+            None,
+            "Clip not found",
+            "No se encontro el clip correspondiente en el timeline.",
+        )
+        return False
+
+    try:
+        timeline_editor = hiero.ui.getTimelineEditor(seq)
+        if not timeline_editor:
+            debug_print(f"Abriendo timeline para secuencia: {seq.name()}")
+            timeline_editor = hiero.ui.openInTimeline(seq)
+
+        if not timeline_editor:
+            timeline_editor = hiero.ui.getTimelineEditor(seq)
+
+        if timeline_editor:
+            timeline_editor.setSelection([target_clip])
+            window = timeline_editor.window()
+            if window:
+                window.activateWindow()
+                window.setFocus()
+
+        in_point = target_clip.timelineIn()
+        out_point = target_clip.timelineOut()
+        try:
+            seq.setInTime(in_point)
+            seq.setOutTime(out_point)
+        except Exception as e:
+            debug_print(f"No se pudieron establecer In/Out: {e}")
+
+        viewer = hiero.ui.currentViewer()
+        if viewer:
+            viewer.setTime(in_point)
+
+        QtCore.QTimer.singleShot(
+            0, lambda: hiero.ui.findMenuAction("Zoom to Fit").trigger()
+        )
+        debug_print(
+            f"Navegacion desde tabla: clip='{target_clip.name()}' "
+            f"track='{target_clip.parentTrack().name() if target_clip.parentTrack() else ''}' "
+            f"range=[{in_point}-{out_point}]"
+        )
+        return True
+    except Exception as e:
+        debug_print(f"Error navegando al resultado del Pull: {e}")
+        QMessageBox.warning(None, "Navigation error", f"No se pudo navegar al clip:\n{e}")
+        return False
 from LGA_NKS_Shared.LGA_NKS_TaskMismatchDialog import (
     collect_task_mismatches,
     show_task_mismatch_warning,
@@ -362,6 +508,7 @@ class GUI_Table(QWidget):
         self.row_background_colors = (
             []
         )  # Lista para almacenar listas de colores de fondo por fila
+        self.row_navigation_data = []
         self.hiero_ops = None
         self.initUI()
         self.last_selected_index = (
@@ -374,6 +521,11 @@ class GUI_Table(QWidget):
 
     def update_table(self):
         if self.hiero_ops:
+            self.table.setRowCount(0)
+            self.row_background_colors = []
+            self.row_navigation_data = []
+            delegate = ColorMixDelegate(self.table, self.row_background_colors)
+            self.table.setItemDelegate(delegate)
             changes_exist = self.hiero_ops.process_selected_clips(
                 self.table, self.sg_manager
             )
@@ -390,6 +542,16 @@ class GUI_Table(QWidget):
     def add_color_to_background_list(self, row_colors):
         """Agrega una lista de colores de fondo para una nueva fila."""
         self.row_background_colors.append(row_colors)
+
+    def add_navigation_data(self, nav_data):
+        """Guarda los datos necesarios para navegar al clip de una fila."""
+        self.row_navigation_data.append(nav_data or {})
+
+    def navigate_to_table_row(self, row, column=None):
+        if row < 0 or row >= len(self.row_navigation_data):
+            debug_print(f"Fila sin datos de navegacion: {row}")
+            return
+        navigate_to_pull_result(self.row_navigation_data[row])
 
     def initUI(self):
         self.setWindowTitle("Read Nodes EXR Info")
@@ -411,6 +573,7 @@ class GUI_Table(QWidget):
         self.table.setSelectionMode(QTableWidget.SingleSelection)
         self.table.verticalHeader().setVisible(False)
         self.table.setFocusPolicy(Qt.NoFocus)
+        self.table.cellClicked.connect(self.navigate_to_table_row)
         self.table.setStyleSheet(
             """
             QTableView::item:selected {
@@ -560,6 +723,9 @@ class HieroOperations:
         new_color,
         sg_version_number,
         sg_status,
+        clip=None,
+        sequence=None,
+        file_path=None,
     ):
         row_count = table.rowCount()
         table.insertRow(row_count)
@@ -626,6 +792,29 @@ class HieroOperations:
         gui_table.add_color_to_background_list(
             row_colors
         )  # Anadir la lista de colores al final del metodo
+        track_name = None
+        timeline_in = None
+        timeline_out = None
+        try:
+            if clip:
+                track_name = clip.parentTrack().name() if clip.parentTrack() else None
+                timeline_in = clip.timelineIn()
+                timeline_out = clip.timelineOut()
+        except Exception as e:
+            debug_print(f"No se pudieron obtener metadatos de navegacion: {e}")
+        gui_table.add_navigation_data(
+            {
+                "clip": clip,
+                "sequence": sequence,
+                "file_path": file_path,
+                "shot_code": shot_code,
+                "task_name": task_name,
+                "track_name": track_name
+                or track_for_task_from_registered_tracks(task_name),
+                "timeline_in": timeline_in,
+                "timeline_out": timeline_out,
+            }
+        )
         table.resizeColumnsToContents()
 
     def luminance(self, color):
@@ -977,6 +1166,9 @@ class HieroOperations:
                                     new_color_hex,
                                     sg_version_str,
                                     sg_status,
+                                    clip=clip,
+                                    sequence=seq,
+                                    file_path=file_path,
                                 )
                                 changes_made = True
                                 # Recordar si el clip estaba offline antes del cambio de versión
