@@ -44,6 +44,7 @@ sys.path.insert(0, flow_shared_dir)
 
 from boto3 import Session
 from SecureConfig_Reader import get_s3_credentials
+from LGA_NKS_Shared.LGA_NKS_PipeSyncPaths import get_pipesync_db_path
 from wasabi_policy_utils import (
     get_existing_policy_document,
     manage_policy_versions,
@@ -59,11 +60,7 @@ def debug_print(*message):
 
 
 def get_db_path():
-    if sys.platform.startswith("win"):
-        return r"C:/Portable/LGA/PipeSync/cache/pipesync.db"
-    if sys.platform == "darwin":
-        return os.path.expanduser("~/Library/Caches/LGA/PipeSync/pipesync.db")
-    return os.path.expanduser("~/.cache/LGA/PipeSync/pipesync.db")
+    return get_pipesync_db_path("pipesync.db")
 
 
 def get_completed_shots_map():

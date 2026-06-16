@@ -25,6 +25,7 @@ import re
 import sys
 from pathlib import Path
 from LGA_NKS_Projects_Panel_py.LGA_NKS_ProjectsPanel_Logging import debug_print
+from LGA_NKS_Shared.LGA_NKS_ContextProfile import is_project_context
 
 # Importar funciones de manejo de versiones desde código existente
 lga_nks_path = None
@@ -132,11 +133,14 @@ def _list_hrox_files(folder_path):
         return []
 
 
-def get_base_scan_path(default_path="T:\\"):
+def get_base_scan_path(default_path=None):
     """
     Obtiene la ruta base para escaneo desde PipeSync (AltTPath) si existe y es valida.
     Si no hay configuracion o la ruta no existe, usa el default.
     """
+    if default_path is None:
+        default_path = "N:\\" if is_project_context() else "T:\\"
+
     try:
         from LGA_NKS_Shared.SecureConfig_Reader import read_secure_config
     except Exception as e:

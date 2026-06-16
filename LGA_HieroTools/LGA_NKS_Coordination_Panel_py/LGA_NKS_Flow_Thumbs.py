@@ -3,7 +3,7 @@ ____________________________________________________________________
 
   LGA_NKS_Flow_Thumbs v1.02 | Lega
 
-  Crea un snapshot del viewer actual con zoom to fill y lo guarda en N:/(proyecto)/Thumbs.
+  Crea un snapshot del viewer actual con zoom to fill y lo guarda en <drive>/<proyecto>/Thumbs.
   Organiza por nombre de proyecto extraído del archivo.
   Maneja el track BurnIn temporalmente para la captura y lo restaura al final.
   Actualizado para ser compatible con ambos sistemas de nomenclatura:
@@ -36,6 +36,7 @@ from LGA_NKS_Flow_NamingUtils import (
     extract_project_name_from_path,
     clean_base_name,
 )
+from SecureConfig_Reader import read_secure_config
 
 DEBUG = False
 
@@ -43,6 +44,26 @@ DEBUG = False
 def debug_print(*message):
     if DEBUG:
         print(*message)
+
+
+def get_work_root_drive():
+    """
+    Obtiene el root de trabajo desde App.AltTPath en config.secure.
+    Fallback: T:
+    """
+    try:
+        config = read_secure_config() or {}
+        app_cfg = config.get("App", {}) if isinstance(config, dict) else {}
+        raw_path = str(app_cfg.get("AltTPath", "")).strip()
+        if raw_path:
+            normalized = raw_path.replace("\\", "/").rstrip("/")
+            if re.match(r"^[A-Za-z]:$", normalized):
+                return normalized
+            if re.match(r"^[A-Za-z]:/.*", normalized):
+                return normalized
+    except Exception as exc:
+        debug_print(f"No se pudo leer AltTPath desde config.secure: {exc}")
+    return "T:"
 
 
 def get_project_name_from_clip():
@@ -364,8 +385,12 @@ def main():
         print("❌ No se pudo obtener el nombre del proyecto")
         return
 
-    # Crear la ruta semi-hardcodeada
-    thumbs_dir = f"N:/{project_name}/Thumbs"
+    # Resolver drive de trabajo por perfil (studio/project) desde config.secure.
+    work_root = get_work_root_drive()
+    if re.match(r"^[A-Za-z]:$", work_root):
+        thumbs_dir = f"{work_root}/{project_name}/Thumbs"
+    else:
+        thumbs_dir = os.path.join(work_root, project_name, "Thumbs")
     debug_print(f"📁 Carpeta de destino: {thumbs_dir}")
 
     # Crear directorio si no existe

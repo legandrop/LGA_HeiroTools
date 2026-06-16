@@ -16,11 +16,12 @@ Usado por runtime activo:
 """
 
 import sys
-import os
 import json
 import base64
 from pathlib import Path
 import hashlib
+from LGA_NKS_ContextProfile import get_key_path as get_context_key_path
+from LGA_NKS_ContextProfile import get_secure_config_path
 
 
 # Variable global para activar o desactivar los prints de debug
@@ -35,48 +36,12 @@ def debug_print(message):
 
 def get_config_path():
     """Obtiene la ruta del archivo de configuración segura."""
-    # En Windows: %APPDATA%\LGA\PipeSync\config.secure
-    if sys.platform == "win32":
-        app_data = os.getenv("APPDATA")  # APPDATA ya apunta a Roaming
-        if not app_data:
-            raise RuntimeError("Variable de entorno APPDATA no encontrada")
-        return Path(app_data) / "LGA" / "PipeSync" / "config.secure"
-    # En macOS: ~/Library/Application Support/LGA/PipeSync/config.secure
-    elif sys.platform == "darwin":
-        return (
-            Path.home()
-            / "Library"
-            / "Application Support"
-            / "LGA"
-            / "PipeSync"
-            / "config.secure"
-        )
-    # En Linux: ~/.config/LGA/PipeSync/config.secure
-    else:
-        return Path.home() / ".config" / "LGA" / "PipeSync" / "config.secure"
+    return get_secure_config_path()
 
 
 def get_key_path():
     """Obtiene la ruta del archivo de clave."""
-    # En Windows: %APPDATA%\LGA\PipeSync\.key
-    if sys.platform == "win32":
-        app_data = os.getenv("APPDATA")  # APPDATA ya apunta a Roaming
-        if not app_data:
-            raise RuntimeError("Variable de entorno APPDATA no encontrada")
-        return Path(app_data) / "LGA" / "PipeSync" / ".key"
-    # En macOS: ~/Library/Application Support/LGA/PipeSync/.key
-    elif sys.platform == "darwin":
-        return (
-            Path.home()
-            / "Library"
-            / "Application Support"
-            / "LGA"
-            / "PipeSync"
-            / ".key"
-        )
-    # En Linux: ~/.config/LGA/PipeSync/.key
-    else:
-        return Path.home() / ".config" / "LGA" / "PipeSync" / ".key"
+    return get_context_key_path()
 
 
 def get_system_identifier():

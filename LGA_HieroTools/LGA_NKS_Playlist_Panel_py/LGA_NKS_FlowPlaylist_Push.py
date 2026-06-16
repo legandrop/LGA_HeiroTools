@@ -96,6 +96,7 @@ else:
 
 # Importar compatibilidad Qt para Hiero Panels
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt, QShortcut
+from LGA_NKS_Shared.LGA_NKS_PipeSyncPaths import get_pipesync_db_path
 
 # Reasignar clases para compatibilidad con código existente
 QRunnable = QtCore.QRunnable
@@ -518,14 +519,7 @@ class DBManager:
     """Clase para manejar operaciones con la base de datos SQLite local."""
 
     def __init__(self):
-        # Selecciona la ruta de la base de datos segun el sistema operativo
-        if platform.system() == "Windows":
-            self.db_path = r"C:/Portable/LGA/PipeSync/cache/pipesync.db"
-        elif platform.system() == "Darwin":
-            self.db_path = "/Users/leg4/Library/Caches/LGA/PipeSync/pipesync.db"
-        else:
-            debug_print(f"Sistema operativo no soportado: {platform.system()}")
-            self.db_path = None
+        self.db_path = get_pipesync_db_path("pipesync.db")
 
         if self.db_path and os.path.exists(self.db_path):
             try:

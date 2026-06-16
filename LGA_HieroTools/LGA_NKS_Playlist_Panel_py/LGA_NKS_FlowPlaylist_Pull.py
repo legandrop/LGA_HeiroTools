@@ -64,6 +64,7 @@ else:
     TRACK_comp_EXR = "_comp_"
     TASK_EXR_TRACKS = [TRACK_comp_EXR]
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
+from LGA_NKS_Shared.LGA_NKS_PipeSyncPaths import get_pipesync_db_path
 QApplication = QtWidgets.QApplication
 QWidget = QtWidgets.QWidget
 QVBoxLayout = QtWidgets.QVBoxLayout
@@ -1320,14 +1321,7 @@ def FPT_Hiero(force_all_clips=False):
     # Reiniciar el tiempo de inicio para cada ejecución del pull
     script_start_time = time.time()
     debug_print("Iniciando ejecución del pull...")
-    # Selecciona la ruta de la base de datos segun el sistema operativo
-    if platform.system() == "Windows":
-        db_path = r"C:/Portable/LGA/PipeSync/cache/pipesync.db"
-    elif platform.system() == "Darwin":
-        db_path = "/Users/leg4/Library/Caches/LGA/PipeSync/pipesync.db"
-    else:
-        debug_print(f"Sistema operativo no soportado: {platform.system()}")
-        return
+    db_path = get_pipesync_db_path("pipesync.db")
     if not os.path.exists(db_path):
         debug_print(f"DB file not found at path: {db_path}")
         return

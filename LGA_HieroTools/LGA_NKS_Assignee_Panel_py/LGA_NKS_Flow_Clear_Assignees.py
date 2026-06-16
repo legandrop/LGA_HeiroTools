@@ -67,6 +67,7 @@ from LGA_NKS_Shared.LGA_NKS_Flow_Task_Config import (
     get_task_color,
     sort_tasks_by_pipeline,
 )
+from LGA_NKS_Shared.LGA_NKS_PipeSyncPaths import get_pipesync_db_path
 
 # Variable global para debug
 DEBUG = False
@@ -78,14 +79,7 @@ class DBManager:
     """Clase simplificada para manejar operaciones con la base de datos SQLite local."""
 
     def __init__(self):
-        # Selecciona la ruta de la base de datos según el sistema operativo
-        if platform.system() == "Windows":
-            self.db_path = r"C:/Portable/LGA/PipeSync/cache/pipesync.db"
-        elif platform.system() == "Darwin":
-            self.db_path = "/Users/leg4/Library/Caches/LGA/PipeSync/pipesync.db"
-        else:
-            debug_print(f"Sistema operativo no soportado: {platform.system()}")
-            self.db_path = None
+        self.db_path = get_pipesync_db_path("pipesync.db")
 
         if self.db_path and os.path.exists(self.db_path):
             try:

@@ -57,6 +57,7 @@ from logging.handlers import QueueHandler, QueueListener
 from pathlib import Path
 # Importar compatibilidad Qt para Hiero Panels
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, QShortcut, QApplication
+from LGA_NKS_Shared.LGA_NKS_PipeSyncPaths import get_pipesync_db_path
 
 # Usar directamente las clases del adapter (ya manejan compatibilidad PySide2/6)
 QCoreApplication = QApplication  # Para compatibilidad
@@ -1539,14 +1540,7 @@ def main():
         run_playlist_shot_info()
         return
 
-    # Selecciona la ruta de la base de datos segun el sistema operativo
-    if platform.system() == "Windows":
-        db_path = r"C:/Portable/LGA/PipeSync/cache/pipesync.db"
-    elif platform.system() == "Darwin":  # macOS
-        db_path = "/Users/leg4/Library/Caches/LGA/PipeSync/pipesync.db"
-    else:
-        debug_print(f"Sistema operativo no soportado: {platform.system()}")
-        return
+    db_path = get_pipesync_db_path("pipesync.db")
 
     if not os.path.exists(db_path):
         debug_print(f"DB file not found at path: {db_path}")

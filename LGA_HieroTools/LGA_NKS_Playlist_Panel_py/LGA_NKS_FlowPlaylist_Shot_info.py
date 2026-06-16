@@ -38,6 +38,7 @@ from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import (
     QShortcut,
     QApplication,
 )
+from LGA_NKS_Shared.LGA_NKS_PipeSyncPaths import get_pipesync_db_path
 
 QCoreApplication = QApplication
 Qt = QtCore.Qt
@@ -1026,15 +1027,8 @@ class GUIWindow(QWidget):
 def main():
     global app, window
 
-    if platform.system() == "Windows":
-        main_db_path = r"C:/Portable/LGA/PipeSync/cache/pipesync.db"
-        playlist_db_path = r"C:/Portable/LGA/PipeSync/cache/pipesync_playlists.db"
-    elif platform.system() == "Darwin":
-        main_db_path = "/Users/leg4/Library/Caches/LGA/PipeSync/pipesync.db"
-        playlist_db_path = "/Users/leg4/Library/Caches/LGA/PipeSync/pipesync_playlists.db"
-    else:
-        debug_print(f"Sistema operativo no soportado: {platform.system()}", level="error")
-        return
+    main_db_path = get_pipesync_db_path("pipesync.db")
+    playlist_db_path = get_pipesync_db_path("pipesync_playlists.db")
 
     if not os.path.exists(main_db_path):
         debug_print(f"Main DB file not found at path: {main_db_path}", level="error")

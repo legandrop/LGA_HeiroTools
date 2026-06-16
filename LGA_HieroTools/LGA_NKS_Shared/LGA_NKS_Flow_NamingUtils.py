@@ -92,6 +92,19 @@ def _is_series_format(parts):
     return len(parts) >= 4 and all(_is_numeric_block(p) for p in parts[1:4])
 
 
+def _is_vendor_format(parts):
+    """
+    Detecta formato con vendor:
+    PROYECTO_VENDOR_SEQ_SHOT, donde VENDOR es solo letras.
+    """
+    return (
+        len(parts) >= 4
+        and parts[1].isalpha()
+        and _is_numeric_block(parts[2])
+        and _is_numeric_block(parts[3])
+    )
+
+
 def _analyze_shotname(base_name):
     """
     Analiza el shotname y retorna:
@@ -105,7 +118,10 @@ def _analyze_shotname(base_name):
     if not core_parts:
         return [], False, False, 0
 
-    is_series = _is_series_format(core_parts)
+    # Base de 4 bloques para:
+    # - Series (PROYECTO_EP_SEQ_SHOT numérico)
+    # - Vendor (PROYECTO_VENDOR_SEQ_SHOT)
+    is_series = _is_series_format(core_parts) or _is_vendor_format(core_parts)
     base_count = 4 if is_series else 3
     has_description = len(core_parts) >= (base_count + 2)
 

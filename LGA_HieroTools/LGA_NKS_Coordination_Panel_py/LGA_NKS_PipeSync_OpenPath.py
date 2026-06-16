@@ -148,7 +148,9 @@ def get_shot_path(file_path):
     debug_print(f"Partes de la ruta: {path_parts}")
 
     # 1) Detección por patrón de nombre de shot (ej: BRDA_050_010)
-    shot_pattern = re.compile(r"^[A-Za-z0-9]+_[0-9]{3}_[0-9]{3}$")
+    shot_pattern = re.compile(
+        r"^[A-Za-z0-9]+(?:_[A-Za-z]+|_[0-9]{3,5}[A-Za-z]?)?_[0-9]{3,5}[A-Za-z]?_[0-9]{3,4}$"
+    )
     for i in range(len(path_parts) - 1, -1, -1):
         if shot_pattern.match(path_parts[i]):
             shot_path = "/".join(path_parts[: i + 1])
