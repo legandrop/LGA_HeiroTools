@@ -1,13 +1,15 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Flow_ShowInFlow v1.30 | Lega
+  LGA_NKS_Flow_ShowInFlow v1.31 | Lega
 
   Abre la URL de la task Comp del shot, tomando información del clip en TRACK_comp_EXR bajo el playhead.
   Si no hay clip en playhead, usa el clip seleccionado como fallback.
   Verifica si existe más de un shot con el mismo nombre y te pide que selecciones uno.
   Usa el módulo utilitario LGA_NKS_GetClip para obtener clips.
 
+  v1.31: Limita máximo 2 threads simultáneos para evitar cuelgues de ShotGrid/navegador.
+         Ahora funciona con clips offline (sin media presente).
   v1.30: Eliminado navegador hardcodeado (Chrome). Usa el navegador por defecto del sistema.
   v1.29: Project name extraído desde el segmento VFX-NOMBRE del path del archivo
          (con fallback al primer bloque del filename si el path no contiene VFX-).
@@ -45,6 +47,9 @@ QObject = QtCore.QObject
 
 # Variable global para controlar el debug
 DEBUG = False  # Poner en False para desactivar los mensajes de debug
+
+# Limitar threads simultáneos para evitar cuelgues de ShotGrid/navegador
+MAX_CONCURRENT_THREADS = 2
 
 
 # Funcion debug_print
@@ -489,30 +494,31 @@ def show_in_flow_from_selected_clip():
     
     # Procesar todos los clips en paralelo sin bloquear el hilo principal
     for clip in clips:
-        # Verificar que el clip tenga media presente
-        if not clip.source().mediaSource().isMediaPresent():
-            debug_print(f"El clip {clip.name()} no tiene media presente. Saltando...")
+        try:
+            fileinfos = clip.source().mediaSource().fileinfos()
+            if not fileinfos:
+                debug_print(f"No se encontraron fileinfos para el clip {clip.name()}. Saltando...")
+                continue
+
+            # Extraer información del clip en el hilo principal
+            file_path = fileinfos[0].filename()
+            exr_name = os.path.basename(file_path)
+            clip_info = (file_path, exr_name)
+
+            # Crear worker para procesar este clip
+            worker = ShowInFlowWorker(clip_info)
+
+            # Conectar señales para manejar resultados cuando lleguen
+            worker.signals.result_ready.connect(handle_result)
+            worker.signals.error.connect(handle_error)
+
+            # Ejecutar en hilo separado sin bloquear (con límite de threads)
+            thread_pool = QThreadPool.globalInstance()
+            thread_pool.setMaxThreadCount(MAX_CONCURRENT_THREADS)
+            thread_pool.start(worker)
+        except Exception as e:
+            debug_print(f"Error procesando clip {clip.name()}: {e}")
             continue
-
-        fileinfos = clip.source().mediaSource().fileinfos()
-        if not fileinfos:
-            debug_print(f"No se encontraron fileinfos para el clip {clip.name()}. Saltando...")
-            continue
-
-        # Extraer información del clip en el hilo principal
-        file_path = fileinfos[0].filename()
-        exr_name = os.path.basename(file_path)
-        clip_info = (file_path, exr_name)
-
-        # Crear worker para procesar este clip
-        worker = ShowInFlowWorker(clip_info)
-        
-        # Conectar señales para manejar resultados cuando lleguen
-        worker.signals.result_ready.connect(handle_result)
-        worker.signals.error.connect(handle_error)
-        
-        # Ejecutar en hilo separado sin bloquear
-        QThreadPool.globalInstance().start(worker)
 
 
 def show_shot_in_flow_from_selected_clip():
@@ -577,30 +583,31 @@ def show_shot_in_flow_from_selected_clip():
 
     # Procesar todos los clips en paralelo sin bloquear el hilo principal
     for clip in clips:
-        # Verificar que el clip tenga media presente
-        if not clip.source().mediaSource().isMediaPresent():
-            debug_print(f"El clip {clip.name()} no tiene media presente. Saltando...")
+        try:
+            fileinfos = clip.source().mediaSource().fileinfos()
+            if not fileinfos:
+                debug_print(f"No se encontraron fileinfos para el clip {clip.name()}. Saltando...")
+                continue
+
+            # Extraer información del clip en el hilo principal
+            file_path = fileinfos[0].filename()
+            exr_name = os.path.basename(file_path)
+            clip_info = (file_path, exr_name)
+
+            # Crear worker para procesar este clip
+            worker = ShowShotInFlowWorker(clip_info)
+
+            # Conectar señales para manejar resultados cuando lleguen
+            worker.signals.result_ready.connect(handle_result)
+            worker.signals.error.connect(handle_error)
+
+            # Ejecutar en hilo separado sin bloquear (con límite de threads)
+            thread_pool = QThreadPool.globalInstance()
+            thread_pool.setMaxThreadCount(MAX_CONCURRENT_THREADS)
+            thread_pool.start(worker)
+        except Exception as e:
+            debug_print(f"Error procesando clip {clip.name()}: {e}")
             continue
-
-        fileinfos = clip.source().mediaSource().fileinfos()
-        if not fileinfos:
-            debug_print(f"No se encontraron fileinfos para el clip {clip.name()}. Saltando...")
-            continue
-
-        # Extraer información del clip en el hilo principal
-        file_path = fileinfos[0].filename()
-        exr_name = os.path.basename(file_path)
-        clip_info = (file_path, exr_name)
-
-        # Crear worker para procesar este clip
-        worker = ShowShotInFlowWorker(clip_info)
-
-        # Conectar señales para manejar resultados cuando lleguen
-        worker.signals.result_ready.connect(handle_result)
-        worker.signals.error.connect(handle_error)
-
-        # Ejecutar en hilo separado sin bloquear
-        QThreadPool.globalInstance().start(worker)
 
 
 class ShowShotInFlowWorkerSignals(QObject):
