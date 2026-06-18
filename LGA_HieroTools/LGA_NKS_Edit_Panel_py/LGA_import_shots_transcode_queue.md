@@ -212,15 +212,17 @@ SHOT_C / aPlate -> Queued #2
 ## Estado global visible (pendiente de implementacion y test)
 
 Todas las paginas importantes de todas las ventanas muestran en la fila inferior de botones,
-alineados a la izquierda, el boton `Open Queue` seguido del texto de estado global.
+alineados a la izquierda, el boton `Open Queue`, el checkbox persistente
+`Shot Rename and Transcode tabs` y el texto de estado global.
+`Open Queue` solo se muestra cuando ese checkbox esta activado.
 Los botones de accion principales quedan a la derecha.
 
 Ubicacion implementada:
 
-- Pagina media: `[Open Queue] [estado] ... [Rename] [Transcode Plates] [Import]`
-- Pagina rename: `[Open Queue] [estado] ... [← Go Back] [Rename]`
-- Pagina convert: `[Open Queue] [estado] ... [← Go Back] [Start Transcode]`
-- Pagina import: `[Open Queue] [estado] ... [← Go Back] [Import Now] [Import and Create V000]`
+- Pagina media: `[Open Queue] [Shot Rename and Transcode tabs] [estado] ... [Rename] [Transcode Plates] [Import]`
+- Pagina rename: `[Open Queue] [Shot Rename and Transcode tabs] [estado] ... [← Go Back] [Rename]`
+- Pagina convert: `[Open Queue] [Shot Rename and Transcode tabs] [estado] ... [← Go Back] [Start Transcode]`
+- Pagina import: `[Open Queue] [Shot Rename and Transcode tabs] [estado] ... [← Go Back] [Import Now] [Import and Create V000]`
 
 Textos implementados:
 

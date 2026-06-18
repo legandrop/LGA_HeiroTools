@@ -29,7 +29,7 @@ Conversion de EXR sequences. Muestra **todos** los plates de `_input/` (todas la
 ├───────────────────────────────────────────────────────┤
 │  LOG (3 lineas, expandible ▲/▼)                       │
 ├───────────────────────────────────────────────────────┤
-│  [Open Queue] [estado global]  [Start Transcode]       │
+│  [Open Queue] [Shot Rename and Transcode tabs] [estado global]  [Start Transcode] │
 └───────────────────────────────────────────────────────┘
 ```
 

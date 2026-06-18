@@ -1,10 +1,13 @@
 """
 ____________________________________________________________________
 
-  LGA_import_shots_settings v1.00 | Lega
+  LGA_import_shots_settings v1.01 | Lega
 
   Persistencia de configuracion y presets para LGA_import_shots.
   INI: %APPDATA%\\LGA\\HieroTools\\ImportShots.ini
+
+  v1.01: Agrega settings persistentes de UI para mostrar/ocultar tabs
+         Rename/Transcode y el boton Open Queue.
 
 ____________________________________________________________________
 """
@@ -23,6 +26,7 @@ CONFIG_FILE_NAME   = "ImportShots.ini"
 SEC_CODEC = "Codec"
 SEC_RES   = "Resolution"
 SEC_ORIG  = "Originals"
+SEC_UI    = "UI"
 
 DEFAULTS_CODEC = {
     "dwaa":       "true",
@@ -42,6 +46,9 @@ DEFAULTS_RES = {
 DEFAULTS_ORIG = {
     "move":   "false",
     "delete": "false",
+}
+DEFAULTS_UI = {
+    "advanced_tabs": "false",
 }
 
 # Presets built-in (primera vez que se abre la herramienta).
@@ -94,7 +101,7 @@ def _write_cfg(cfg, p):
 # ── Settings generales ────────────────────────────────────────────────────────
 
 def load_all_settings():
-    """Retorna dict con claves 'codec', 'res', 'originals'."""
+    """Retorna dict con claves 'codec', 'res', 'originals', 'ui'."""
     cfg = _read_cfg(get_settings_path())
 
     def _sec(name, defaults):
@@ -108,6 +115,7 @@ def load_all_settings():
         "codec":     _sec(SEC_CODEC, DEFAULTS_CODEC),
         "res":       _sec(SEC_RES,   DEFAULTS_RES),
         "originals": _sec(SEC_ORIG,  DEFAULTS_ORIG),
+        "ui":        _sec(SEC_UI,    DEFAULTS_UI),
     }
 
 
@@ -116,7 +124,12 @@ def save_all_settings(s):
     p = get_settings_path()
     cfg = _read_cfg(p)
 
-    mapping = {"codec": SEC_CODEC, "res": SEC_RES, "originals": SEC_ORIG}
+    mapping = {
+        "codec": SEC_CODEC,
+        "res": SEC_RES,
+        "originals": SEC_ORIG,
+        "ui": SEC_UI,
+    }
     for key, sec_name in mapping.items():
         if key not in s:
             continue

@@ -16,8 +16,9 @@ y los coloca automaticamente en el timeline en la posicion alfabeticamente corre
 ## Descripcion
 
 Abre un file browser para elegir la carpeta raiz del shot. Luego presenta
-una ventana con tres tabs fijos: **Rename**, **Transcode Plates** e **Import**.
-La ventana siempre abre en el tab Rename.
+una ventana que siempre abre en el tab **Import**. Por defecto solo se muestra
+ese tab; desde el checkbox persistente **Shot Rename and Transcode tabs** se
+habilitan tambien **Rename**, **Transcode Plates** y el boton **Open Queue**.
 
 La posicion de insercion en el timeline se calcula automaticamente escaneando
 los shots existentes y determinando la posicion alfabeticamente correcta,
@@ -32,7 +33,7 @@ un track secundario no puede acortar el rango master del shot.
 
 ## Archivos principales
 
-- **Script principal:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_import_shots.py` (v1.07)
+- **Script principal:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_import_shots.py` (v1.24)
 - **Boton:** Edit Panel → "Import shot" (verde `#2a4d3a`)
 - **Plan de desarrollo:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\docs\LGA_import_shots_PLAN.md`
 
@@ -42,7 +43,7 @@ un track secundario no puede acortar el rango master del shot.
 |---------|-----------|--------|
 | `LGA_import_shots_transcode.py` | `TranscodeWorkerSignals`, `TranscodeWorker`, `build_manifest_for_sequence`, `check_existing_outputs`, `delete_existing_outputs`, `show_overwrite_warning` | **implementado** |
 | `LGA_import_shots_transcode_queue.py` | Manager global de cola de transcode. `TranscodeQueueManager`, `get_manager` | Etapas 1, 2 y 3 implementadas y testeadas |
-| `LGA_import_shots_settings.py` | Persistencia de settings e INI de presets de resolución. `load_all_settings`, `save_all_settings`, `load_res_presets`, `save_res_presets`, `preset_to_tuple`, `show_save_preset_dialog` | **implementado** |
+| `LGA_import_shots_settings.py` | Persistencia de settings, UI e INI de presets de resolución. `load_all_settings`, `save_all_settings`, `load_res_presets`, `save_res_presets`, `preset_to_tuple`, `show_save_preset_dialog` | **implementado** |
 | `LGA_import_shots_rename.py` | Lógica de preview/validación/ejecución para Rename. `build_selected_rows`, `compute_preview`, `build_row_ops`, `execute_ops` | **implementado** |
 | `LGA_import_shots_rename_settings.py` | Persistencia INI dedicada de Rename. `load_settings`, `save_settings`, `get_settings_path` | **implementado** |
 | `LGA_import_shots_preview.py` | Lógica de datos del Import Preview. `build_import_preview_data`, `classify_track_type`, `_find_adjacent_clips` | **implementado** |
@@ -111,6 +112,7 @@ QWidget (objectName "LGA_ImportShotHeader")  ← fondo #232323, WA_StyledBackgro
 └── QHBoxLayout (margins 0, spacing 0)
     ├── QTabBar  ← subclase _ImportShotTabBar (tabSizeHint con +24px para letter-spacing)
     │      tabs: RENAME / TRANSCODE PLATES / IMPORT
+    │      RENAME y TRANSCODE PLATES se ocultan si el setting de UI esta apagado
     │      AlignBottom para que las solapas queden pegadas al separador
     ├── stretch
     └── QLabel  ← seq / shotname (AlignVCenter, font-size 16px)
@@ -156,10 +158,13 @@ API de compatibilidad para abrir/cerrar/cambiar tabs desde otros métodos:
 Todas las secciones principales de la herramienta muestran una fila inferior compartida:
 
 ```text
-[Open Queue] [estado global] ... [botones de accion de la seccion]
+[Open Queue] [Shot Rename and Transcode tabs] [estado global] ... [botones de accion de la seccion]
 ```
 
 - `Open Queue`: abre o trae al frente la ventana global de cola de transcode.
+  Solo se muestra cuando el checkbox **Shot Rename and Transcode tabs** esta activado.
+- `Shot Rename and Transcode tabs`: checkbox persistente. Apagado por defecto; cuando
+  esta apagado solo se muestra el tab Import y se ocultan Rename, Transcode Plates y Open Queue.
   La UI de esa ventana vive en `LGA_import_shots_transcode_queue_ui.py`; durante desarrollo
   ese modulo se recarga solo si no hay ventanas `Import Shot` ni `Open Queue` visibles.
   La accion para traer todas las ventanas de Import Shot vive dentro de esa ventana, en el
@@ -247,7 +252,7 @@ main()
     ├── _scan_input_folder()                -> lista de media en _input/
     ├── _scan_publish_folders()             -> versiones en {Task}/4_publish/
     ├── _find_insert_frame()                -> posicion alfabetica en el timeline
-    └── ImportShotDialog(...)               -> ventana con 3 tabs (abre en Rename)
+    └── ImportShotDialog(...)               -> ventana abre siempre en Import
             |
             ├── [Tab Rename]           -> todos los items detectados (input + publish)
             │                             todos chequeados por defecto
@@ -688,6 +693,9 @@ even_dims = true        ; true = forzar dimensiones pares (resta 1 px si queda i
 move = false
 delete = false
 
+[UI]
+advanced_tabs = false ; false = solo Import y Open Queue oculto
+
 [ResPreset_0]
 name = Original
 special = original
@@ -718,10 +726,15 @@ special = custom
    `ImportShotDialog.__init__` **antes** de construir la UI.
 2. **Construccion de la UI:** los widgets se crean con sus defaults internos, luego
    `_load_settings_to_ui()` aplica los valores guardados (sin activar auto-save).
-3. **Auto-save:** al final de `_build_page_convert` se conecta `_save_all_settings` a
+3. **Tabs avanzados:** `ImportShotDialog.__init__` aplica `ui/advanced_tabs` y luego
+   fuerza la apertura en el tab Import. Si el setting esta apagado, Rename y Transcode
+   Plates quedan ocultos y Open Queue no se muestra en el footer.
+4. **Auto-save:** al final de `_build_page_convert` se conecta `_save_all_settings` a
    todas las señales `stateChanged` / `valueChanged` / `currentIndexChanged` de los
    widgets de settings. Cualquier cambio del usuario dispara `save_all_settings()`.
-4. **Presets de resolución:** al borrar un preset (`_on_delete_preset`) o guardar uno nuevo
+   El checkbox **Shot Rename and Transcode tabs** guarda solo la seccion `ui` con
+   `_save_ui_settings()`.
+5. **Presets de resolución:** al borrar un preset (`_on_delete_preset`) o guardar uno nuevo
    (`_on_save_preset_clicked`), se llama `save_res_presets()` y se reconstruye el combo
    con `_rebuild_res_combo()`.
 

@@ -1,13 +1,21 @@
 """
 ____________________________________________________________________
 
-  LGA_import_shots v1.22 | Lega
+  LGA_import_shots v1.25 | Lega
 
   Importa shots al proyecto de Nuke Studio.
   Analiza la carpeta _input del shot, detecta plates/editrefs/seqrefs
   y versiones en publish, y los coloca en el timeline en la posicion
   alfabeticamente correcta.
 
+  v1.25: Fix tabs avanzados: no forzar ancho de QTabBar (evita header
+         recortado al reabrir), checkbox vuelve a indicador nativo y
+         separador del header se repinta al mostrar/ocultar tabs.
+  v1.24: Fix visual del checkbox de tabs avanzados y recalculo de ancho
+         del QTabBar al mostrar/ocultar Rename y Transcode Plates.
+  v1.23: La ventana abre siempre en IMPORT. Agrega checkbox persistente
+         "Shot Rename and Transcode tabs" para mostrar/ocultar Rename,
+         Transcode Plates y Open Queue; default apagado.
   v1.22: Aumenta padding derecho interno en Prefix/Suffix y agrega
          padding derecho a Delimiter/Frame Number Digit.
   v1.21: Agrega padding derecho interno a la columna Prefix/Suffix.
@@ -1051,6 +1059,15 @@ QPushButton:hover {{ background-color: {hover_bg}; color: #ffffff; }}
 QPushButton:disabled {{ background-color: #2a2540; color: #666666; border: none; }}
 """.format(normal_bg=_QUEUE_BTN_BG_NORMAL, hover_bg=_QUEUE_BTN_BG_HOVER)
 
+_CHECKBOX_STYLE = """
+QCheckBox {
+    color: #a7a7a7;
+    spacing: 8px;
+    padding: 0px 4px;
+}
+QCheckBox:hover { color: #cccccc; }
+"""
+
 # ✅✅ Espacio (px) entre el separador horizontal y la fila de botones de acción.
 # Se aplica en todas las páginas (media y convert) para mantener equilibrio visual.
 _BTN_ROW_TOP_SPACING = 15
@@ -1696,6 +1713,21 @@ class _HeaderSeparator(QtWidgets.QWidget):
         self._tab_bar = tab_bar
         self.setFixedHeight(1)
         tab_bar.currentChanged.connect(self.update)
+        tab_bar.installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        if obj is self._tab_bar:
+            etype = event.type()
+            if etype in (
+                QtCore.QEvent.Resize,
+                QtCore.QEvent.Move,
+                QtCore.QEvent.LayoutRequest,
+                QtCore.QEvent.Show,
+                QtCore.QEvent.Hide,
+                QtCore.QEvent.StyleChange,
+            ):
+                self.update()
+        return super(_HeaderSeparator, self).eventFilter(obj, event)
 
     def paintEvent(self, event):
         p = QtGui.QPainter(self)
@@ -1851,6 +1883,8 @@ class ImportShotDialog(QtWidgets.QDialog):
         self._root_layout.setSpacing(0)
 
         self._status_labels = []
+        self._open_queue_buttons = []
+        self._advanced_tabs_checkboxes = []
 
         # ── Tab Header ────────────────────────────────────────────
         # Wrapper QWidget que contiene tabs + stretch + shotname como
@@ -1892,8 +1926,8 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         # Línea separadora con "hueco" bajo el tab activo para conectar
         # visualmente el tab seleccionado con la página debajo.
-        _sep = _HeaderSeparator(self._tab_bar)
-        self._root_layout.addWidget(_sep)
+        self._header_sep = _HeaderSeparator(self._tab_bar)
+        self._root_layout.addWidget(self._header_sep)
 
         # ── Stack de páginas ─────────────────────────────────────
         # Mantenemos el nombre `_tab_widget` como atributo de
@@ -1923,11 +1957,11 @@ class ImportShotDialog(QtWidgets.QDialog):
 
         self._connect_transcode_manager()
 
-        debug_print("ImportShotDialog init: set current tab Rename")
-        self._tab_bar.setCurrentIndex(self.TAB_RENAME)
-        self._tab_widget.setCurrentIndex(self.TAB_RENAME)
-        debug_print("ImportShotDialog init: updating rename page")
-        self._update_rename_page()
+        debug_print("ImportShotDialog init: applying advanced tab visibility")
+        self._apply_advanced_tabs_visibility(save=False)
+        debug_print("ImportShotDialog init: set current tab Import")
+        self._tab_bar.setCurrentIndex(self.TAB_IMPORT)
+        self._tab_widget.setCurrentIndex(self.TAB_IMPORT)
         debug_print("ImportShotDialog init complete window_id=%s" % self._window_id)
 
     # ── header ───────────────────────────────────────────────────
@@ -1962,8 +1996,16 @@ class ImportShotDialog(QtWidgets.QDialog):
         open_queue_btn = QtWidgets.QPushButton("Open Queue")
         open_queue_btn.setStyleSheet(_BTN_QUEUE_OPEN)
         open_queue_btn.clicked.connect(self._show_transcode_queue_window)
+        self._open_queue_buttons.append(open_queue_btn)
 
         buttons_row.addWidget(open_queue_btn)
+        advanced_chk = QtWidgets.QCheckBox("Shot Rename and Transcode tabs")
+        advanced_chk.setStyleSheet(_CHECKBOX_STYLE)
+        advanced_chk.setFocusPolicy(QtCore.Qt.NoFocus)
+        advanced_chk.setChecked(self._advanced_tabs_enabled())
+        advanced_chk.stateChanged.connect(self._on_advanced_tabs_toggled)
+        self._advanced_tabs_checkboxes.append(advanced_chk)
+        buttons_row.addWidget(advanced_chk)
 
         box = QtWidgets.QWidget()
         box.setStyleSheet("QWidget { background: transparent; }")
@@ -2005,7 +2047,74 @@ class ImportShotDialog(QtWidgets.QDialog):
             "shot": shot_btn,
             "post": post_lbl,
         })
+        self._refresh_footer_controls()
         return buttons, box
+
+    def _advanced_tabs_enabled(self):
+        ui = self._imp_settings.get("ui", {})
+        return str(ui.get("advanced_tabs", "false")).lower() == "true"
+
+    def _on_advanced_tabs_toggled(self, state):
+        enabled = (state == QtCore.Qt.Checked)
+        self._imp_settings.setdefault("ui", {})["advanced_tabs"] = (
+            "true" if enabled else "false"
+        )
+        self._apply_advanced_tabs_visibility(save=True)
+
+    def _apply_advanced_tabs_visibility(self, save=False):
+        enabled = self._advanced_tabs_enabled()
+        for chk in getattr(self, "_advanced_tabs_checkboxes", []):
+            chk.blockSignals(True)
+            chk.setChecked(enabled)
+            chk.blockSignals(False)
+
+        for idx in (self.TAB_RENAME, self.TAB_TRANSCODE):
+            try:
+                self._tab_bar.setTabVisible(idx, enabled)
+            except AttributeError:
+                self._tab_bar.setTabEnabled(idx, enabled)
+            else:
+                self._tab_bar.setTabEnabled(idx, enabled)
+
+        if not enabled and self._tab_bar.currentIndex() != self.TAB_IMPORT:
+            self._tab_bar.setCurrentIndex(self.TAB_IMPORT)
+            self._tab_widget.setCurrentIndex(self.TAB_IMPORT)
+
+        self._refresh_header_layout()
+        self._refresh_footer_controls()
+        if save:
+            self._save_ui_settings()
+
+    def _refresh_header_layout(self):
+        # Si una versión previa forzó min/max width del tabbar, lo reseteamos.
+        # Dejamos que Qt calcule el ancho natural para evitar header recortado.
+        self._tab_bar.setMinimumWidth(0)
+        self._tab_bar.setMaximumWidth(16777215)
+        self._tab_bar.updateGeometry()
+        self._header.layout().invalidate()
+        self._header.updateGeometry()
+        self._header.update()
+        if hasattr(self, "_header_sep"):
+            self._header_sep.update()
+        QtCore.QTimer.singleShot(0, self._refresh_header_separator)
+
+    def _refresh_header_separator(self):
+        if hasattr(self, "_header_sep"):
+            self._header_sep.update()
+
+    def _refresh_footer_controls(self):
+        enabled = self._advanced_tabs_enabled()
+        for btn in getattr(self, "_open_queue_buttons", []):
+            btn.setVisible(enabled)
+
+    def _save_ui_settings(self):
+        settings_mod.save_all_settings({
+            "ui": {
+                "advanced_tabs": self._imp_settings.get("ui", {}).get(
+                    "advanced_tabs", "false"
+                )
+            }
+        })
 
     def _show_transcode_queue_window(self):
         try:
@@ -2050,6 +2159,10 @@ class ImportShotDialog(QtWidgets.QDialog):
             debug_print("focus import shot window window_id=%s shot=%s" % (window_id, shot_name))
         except Exception as exc:
             debug_print("focus import shot window error: %s" % exc, level="warning")
+
+    def showEvent(self, event):
+        super(ImportShotDialog, self).showEvent(event)
+        QtCore.QTimer.singleShot(0, self._refresh_header_layout)
 
     def closeEvent(self, event):
         debug_print(
