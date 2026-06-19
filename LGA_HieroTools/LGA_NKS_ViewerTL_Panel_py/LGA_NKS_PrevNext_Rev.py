@@ -1,18 +1,20 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_PrevNext_Rev v1.24 | Lega
+  LGA_NKS_PrevNext_Rev v1.25 | Lega
 
   Busca el clip anterior o siguiente con estado Rev Lega, Rev Sebas, Rev Juano o Rev Javi
   y ajusta la vista:
   1. Obtiene la posición actual del playhead.
   2. Encuentra el clip más cercano con el color especificado en la dirección indicada.
   3. Establece los puntos In/Out basados en el clip EditRef correspondiente a esa posición.
-  4. Selecciona el clip EditRef.
+     Si no existe un track EditRef, usa directamente el clip del task en review.
+  4. Selecciona el clip usado para establecer el In/Out.
   5. Mueve el playhead a la posición del In.
   6. Ajusta el zoom para que se ajuste al clip seleccionado.
   7. Deselecciona todos los clips.
 
+  v1.25: Si no existe un track EditRef, usa el In/Out del clip del task en review
   v1.24: No descarta clips offline para navegación y agrega logging a archivo
   v1.23: Usa módulo centralizado LGA_NKS_GetClip con método híbrido para buscar clips EditRef cuando la posición coincide con el playhead
 ____________________________________________________________________
@@ -365,23 +367,34 @@ def main(direction, rev_type):
         f"Clip Rev_{rev_type.capitalize()} encontrado en posición: {clip_position}"
     )
 
-    # 3. Encontrar el clip EditRef correspondiente
-    edit_ref_clip = find_editref_clip_at_position(clip_position)
-    if not edit_ref_clip:
-        debug_print("No se encontró un clip EditRef correspondiente.")
-        return
+    # 3. Encontrar el clip EditRef correspondiente. Si no existe ningún track
+    # EditRef, usar directamente el clip del task que está en review.
+    seq = hiero.ui.activeSequence()
+    has_editref_track = any(track.name() == "EditRef" for track in seq.videoTracks())
 
-    # 4. Establecer In/Out basados en el clip EditRef
-    in_point, out_point = set_in_out_from_clip(edit_ref_clip)
+    if has_editref_track:
+        reference_clip = find_editref_clip_at_position(clip_position)
+        if not reference_clip:
+            debug_print("No se encontró un clip EditRef correspondiente.")
+            return
+    else:
+        reference_clip = target_clip
+        debug_print(
+            "No existe un track EditRef. Se usa el In/Out del clip del task en review: "
+            f"{target_clip.name()} [{target_clip.timelineIn()}-{target_clip.timelineOut()}]"
+        )
+
+    # 4. Establecer In/Out basados en el clip de referencia elegido
+    in_point, out_point = set_in_out_from_clip(reference_clip)
     if in_point is None:
         debug_print("No se pudieron establecer los puntos In/Out.")
         return
 
-    # 5. Seleccionar el clip EditRef
+    # 5. Seleccionar el clip usado como referencia
     timeline_editor = hiero.ui.getTimelineEditor(hiero.ui.activeSequence())
     if timeline_editor:
-        timeline_editor.setSelection([edit_ref_clip])
-        debug_print(f"Clip seleccionado: {edit_ref_clip.name()}")
+        timeline_editor.setSelection([reference_clip])
+        debug_print(f"Clip seleccionado: {reference_clip.name()}")
 
     # 6. Mover el playhead a la posición del In
     move_playhead_to_position(in_point)
