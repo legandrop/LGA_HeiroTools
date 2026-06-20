@@ -106,6 +106,7 @@ else:
 
 # Importar compatibilidad Qt para Hiero Panels
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt, QShortcut
+from LGA_NKS_Shared.LGA_NKS_PipeSyncPreflight import validate_push_preflight
 from LGA_NKS_Shared.LGA_NKS_PipeSyncPaths import get_pipesync_db_path
 
 # Reasignar clases para compatibilidad con código existente
@@ -2157,6 +2158,12 @@ def Push_Task_Status(
         f"Push solicitado: estado='{button_name}', shot='{base_name}'"
     )
 
+    is_valid, error_text, _state = validate_push_preflight()
+    if not is_valid:
+        debug_print(f"Preflight Push falló:\n{error_text}")
+        QMessageBox.warning(None, "PipeSync no configurado", error_text)
+        return False
+
     # Verificar que tengamos las credenciales disponibles
     sg_url, sg_login, sg_password = get_flow_credentials()
 
@@ -2452,6 +2459,12 @@ def push_from_selected_clips(button_name, per_clip_callback=None):
         bool: True si se inició la operación exitosamente, False si se canceló o hubo error
     """
     debug_print(f"push_from_selected_clips iniciado: estado='{button_name}'")
+
+    is_valid, error_text, _state = validate_push_preflight()
+    if not is_valid:
+        debug_print(f"Preflight Push (entrypoint) falló:\n{error_text}")
+        QMessageBox.warning(None, "PipeSync no configurado", error_text)
+        return False
 
     # Imports locales (lazy) para evitar problemas de inicialización Qt al cargar el módulo.
     from LGA_NKS_Shared.LGA_NKS_TaskSelectionDialog import (

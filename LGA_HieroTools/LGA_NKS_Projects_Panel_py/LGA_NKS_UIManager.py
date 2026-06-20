@@ -1,25 +1,41 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_UIManager v1.00 | Lega
+  LGA_NKS_UIManager v1.01 | Lega
 
   Gestor de interfaz de usuario para el panel de proyectos LGA.
+  Centraliza creación de widgets, conexión de señales, y manejo de eventos.
+
+  v1.01: Agregado botón de switch Studio/Client en setup_ui() cuando el usuario es lega@wanka.tv.
+         Se inicializa con dependencias de funciones (get_normal_pipesync_flow_login, etc.) y se
+         conecta en setup_connections(). Incluye debug logging para diagnosticar visibilidad del botón.
+  v1.00: Versión inicial - UI manager central
 ____________________________________________________________________
 
 """
 
 import os
+import configparser
+from pathlib import Path
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
 
 # Importar variable global
 # Esta será importada desde el archivo principal cuando se importe este módulo
 REIMPORT_BUTTON = None
+SWITCH_ALLOWED_LOGIN = None
+GET_CONTEXT_MODE = None
+FIND_CONTEXT_INI = None
+GET_NORMAL_PIPESYNC_LOGIN = None
 
 
-def initialize_ui_dependencies(reimport_flag):
+def initialize_ui_dependencies(reimport_flag, switch_login=None, get_context_fn=None, find_ini_fn=None, get_login_fn=None):
     """Inicializar las dependencias globales necesarias para el UI manager"""
-    global REIMPORT_BUTTON
+    global REIMPORT_BUTTON, SWITCH_ALLOWED_LOGIN, GET_CONTEXT_MODE, FIND_CONTEXT_INI, GET_NORMAL_PIPESYNC_LOGIN
     REIMPORT_BUTTON = reimport_flag
+    SWITCH_ALLOWED_LOGIN = switch_login or "lega@wanka.tv"
+    GET_CONTEXT_MODE = get_context_fn
+    FIND_CONTEXT_INI = find_ini_fn
+    GET_NORMAL_PIPESYNC_LOGIN = get_login_fn
 
 
 class UIManager:
@@ -156,6 +172,36 @@ class UIManager:
 
             right_column.addWidget(panel.reimport_button)
 
+        # Botón de switch de contexto (si aplica)
+        if GET_NORMAL_PIPESYNC_LOGIN:
+            try:
+                normal_login = str(GET_NORMAL_PIPESYNC_LOGIN() or "").strip().lower()
+                can_show = normal_login == SWITCH_ALLOWED_LOGIN
+                if hasattr(panel, 'debug_print'):
+                    panel.debug_print(f"Context switch button visible={can_show} login='{normal_login}' allowed='{SWITCH_ALLOWED_LOGIN}'")
+                if can_show:
+                    panel.context_switch_button = QtWidgets.QPushButton()
+                    panel.context_switch_button.setStyleSheet("""
+                        QPushButton {
+                            border: 1px solid #4c4c4c;
+                            border-radius: 3px;
+                            padding: 3px 6px;
+                            background: #252525;
+                            color: #d8d8d8;
+                        }
+                        QPushButton:hover {
+                            background: #2f2f2f;
+                        }
+                    """)
+                    if hasattr(panel, '_refresh_context_switch_button_text'):
+                        panel._refresh_context_switch_button_text()
+                    right_column.addWidget(panel.context_switch_button)
+            except Exception as e:
+                if hasattr(panel, 'debug_print'):
+                    import traceback
+                    panel.debug_print(f"Error creando botón de contexto: {e}")
+                    panel.debug_print(f"Traceback: {traceback.format_exc()}")
+
         # Añadir columna derecha al layout principal (sin stretch para mantener tamaño pequeño)
         panel.main_layout.addLayout(right_column, 0)  # stretch factor 0
 
@@ -167,6 +213,8 @@ class UIManager:
             panel.settings_button.clicked.connect(panel.show_settings_view)
         if REIMPORT_BUTTON and hasattr(panel, 'reimport_button'):
             panel.reimport_button.clicked.connect(panel.reimport_panel)
+        if hasattr(panel, 'context_switch_button'):
+            panel.context_switch_button.clicked.connect(panel.toggle_context_mode)
 
     @staticmethod
     def eventFilter(panel, obj, event):

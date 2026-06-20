@@ -286,6 +286,7 @@ from LGA_NKS_Shared.LGA_NKS_TaskMismatchDialog import (
     collect_task_mismatches,
     show_task_mismatch_warning,
 )
+from LGA_NKS_Shared.LGA_NKS_PipeSyncPreflight import validate_pull_preflight
 from LGA_NKS_Shared.LGA_NKS_PipeSyncPaths import get_pipesync_db_path
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
 QApplication = QtWidgets.QApplication
@@ -1639,9 +1640,20 @@ def FPT_Hiero(force_all_clips=False):
     # Reiniciar el tiempo de inicio para cada ejecución del pull
     script_start_time = time.time()
     debug_print("Iniciando ejecución del pull...")
+    is_valid, error_text, _state = validate_pull_preflight()
+    if not is_valid:
+        debug_print(f"Preflight Pull falló:\n{error_text}")
+        QMessageBox.warning(None, "PipeSync no configurado", error_text)
+        return
+
     db_path = get_pipesync_db_path("pipesync.db")
     if not os.path.exists(db_path):
         debug_print(f"DB file not found at path: {db_path}")
+        QMessageBox.warning(
+            None,
+            "PipeSync DB no encontrada",
+            f"No se encontró la base de datos de PipeSync:\n{db_path}",
+        )
         return
     sg_manager = ShotGridManager(db_path)
     app = QApplication.instance() if QApplication.instance() else QApplication(sys.argv)

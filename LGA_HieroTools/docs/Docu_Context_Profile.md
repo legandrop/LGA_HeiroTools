@@ -39,3 +39,9 @@ Valores válidos:
 - `LGA_NKS_Shared/LGA_NKS_ContextProfile.py`
 - `LGA_NKS_Shared/SecureConfig_Reader.py`
 - `LGA_NKS_Shared/LGA_NKS_PipeSyncPaths.py`
+- `LGA_NKS_Shared/LGA_NKS_PipeSyncPreflight.py`
+
+## Documentación complementaria
+
+- `LGA_HieroTools/docs/Doc_HieroTools_Studio_Client_Context.md`
+  (lista de archivos adaptados, pendientes y reglas de operación Pull/Push).

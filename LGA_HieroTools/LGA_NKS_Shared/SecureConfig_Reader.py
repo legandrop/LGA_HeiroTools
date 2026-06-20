@@ -21,6 +21,7 @@ import base64
 from pathlib import Path
 import hashlib
 from LGA_NKS_ContextProfile import get_key_path as get_context_key_path
+from LGA_NKS_ContextProfile import get_lga_appdata_root
 from LGA_NKS_ContextProfile import get_secure_config_path
 
 
@@ -117,37 +118,12 @@ def read_secure_config():
     """Lee la configuración segura y devuelve un diccionario con los valores."""
     try:
         config_path = get_config_path()
+        key_path = get_key_path()
         debug_print(
             f"[SecureConfig_Reader::read_secure_config] Ruta de configuración segura: {config_path}"
         )
 
-        if not config_path.exists():
-            debug_print(
-                f"[SecureConfig_Reader::read_secure_config] Archivo de configuración segura no encontrado en: {config_path}"
-            )
-            return None
-
-        # Obtener la clave de encriptación
-        key = get_encryption_key()
-
-        # Leer el archivo encriptado
-        with open(config_path, "r") as f:
-            encrypted_data = f.read()
-
-        # Desencriptar el contenido
-        json_data = decrypt(encrypted_data, key)
-
-        if not json_data:
-            debug_print(
-                f"[SecureConfig_Reader::read_secure_config] No se pudo desencriptar la configuración"
-            )
-            return None
-
-        # Parsear el JSON
-        config = json.loads(json_data)
-        # Comentado temporalmente este log. NO BORRAR!
-        # debug_print(f"Contenido de la configuración: {json.dumps(config, indent=2)}")
-        return config
+        return _read_secure_config_from_paths(config_path, key_path)
 
     except Exception as e:
         debug_print(
@@ -157,6 +133,66 @@ def read_secure_config():
 
         debug_print(traceback.format_exc())
         return None
+
+
+def _read_secure_config_from_paths(config_path, key_path):
+    config_path = Path(config_path)
+    key_path = Path(key_path)
+
+    if not config_path.exists():
+        debug_print(
+            f"[SecureConfig_Reader::_read_secure_config_from_paths] Archivo no encontrado en: {config_path}"
+        )
+        return None
+
+    if key_path.exists():
+        with open(key_path, "rb") as f:
+            key = f.read()
+    else:
+        key = generate_key()
+
+    with open(config_path, "r") as f:
+        encrypted_data = f.read()
+
+    json_data = decrypt(encrypted_data, key)
+    if not json_data:
+        debug_print(
+            "[SecureConfig_Reader::_read_secure_config_from_paths] No se pudo desencriptar la configuración"
+        )
+        return None
+
+    return json.loads(json_data)
+
+
+def read_secure_config_for_profile(profile_folder):
+    """
+    Lee config.secure para un perfil específico de PipeSync.
+
+    profile_folder:
+        - "PipeSync" (perfil normal/studio)
+        - "PipeSyncClient" (perfil client)
+    """
+    folder = str(profile_folder or "").strip()
+    if not folder:
+        return None
+
+    config_path = get_lga_appdata_root() / folder / "config.secure"
+    key_path = get_lga_appdata_root() / folder / ".key"
+
+    try:
+        return _read_secure_config_from_paths(config_path, key_path)
+    except Exception as e:
+        debug_print(
+            f"[SecureConfig_Reader::read_secure_config_for_profile] Error leyendo perfil {folder}: {e}"
+        )
+        return None
+
+
+def get_flow_login_for_profile(profile_folder):
+    """Devuelve Flow.Login para un perfil específico o cadena vacía."""
+    config = read_secure_config_for_profile(profile_folder) or {}
+    flow_cfg = config.get("Flow", {}) if isinstance(config, dict) else {}
+    return str(flow_cfg.get("Login", "")).strip()
 
 
 def get_flow_credentials():

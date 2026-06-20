@@ -1,0 +1,5 @@
+v3.76:
+        - Se implementó el botón de switch Studio/Client en el Projects Panel: nuevo botón debajo del botón de refresh que permite cambiar entre contexto `studio` (PipeSync normal) y `client` (PipeSyncClient), visible únicamente para el usuario `lega@wanka.tv`. El cambio se persiste en `LGA_HieroTools_context.ini` y en variables de entorno (`LGA_HIEROTOOLS_CONTEXT_INI` + `PIPESYNC_CONTEXT`) para que pull/push usen credenciales del contexto correcto. Se corrigió un bug donde el UIManager no estaba creando el botón porque el código estaba en un método `setup_ui()` del panel que nunca se ejecutaba; se migró la lógica al `UIManager.setup_ui()` y `setup_connections()` con inicialización de dependencias correcta. Se agregó debug logging detallado en `_get_normal_pipesync_login()` y en el UIManager para diagnosticar si el botón se muestra o no. [ Projects Panel - Switch Studio/Client visible ]
+
+v3.75:
+        - Inicialización de proyecto

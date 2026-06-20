@@ -32,6 +32,10 @@ import time
 from logging.handlers import QueueHandler, QueueListener
 from pathlib import Path
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore
+from LGA_NKS_Shared.LGA_NKS_PipeSyncPreflight import (
+    validate_pull_preflight,
+    validate_push_preflight,
+)
 
 # Importar utilidades de naming
 sys.path.append(str(Path(__file__).parent / "LGA_NKS_Shared"))
@@ -446,6 +450,10 @@ class ColorChangeWidget(QtWidgets.QWidget):
 
         """Version del FPT Pull que procesa todos los clips"""
         debug_print("Ejecutando Flow Pull forzando procesamiento de todos los clips...")
+        is_valid, error_text, _state = validate_pull_preflight()
+        if not is_valid:
+            QtWidgets.QMessageBox.warning(self, "PipeSync no configurado", error_text)
+            return
 
         # Obtener el proyecto actual
         project = hiero.core.projects()[0] if hiero.core.projects() else None
@@ -476,6 +484,11 @@ class ColorChangeWidget(QtWidgets.QWidget):
 
     #### Pull
     def run_FPT_pull(self):
+        is_valid, error_text, _state = validate_pull_preflight()
+        if not is_valid:
+            QtWidgets.QMessageBox.warning(self, "PipeSync no configurado", error_text)
+            return
+
         # Obtener el proyecto actual
         project = hiero.core.projects()[0] if hiero.core.projects() else None
         if project:
@@ -704,6 +717,11 @@ class ColorChangeWidget(QtWidgets.QWidget):
         El color del clip se cambia SOLO si el push es exitoso (vía callback).
         """
         try:
+            is_valid, error_text, _state = validate_push_preflight()
+            if not is_valid:
+                QtWidgets.QMessageBox.warning(self, "PipeSync no configurado", error_text)
+                return
+
             # Importar el módulo Push para usar el método centralizado
             script_path = os.path.join(
                 os.path.dirname(__file__), "LGA_NKS_Flow_Panel_py", "LGA_NKS_Flow_Push.py"

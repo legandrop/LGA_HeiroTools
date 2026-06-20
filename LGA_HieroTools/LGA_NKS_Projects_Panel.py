@@ -2,13 +2,18 @@
 """
 ____________________________________________________________________
 
-  LGA_NKS_Projects_Panel v2.22 | Lega
+  LGA_NKS_Projects_Panel v2.23 | Lega
 
   Panel de Proyectos LGA integrado para Hiero con recarga inteligente.
   - Escanea proyectos en AltTPath (PipeSync) o T:\ como fallback.
   - Permite abrir proyectos y secuencias (cross-project) sin perder ajustes de viewer.
   - Incluye botón de reimport/redock para aplicar cambios al vuelo.
+  - Botón de switch Studio/Client visible para lega@wanka.tv.
 
+  v2.23: Agregado botón de switch Studio/Client: lee login de PipeSync normal y muestra botón
+         debajo de refresh solo para lega@wanka.tv, permitiendo cambiar entre contextos studio/client
+         con persistencia en INI y ENV. Se migró lógica de UIManager para inicializar dependencias
+         correctamente. Se agregó debug logging detallado en _get_normal_pipesync_login().
   v2.22: Migrado al sistema de logging a archivo con flags de debug compartidas para Projects Panel
   v2.21: Mejorada lógica de versiones: búsqueda en anteúltimo bloque y priorización de sufijos (_Mac)
          Las versiones ahora se detectan correctamente cuando están en bloques anteriores
@@ -25,6 +30,8 @@ import sys
 import configparser
 from pathlib import Path
 from LGA_NKS_Shared.LGA_QtAdapter_HieroTools import QtWidgets, QtGui, QtCore, Qt
+from LGA_NKS_Shared.LGA_NKS_ContextProfile import get_context_mode, find_context_ini
+from LGA_NKS_Shared.LGA_NKS_PipeSyncPreflight import get_normal_pipesync_flow_login
 from LGA_NKS_Projects_Panel_py.LGA_NKS_ProjectsPanel_Logging import (
     DEBUG,
     DEBUG_CONSOLE,
@@ -43,6 +50,7 @@ AUTO_CREATE_PANEL = True
 
 # Flag para controlar si mostrar el botón de reimport
 REIMPORT_BUTTON = True
+SWITCH_ALLOWED_LOGIN = "lega@wanka.tv"
 
 # Opciones de intervalo de auto-refresh (minutos)
 AUTO_REFRESH_OPTIONS = {
@@ -236,7 +244,13 @@ except ImportError as e:
 try:
     from LGA_NKS_Projects_Panel_py.LGA_NKS_UIManager import UIManager, initialize_ui_dependencies
     # Inicializar dependencias del módulo UI
-    initialize_ui_dependencies(REIMPORT_BUTTON)
+    initialize_ui_dependencies(
+        REIMPORT_BUTTON,
+        switch_login=SWITCH_ALLOWED_LOGIN,
+        get_context_fn=get_context_mode,
+        find_ini_fn=find_context_ini,
+        get_login_fn=get_normal_pipesync_flow_login
+    )
     debug_print("✅ Módulo LGA_NKS_UIManager importado exitosamente")
 except ImportError as e:
     debug_print(f"❌ Error importando LGA_NKS_UIManager: {e}")
@@ -289,6 +303,8 @@ class ProjectsPanel(QtWidgets.QWidget):
         self.settings_timer_dropdown = None
         self.auto_refresh_timer = QtCore.QTimer(self)
         self.auto_refresh_timer.timeout.connect(self._on_auto_refresh_timeout)
+        self.context_switch_button = None
+        self.normal_pipesync_login = self._get_normal_pipesync_login()
 
         UIManager.setup_ui(self)
         UIManager.setup_connections(self)
@@ -300,107 +316,78 @@ class ProjectsPanel(QtWidgets.QWidget):
         # Delay antes de iniciar escaneo para que Qt esté completamente inicializado
         QtCore.QTimer.singleShot(500, self.start_scan)  # 500ms delay
 
-    def setup_ui(self):
-        # Layout principal horizontal para dividir en dos columnas
-        self.main_layout = QtWidgets.QHBoxLayout(self)
 
-        # Columna izquierda: proyectos y info
-        left_column = QtWidgets.QVBoxLayout()
+    def _get_normal_pipesync_login(self):
+        try:
+            result = str(get_normal_pipesync_flow_login() or "").strip().lower()
+            debug_print(f"Login de PipeSync normal: '{result}'")
+            return result
+        except Exception as e:
+            debug_print(f"❌ No se pudo leer login de PipeSync normal: {e}")
+            import traceback
+            debug_print(f"Traceback: {traceback.format_exc()}")
+            return ""
 
-        # Área de scroll para la lista de proyectos
-        scroll_area = QtWidgets.QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+    def _get_context_ini_path(self):
+        ini_path = find_context_ini()
+        if ini_path:
+            return Path(ini_path)
+        return Path(__file__).resolve().parent.parent / "LGA_HieroTools_context.ini"
 
-        self.projects_widget = QtWidgets.QWidget()
-        self.projects_layout = QtWidgets.QVBoxLayout(self.projects_widget)
-        self.projects_layout.setAlignment(QtCore.Qt.AlignTop)
+    def _refresh_context_switch_button_text(self):
+        if not self.context_switch_button:
+            return
+        current_mode = get_context_mode()
+        target_mode = "client" if current_mode == "studio" else "studio"
+        self.context_switch_button.setText(f"→ {target_mode}")
+        self.context_switch_button.setToolTip(
+            f"Contexto actual: {current_mode}. Click para cambiar a {target_mode}."
+        )
 
-        scroll_area.setWidget(self.projects_widget)
-        left_column.addWidget(scroll_area)
+    def _write_context_mode(self, mode):
+        ini_path = self._get_context_ini_path()
+        ini_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Información de estado
-        self.info_label = QtWidgets.QLabel("")
-        self.info_label.setStyleSheet("color: #666; font-size: 11px; margin-top: 6px;")
-        self.info_label.setAlignment(QtCore.Qt.AlignCenter)
-        left_column.addWidget(self.info_label)
+        parser = configparser.ConfigParser()
+        if ini_path.exists():
+            parser.read(str(ini_path), encoding="utf-8")
+        if not parser.has_section("Context"):
+            parser.add_section("Context")
+        parser.set("Context", "mode", mode)
 
-        # Añadir columna izquierda al layout principal (con stretch para que tome el espacio disponible)
-        self.main_layout.addLayout(left_column, 1)  # stretch factor 1
+        with open(ini_path, "w", encoding="utf-8") as ini_file:
+            parser.write(ini_file)
 
-        # Columna derecha: botones
-        right_column = QtWidgets.QVBoxLayout()
-        right_column.setAlignment(QtCore.Qt.AlignTop)
-        right_column.setSpacing(2)  # Espacio pequeño entre botones
+        os.environ["LGA_HIEROTOOLS_CONTEXT_INI"] = str(ini_path)
+        os.environ["PIPESYNC_CONTEXT"] = mode
+        debug_print(f"Contexto actualizado a '{mode}' en {ini_path}")
+        return ini_path
 
-        # Configurar iconos para el botón refresh
-        refresh_icon_path = os.path.join(os.path.dirname(__file__), "LGA_NKS_Projects_Panel_py", "refresh.svg")
-        refresh_hover_icon_path = os.path.join(os.path.dirname(__file__), "LGA_NKS_Projects_Panel_py", "refresh_white.svg")
+    def _reload_after_context_switch(self):
+        self.start_scan()
+        QtCore.QTimer.singleShot(150, self.start_scan)
 
-        self.refresh_button = QtWidgets.QPushButton()
-        self.refresh_button.setToolTip("Re-escanear proyectos")
-        self.refresh_button.setStyleSheet("""
-            QPushButton {
-                border: none;
-                padding: 5px;
-                background: transparent;
-            }
-        """)
-
-        # Cargar iconos SVG si existen
-        if os.path.exists(refresh_icon_path) and os.path.exists(refresh_hover_icon_path):
-            self.refresh_icon_normal = QtGui.QIcon(refresh_icon_path)
-            self.refresh_icon_hover = QtGui.QIcon(refresh_hover_icon_path)
-            self.refresh_button.setIcon(self.refresh_icon_normal)
-            self.refresh_button.setIconSize(QtCore.QSize(20, 20))  # Tamaño aproximado al botón original
-
-            # Instalar event filter para manejar hover
-            self.refresh_button.installEventFilter(self)
-        else:
-            # Fallback si no se encuentran los iconos
-            self.refresh_button.setText("🔄 Refresh")
-
-        # Añadir botón refresh a la columna derecha
-        right_column.addWidget(self.refresh_button)
-
-        # Configurar iconos para el botón reimport
-        reimport_icon_path = os.path.join(os.path.dirname(__file__), "LGA_NKS_Projects_Panel_py", "recargar_script.svg")
-        reimport_hover_icon_path = os.path.join(os.path.dirname(__file__), "LGA_NKS_Projects_Panel_py", "recargar_script_white.svg")
-
-        # Botón de reimport con iconos SVG (solo si la flag está activada)
-        if REIMPORT_BUTTON:
-            self.reimport_button = QtWidgets.QPushButton()
-            self.reimport_button.setToolTip("Recarga y redockea el panel con el script externo")
-            self.reimport_button.setStyleSheet("""
-                QPushButton {
-                    border: none;
-                    padding: 5px;
-                    background: transparent;
-                }
-            """)
-
-            # Cargar iconos SVG si existen
-            if os.path.exists(reimport_icon_path) and os.path.exists(reimport_hover_icon_path):
-                self.reimport_icon_normal = QtGui.QIcon(reimport_icon_path)
-                self.reimport_icon_hover = QtGui.QIcon(reimport_hover_icon_path)
-                self.reimport_button.setIcon(self.reimport_icon_normal)
-                self.reimport_button.setIconSize(QtCore.QSize(20, 20))  # Tamaño aproximado al botón original
-
-                # Instalar event filter para manejar hover
-                self.reimport_button.installEventFilter(self)
-            else:
-                # Fallback si no se encuentran los iconos
-                self.reimport_button.setText("♻")
-
-            right_column.addWidget(self.reimport_button)
-
-        # Añadir columna derecha al layout principal (sin stretch para mantener tamaño pequeño)
-        self.main_layout.addLayout(right_column, 0)  # stretch factor 0
-
-    def setup_connections(self):
-        self.refresh_button.clicked.connect(self.start_scan)
-        if REIMPORT_BUTTON:
-            self.reimport_button.clicked.connect(self.reimport_panel)
+    def toggle_context_mode(self):
+        current_mode = get_context_mode()
+        new_mode = "client" if current_mode == "studio" else "studio"
+        try:
+            ini_path = self._write_context_mode(new_mode)
+            self._reload_after_context_switch()
+            self._refresh_context_switch_button_text()
+            QtWidgets.QMessageBox.information(
+                self,
+                "Contexto actualizado",
+                (
+                    f"Contexto cambiado a '{new_mode}'.\n"
+                    f"INI: {ini_path}\n"
+                    "Se recargó el panel de Projects."
+                ),
+            )
+        except Exception as e:
+            debug_print(f"Error al cambiar contexto: {e}")
+            QtWidgets.QMessageBox.warning(
+                self, "Error al cambiar contexto", f"No se pudo cambiar el contexto:\n{e}"
+            )
 
     def eventFilter(self, obj, event):
         """Manejar eventos de hover para botones y labels"""
