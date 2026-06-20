@@ -1,7 +1,7 @@
 """
 Helpers de rutas de PipeSync para LGA_HieroTools.
 
-Centraliza resolución de DB/cache por contexto (studio/project) evitando
+Centraliza resolución de DB/cache por contexto (studio/client) evitando
 hardcodes repetidos en paneles.
 """
 
@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 from LGA_NKS_ContextProfile import get_db_path
-from LGA_NKS_ContextProfile import is_project_context
+from LGA_NKS_ContextProfile import is_client_context
 from SecureConfig_Reader import read_secure_config
 
 
@@ -18,21 +18,17 @@ def _legacy_cache_candidates(filename):
     candidates = []
 
     if sys.platform == "win32":
-        if is_project_context():
-            candidates.append(Path("C:/Portable/LGA/PipeSyncProject/cache") / filename)
-            candidates.append(Path("C:/Portable/LGA/PipeSync/cache/project") / filename)
-        candidates.append(Path("C:/Portable/LGA/PipeSync/cache") / filename)
+        cache_name = "cacheClient" if is_client_context() else "cache"
+        candidates.append(Path("C:/Portable/LGA/PipeSync") / cache_name / filename)
         return candidates
 
     if sys.platform == "darwin":
-        if is_project_context():
-            candidates.append(Path.home() / "Library" / "Caches" / "LGA" / "PipeSyncProject" / filename)
-        candidates.append(Path.home() / "Library" / "Caches" / "LGA" / "PipeSync" / filename)
+        profile_name = "PipeSyncClient" if is_client_context() else "PipeSync"
+        candidates.append(Path.home() / "Library" / "Caches" / "LGA" / profile_name / filename)
         return candidates
 
-    if is_project_context():
-        candidates.append(Path.home() / ".cache" / "LGA" / "PipeSyncProject" / filename)
-    candidates.append(Path.home() / ".cache" / "LGA" / "PipeSync" / filename)
+    profile_name = "PipeSyncClient" if is_client_context() else "PipeSync"
+    candidates.append(Path.home() / ".cache" / "LGA" / profile_name / filename)
     return candidates
 
 
@@ -54,7 +50,7 @@ def get_pipesync_db_path(filename="pipesync.db"):
 
 def get_alt_work_root(default_root=None):
     if default_root is None:
-        default_root = "N:\\" if is_project_context() else "T:\\"
+        default_root = "N:\\" if is_client_context() else "T:\\"
 
     config = read_secure_config() or {}
     app_cfg = config.get("App", {}) if isinstance(config, dict) else {}

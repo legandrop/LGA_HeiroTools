@@ -1,5 +1,5 @@
 """
-Resolver de contexto Studio/Project para LGA_HieroTools.
+Resolver de contexto Studio/Client para LGA_HieroTools.
 
 Lee un INI junto a LGA_HieroTools_Startup.py para decidir qué perfil de
 PipeSync debe usarse al resolver config.secure y bases locales.
@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 MODE_STUDIO = "studio"
-MODE_PROJECT = "project"
+MODE_CLIENT = "client"
 
 ENV_CONTEXT_INI = "LGA_HIEROTOOLS_CONTEXT_INI"
 DEFAULT_CONTEXT_FILES = ("LGA_HieroTools_context.ini", "context.ini")
@@ -19,7 +19,7 @@ DEFAULT_CONTEXT_FILES = ("LGA_HieroTools_context.ini", "context.ini")
 
 def _normalize_mode(raw_mode):
     mode = (raw_mode or "").strip().lower()
-    return MODE_PROJECT if mode == MODE_PROJECT else MODE_STUDIO
+    return MODE_CLIENT if mode == MODE_CLIENT else MODE_STUDIO
 
 
 def _startup_root():
@@ -76,12 +76,12 @@ def get_context_mode():
     return MODE_STUDIO
 
 
-def is_project_context():
-    return get_context_mode() == MODE_PROJECT
+def is_client_context():
+    return get_context_mode() == MODE_CLIENT
 
 
 def get_pipesync_profile_folder():
-    return "PipeSyncProject" if is_project_context() else "PipeSync"
+    return "PipeSyncClient" if is_client_context() else "PipeSync"
 
 
 def get_lga_appdata_root():
@@ -108,15 +108,15 @@ def get_key_path():
 def _default_cache_dir():
     if sys.platform == "win32":
         # Mantenemos compatibilidad con el layout histórico del entorno portable.
-        if is_project_context():
-            return Path("C:/Portable/LGA/PipeSync/cache/project")
+        if is_client_context():
+            return Path("C:/Portable/LGA/PipeSync/cacheClient")
         return Path("C:/Portable/LGA/PipeSync/cache")
     if sys.platform == "darwin":
-        if is_project_context():
-            return Path.home() / "Library" / "Caches" / "LGA" / "PipeSyncProject"
+        if is_client_context():
+            return Path.home() / "Library" / "Caches" / "LGA" / "PipeSyncClient"
         return Path.home() / "Library" / "Caches" / "LGA" / "PipeSync"
-    if is_project_context():
-        return Path.home() / ".cache" / "LGA" / "PipeSyncProject"
+    if is_client_context():
+        return Path.home() / ".cache" / "LGA" / "PipeSyncClient"
     return Path.home() / ".cache" / "LGA" / "PipeSync"
 
 
@@ -126,6 +126,12 @@ def get_cache_dir_from_config(config_dict):
         if isinstance(app_cfg, dict):
             cache_path = str(app_cfg.get("CachePath") or "").strip()
             if cache_path:
+                normalized = cache_path.replace("\\", "/").rstrip("/").lower()
+                if is_client_context() and (
+                    normalized.endswith("/cacheproject")
+                    or normalized.endswith("/cache/project")
+                ):
+                    return _default_cache_dir()
                 return Path(cache_path)
     return _default_cache_dir()
 

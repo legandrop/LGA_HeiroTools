@@ -1,8 +1,8 @@
-# LGA_HieroTools - Context Profile
+# LGA_HieroTools - Studio/Client Context
 
 ## Objetivo
 
-Permitir que las tools de Hiero trabajen en modo `studio` o `project` sin cambiar código,
+Permitir que las tools de Hiero trabajen en modo `studio` o `client` sin cambiar código,
 solo editando un INI.
 
 ## Archivo de control
@@ -21,18 +21,18 @@ mode=studio
 Valores válidos:
 
 - `mode=studio`
-- `mode=project`
+- `mode=client`
 
 ## Qué cambia por contexto
 
 - Lectura de `config.secure` y `.key` desde:
   - `%APPDATA%/LGA/PipeSync` (studio)
-  - `%APPDATA%/LGA/PipeSyncProject` (project)
+  - `%APPDATA%/LGA/PipeSyncClient` (client)
 - Resolución de `pipesync.db` y `pipesync_playlists.db` mediante helper compartido
   (`LGA_NKS_Shared/LGA_NKS_PipeSyncPaths.py`) sin hardcodes fijos por script.
 - Fallback de escaneo base en panel de proyectos:
   - `T:\` en studio
-  - `N:\` en project (si no hay `AltTPath`)
+  - `N:\` en client (si no hay `AltTPath`)
 
 ## Módulos clave
 
