@@ -1,11 +1,13 @@
 """
 ____________________________________________________________________
 
-  LGA_import_shots_settings v1.01 | Lega
+  LGA_import_shots_settings v1.02 | Lega
 
   Persistencia de configuracion y presets para LGA_import_shots.
   INI: %APPDATA%\\LGA\\HieroTools\\ImportShots.ini
 
+  v1.02: Guarda la ultima carpeta de shot elegida para usarla como ruta
+         inicial del file browser en futuras sesiones.
   v1.01: Agrega settings persistentes de UI para mostrar/ocultar tabs
          Rename/Transcode y el boton Open Queue.
 
@@ -49,6 +51,7 @@ DEFAULTS_ORIG = {
 }
 DEFAULTS_UI = {
     "advanced_tabs": "false",
+    "last_shot_directory": "",
 }
 
 # Presets built-in (primera vez que se abre la herramienta).

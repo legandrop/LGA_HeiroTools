@@ -33,7 +33,7 @@ un track secundario no puede acortar el rango master del shot.
 
 ## Archivos principales
 
-- **Script principal:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_import_shots.py` (v1.24)
+- **Script principal:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\LGA_NKS_Edit_Panel_py\LGA_import_shots.py` (v1.26)
 - **Boton:** Edit Panel → "Import shot" (verde `#2a4d3a`)
 - **Plan de desarrollo:** `C:\Users\leg4-pc\.nuke\Python\Startup\LGA_HieroTools\docs\LGA_import_shots_PLAN.md`
 
@@ -695,6 +695,7 @@ delete = false
 
 [UI]
 advanced_tabs = false ; false = solo Import y Open Queue oculto
+last_shot_directory =  ; ultima carpeta elegida en el browser
 
 [ResPreset_0]
 name = Original
@@ -724,6 +725,8 @@ special = custom
 
 1. **Apertura de la herramienta:** `load_all_settings()` y `load_res_presets()` se llaman en
    `ImportShotDialog.__init__` **antes** de construir la UI.
+   Antes de abrir `QFileDialog`, `main()` carga `ui/last_shot_directory` y la usa como
+   carpeta inicial si aun existe. Al confirmar una carpeta, la guarda inmediatamente.
 2. **Construccion de la UI:** los widgets se crean con sus defaults internos, luego
    `_load_settings_to_ui()` aplica los valores guardados (sin activar auto-save).
 3. **Tabs avanzados:** `ImportShotDialog.__init__` aplica `ui/advanced_tabs` y luego

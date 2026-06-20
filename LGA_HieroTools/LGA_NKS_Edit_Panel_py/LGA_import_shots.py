@@ -1,13 +1,15 @@
 """
 ____________________________________________________________________
 
-  LGA_import_shots v1.25 | Lega
+  LGA_import_shots v1.26 | Lega
 
   Importa shots al proyecto de Nuke Studio.
   Analiza la carpeta _input del shot, detecta plates/editrefs/seqrefs
   y versiones en publish, y los coloca en el timeline en la posicion
   alfabeticamente correcta.
 
+  v1.26: El browser de seleccion de shot abre en la ultima carpeta elegida,
+         guardada persistentemente en ImportShots.ini.
   v1.25: Fix tabs avanzados: no forzar ancho de QTabBar (evita header
          recortado al reabrir), checkbox vuelve a indicador nativo y
          separador del header se repinta al mostrar/ocultar tabs.
@@ -6602,11 +6604,18 @@ def main():
         )
         return
 
-    # Seleccionar carpeta
+    # Seleccionar carpeta. Reutiliza la ultima elegida si sigue disponible.
+    browser_settings = settings_mod.load_all_settings()
+    initial_directory = browser_settings.get("ui", {}).get(
+        "last_shot_directory", ""
+    )
+    if not initial_directory or not Path(initial_directory).is_dir():
+        initial_directory = ""
+
     shot_root = QtWidgets.QFileDialog.getExistingDirectory(
         None,
         "Seleccionar carpeta del shot",
-        "",
+        initial_directory,
         QtWidgets.QFileDialog.ShowDirsOnly,
     )
     if not shot_root:
@@ -6614,6 +6623,11 @@ def main():
         return
 
     shot_root = shot_root.replace("\\", "/")
+    settings_mod.save_all_settings({
+        "ui": {
+            "last_shot_directory": shot_root,
+        }
+    })
     shot_name = _get_shot_name_from_folder(shot_root)
     set_debug_context(shot_name)
     debug_print("Shot root: %s  shot_name: %s" % (shot_root, shot_name))
